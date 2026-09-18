@@ -39,7 +39,10 @@ for (const f of files) {
     continue;
   }
   const text = readFileSync(join(dir, f), "utf8");
-  const statements = text
+  // Strip line comments first: Turso rejects PRAGMA, and a leading comment
+  // would otherwise hide a PRAGMA from the skip filter below.
+  const stripped = text.replace(/--[^\n]*/g, "");
+  const statements = stripped
     .split(";")
     .map((s) => s.trim())
     .filter((s) => s.length > 0 && !/^PRAGMA/i.test(s));
