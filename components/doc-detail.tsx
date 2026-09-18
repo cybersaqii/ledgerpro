@@ -2,8 +2,8 @@
 
 import { use, useEffect, useState } from "react";
 import Link from "next/link";
-import { ArrowLeft, Printer } from "lucide-react";
-import { PageHeader } from "@/components/ui";
+import { ArrowLeft, Printer, Wallet } from "lucide-react";
+import { PageHeader, StatusPill } from "@/components/ui";
 import { api, fmtMoney, fmtQty, fmtDate } from "@/lib/format";
 import { brand } from "@/lib/brand";
 
@@ -13,7 +13,7 @@ type Item = {
 type Doc = {
   id: string; docNo: string; docType: string; date: number; dueDate: number | null;
   status: string; subtotal: string; discountTotal: string; taxTotal: string; grandTotal: string;
-  notes: string | null; refNo: string | null; partyName: string | null;
+  notes: string | null; refNo: string | null; partyName: string | null; partyId: string | null;
   items: Item[];
 };
 
@@ -39,11 +39,16 @@ export function DocDetail({ mode, id }: { mode: "SALES" | "PURCHASE"; id: string
     <div>
       <div className="print:hidden">
         <PageHeader
-          title={doc.docNo}
+          title={<span className="inline-flex items-center gap-3">{doc.docNo} <StatusPill status={doc.status} /></span>}
           subtitle={`${typeLabel[doc.docType] ?? doc.docType} · ${fmtDate(doc.date)}`}
           actions={
             <>
               <Link href={isSales ? "/sales" : "/purchases"} className="btn btn-ghost text-sm"><ArrowLeft size={15} /> Back</Link>
+              {doc.partyId && (doc.docType === "INVOICE" || doc.docType === "BILL") && (
+                <Link href={`/payments/new?kind=${isSales ? "RECEIPT" : "PAYMENT"}&partyId=${doc.partyId}`} className="btn btn-ghost text-sm">
+                  <Wallet size={15} /> {isSales ? "Receive payment" : "Pay supplier"}
+                </Link>
+              )}
               <button className="btn btn-primary text-sm" onClick={() => window.print()}><Printer size={15} /> Print</button>
             </>
           }
@@ -58,7 +63,8 @@ export function DocDetail({ mode, id }: { mode: "SALES" | "PURCHASE"; id: string
           </div>
           <div className="text-right">
             <p className="text-lg font-extrabold">{doc.docNo}</p>
-            <p className="text-sm text-muted-foreground">{fmtDate(doc.date)}</p>
+            <p className="mt-1"><StatusPill status={doc.status} /></p>
+            <p className="mt-1 text-sm text-muted-foreground">{fmtDate(doc.date)}</p>
             {doc.dueDate && <p className="text-xs text-muted-foreground">Due: {fmtDate(doc.dueDate)}</p>}
           </div>
         </div>

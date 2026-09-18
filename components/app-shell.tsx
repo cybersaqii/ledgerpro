@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import {
   LayoutDashboard, ShoppingCart, Truck, Wallet, ReceiptText, Users, Package,
   BarChart3, Menu, X, LogOut, Boxes, Plus,
@@ -22,11 +22,21 @@ const nav = [
   { href: "/reports", label: "Reports", icon: BarChart3 },
 ];
 
+const quickCreate = [
+  { href: "/sales/new", label: "New sale bill", icon: ShoppingCart },
+  { href: "/purchases/new", label: "New purchase bill", icon: Truck },
+  { href: "/payments/new?kind=RECEIPT", label: "Receive payment", icon: Wallet },
+  { href: "/payments/new?kind=PAYMENT", label: "Pay supplier", icon: Wallet },
+  { href: "/expenses", label: "Add expense", icon: ReceiptText },
+];
+
 export function AppShell({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [user, setUser] = useState<{ name: string; email: string } | null>(null);
+  const [quickOpen, setQuickOpen] = useState(false);
+  const quickRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     api<{ user: { name: string; email: string } }>("/api/auth/me")
@@ -36,6 +46,15 @@ export function AppShell({ children }: { children: ReactNode }) {
 
   // eslint-disable-next-line react-hooks/set-state-in-effect -- close drawer on navigation
   useEffect(() => setOpen(false), [pathname]);
+  useEffect(() => setQuickOpen(false), [pathname]);
+
+  useEffect(() => {
+    const fn = (e: MouseEvent) => {
+      if (quickRef.current && !quickRef.current.contains(e.target as Node)) setQuickOpen(false);
+    };
+    document.addEventListener("mousedown", fn);
+    return () => document.removeEventListener("mousedown", fn);
+  }, []);
 
   async function logout() {
     await fetch("/api/auth/logout", { method: "POST" }).catch(() => {});
@@ -109,6 +128,24 @@ export function AppShell({ children }: { children: ReactNode }) {
             </p>
           </div>
           <div className="flex items-center gap-2">
+            <div className="relative" ref={quickRef}>
+              <button onClick={() => setQuickOpen((o) => !o)}
+                className="grid h-10 w-10 place-items-center rounded-xl bg-primary text-primary-foreground shadow-md shadow-primary/25 transition hover:brightness-110 active:scale-95"
+                aria-label="Quick create" title="Quick create">
+                <Plus size={19} strokeWidth={2.5} />
+              </button>
+              {quickOpen && (
+                <div className="absolute right-0 z-40 mt-2 w-56 overflow-hidden rounded-2xl border border-border bg-card p-1.5 shadow-xl">
+                  {quickCreate.map((q) => (
+                    <Link key={q.href + q.label} href={q.href}
+                      className="flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-semibold hover:bg-muted">
+                      <q.icon size={16} className="text-primary" />
+                      {q.label}
+                    </Link>
+                  ))}
+                </div>
+              )}
+            </div>
             <ThemeToggle />
             <button onClick={logout} className="grid h-10 w-10 place-items-center rounded-xl border border-border bg-card transition hover:scale-105" title="Log out" aria-label="Log out">
               <LogOut size={17} />

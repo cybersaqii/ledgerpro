@@ -17,7 +17,7 @@ function PaymentFormInner() {
 
   const [parties, setParties] = useState<Party[]>([]);
   const [partyQ, setPartyQ] = useState("");
-  const [partyId, setPartyId] = useState("");
+  const [partyId, setPartyId] = useState(sp.get("partyId") ?? "");
   const [showPartyList, setShowPartyList] = useState(false);
   const [banks, setBanks] = useState<Bank[]>([]);
   const [bankId, setBankId] = useState("");

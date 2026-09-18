@@ -1,7 +1,7 @@
 "use client";
 
 import { useTheme } from "next-themes";
-import { Moon, Sun, BookOpenCheck } from "lucide-react";
+import { Moon, Sun, BookOpenCheck, ChevronLeft, ChevronRight } from "lucide-react";
 import { useEffect, useState, type ReactNode } from "react";
 import { brand } from "@/lib/brand";
 
@@ -40,7 +40,7 @@ export function ThemeToggle() {
   );
 }
 
-export function PageHeader({ title, subtitle, actions }: { title: string; subtitle?: ReactNode; actions?: ReactNode }) {
+export function PageHeader({ title, subtitle, actions }: { title: ReactNode; subtitle?: ReactNode; actions?: ReactNode }) {
   return (
     <div className="mb-6 flex flex-wrap items-start justify-between gap-4">
       <div>
@@ -107,5 +107,69 @@ export function Field({ label, children, hint }: { label: string; children: Reac
       {children}
       {hint && <span className="mt-1 block text-xs text-muted-foreground">{hint}</span>}
     </label>
+  );
+}
+
+/** Small pill for document/payment status (DRAFT, POSTED, etc.) */
+export function StatusPill({ status }: { status: string }) {
+  const s = status.toUpperCase();
+  const cls =
+    s === "DRAFT" ? "bg-accent-soft text-accent"
+    : s === "POSTED" || s === "APPROVED" || s === "PAID" ? "bg-primary-soft text-primary"
+    : s === "RETURN" || s === "REJECTED" || s === "CANCELLED" ? "bg-danger-soft text-danger"
+    : "bg-muted text-muted-foreground";
+  return <span className={`badge ${cls}`}>{s.charAt(0) + s.slice(1).toLowerCase()}</span>;
+}
+
+/** Row of small summary chips shown above list tables (label + value). */
+export function SummaryChips({ items }: { items: Array<{ label: string; value: string; tone?: "primary" | "accent" | "danger" | "neutral" }> }) {
+  const tones: Record<string, string> = {
+    primary: "text-primary",
+    accent: "text-accent",
+    danger: "text-danger",
+    neutral: "text-foreground",
+  };
+  return (
+    <div className="mb-4 flex flex-wrap gap-3">
+      {items.map((it) => (
+        <div key={it.label} className="card flex items-center gap-3 px-4 py-2.5">
+          <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">{it.label}</span>
+          <span className={`text-base font-extrabold tabular-nums ${tones[it.tone ?? "neutral"]}`}>{it.value}</span>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+/** Card wrapper for a filter row: search + selects + date inputs. */
+export function FilterBar({ children }: { children: ReactNode }) {
+  return (
+    <div className="card mb-4 flex flex-wrap items-center gap-3 p-3 sm:p-4">
+      {children}
+    </div>
+  );
+}
+
+/** Prev/next pagination controls for list pages. */
+export function Pagination({ page, perPage, total, onPage }: { page: number; perPage: number; total: number; onPage: (p: number) => void }) {
+  const pages = Math.max(1, Math.ceil(total / perPage));
+  if (pages <= 1) return null;
+  const from = (page - 1) * perPage + 1;
+  const to = Math.min(page * perPage, total);
+  return (
+    <div className="flex flex-wrap items-center justify-between gap-3 px-1 py-4">
+      <p className="text-xs font-semibold text-muted-foreground">
+        Showing {from}–{to} of {total}
+      </p>
+      <div className="flex items-center gap-2">
+        <button className="btn btn-ghost !px-3 !py-2 text-sm" disabled={page <= 1} onClick={() => onPage(page - 1)} aria-label="Previous page">
+          <ChevronLeft size={16} /> Prev
+        </button>
+        <span className="text-xs font-bold text-muted-foreground">Page {page} of {pages}</span>
+        <button className="btn btn-ghost !px-3 !py-2 text-sm" disabled={page >= pages} onClick={() => onPage(page + 1)} aria-label="Next page">
+          Next <ChevronRight size={16} />
+        </button>
+      </div>
+    </div>
   );
 }

@@ -2,9 +2,9 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
-import { Plus, Search } from "lucide-react";
-import { PageHeader, EmptyState } from "@/components/ui";
-import { api, fmtMoney, fmtDate } from "@/lib/format";
+import { Plus, Search, CalendarDays } from "lucide-react";
+import { PageHeader, EmptyState, FilterBar, SummaryChips, Pagination, StatusPill } from "@/components/ui";
+import { api, fmtMoney, fmtDate, toBig } from "@/lib/format";
 
 type Doc = {
   id: string; docNo: string; docType: string; date: number; status: string;
@@ -13,18 +13,26 @@ type Doc = {
 
 const typeBadge: Record<string, string> = {
   INVOICE: "bg-primary-soft text-primary",
+  BILL: "bg-primary-soft text-primary",
   RETURN: "bg-danger-soft text-danger",
   QUOTATION: "bg-accent-soft text-accent",
   ORDER: "bg-muted text-muted-foreground",
   CHALLAN: "bg-muted text-muted-foreground",
+  GRN: "bg-muted text-muted-foreground",
 };
+
+const PER_PAGE = 20;
 
 export function DocList({ mode }: { mode: "SALES" | "PURCHASE" }) {
   const isSales = mode === "SALES";
   const [rows, setRows] = useState<Doc[]>([]);
   const [total, setTotal] = useState(0);
+  const [sum, setSum] = useState("0");
+  const [page, setPage] = useState(1);
   const [q, setQ] = useState("");
   const [docType, setDocType] = useState("");
+  const [from, setFrom] = useState("");
+  const [to, setTo] = useState("");
   const [loading, setLoading] = useState(true);
 
   const endpoint = isSales ? "/api/sales" : "/api/purchases";
@@ -32,28 +40,40 @@ export function DocList({ mode }: { mode: "SALES" | "PURCHASE" }) {
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const d = await api<{ data: Doc[]; total: number }>(
-        `${endpoint}?q=${encodeURIComponent(q)}${docType ? `&docType=${docType}` : ""}&perPage=30`
+      const params = new URLSearchParams({
+        q, page: String(page), perPage: String(PER_PAGE),
+      });
+      if (docType) params.set("docType", docType);
+      if (from) params.set("from", from);
+      if (to) params.set("to", to);
+      const d = await api<{ data: Doc[]; total: number; sumGrandTotal: string | number }>(
+        `${endpoint}?${params.toString()}`
       );
       setRows(d.data);
       setTotal(d.total);
+      setSum(String(d.sumGrandTotal ?? "0"));
     } catch { setRows([]); } finally { setLoading(false); }
-  }, [endpoint, q, docType]);
+  }, [endpoint, q, docType, from, to, page]);
 
   useEffect(() => {
     const t = setTimeout(load, q ? 300 : 0);
     return () => clearTimeout(t);
   }, [load, q]);
 
+  // reset to first page whenever a filter changes
+  useEffect(() => { setPage(1); }, [q, docType, from, to]);
+
   const types = isSales
     ? [["", "All"], ["INVOICE", "Invoices"], ["RETURN", "Returns"], ["QUOTATION", "Quotations"], ["ORDER", "Orders"], ["CHALLAN", "Challans"]]
     : [["", "All"], ["BILL", "Bills"], ["RETURN", "Returns"], ["ORDER", "Orders"], ["GRN", "GRNs"]];
+
+  const hasFilter = q !== "" || docType !== "" || from !== "" || to !== "";
 
   return (
     <div>
       <PageHeader
         title={isSales ? "Sales" : "Purchases"}
-        subtitle={`${total} documents`}
+        subtitle={isSales ? "Invoices, orders, challans and returns" : "Bills, orders, GRNs and returns"}
         actions={
           <Link href={isSales ? "/sales/new" : "/purchases/new"} className="btn btn-primary text-sm">
             <Plus size={16} /> {isSales ? "New sale" : "New purchase"}
@@ -61,11 +81,11 @@ export function DocList({ mode }: { mode: "SALES" | "PURCHASE" }) {
         }
       />
 
-      <div className="mb-4 flex flex-wrap items-center gap-3">
-        <div className="flex flex-wrap gap-1 rounded-xl border border-border bg-card p-1">
+      <FilterBar>
+        <div className="flex flex-wrap gap-1 rounded-xl bg-muted p-1">
           {types.map(([v, l]) => (
             <button key={v} onClick={() => setDocType(v)}
-              className={`rounded-lg px-3 py-1.5 text-xs font-bold transition ${docType === v ? "bg-primary text-primary-foreground shadow" : "text-muted-foreground hover:text-foreground"}`}>
+              className={`rounded-lg px-3 py-1.5 text-xs font-bold transition ${docType === v ? "bg-card text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}`}>
               {l}
             </button>
           ))}
@@ -74,19 +94,38 @@ export function DocList({ mode }: { mode: "SALES" | "PURCHASE" }) {
           <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
           <input className="field !pl-9" placeholder="Search bill no…" value={q} onChange={(e) => setQ(e.target.value)} />
         </div>
-      </div>
+        <div className="flex items-center gap-2">
+          <CalendarDays size={15} className="shrink-0 text-muted-foreground" />
+          <input type="date" className="field !w-auto !py-2 text-xs" value={from} onChange={(e) => setFrom(e.target.value)} aria-label="From date" />
+          <span className="text-xs text-muted-foreground">to</span>
+          <input type="date" className="field !w-auto !py-2 text-xs" value={to} onChange={(e) => setTo(e.target.value)} aria-label="To date" />
+        </div>
+        {hasFilter && (
+          <button className="text-xs font-bold text-danger hover:underline"
+            onClick={() => { setQ(""); setDocType(""); setFrom(""); setTo(""); }}>
+            Clear filters
+          </button>
+        )}
+      </FilterBar>
+
+      {!loading && (
+        <SummaryChips items={[
+          { label: "Documents", value: total.toLocaleString() },
+          { label: "Total value", value: fmtMoney(toBig(sum)), tone: "primary" },
+        ]} />
+      )}
 
       <div className="card overflow-hidden">
         {loading ? (
-          <div className="space-y-3 p-5">{[1, 2, 3].map((i) => <div key={i} className="h-12 animate-pulse rounded-xl bg-muted" />)}</div>
+          <div className="space-y-3 p-5">{[1, 2, 3, 4, 5].map((i) => <div key={i} className="h-12 animate-pulse rounded-xl bg-muted" />)}</div>
         ) : rows.length === 0 ? (
-          <EmptyState title={`No ${isSales ? "sales" : "purchases"} yet`}
-            hint={isSales ? "Create your first sale bill." : "Record your first purchase bill."}
-            action={<Link href={isSales ? "/sales/new" : "/purchases/new"} className="btn btn-primary text-sm"><Plus size={16} /> Create now</Link>} />
+          <EmptyState title={`No ${isSales ? "sales" : "purchases"} found`}
+            hint={hasFilter ? "Try widening the date range or clearing filters." : isSales ? "Create your first sale bill." : "Record your first purchase bill."}
+            action={!hasFilter ? <Link href={isSales ? "/sales/new" : "/purchases/new"} className="btn btn-primary text-sm"><Plus size={16} /> Create now</Link> : undefined} />
         ) : (
           <div className="overflow-x-auto">
             <table className="tbl">
-              <thead><tr><th>Bill no</th><th>Type</th><th>{isSales ? "Customer" : "Supplier"}</th><th>Date</th><th className="num">Total</th></tr></thead>
+              <thead><tr><th>Bill no</th><th>Type</th><th>{isSales ? "Customer" : "Supplier"}</th><th>Date</th><th>Status</th><th className="num">Total</th></tr></thead>
               <tbody>
                 {rows.map((d) => (
                   <tr key={d.id}>
@@ -97,7 +136,8 @@ export function DocList({ mode }: { mode: "SALES" | "PURCHASE" }) {
                     </td>
                     <td><span className={`badge ${typeBadge[d.docType] ?? "bg-muted text-muted-foreground"}`}>{d.docType}</span></td>
                     <td className="max-w-44 truncate">{d.partyName ?? "—"}</td>
-                    <td className="text-muted-foreground">{fmtDate(d.date)}</td>
+                    <td className="whitespace-nowrap text-muted-foreground">{fmtDate(d.date)}</td>
+                    <td><StatusPill status={d.status} /></td>
                     <td className="num font-extrabold">{fmtMoney(d.grandTotal)}</td>
                   </tr>
                 ))}
@@ -106,6 +146,8 @@ export function DocList({ mode }: { mode: "SALES" | "PURCHASE" }) {
           </div>
         )}
       </div>
+
+      <Pagination page={page} perPage={PER_PAGE} total={total} onPage={setPage} />
     </div>
   );
 }

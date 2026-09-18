@@ -41,9 +41,19 @@ export async function GET(req: NextRequest) {
     .select({ n: sql<number>`count(*)` })
     .from(expenses)
     .where(and(...conds));
+  const sums = await db
+    .select({
+      a: sql<string | null>`sum(${expenses.amount})`,
+      t: sql<string | null>`sum(${expenses.taxAmount})`,
+    })
+    .from(expenses)
+    .where(and(...conds));
+  const toBig = (v: unknown) => { try { return BigInt(String(v ?? "0").split(".")[0] || "0"); } catch { return 0n; } };
+  const sumTotal = String(toBig(sums[0]?.a) + toBig(sums[0]?.t));
   return json({
     data: rows.map((r) => ({ ...r.e, accountName: r.accountName, bankName: r.bankName })),
     total: total[0]?.n ?? 0,
+    sumTotal,
     page,
     perPage,
   });

@@ -1,10 +1,10 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { Plus } from "lucide-react";
-import { PageHeader, EmptyState, Field, ErrorNote } from "@/components/ui";
+import { Plus, CalendarDays } from "lucide-react";
+import { PageHeader, EmptyState, Field, ErrorNote, FilterBar, SummaryChips, Pagination } from "@/components/ui";
 import { Modal } from "@/components/modal";
-import { api, fmtMoney, fmtDate, fmtDateInput } from "@/lib/format";
+import { api, fmtMoney, fmtDate, fmtDateInput, toBig } from "@/lib/format";
 
 type Expense = {
   id: string; date: number; amount: string; taxAmount: string; notes: string | null;
@@ -13,13 +13,20 @@ type Expense = {
 type Account = { id: string; name: string; code: string };
 type Bank = { id: string; name: string };
 
+const PER_PAGE = 20;
+
 export default function ExpensesPage() {
   const [rows, setRows] = useState<Expense[]>([]);
   const [total, setTotal] = useState(0);
-  const [loading, setLoading] = useState(true);
-  const [modal, setModal] = useState(false);
+  const [sum, setSum] = useState("0");
+  const [page, setPage] = useState(1);
+  const [from, setFrom] = useState("");
+  const [to, setTo] = useState("");
+  const [accountId, setAccountId] = useState("");
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [banks, setBanks] = useState<Bank[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [modal, setModal] = useState(false);
   const [form, setForm] = useState({ accountId: "", bankAccountId: "", date: fmtDateInput(), amount: "", taxAmount: "0", notes: "" });
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -27,14 +34,26 @@ export default function ExpensesPage() {
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const d = await api<{ data: Expense[]; total: number }>("/api/expenses?perPage=30");
+      const params = new URLSearchParams({ page: String(page), perPage: String(PER_PAGE) });
+      if (from) params.set("from", from);
+      if (to) params.set("to", to);
+      if (accountId) params.set("accountId", accountId);
+      const d = await api<{ data: Expense[]; total: number; sumTotal: string | number }>(`/api/expenses?${params.toString()}`);
       setRows(d.data);
       setTotal(d.total);
+      setSum(String(d.sumTotal ?? "0"));
     } catch { setRows([]); } finally { setLoading(false); }
-  }, []);
+  }, [from, to, accountId, page]);
 
   // eslint-disable-next-line react-hooks/set-state-in-effect -- data fetch on filter/mount change
   useEffect(() => { load(); }, [load]);
+  useEffect(() => { setPage(1); }, [from, to, accountId]);
+
+  useEffect(() => {
+    api<{ data: Account[] }>("/api/accounts?type=EXPENSE").then((d) => setAccounts(d.data)).catch(() => {});
+  }, []);
+
+  const hasFilter = from !== "" || to !== "" || accountId !== "";
 
   async function openModal() {
     setError(null);
@@ -73,16 +92,43 @@ export default function ExpensesPage() {
     <div>
       <PageHeader
         title="Expenses"
-        subtitle={`${total} expenses recorded`}
+        subtitle="Rent, salaries, fuel and other business costs"
         actions={<button className="btn btn-primary text-sm" onClick={openModal}><Plus size={16} /> Add expense</button>}
       />
 
+      <FilterBar>
+        <select className="field !w-auto !py-2 text-xs font-semibold" value={accountId} onChange={(e) => setAccountId(e.target.value)} aria-label="Expense account">
+          <option value="">All accounts</option>
+          {accounts.map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}
+        </select>
+        <div className="flex items-center gap-2">
+          <CalendarDays size={15} className="shrink-0 text-muted-foreground" />
+          <input type="date" className="field !w-auto !py-2 text-xs" value={from} onChange={(e) => setFrom(e.target.value)} aria-label="From date" />
+          <span className="text-xs text-muted-foreground">to</span>
+          <input type="date" className="field !w-auto !py-2 text-xs" value={to} onChange={(e) => setTo(e.target.value)} aria-label="To date" />
+        </div>
+        {hasFilter && (
+          <button className="text-xs font-bold text-danger hover:underline"
+            onClick={() => { setFrom(""); setTo(""); setAccountId(""); }}>
+            Clear filters
+          </button>
+        )}
+      </FilterBar>
+
+      {!loading && (
+        <SummaryChips items={[
+          { label: "Expenses", value: total.toLocaleString() },
+          { label: "Total spent", value: fmtMoney(toBig(sum)), tone: "danger" },
+        ]} />
+      )}
+
       <div className="card overflow-hidden">
         {loading ? (
-          <div className="space-y-3 p-5">{[1, 2, 3].map((i) => <div key={i} className="h-12 animate-pulse rounded-xl bg-muted" />)}</div>
+          <div className="space-y-3 p-5">{[1, 2, 3, 4, 5].map((i) => <div key={i} className="h-12 animate-pulse rounded-xl bg-muted" />)}</div>
         ) : rows.length === 0 ? (
-          <EmptyState title="No expenses yet" hint="Record rent, salaries, fuel and other business expenses."
-            action={<button className="btn btn-primary text-sm" onClick={openModal}><Plus size={16} /> Add now</button>} />
+          <EmptyState title="No expenses found"
+            hint={hasFilter ? "Try widening the date range or clearing filters." : "Record rent, salaries, fuel and other business expenses."}
+            action={!hasFilter ? <button className="btn btn-primary text-sm" onClick={openModal}><Plus size={16} /> Add now</button> : undefined} />
         ) : (
           <div className="overflow-x-auto">
             <table className="tbl">
@@ -90,11 +136,11 @@ export default function ExpensesPage() {
               <tbody>
                 {rows.map((x) => (
                   <tr key={x.id}>
-                    <td className="text-muted-foreground">{fmtDate(x.date)}</td>
-                    <td className="font-bold">{x.accountName ?? "—"}</td>
+                    <td className="whitespace-nowrap text-muted-foreground">{fmtDate(x.date)}</td>
+                    <td><span className="badge bg-muted text-foreground">{x.accountName ?? "—"}</span></td>
                     <td className="text-muted-foreground">{x.bankName ?? "—"}</td>
                     <td className="max-w-52 truncate text-muted-foreground">{x.notes ?? "—"}</td>
-                    <td className="num font-extrabold">{fmtMoney((BigInt(x.amount) + BigInt(x.taxAmount)).toString())}</td>
+                    <td className="num font-extrabold">{fmtMoney(toBig(x.amount) + toBig(x.taxAmount))}</td>
                   </tr>
                 ))}
               </tbody>
@@ -102,6 +148,8 @@ export default function ExpensesPage() {
           </div>
         )}
       </div>
+
+      <Pagination page={page} perPage={PER_PAGE} total={total} onPage={setPage} />
 
       {modal && (
         <Modal title="Add expense" onClose={() => setModal(false)}>

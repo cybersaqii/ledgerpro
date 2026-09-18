@@ -52,9 +52,14 @@ export async function GET(req: NextRequest) {
     .select({ n: sql<number>`count(*)` })
     .from(salesDocs)
     .where(and(...conds));
+  const sums = await db
+    .select({ s: sql<string | null>`sum(${salesDocs.grandTotal})` })
+    .from(salesDocs)
+    .where(and(...conds));
   return json({
     data: rows.map((r) => ({ ...r.doc, partyName: r.partyName })),
     total: total[0]?.n ?? 0,
+    sumGrandTotal: sums[0]?.s ?? "0",
     page,
     perPage,
   });

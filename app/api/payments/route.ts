@@ -43,9 +43,18 @@ export async function GET(req: NextRequest) {
     .select({ n: sql<number>`count(*)` })
     .from(payments)
     .where(and(...conds));
+  const sums = await db
+    .select({
+      r: sql<string | null>`sum(case when ${payments.kind} = 'RECEIPT' then ${payments.amount} else 0 end)`,
+      p: sql<string | null>`sum(case when ${payments.kind} = 'PAYMENT' then ${payments.amount} else 0 end)`,
+    })
+    .from(payments)
+    .where(and(...conds));
   return json({
     data: rows.map((r) => ({ ...r.p, partyName: r.partyName, bankName: r.bankName })),
     total: total[0]?.n ?? 0,
+    sumReceipt: sums[0]?.r ?? "0",
+    sumPayment: sums[0]?.p ?? "0",
     page,
     perPage,
   });

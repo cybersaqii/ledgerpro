@@ -41,6 +41,8 @@ export function DocForm({ mode }: { mode: "SALES" | "PURCHASE" }) {
   const [showProdList, setShowProdList] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [creatingParty, setCreatingParty] = useState(false);
+  const [quickPhone, setQuickPhone] = useState("");
   const keyRef = useRef(0);
   const prodBoxRef = useRef<HTMLDivElement>(null);
 
@@ -105,6 +107,29 @@ export function DocForm({ mode }: { mode: "SALES" | "PURCHASE" }) {
 
   function removeLine(key: number) {
     setLines((ls) => ls.filter((l) => l.key !== key));
+  }
+
+  /** Inline quick-add: create the party without leaving the bill form. */
+  async function createPartyInline() {
+    const name = partyQ.trim();
+    if (name.length < 2 || creatingParty) return;
+    setCreatingParty(true);
+    setError(null);
+    try {
+      const d = await api<{ data: { id: string; name: string; phone: string | null } }>("/api/parties", {
+        method: "POST",
+        body: JSON.stringify({ kind: partyKind, name, phone: quickPhone.trim() }),
+      });
+      setParties((ps) => [{ id: d.data.id, name: d.data.name, phone: d.data.phone }, ...ps]);
+      setPartyId(d.data.id);
+      setPartyQ("");
+      setQuickPhone("");
+      setShowPartyList(false);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Could not create party.");
+    } finally {
+      setCreatingParty(false);
+    }
   }
 
   // live totals (mirrors server math for display)
@@ -187,7 +212,22 @@ export function DocForm({ mode }: { mode: "SALES" | "PURCHASE" }) {
                           </button>
                         </li>
                       ))}
-                      {parties.length === 0 && <li className="px-4 py-3 text-sm text-muted-foreground">No matches. Add the party first from Parties.</li>}
+                      {parties.length === 0 && partyQ.trim().length >= 2 && (
+                        <li className="border-t border-border px-4 py-3">
+                          <p className="text-sm">No match for <span className="font-bold">“{partyQ.trim()}”</span></p>
+                          <div className="mt-2 flex gap-2">
+                            <input className="field !py-2 text-sm" placeholder="Phone (optional)"
+                              value={quickPhone} onChange={(e) => setQuickPhone(e.target.value)} />
+                            <button type="button" className="btn btn-primary shrink-0 !py-2 text-sm"
+                              disabled={creatingParty} onClick={createPartyInline}>
+                              {creatingParty ? "Adding…" : `Add ${isSales ? "customer" : "supplier"}`}
+                            </button>
+                          </div>
+                        </li>
+                      )}
+                      {parties.length === 0 && partyQ.trim().length < 2 && (
+                        <li className="px-4 py-3 text-sm text-muted-foreground">Type at least 2 letters to search or add.</li>
+                      )}
                     </ul>
                   </div>
                 )}
@@ -249,7 +289,21 @@ export function DocForm({ mode }: { mode: "SALES" | "PURCHASE" }) {
                       </button>
                     </li>
                   ))}
-                  {prodResults.length === 0 && <li className="px-4 py-3 text-sm text-muted-foreground">No products found.</li>}
+                  {prodResults.length === 0 && prodQ.trim() && (
+                    <li className="border-t border-border">
+                      <button type="button" className="flex w-full items-center gap-2 px-4 py-2.5 text-left text-sm hover:bg-muted"
+                        onClick={() => {
+                          keyRef.current += 1;
+                          setLines((ls) => [...ls, { key: keyRef.current, productId: "", description: prodQ.trim(), unit: "", qty: "1", rate: "0", discount: "0", availQty: null }]);
+                          setProdQ("");
+                          setShowProdList(false);
+                        }}>
+                        <Plus size={16} className="shrink-0 text-primary" />
+                        <span>Add <span className="font-bold">“{prodQ.trim()}”</span> as custom line</span>
+                      </button>
+                    </li>
+                  )}
+                  {prodResults.length === 0 && !prodQ.trim() && <li className="px-4 py-3 text-sm text-muted-foreground">Type to search products.</li>}
                 </ul>
               )}
             </div>
@@ -262,46 +316,82 @@ export function DocForm({ mode }: { mode: "SALES" | "PURCHASE" }) {
               <button type="button" className="btn btn-ghost mt-4 text-sm" onClick={addCustomLine}><Plus size={15} /> Custom line</button>
             </div>
           ) : (
-            <div className="space-y-3">
-              {lines.map((l, idx) => (
-                <div key={l.key} className="rounded-2xl border border-border bg-muted/40 p-3 sm:p-4">
-                  <div className="flex items-start justify-between gap-2">
-                    <p className="text-xs font-bold text-muted-foreground">ITEM {idx + 1}</p>
-                    <button type="button" onClick={() => removeLine(l.key)} className="rounded-lg p-1.5 text-danger hover:bg-danger-soft" aria-label="Remove item">
-                      <Trash2 size={16} />
-                    </button>
+            <>
+              {/* Desktop: classic grid like pro accounting apps */}
+              <div className="hidden overflow-x-auto md:block">
+                <table className="tbl">
+                  <thead><tr><th className="w-8">#</th><th>Item</th><th className="num w-24">Qty</th><th className="w-20">Unit</th><th className="num w-28">Rate</th><th className="num w-24">Disc.</th><th className="num w-28">Amount</th><th className="w-10"></th></tr></thead>
+                  <tbody>
+                    {lines.map((l, idx) => (
+                      <tr key={l.key}>
+                        <td className="text-muted-foreground">{idx + 1}</td>
+                        <td className="min-w-44">
+                          <input className="field !border-transparent !bg-transparent !px-1 !py-1.5 font-semibold hover:!border-border focus:!border-primary focus:!bg-card" placeholder="Item description" value={l.description}
+                            onChange={(e) => updateLine(l.key, { description: e.target.value })} />
+                          {l.availQty !== null && (
+                            <p className="px-1 text-xs text-muted-foreground">
+                              In stock: {(Number(BigInt(l.availQty)) / 1000).toLocaleString()} {l.unit}
+                            </p>
+                          )}
+                        </td>
+                        <td><input className="field num !px-2 !py-1.5" type="number" min="0" step="0.001" value={l.qty}
+                          onChange={(e) => updateLine(l.key, { qty: e.target.value })} /></td>
+                        <td className="text-sm text-muted-foreground">{l.unit || "—"}</td>
+                        <td><input className="field num !px-2 !py-1.5" type="number" min="0" step="0.01" value={l.rate}
+                          onChange={(e) => updateLine(l.key, { rate: e.target.value })} /></td>
+                        <td><input className="field num !px-2 !py-1.5" type="number" min="0" step="0.01" value={l.discount}
+                          onChange={(e) => updateLine(l.key, { discount: e.target.value })} /></td>
+                        <td className="num whitespace-nowrap text-sm font-extrabold">Rs {(lineTotals[idx] / 100).toLocaleString()}</td>
+                        <td>
+                          <button type="button" onClick={() => removeLine(l.key)} className="rounded-lg p-1.5 text-danger hover:bg-danger-soft" aria-label="Remove item">
+                            <Trash2 size={16} />
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+                <button type="button" className="btn btn-ghost mt-3 text-sm" onClick={addCustomLine}><Plus size={15} /> Add custom line</button>
+              </div>
+
+              {/* Mobile: stacked cards */}
+              <div className="space-y-3 md:hidden">
+                {lines.map((l, idx) => (
+                  <div key={l.key} className="rounded-2xl border border-border bg-muted/40 p-3">
+                    <div className="flex items-start justify-between gap-2">
+                      <p className="text-xs font-bold text-muted-foreground">ITEM {idx + 1}</p>
+                      <button type="button" onClick={() => removeLine(l.key)} className="rounded-lg p-1.5 text-danger hover:bg-danger-soft" aria-label="Remove item">
+                        <Trash2 size={16} />
+                      </button>
+                    </div>
+                    <div className="mt-2 grid gap-3">
+                      <div>
+                        <input className="field" placeholder="Item description" value={l.description}
+                          onChange={(e) => updateLine(l.key, { description: e.target.value })} />
+                        {l.availQty !== null && (
+                          <p className="mt-1 text-xs text-muted-foreground">
+                            In stock: {(Number(BigInt(l.availQty)) / 1000).toLocaleString()} {l.unit}
+                          </p>
+                        )}
+                      </div>
+                      <div className="grid grid-cols-3 gap-3">
+                        <div>
+                          <input className="field num" type="number" min="0" step="0.001" placeholder="Qty" value={l.qty}
+                            onChange={(e) => updateLine(l.key, { qty: e.target.value })} />
+                          {l.unit && <p className="mt-1 text-xs text-muted-foreground">{l.unit}</p>}
+                        </div>
+                        <input className="field num" type="number" min="0" step="0.01" placeholder="Rate" value={l.rate}
+                          onChange={(e) => updateLine(l.key, { rate: e.target.value })} />
+                        <input className="field num" type="number" min="0" step="0.01" placeholder="Disc." value={l.discount}
+                          onChange={(e) => updateLine(l.key, { discount: e.target.value })} />
+                      </div>
+                      <p className="text-right text-sm font-extrabold">Rs {(lineTotals[idx] / 100).toLocaleString()}</p>
+                    </div>
                   </div>
-                  <div className="mt-2 grid gap-3 sm:grid-cols-12">
-                    <div className="sm:col-span-5">
-                      <input className="field" placeholder="Item description" value={l.description}
-                        onChange={(e) => updateLine(l.key, { description: e.target.value })} />
-                      {l.availQty !== null && (
-                        <p className="mt-1 text-xs text-muted-foreground">
-                          In stock: {(Number(BigInt(l.availQty)) / 1000).toLocaleString()} {l.unit}
-                        </p>
-                      )}
-                    </div>
-                    <div className="sm:col-span-2">
-                      <input className="field num" type="number" min="0" step="0.001" placeholder="Qty" value={l.qty}
-                        onChange={(e) => updateLine(l.key, { qty: e.target.value })} />
-                      {l.unit && <p className="mt-1 text-xs text-muted-foreground">{l.unit}</p>}
-                    </div>
-                    <div className="sm:col-span-2">
-                      <input className="field num" type="number" min="0" step="0.01" placeholder="Rate" value={l.rate}
-                        onChange={(e) => updateLine(l.key, { rate: e.target.value })} />
-                    </div>
-                    <div className="sm:col-span-2">
-                      <input className="field num" type="number" min="0" step="0.01" placeholder="Disc." value={l.discount}
-                        onChange={(e) => updateLine(l.key, { discount: e.target.value })} />
-                    </div>
-                    <div className="sm:col-span-1">
-                      <p className="py-2.5 text-right text-sm font-extrabold sm:py-2">Rs {(lineTotals[idx] / 100).toLocaleString()}</p>
-                    </div>
-                  </div>
-                </div>
-              ))}
-              <button type="button" className="btn btn-ghost text-sm" onClick={addCustomLine}><Plus size={15} /> Add custom line</button>
-            </div>
+                ))}
+                <button type="button" className="btn btn-ghost w-full text-sm" onClick={addCustomLine}><Plus size={15} /> Add custom line</button>
+              </div>
+            </>
           )}
         </div>
 

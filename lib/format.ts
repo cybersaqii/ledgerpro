@@ -1,4 +1,14 @@
 // Client-side display helpers. Server stores paisa as BigInt; APIs return strings.
+/** Lenient string|number|bigint -> bigint (for SQL SUM results that may come back as numbers). */
+export function toBig(v: string | number | bigint | null | undefined): bigint {
+  try {
+    if (typeof v === "bigint") return v;
+    if (typeof v === "number") return BigInt(Math.trunc(v));
+    return BigInt(String(v ?? "0").trim().split(".")[0] || "0");
+  } catch {
+    return 0n;
+  }
+}
 export function fmtMoney(paisa: string | number | bigint): string {
   const n = typeof paisa === "bigint" ? paisa : BigInt(paisa);
   const neg = n < 0n;
