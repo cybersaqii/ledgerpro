@@ -411,7 +411,7 @@ export function DocForm({ mode }: { mode: "SALES" | "PURCHASE" }) {
               </div>
               <div className="flex justify-between border-t border-border pt-3 text-base">
                 <span className="font-extrabold">Total</span>
-                <span className="text-xl font-extrabold text-primary">Rs {grand.toLocaleString()}</span>
+                <span className="text-xl font-extrabold text-primary">Rs {(grand / 100).toLocaleString()}</span>
               </div>
             </div>
             <button className="btn btn-primary mt-5 w-full !py-3.5 !text-base" disabled={saving}>
