@@ -1,0 +1,100 @@
+import { z } from "zod";
+
+// Money as string like "1234.56" (parsed server-side to BigInt paisa).
+const moneyStr = z.string().regex(/^-?\d{1,12}(\.\d{1,2})?$/, "Invalid amount");
+const qtyStr = z.string().regex(/^-?\d{1,12}(\.\d{1,3})?$/, "Invalid quantity");
+
+export const signupSchema = z.object({
+  companyName: z.string().trim().min(2).max(80),
+  name: z.string().trim().min(2).max(60),
+  email: z.string().trim().toLowerCase().email().max(120),
+  password: z.string().min(8).max(72),
+  phone: z.string().trim().max(30).optional().or(z.literal("")),
+});
+
+export const loginSchema = z.object({
+  email: z.string().trim().toLowerCase().email(),
+  password: z.string().min(1),
+});
+
+export const partySchema = z.object({
+  kind: z.enum(["CUSTOMER", "SUPPLIER"]),
+  name: z.string().trim().min(2).max(120),
+  phone: z.string().trim().max(30).optional().or(z.literal("")),
+  email: z.string().trim().max(120).optional().or(z.literal("")),
+  address: z.string().trim().max(300).optional().or(z.literal("")),
+  city: z.string().trim().max(60).optional().or(z.literal("")),
+  ntn: z.string().trim().max(30).optional().or(z.literal("")),
+  filerStatus: z.enum(["FILER", "NON_FILER", "NA"]).default("NA"),
+  creditLimit: moneyStr.optional().default("0"),
+  notes: z.string().trim().max(500).optional().or(z.literal("")),
+});
+
+export const productSchema = z.object({
+  sku: z.string().trim().min(1).max(40),
+  name: z.string().trim().min(2).max(120),
+  barcode: z.string().trim().max(40).optional().or(z.literal("")),
+  category: z.string().trim().max(60).optional().or(z.literal("")),
+  unit: z.string().trim().max(12).default("PCS"),
+  purchasePrice: moneyStr.default("0"),
+  salePrice: moneyStr.default("0"),
+  taxBps: z.coerce.number().int().min(0).max(10000).default(0),
+  trackStock: z.boolean().default(true),
+  reorderLevel: qtyStr.default("0"),
+});
+
+export const docItemSchema = z.object({
+  productId: z.string().optional().or(z.literal("")),
+  description: z.string().trim().min(1).max(200),
+  qty: qtyStr,
+  rate: moneyStr,
+  discount: moneyStr.default("0"),
+  taxBps: z.coerce.number().int().min(0).max(10000).default(0),
+});
+
+export const salesDocSchema = z.object({
+  docType: z.enum(["INVOICE", "QUOTATION", "ORDER", "CHALLAN", "RETURN"]).default("INVOICE"),
+  partyId: z.string().min(1),
+  branchId: z.string().min(1).optional(),
+  date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Invalid date"),
+  dueDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional().or(z.literal("")),
+  discountTotal: moneyStr.default("0"),
+  notes: z.string().trim().max(500).optional().or(z.literal("")),
+  items: z.array(docItemSchema).min(1, "Add at least one item"),
+});
+
+export const purchaseDocSchema = salesDocSchema.extend({
+  docType: z.enum(["BILL", "ORDER", "GRN", "RETURN"]).default("BILL"),
+  refNo: z.string().trim().max(60).optional().or(z.literal("")),
+});
+
+export const paymentSchema = z.object({
+  kind: z.enum(["RECEIPT", "PAYMENT"]),
+  partyId: z.string().optional().or(z.literal("")),
+  bankAccountId: z.string().min(1),
+  branchId: z.string().min(1).optional(),
+  date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Invalid date"),
+  amount: moneyStr,
+  method: z.enum(["CASH", "BANK", "CHEQUE", "ONLINE"]).default("CASH"),
+  reference: z.string().trim().max(80).optional().or(z.literal("")),
+  notes: z.string().trim().max(500).optional().or(z.literal("")),
+  allocations: z
+    .array(
+      z.object({
+        docId: z.string().min(1),
+        docKind: z.enum(["SALES", "PURCHASE"]),
+        amount: moneyStr,
+      })
+    )
+    .default([]),
+});
+
+export const expenseSchema = z.object({
+  accountId: z.string().min(1),
+  bankAccountId: z.string().min(1),
+  branchId: z.string().min(1).optional(),
+  date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Invalid date"),
+  amount: moneyStr,
+  taxAmount: moneyStr.default("0"),
+  notes: z.string().trim().max(500).optional().or(z.literal("")),
+});

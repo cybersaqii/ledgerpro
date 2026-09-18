@@ -1,0 +1,125 @@
+"use client";
+
+import Link from "next/link";
+import { usePathname, useRouter } from "next/navigation";
+import { useEffect, useState, type ReactNode } from "react";
+import {
+  LayoutDashboard, ShoppingCart, Truck, Wallet, ReceiptText, Users, Package,
+  BarChart3, Menu, X, LogOut, Boxes, Plus,
+} from "lucide-react";
+import { Logo, ThemeToggle } from "./ui";
+import { api } from "@/lib/format";
+
+const nav = [
+  { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
+  { href: "/sales", label: "Sales", icon: ShoppingCart },
+  { href: "/purchases", label: "Purchases", icon: Truck },
+  { href: "/payments", label: "Payments", icon: Wallet },
+  { href: "/expenses", label: "Expenses", icon: ReceiptText },
+  { href: "/parties", label: "Parties", icon: Users },
+  { href: "/products", label: "Products", icon: Package },
+  { href: "/stock", label: "Stock", icon: Boxes },
+  { href: "/reports", label: "Reports", icon: BarChart3 },
+];
+
+export function AppShell({ children }: { children: ReactNode }) {
+  const pathname = usePathname();
+  const router = useRouter();
+  const [open, setOpen] = useState(false);
+  const [user, setUser] = useState<{ name: string; email: string } | null>(null);
+
+  useEffect(() => {
+    api<{ user: { name: string; email: string } }>("/api/auth/me")
+      .then((d) => setUser(d.user))
+      .catch(() => router.push("/login"));
+  }, [router]);
+
+  // eslint-disable-next-line react-hooks/set-state-in-effect -- close drawer on navigation
+  useEffect(() => setOpen(false), [pathname]);
+
+  async function logout() {
+    await fetch("/api/auth/logout", { method: "POST" }).catch(() => {});
+    router.push("/login");
+    router.refresh();
+  }
+
+  const links = (
+    <nav className="flex flex-col gap-1 p-3">
+      {nav.map((n) => {
+        const active = pathname === n.href || (n.href !== "/dashboard" && pathname.startsWith(n.href + "/"));
+        return (
+          <Link
+            key={n.href}
+            href={n.href}
+            className={`flex items-center gap-3 rounded-xl px-3.5 py-2.5 text-sm font-semibold transition ${
+              active
+                ? "bg-primary text-primary-foreground shadow-md shadow-primary/25"
+                : "text-sidebar-foreground/80 hover:bg-white/8 hover:text-sidebar-foreground"
+            }`}
+          >
+            <n.icon size={18} />
+            {n.label}
+          </Link>
+        );
+      })}
+    </nav>
+  );
+
+  return (
+    <div className="flex min-h-screen bg-background">
+      {/* Desktop sidebar */}
+      <aside className="sticky top-0 hidden h-screen w-64 shrink-0 flex-col bg-sidebar lg:flex">
+        <div className="flex h-16 items-center px-5 text-white">
+          <Logo />
+        </div>
+        <div className="flex-1 overflow-y-auto">{links}</div>
+        <div className="border-t border-white/10 p-4">
+          <Link href="/sales/new" className="btn btn-primary w-full !py-2.5 text-sm">
+            <Plus size={16} /> New sale bill
+          </Link>
+        </div>
+      </aside>
+
+      {/* Mobile drawer */}
+      {open && (
+        <div className="fixed inset-0 z-50 lg:hidden">
+          <div className="absolute inset-0 bg-black/50" onClick={() => setOpen(false)} />
+          <aside className="absolute left-0 top-0 flex h-full w-72 flex-col bg-sidebar shadow-2xl">
+            <div className="flex h-16 items-center justify-between px-5 text-white">
+              <Logo />
+              <button onClick={() => setOpen(false)} className="rounded-lg p-2 text-sidebar-foreground hover:bg-white/10" aria-label="Close menu">
+                <X size={20} />
+              </button>
+            </div>
+            <div className="flex-1 overflow-y-auto">{links}</div>
+          </aside>
+        </div>
+      )}
+
+      <div className="flex min-w-0 flex-1 flex-col">
+        {/* Topbar */}
+        <header className="sticky top-0 z-30 flex h-16 items-center justify-between gap-3 border-b border-border bg-background/85 px-4 backdrop-blur-xl sm:px-6">
+          <div className="flex items-center gap-3">
+            <button onClick={() => setOpen(true)} className="grid h-10 w-10 place-items-center rounded-xl border border-border bg-card lg:hidden" aria-label="Open menu">
+              <Menu size={19} />
+            </button>
+            <div className="lg:hidden"><Logo compact /></div>
+            <p className="hidden text-sm text-muted-foreground sm:block">
+              {user ? <>Welcome back, <span className="font-bold text-foreground">{user.name.split(" ")[0]}</span></> : "…"}
+            </p>
+          </div>
+          <div className="flex items-center gap-2">
+            <ThemeToggle />
+            <button onClick={logout} className="grid h-10 w-10 place-items-center rounded-xl border border-border bg-card transition hover:scale-105" title="Log out" aria-label="Log out">
+              <LogOut size={17} />
+            </button>
+          </div>
+        </header>
+
+        <main className="flex-1 px-4 py-6 sm:px-6 lg:px-8">
+          <div className="mx-auto max-w-7xl">{children}</div>
+        </main>
+      </div>
+    </div>
+  );
+}
