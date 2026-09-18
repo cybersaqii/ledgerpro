@@ -1,5 +1,5 @@
 import { NextRequest } from "next/server";
-import { eq, and, like, desc, sql } from "drizzle-orm";
+import { eq, and, like, desc, sql, or } from "drizzle-orm";
 import { products, stockLevels } from "@/db/schema";
 import { productSchema } from "@/lib/validators";
 import { parseMoney } from "@/lib/money";
@@ -20,7 +20,7 @@ export async function GET(req: NextRequest) {
   const perPage = Math.min(100, Math.max(1, parseInt(sp.get("perPage") || "30", 10)));
 
   const conds = [eq(products.companyId, companyId), eq(products.isActive, true)];
-  if (q) conds.push(like(products.name, `%${q}%`));
+  if (q) conds.push(or(like(products.name, `%${q}%`), like(products.sku, `%${q}%`))!);
   if (category) conds.push(eq(products.category, category));
 
   const rows = await db

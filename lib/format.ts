@@ -20,7 +20,11 @@ export function fmtQty(milli: string | number | bigint, unit = ""): string {
 }
 
 export function fmtDate(ms: number | string): string {
-  const d = new Date(typeof ms === "string" ? parseInt(ms, 10) : ms);
+  // APIs serialize Date objects as ISO strings; also accept ms numbers / numeric strings.
+  const d =
+    typeof ms === "string" && !/^-?\d+$/.test(ms.trim())
+      ? new Date(ms)
+      : new Date(typeof ms === "string" ? parseInt(ms, 10) : ms);
   return d.toLocaleDateString("en-PK", { day: "numeric", month: "short", year: "numeric" });
 }
 
