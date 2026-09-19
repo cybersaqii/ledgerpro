@@ -9,6 +9,7 @@ import { postSalesDoc } from "@/lib/posting";
 import { nextDocNo } from "@/lib/setup";
 import { json, err } from "@/lib/api";
 import { requireCompany, db, parseDateOnly, defaultBranchId, assertBranch } from "@/lib/route-helpers";
+import { logAudit } from "@/lib/audit";
 
 const POSTED_TYPES = ["INVOICE", "RETURN"] as const;
 
@@ -179,6 +180,12 @@ export async function POST(req: NextRequest) {
         await tx.update(salesDocs).set({ journalEntryId: entryId }).where(eq(salesDocs.id, docId));
       }
       return { docId, docNo, entryId };
+    });
+    await logAudit(db, {
+      companyId, userId: session.uid, userName: session.name,
+      action: `sale.${b.docType.toLowerCase()}.created`,
+      entity: "sale", entityId: result.docId,
+      detail: `${b.docType} ${result.docNo}`,
     });
     return json({ data: result }, { status: 201 });
   } catch (e) {

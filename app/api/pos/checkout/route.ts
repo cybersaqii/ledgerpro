@@ -9,6 +9,7 @@ import { postSalesDoc, postPayment } from "@/lib/posting";
 import { nextDocNo } from "@/lib/setup";
 import { json, err } from "@/lib/api";
 import { requireCompany, db, parseDateOnly, defaultBranchId, assertBranch } from "@/lib/route-helpers";
+import { logAudit } from "@/lib/audit";
 
 // POST /api/pos/checkout — atomic POS sale.
 // Creates the invoice AND its receipt(s) inside ONE database transaction:
@@ -171,6 +172,12 @@ export async function POST(req: NextRequest) {
       return { docId, docNo, paymentIds, paidTotal: totals.grandTotal - remaining };
     });
 
+    await logAudit(db, {
+      companyId, userId: session.uid, userName: session.name,
+      action: "pos.checkout",
+      entity: "sale", entityId: result.docId,
+      detail: `POS invoice ${result.docNo}`,
+    });
     return json(
       {
         data: {

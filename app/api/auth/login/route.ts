@@ -7,6 +7,7 @@ import { loginSchema } from "@/lib/validators";
 import { setupCompany, SYS } from "@/lib/setup";
 import { json, err } from "@/lib/api";
 import { rateLimit, clientIp } from "@/lib/rate-limit";
+import { logAudit } from "@/lib/audit";
 
 export async function POST(req: NextRequest) {
   const rl = rateLimit(`login:${clientIp(req)}`, 10, 60_000);
@@ -57,6 +58,10 @@ export async function POST(req: NextRequest) {
     v: user.tokenVersion,
   });
   await db.update(users).set({ lastLoginAt: new Date() }).where(eq(users.id, user.id));
+  await logAudit(db, {
+    companyId: user.companyId, userId: user.id, userName: user.name,
+    action: "auth.login", entity: "user", entityId: user.id,
+  });
   return json({
     ok: true,
     user: { id: user.id, name: user.name, email: user.email, role: user.role },

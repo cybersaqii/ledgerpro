@@ -6,6 +6,7 @@ import { parseMoney } from "@/lib/money";
 import { postPayment } from "@/lib/posting";
 import { json, err } from "@/lib/api";
 import { requireCompany, db, parseDateOnly, defaultBranchId, assertBranch } from "@/lib/route-helpers";
+import { logAudit } from "@/lib/audit";
 
 // GET /api/payments?kind=RECEIPT&partyId=&from=&to=&page=
 export async function GET(req: NextRequest) {
@@ -108,6 +109,11 @@ export async function POST(req: NextRequest) {
         })),
         createdById: session.uid,
       });
+    });
+    await logAudit(db, {
+      companyId, userId: session.uid, userName: session.name,
+      action: "payment.created", entity: "payment", entityId: paymentId,
+      detail: `Payment ${paymentId.slice(0, 8)}`,
     });
     return json({ data: { id: paymentId } }, { status: 201 });
   } catch (e) {

@@ -9,6 +9,7 @@ import { postPurchaseDoc } from "@/lib/posting";
 import { nextDocNo } from "@/lib/setup";
 import { json, err } from "@/lib/api";
 import { requireCompany, db, parseDateOnly, defaultBranchId, assertBranch } from "@/lib/route-helpers";
+import { logAudit } from "@/lib/audit";
 
 const POSTED_TYPES = ["BILL", "RETURN"] as const;
 
@@ -173,6 +174,12 @@ export async function POST(req: NextRequest) {
         await tx.update(purchaseDocs).set({ journalEntryId: entryId }).where(eq(purchaseDocs.id, docId));
       }
       return { docId, docNo, entryId };
+    });
+    await logAudit(db, {
+      companyId, userId: session.uid, userName: session.name,
+      action: `purchase.${b.docType.toLowerCase()}.created`,
+      entity: "purchase", entityId: result.docId,
+      detail: `${b.docType} ${result.docNo}`,
     });
     return json({ data: result }, { status: 201 });
   } catch (e) {

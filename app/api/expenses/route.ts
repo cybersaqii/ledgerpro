@@ -6,6 +6,7 @@ import { parseMoney } from "@/lib/money";
 import { postExpense } from "@/lib/posting";
 import { json, err } from "@/lib/api";
 import { requireCompany, db, parseDateOnly, defaultBranchId, assertBranch } from "@/lib/route-helpers";
+import { logAudit } from "@/lib/audit";
 
 // GET /api/expenses?from=&to=&accountId=&page=
 export async function GET(req: NextRequest) {
@@ -84,6 +85,11 @@ export async function POST(req: NextRequest) {
         notes: b.notes || undefined,
         createdById: session.uid,
       });
+    });
+    await logAudit(db, {
+      companyId, userId: session.uid, userName: session.name,
+      action: "expense.created", entity: "expense", entityId: expenseId,
+      detail: `Expense ${expenseId.slice(0, 8)}`,
     });
     return json({ data: { id: expenseId } }, { status: 201 });
   } catch (e) {

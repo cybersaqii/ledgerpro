@@ -190,6 +190,7 @@ export const salesDocs = sqliteTable(
     amountPaid: money("amount_paid"),
     notes: text("notes"),
     journalEntryId: text("journal_entry_id").unique(),
+    sourceDocId: text("source_doc_id"), // quotation/order this invoice was converted from
     createdById: text("created_by_id").notNull(),
     createdAt: createdAt(),
     updatedAt: updatedAt(),
@@ -234,6 +235,7 @@ export const purchaseDocs = sqliteTable(
     amountPaid: money("amount_paid"),
     notes: text("notes"),
     journalEntryId: text("journal_entry_id").unique(),
+    sourceDocId: text("source_doc_id"), // order this bill was converted from
     createdById: text("created_by_id").notNull(),
     createdAt: createdAt(),
     updatedAt: updatedAt(),
@@ -365,6 +367,23 @@ export const settings = sqliteTable(
     value: text("value").notNull().default(""),
   },
   (t) => [uniqueIndex("settings_company_key").on(t.companyId, t.key)]
+);
+
+// Audit trail: who did what, when.
+export const auditLogs = sqliteTable(
+  "audit_logs",
+  {
+    id: id(),
+    companyId: text("company_id").notNull(),
+    userId: text("user_id").notNull(),
+    userName: text("user_name").notNull(),
+    action: text("action").notNull(), // e.g. "sale.created", "pos.checkout", "auth.login"
+    entity: text("entity"), // e.g. "sale", "payment", "user"
+    entityId: text("entity_id"),
+    detail: text("detail"),
+    createdAt: createdAt(),
+  },
+  (t) => [index("audit_company_time").on(t.companyId, t.createdAt)]
 );
 
 // (Db / DbTx types live in lib/db.ts to avoid a circular import.)

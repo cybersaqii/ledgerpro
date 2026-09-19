@@ -24,6 +24,19 @@ export async function requireCompany(): Promise<
   return { ok: true, session, companyId: session.cid, response: null };
 }
 
+/** Auth + OWNER role + company scoping for API routes (settings, team). */
+export async function requireOwner(): Promise<
+  | { ok: true; session: Session; companyId: string; response: null }
+  | { ok: false; session: null; companyId: null; response: NextResponse }
+> {
+  const gate = await requireCompany();
+  if (!gate.ok) return gate;
+  if (gate.session.role !== "OWNER") {
+    return { ok: false, session: null, companyId: null, response: err("Only the owner can do this.", 403) };
+  }
+  return gate;
+}
+
 /** Default branch for the company (created at signup). */
 export async function defaultBranchId(tx: Db | DbTx, companyId: string): Promise<string> {
   const rows = await tx
