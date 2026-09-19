@@ -4,7 +4,8 @@ import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
   ArrowLeft, Banknote, CheckCircle2, CreditCard, Minus, Plus,
-  ReceiptText, ScanLine, Search, Trash2, Users, X,
+  ReceiptText, ScanLine, Search, Trash2, Users, X, PauseCircle,
+  SplitSquareHorizontal,
 } from "lucide-react";
 import { ErrorNote } from "@/components/ui";
 import { api, fmtMoney, fmtDateInput } from "@/lib/format";
@@ -18,7 +19,10 @@ type ApiProduct = PosProduct & { totalQty: string };
 type ApiParty = { id: string; name: string; phone: string | null };
 type Bank = { id: string; name: string; kind: string };
 
-type Stage = "billing" | "cash" | "bank" | "khata" | "done";
+type Stage = "billing" | "cash" | "bank" | "split" | "khata" | "done";
+
+interface Tender { key: number; bankId: string; amount: string; }
+interface ParkedBill { id: string; at: number; lines: PosLine[]; discount: string; }
 
 interface DoneInfo {
   docId: string;
@@ -58,6 +62,25 @@ export default function PosPage() {
   const [done, setDone] = useState<DoneInfo | null>(null);
   const walkInRef = useRef<string | null>(null);
   const tenderedRef = useRef<HTMLInputElement>(null);
+
+  // split payments
+  const [tenders, setTenders] = useState<Tender[]>([]);
+  const tenderKeyRef = useRef(0);
+
+  // parked bills (device-local, for the counter)
+  const [parked, setParked] = useState<ParkedBill[]>(() => {
+    try {
+      const raw = localStorage.getItem("ledgerpro-parked");
+      return raw ? (JSON.parse(raw) as ParkedBill[]) : [];
+    } catch {
+      return [];
+    }
+  });
+  const [showParked, setShowParked] = useState(false);
+  function persistParked(next: ParkedBill[]) {
+    setParked(next);
+    try { localStorage.setItem("ledgerpro-parked", JSON.stringify(next)); } catch { /* ignore */ }
+  }
 
   const totals = useMemo(() => cartTotals(lines, discount), [lines, discount]);
   const tenderedPaisa = Math.round(parseFloat(tendered || "0") * 100);
@@ -111,6 +134,11 @@ export default function PosPage() {
   function pickMethod(s: Stage) {
     setError(null);
     if (s === "cash") setTendered((totals.grand / 100).toFixed(2));
+    if (s === "split" && tenders.length === 0) {
+      const cash = banks.find((b) => b.kind === "CASH") ?? banks[0];
+      tenderKeyRef.current += 1;
+      setTenders([{ key: tenderKeyRef.current, bankId: cash?.id ?? "", amount: (totals.grand / 100).toFixed(2) }]);
+    }
     setStage(s);
   }
 
@@ -173,23 +201,39 @@ export default function PosPage() {
       }
     } catch (e) { setError(e instanceof Error ? e.message : "Could not resolve customer."); return; }
 
-    let payBankId = "";
-    let method: "CASH" | "BANK" = "CASH";
+    // build the payment legs for the atomic checkout
+    const amt = (totals.grand / 100).toFixed(2);
+    type PayLeg = { bankAccountId: string; method: "CASH" | "BANK"; amount: string };
+    let payments: PayLeg[] = [];
+    let tenderedVal: string | undefined;
     if (stage === "cash") {
       const cash = banks.find((b) => b.kind === "CASH") ?? banks[0];
       if (!cash) { setError("No cash account found. Add one under Settings → Accounts."); return; }
-      payBankId = cash.id;
       if (tenderedPaisa < totals.grand) { setError("Tendered amount is less than the bill total."); return; }
+      payments = [{ bankAccountId: cash.id, method: "CASH", amount: amt }];
+      tenderedVal = tendered || amt;
     } else if (stage === "bank") {
       if (!bankId) { setError("Select the bank account."); return; }
-      payBankId = bankId;
-      method = "BANK";
+      payments = [{ bankAccountId: bankId, method: "BANK", amount: amt }];
+    } else if (stage === "split") {
+      const legs: PayLeg[] = [];
+      for (const t of tenders) {
+        const p = tenderPaisa(t);
+        if (p <= 0) { setError("Each tender needs a positive amount."); return; }
+        if (!t.bankId) { setError("Choose an account for every tender."); return; }
+        const acc = banks.find((b) => b.id === t.bankId);
+        legs.push({ bankAccountId: t.bankId, method: acc?.kind === "CASH" ? "CASH" : "BANK", amount: (p / 100).toFixed(2) });
+      }
+      const sum = legs.reduce((a, l) => a + Math.round(parseFloat(l.amount) * 100), 0);
+      if (legs.length === 0) { setError("Add at least one tender."); return; }
+      if (sum !== totals.grand) { setError(`Tenders add up to ${fmtMoney(sum)} — they must equal the bill total ${fmtMoney(totals.grand)}.`); return; }
+      payments = legs;
     }
+    // khata → payments stays empty
 
     setSaving(true);
     try {
       // Single atomic request: invoice + receipt(s) post in ONE transaction.
-      const amt = (totals.grand / 100).toFixed(2);
       const res = await api<{ data: { docId: string; change: string } }>("/api/pos/checkout", {
         method: "POST",
         body: JSON.stringify({
@@ -198,11 +242,8 @@ export default function PosPage() {
           discountTotal: discount || "0",
           notes: "POS sale",
           items: toDocItems(lines),
-          payments:
-            stage === "khata"
-              ? []
-              : [{ bankAccountId: payBankId, method, amount: amt }],
-          tendered: stage === "cash" ? tendered || amt : undefined,
+          payments,
+          tendered: tenderedVal,
         }),
       });
       const docId = res.data.docId;
@@ -219,12 +260,37 @@ export default function PosPage() {
     setLines([]);
     setDiscount("");
     setTendered("");
+    setTenders([]);
     setKhataId("");
     setPartyQ("");
     setDone(null);
     setError(null);
     setStage("billing");
   }
+
+  function parkBill() {
+    if (lines.length === 0) return;
+    persistParked([{ id: crypto.randomUUID(), at: Date.now(), lines, discount }, ...parked]);
+    newBill();
+  }
+
+  function resumeParked(id: string) {
+    const b = parked.find((p) => p.id === id);
+    if (!b) return;
+    setLines(b.lines.map((l) => ({ ...l, key: ++keyRef.current })));
+    setDiscount(b.discount);
+    setTenders([]);
+    persistParked(parked.filter((p) => p.id !== id));
+    setShowParked(false);
+    setStage("billing");
+    setTimeout(() => searchRef.current?.focus(), 60);
+  }
+
+  function tenderPaisa(t: Tender): number {
+    return Math.round((parseFloat(t.amount) || 0) * 100);
+  }
+  const splitTotal = tenders.reduce((a, t) => a + tenderPaisa(t), 0);
+  const splitRemaining = totals.grand - splitTotal;
 
   // ---------- success screen ----------
   if (stage === "done" && done) {
@@ -272,6 +338,41 @@ export default function PosPage() {
       </div>
 
       <ErrorNote message={error} />
+
+      {parked.length > 0 && (
+        <div className="card mb-4 p-4">
+          <button onClick={() => setShowParked((v) => !v)} className="flex w-full items-center justify-between">
+            <span className="inline-flex items-center gap-2 text-sm font-extrabold">
+              <PauseCircle size={16} className="text-primary" /> Parked bills ({parked.length})
+            </span>
+            <span className="text-xs font-bold text-muted-foreground">{showParked ? "Hide" : "Show"}</span>
+          </button>
+          {showParked && (
+            <ul className="mt-3 space-y-2">
+              {parked.map((p) => {
+                const t = cartTotals(p.lines, p.discount);
+                return (
+                  <li key={p.id} className="flex items-center justify-between gap-3 rounded-xl bg-muted/60 px-4 py-3">
+                    <div className="min-w-0">
+                      <p className="text-sm font-bold">{t.itemCount} items · {fmtMoney(t.grand)}</p>
+                      <p className="text-xs text-muted-foreground">
+                        Parked {new Date(p.at).toLocaleTimeString("en-PK", { hour: "numeric", minute: "2-digit" })}
+                      </p>
+                    </div>
+                    <div className="flex shrink-0 gap-2">
+                      <button onClick={() => resumeParked(p.id)} className="btn btn-primary !px-4 !py-2 text-sm">Resume</button>
+                      <button onClick={() => persistParked(parked.filter((x) => x.id !== p.id))}
+                        className="btn btn-ghost !px-3 !py-2 text-sm" aria-label="Delete parked bill">
+                        <Trash2 size={15} />
+                      </button>
+                    </div>
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+        </div>
+      )}
 
       <div className="grid gap-4 xl:grid-cols-[1fr_370px]">
         {/* left: search + cart */}
@@ -404,21 +505,22 @@ export default function PosPage() {
 
           <div className="card p-4 sm:p-5">
             <p className="mb-3 text-xs font-extrabold uppercase tracking-wider text-muted-foreground">Payment</p>
-            <div className="grid grid-cols-3 gap-2">
+            <div className="grid grid-cols-4 gap-2">
               {([
                 { s: "cash" as Stage, label: "Cash", icon: Banknote, cls: "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400" },
-                { s: "bank" as Stage, label: "Card / Bank", icon: CreditCard, cls: "bg-sky-500/15 text-sky-600 dark:text-sky-400" },
+                { s: "bank" as Stage, label: "Card", icon: CreditCard, cls: "bg-sky-500/15 text-sky-600 dark:text-sky-400" },
+                { s: "split" as Stage, label: "Split", icon: SplitSquareHorizontal, cls: "bg-violet-500/15 text-violet-600 dark:text-violet-400" },
                 { s: "khata" as Stage, label: "Khata", icon: Users, cls: "bg-amber-500/15 text-amber-600 dark:text-amber-400" },
               ]).map((m) => (
                 <button
                   key={m.s}
                   onClick={() => pickMethod(m.s)}
-                  className={`flex flex-col items-center gap-1.5 rounded-2xl border-2 py-3.5 font-bold transition ${
+                  className={`flex flex-col items-center gap-1.5 rounded-2xl border-2 py-3 font-bold transition ${
                     stage === m.s ? "border-primary bg-primary/10 text-primary" : "border-border hover:border-primary/40"
                   }`}
                 >
-                  <span className={`grid h-10 w-10 place-items-center rounded-2xl ${m.cls}`}><m.icon size={20} /></span>
-                  <span className="text-xs">{m.label}</span>
+                  <span className={`grid h-9 w-9 place-items-center rounded-2xl ${m.cls}`}><m.icon size={18} /></span>
+                  <span className="text-[11px]">{m.label}</span>
                 </button>
               ))}
             </div>
@@ -460,6 +562,58 @@ export default function PosPage() {
               </div>
             )}
 
+            {stage === "split" && (
+              <div className="rise mt-4 space-y-3">
+                {tenders.map((t) => (
+                  <div key={t.key} className="flex items-center gap-2">
+                    <select
+                      className="field min-w-0 flex-1 !py-2.5 text-sm"
+                      value={t.bankId}
+                      onChange={(e) => setTenders((ts) => ts.map((x) => x.key === t.key ? { ...x, bankId: e.target.value } : x))}
+                      aria-label="Tender account"
+                    >
+                      <option value="">Account…</option>
+                      {banks.map((b) => (
+                        <option key={b.id} value={b.id}>{b.name}{b.kind === "CASH" ? " (cash)" : ""}</option>
+                      ))}
+                    </select>
+                    <input
+                      className="field !w-28 !py-2.5 text-right text-sm font-bold"
+                      inputMode="decimal"
+                      value={t.amount}
+                      onChange={(e) => setTenders((ts) => ts.map((x) => x.key === t.key ? { ...x, amount: e.target.value.replace(/[^0-9.]/g, "") } : x))}
+                      aria-label="Tender amount"
+                    />
+                    <button
+                      onClick={() => setTenders((ts) => ts.filter((x) => x.key !== t.key))}
+                      className="grid h-10 w-10 shrink-0 place-items-center rounded-xl text-muted-foreground transition hover:bg-red-500/10 hover:text-red-500"
+                      aria-label="Remove tender"
+                    >
+                      <Trash2 size={16} />
+                    </button>
+                  </div>
+                ))}
+                <button
+                  onClick={() => {
+                    tenderKeyRef.current += 1;
+                    setTenders((ts) => [...ts, { key: tenderKeyRef.current, bankId: "", amount: splitRemaining > 0 ? (splitRemaining / 100).toFixed(2) : "" }]);
+                  }}
+                  disabled={tenders.length >= banks.length}
+                  className="btn btn-ghost w-full text-sm disabled:opacity-50"
+                >
+                  <Plus size={15} /> Add tender
+                </button>
+                <div className={`flex items-center justify-between rounded-xl px-4 py-3 ${splitRemaining === 0 ? "bg-emerald-500/15" : "bg-muted"}`}>
+                  <span className="text-sm font-bold">Remaining</span>
+                  <span className="text-xl font-extrabold">{fmtMoney(splitRemaining)}</span>
+                </div>
+                <button onClick={completeSale} disabled={saving || lines.length === 0 || splitRemaining !== 0}
+                  className="btn btn-primary w-full !py-3.5 text-base disabled:opacity-50">
+                  {saving ? "Saving…" : `Complete split · ${fmtMoney(totals.grand)}`}
+                </button>
+              </div>
+            )}
+
             {stage === "khata" && (
               <div className="rise mt-4 space-y-3">
                 <div>
@@ -493,9 +647,16 @@ export default function PosPage() {
             )}
 
             {stage === "billing" && (
-              <p className="mt-3 text-center text-xs text-muted-foreground">
-                Choose a payment method above to finish the bill
-              </p>
+              <div className="mt-3 space-y-2">
+                <p className="text-center text-xs text-muted-foreground">
+                  Choose a payment method above to finish the bill
+                </p>
+                {lines.length > 0 && (
+                  <button onClick={parkBill} className="btn btn-ghost w-full text-sm">
+                    <PauseCircle size={15} /> Park this bill
+                  </button>
+                )}
+              </div>
             )}
           </div>
         </div>
