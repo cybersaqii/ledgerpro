@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import {
   TrendingUp, ShoppingBag, ReceiptText, ArrowDownToLine, ArrowUpFromLine,
-  Landmark, TriangleAlert, Plus, FileText, LayoutDashboard,
+  Landmark, TriangleAlert, FileText, LayoutDashboard,
   ShoppingCart, Truck, Users, Package, BarChart3,
 } from "lucide-react";
 import { PageHeader, Stat, EmptyState } from "@/components/ui";
@@ -17,7 +17,7 @@ import {
 type DashboardData = {
   kpis: {
     salesToday: string; salesMonth: string; purchasesMonth: string; expensesMonth: string;
-    receivables: string; payables: string; cashAndBank: string; lowStock: number;
+    receivables: string; payables: string; cashAndBank: string; profitMonth: string; lowStock: number;
   };
   recentSales: Array<{ id: string; docNo: string; date: number; grandTotal: string; partyName: string | null }>;
   salesTrend: Array<{ month: string; total: string }>;
@@ -34,8 +34,8 @@ export default function DashboardPage() {
     { href: "/payments/new?kind=RECEIPT", label: "Receive", icon: ArrowDownToLine, cls: "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400" },
     { href: "/payments/new?kind=PAYMENT", label: "Pay", icon: ArrowUpFromLine, cls: "bg-sky-500/15 text-sky-600 dark:text-sky-400" },
     { href: "/expenses", label: "Expense", icon: ReceiptText, cls: "bg-violet-500/15 text-violet-600 dark:text-violet-400" },
-    { href: "/parties", label: bp.partyOne, icon: Users, cls: "bg-amber-500/15 text-amber-600 dark:text-amber-400" },
-    { href: "/products", label: bp.productOne, icon: Package, cls: "bg-rose-500/15 text-rose-600 dark:text-rose-400" },
+    { href: "/parties", label: bp.partyMany, icon: Users, cls: "bg-amber-500/15 text-amber-600 dark:text-amber-400" },
+    { href: "/products", label: bp.productMany, icon: Package, cls: "bg-rose-500/15 text-rose-600 dark:text-rose-400" },
     { href: "/reports", label: "Reports", icon: BarChart3, cls: "bg-cyan-500/15 text-cyan-600 dark:text-cyan-400" },
   ];
 
@@ -66,12 +66,6 @@ export default function DashboardPage() {
         title="Dashboard"
         subtitle="Your business at a glance"
         icon={<LayoutDashboard size={20} />}
-        actions={
-          <>
-            <Link href="/purchases/new" className="btn btn-ghost text-sm"><Plus size={16} /> Purchase</Link>
-            <Link href="/sales/new" className="btn btn-primary text-sm"><Plus size={16} /> {bp.newSale}</Link>
-          </>
-        }
       />
 
       {/* Quick actions */}
@@ -89,7 +83,7 @@ export default function DashboardPage() {
 
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <Stat label={`${bp.salesNav} today`} value={fmtMoney(k.salesToday)} icon={<TrendingUp size={20} />} tone="primary" />
-        <Stat label={`${bp.salesNav} this month`} value={fmtMoney(k.salesMonth)} sub={`Purchases: ${fmtMoney(k.purchasesMonth)}`} icon={<ShoppingBag size={20} />} tone="primary" />
+        <Stat label={`${bp.salesNav} this month`} value={fmtMoney(k.salesMonth)} icon={<ShoppingBag size={20} />} tone="primary" />
         <Stat label={bp.receivables} value={fmtMoney(k.receivables)} sub={`From ${bp.partyMany.toLowerCase()}`} icon={<ArrowDownToLine size={20} />} tone="accent" />
         <Stat label="To pay" value={fmtMoney(k.payables)} sub="To suppliers" icon={<ArrowUpFromLine size={20} />} tone="danger" />
         <Stat label="Cash & bank" value={fmtMoney(k.cashAndBank)} icon={<Landmark size={20} />} tone="neutral" />
@@ -98,7 +92,7 @@ export default function DashboardPage() {
           <Stat label="Low stock items" value={String(k.lowStock)} sub="Needs reorder" icon={<TriangleAlert size={20} />} tone={k.lowStock > 0 ? "danger" : "neutral"} />
         </Link>
         <Link href="/reports/profit-loss" className="block">
-          <Stat label="Profit & loss" value="View report" sub="This month & custom range" icon={<FileText size={20} />} tone="primary" />
+          <Stat label="Profit & loss" value={fmtMoney(k.profitMonth)} sub="This month · view report" icon={<FileText size={20} />} tone="primary" />
         </Link>
       </div>
 

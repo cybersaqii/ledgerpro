@@ -10,6 +10,7 @@ import {
 } from "@/db/schema";
 import { json } from "@/lib/api";
 import { requireCompany, db } from "@/lib/route-helpers";
+import { netProfit } from "@/lib/reports";
 
 // GET /api/dashboard — KPIs for the dashboard home
 export async function GET() {
@@ -117,6 +118,10 @@ export async function GET() {
 
   const num = (v: unknown) => BigInt(String(v ?? "0")).toString();
 
+  // Net profit this month, from the GL (same math as the P&L report)
+  const monthStartISO = new Date(startOfMonth).toISOString().slice(0, 10);
+  const profitMonth = await netProfit(db, companyId, monthStartISO, null);
+
   return json({
     kpis: {
       salesToday: num(salesToday[0]?.t),
@@ -126,6 +131,7 @@ export async function GET() {
       receivables: num(recv[0]?.t),
       payables: num(pay[0]?.t),
       cashAndBank: num(cash[0]?.t),
+      profitMonth,
       lowStock,
     },
     recentSales: recent.map((r) => ({ ...r.doc, partyName: r.partyName })),

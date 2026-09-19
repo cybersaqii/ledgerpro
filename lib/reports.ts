@@ -1,6 +1,7 @@
 import { eq, and, sql } from "drizzle-orm";
 import { accounts, journalEntries, journalLines } from "@/db/schema";
 import type { Db } from "@/lib/db";
+import { SYS } from "@/lib/setup";
 
 /** Date range filter (inclusive from, exclusive to+1day), or null for all time. */
 export function dateRange(from?: string | null, to?: string | null) {
@@ -83,4 +84,27 @@ export function sumByTypeCredit(
     if (s.type === type && !exclude.includes(code)) total += s.credit - s.debit;
   }
   return total;
+}
+
+/**
+ * Net profit for a company over an optional date range, using the same
+ * double-entry GL math as the profit & loss report (SYS account codes).
+ * Returns a paisa bigint as string.
+ */
+export async function netProfit(
+  db: Db,
+  companyId: string,
+  from?: string | null,
+  to?: string | null
+): Promise<string> {
+  const sums = await glSums(db, companyId, from, to);
+  const sales = netOf(sums, SYS.SALES, true);
+  const salesReturns = netOf(sums, SYS.SALES_RETURN); // debit balance
+  const discountGiven = netOf(sums, SYS.DISCOUNT_GIVEN);
+  const discountReceived = netOf(sums, SYS.DISCOUNT_RECEIVED, true);
+  const cogs = netOf(sums, SYS.COGS);
+  const expenses = sumByType(sums, "EXPENSE", [SYS.COGS, SYS.DISCOUNT_GIVEN]);
+  const netSales = sales - salesReturns;
+  const grossProfit = netSales - discountGiven - cogs;
+  return (grossProfit + discountReceived - expenses).toString();
 }

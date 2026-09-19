@@ -135,7 +135,7 @@ export function AppShell({ children }: { children: ReactNode }) {
             </button>
             <div className="lg:hidden"><Logo compact /></div>
             <p className="hidden text-sm text-muted-foreground sm:block">
-              {user ? <>Welcome back, <span className="font-bold text-foreground">{user.name.split(" ")[0]}</span></> : "…"}
+              {user ? <>Welcome back, <span className="font-bold text-foreground">{user.name}</span></> : "…"}
             </p>
           </div>
           <div className="flex items-center gap-2">
