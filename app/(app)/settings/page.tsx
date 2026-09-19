@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Building2, Save } from "lucide-react";
+import { Building2, Database, Download, Save } from "lucide-react";
 import { PageHeader, Field, ErrorNote } from "@/components/ui";
 import { api } from "@/lib/format";
 import { BUSINESS_TYPES } from "@/lib/business-types";
@@ -102,6 +102,35 @@ export default function SettingsPage() {
             </div>
           </form>
         )}
+      </div>
+      <div className="card mt-6 max-w-2xl p-6 sm:p-8">
+        <h2 className="text-lg font-extrabold">Data &amp; backup</h2>
+        <p className="mt-1 text-sm text-muted-foreground">
+          Your data is yours. Download a full backup anytime, or export any register to a spreadsheet.
+        </p>
+        <div className="mt-4">
+          <a href="/api/export?kind=backup" className="btn btn-primary text-sm" download>
+            <Database size={16} /> Download full backup (JSON)
+          </a>
+        </div>
+        <div className="mt-5 border-t border-border pt-5">
+          <p className="text-sm font-bold">Export to spreadsheet (CSV)</p>
+          <div className="mt-3 flex flex-wrap gap-2">
+            {[
+              ["parties", "Parties"],
+              ["products", "Products"],
+              ["sales", "Sales"],
+              ["purchases", "Purchases"],
+              ["payments", "Payments"],
+              ["expenses", "Expenses"],
+              ["stock", "Stock"],
+            ].map(([kind, label]) => (
+              <a key={kind} href={`/api/export?kind=${kind}`} className="btn btn-ghost text-sm" download>
+                <Download size={15} /> {label}
+              </a>
+            ))}
+          </div>
+        </div>
       </div>
     </div>
   );
