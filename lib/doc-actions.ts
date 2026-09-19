@@ -62,7 +62,12 @@ export async function convertSalesDoc(
     discountPaisa: i.discount,
     taxBps: i.taxBps,
   }));
-  const totals = computeTotals(items, 0n);
+  // Preserve the source's document-level discount and branch: the converted
+  // invoice is the same commercial deal, so its totals and its stock/journal
+  // postings must follow the source document.
+  const srcDiscount = src.discountTotal ?? 0n;
+  const srcBranchId = src.branchId;
+  const totals = computeTotals(items, srcDiscount);
   const docNo = await nextDocNo(tx, input.companyId, "INVOICE");
   const docId = crypto.randomUUID();
   const date = new Date();
@@ -71,14 +76,14 @@ export async function convertSalesDoc(
   await tx.insert(salesDocs).values({
     id: docId,
     companyId: input.companyId,
-    branchId: input.branchId,
+    branchId: srcBranchId,
     partyId: src.partyId,
     docType: "INVOICE",
     docNo,
     date,
     status: "POSTED",
     subtotal: totals.subtotal,
-    discountTotal: 0n,
+    discountTotal: srcDiscount,
     taxTotal: totals.taxTotal,
     grandTotal: totals.grandTotal,
     notes: `Converted from ${src.docType === "QUOTATION" ? "quotation" : "order"} ${src.docNo}`,
@@ -101,14 +106,14 @@ export async function convertSalesDoc(
   );
   const entryId = await postSalesDoc(tx, {
     companyId: input.companyId,
-    branchId: input.branchId,
+    branchId: srcBranchId,
     partyId: src.partyId,
     docId,
     docNo,
     docType: "INVOICE",
     date,
     items: withStock(totals.items, tsMap),
-    discountTotal: 0n,
+    discountTotal: srcDiscount,
     taxTotal: totals.taxTotal,
     grandTotal: totals.grandTotal,
     createdById: input.userId,
@@ -137,6 +142,7 @@ export async function createSalesReturn(
     .where(and(eq(salesDocs.id, input.sourceId), eq(salesDocs.companyId, input.companyId))).limit(1);
   if (!src) throw new Error("Source invoice not found.");
   if (src.docType !== "INVOICE" || src.status !== "POSTED") throw new Error("Only posted invoices can be returned.");
+  await assertNoExistingReturn(tx, "sales", src.id, "invoice");
 
   const srcItems = await tx.select().from(salesDocItems).where(eq(salesDocItems.docId, src.id));
   if (srcItems.length === 0) throw new Error("Source invoice has no items.");
@@ -158,7 +164,7 @@ export async function createSalesReturn(
   await tx.insert(salesDocs).values({
     id: docId,
     companyId: input.companyId,
-    branchId: input.branchId,
+    branchId: src.branchId,
     partyId: src.partyId,
     docType: "RETURN",
     docNo,
@@ -188,7 +194,7 @@ export async function createSalesReturn(
   );
   const entryId = await postSalesDoc(tx, {
     companyId: input.companyId,
-    branchId: input.branchId,
+    branchId: src.branchId,
     partyId: src.partyId,
     docId,
     docNo,
@@ -226,7 +232,10 @@ export async function convertPurchaseDoc(
     discountPaisa: i.discount,
     taxBps: i.taxBps,
   }));
-  const totals = computeTotals(items, 0n);
+  // Same rule as sales conversion: preserve the order's discount and branch.
+  const srcDiscount = src.discountTotal ?? 0n;
+  const srcBranchId = src.branchId;
+  const totals = computeTotals(items, srcDiscount);
   const docNo = await nextDocNo(tx, input.companyId, "BILL");
   const docId = crypto.randomUUID();
   const date = new Date();
@@ -235,14 +244,14 @@ export async function convertPurchaseDoc(
   await tx.insert(purchaseDocs).values({
     id: docId,
     companyId: input.companyId,
-    branchId: input.branchId,
+    branchId: srcBranchId,
     partyId: src.partyId,
     docType: "BILL",
     docNo,
     date,
     status: "POSTED",
     subtotal: totals.subtotal,
-    discountTotal: 0n,
+    discountTotal: srcDiscount,
     taxTotal: totals.taxTotal,
     grandTotal: totals.grandTotal,
     notes: `Converted from purchase order ${src.docNo}`,
@@ -265,14 +274,14 @@ export async function convertPurchaseDoc(
   );
   const entryId = await postPurchaseDoc(tx, {
     companyId: input.companyId,
-    branchId: input.branchId,
+    branchId: srcBranchId,
     partyId: src.partyId,
     docId,
     docNo,
     docType: "BILL",
     date,
     items: withStock(totals.items, tsMap),
-    discountTotal: 0n,
+    discountTotal: srcDiscount,
     taxTotal: totals.taxTotal,
     grandTotal: totals.grandTotal,
     createdById: input.userId,
@@ -291,6 +300,7 @@ export async function createPurchaseReturn(
     .where(and(eq(purchaseDocs.id, input.sourceId), eq(purchaseDocs.companyId, input.companyId))).limit(1);
   if (!src) throw new Error("Source bill not found.");
   if (src.docType !== "BILL" || src.status !== "POSTED") throw new Error("Only posted bills can be returned.");
+  await assertNoExistingReturn(tx, "purchase", src.id, "bill");
 
   const srcItems = await tx.select().from(purchaseDocItems).where(eq(purchaseDocItems.docId, src.id));
   if (srcItems.length === 0) throw new Error("Source bill has no items.");
@@ -312,7 +322,7 @@ export async function createPurchaseReturn(
   await tx.insert(purchaseDocs).values({
     id: docId,
     companyId: input.companyId,
-    branchId: input.branchId,
+    branchId: src.branchId,
     partyId: src.partyId,
     docType: "RETURN",
     docNo,
@@ -342,7 +352,7 @@ export async function createPurchaseReturn(
   );
   const entryId = await postPurchaseDoc(tx, {
     companyId: input.companyId,
-    branchId: input.branchId,
+    branchId: src.branchId,
     partyId: src.partyId,
     docId,
     docNo,
@@ -360,4 +370,15 @@ export async function createPurchaseReturn(
 
 function withStock(items: ComputedItem[], tsMap: Map<string, boolean>) {
   return items.map((i) => ({ ...i, trackStock: i.productId ? tsMap.get(i.productId) ?? false : false }));
+}
+
+/** A full return may be posted only once per source document. */
+async function assertNoExistingReturn(tx: Tx, side: "sales" | "purchase", sourceId: string, label: string) {
+  const table = side === "sales" ? salesDocs : purchaseDocs;
+  const [existing] = await tx
+    .select({ id: table.id })
+    .from(table)
+    .where(and(eq(table.sourceDocId, sourceId), eq(table.docType, "RETURN")))
+    .limit(1);
+  if (existing) throw new Error(`A return has already been posted against this ${label}.`);
 }

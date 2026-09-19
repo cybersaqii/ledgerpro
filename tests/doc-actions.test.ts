@@ -208,6 +208,127 @@ describe("convertPurchaseDoc + createPurchaseReturn", () => {
   });
 });
 
+describe("conversion/return correctness", () => {
+  async function createDiscountedQuotation(): Promise<string> {
+    const docNo = await db.transaction((tx) => nextDocNo(tx, companyId, "QUOTATION"));
+    const id = crypto.randomUUID();
+    await db.insert(s.salesDocs).values({
+      id, companyId, branchId, partyId: customerId, docType: "QUOTATION", docNo,
+      date: new Date(), status: "DRAFT",
+      subtotal: parseMoney("4800"), discountTotal: parseMoney("500"), taxTotal: 0n, grandTotal: parseMoney("4300"),
+      createdById: userId,
+    });
+    await db.insert(s.salesDocItems).values({
+      id: crypto.randomUUID(), docId: id, productId, description: "Rice 25kg",
+      qty: parseQty("2"), rate: parseMoney("2400"), discount: 0n, taxBps: 0,
+      taxAmount: 0n, lineTotal: parseMoney("4800"),
+    });
+    return id;
+  }
+
+  it("sales conversion preserves the source document-level discount", async () => {
+    const srcId = await createDiscountedQuotation();
+    const { docId } = await db.transaction((tx) =>
+      convertSalesDoc(tx, { companyId, branchId, sourceId: srcId, userId })
+    );
+    const [inv] = await db.select().from(s.salesDocs).where(eq(s.salesDocs.id, docId)).limit(1);
+    expect(inv!.discountTotal).toBe(parseMoney("500"));
+    expect(inv!.grandTotal).toBe(parseMoney("4300"));
+  });
+
+  it("purchase conversion preserves the source document-level discount", async () => {
+    const docNo = await db.transaction((tx) => nextDocNo(tx, companyId, "ORDER"));
+    const id = crypto.randomUUID();
+    await db.insert(s.purchaseDocs).values({
+      id, companyId, branchId, partyId: supplierId, docType: "ORDER", docNo,
+      date: new Date(), status: "DRAFT",
+      subtotal: parseMoney("2000"), discountTotal: parseMoney("200"), taxTotal: 0n, grandTotal: parseMoney("1800"),
+      createdById: userId,
+    });
+    await db.insert(s.purchaseDocItems).values({
+      id: crypto.randomUUID(), docId: id, productId, description: "Rice 25kg",
+      qty: parseQty("1"), rate: parseMoney("2000"), discount: 0n, taxBps: 0,
+      taxAmount: 0n, lineTotal: parseMoney("2000"),
+    });
+    const { docId } = await db.transaction((tx) =>
+      convertPurchaseDoc(tx, { companyId, branchId, sourceId: id, userId })
+    );
+    const [bill] = await db.select().from(s.purchaseDocs).where(eq(s.purchaseDocs.id, docId)).limit(1);
+    expect(bill!.discountTotal).toBe(parseMoney("200"));
+    expect(bill!.grandTotal).toBe(parseMoney("1800"));
+  });
+
+  it("conversion and returns stay on the source branch, not the caller's branch", async () => {
+    const otherBranch = crypto.randomUUID();
+    await db.insert(s.branches).values({ id: otherBranch, companyId, name: "Branch Two" });
+    // stock lives per branch: give the second branch its own 10 kg
+    await db.insert(s.stockLevels).values({
+      id: crypto.randomUUID(), productId, branchId: otherBranch,
+      qty: parseQty("10"), avgCost: parseMoney("2000"),
+    });
+    // quotation lives on the second branch; conversion is called with the default branch
+    const docNo = await db.transaction((tx) => nextDocNo(tx, companyId, "QUOTATION"));
+    const srcId = crypto.randomUUID();
+    await db.insert(s.salesDocs).values({
+      id: srcId, companyId, branchId: otherBranch, partyId: customerId, docType: "QUOTATION", docNo,
+      date: new Date(), status: "DRAFT",
+      subtotal: parseMoney("4800"), discountTotal: 0n, taxTotal: 0n, grandTotal: parseMoney("4800"),
+      createdById: userId,
+    });
+    await db.insert(s.salesDocItems).values({
+      id: crypto.randomUUID(), docId: srcId, productId, description: "Rice 25kg",
+      qty: parseQty("2"), rate: parseMoney("2400"), discount: 0n, taxBps: 0,
+      taxAmount: 0n, lineTotal: parseMoney("4800"),
+    });
+
+    const { docId: invId } = await db.transaction((tx) =>
+      convertSalesDoc(tx, { companyId, branchId, sourceId: srcId, userId })
+    );
+    const [inv] = await db.select().from(s.salesDocs).where(eq(s.salesDocs.id, invId)).limit(1);
+    expect(inv!.branchId).toBe(otherBranch);
+
+    const { docId: retId } = await db.transaction((tx) =>
+      createSalesReturn(tx, { companyId, branchId, sourceId: invId, userId })
+    );
+    const [ret] = await db.select().from(s.salesDocs).where(eq(s.salesDocs.id, retId)).limit(1);
+    expect(ret!.branchId).toBe(otherBranch);
+  });
+
+  it("rejects a second full sales return against the same invoice", async () => {
+    const srcId = await createQuotation();
+    const { docId: invId } = await db.transaction((tx) =>
+      convertSalesDoc(tx, { companyId, branchId, sourceId: srcId, userId })
+    );
+    await db.transaction((tx) => createSalesReturn(tx, { companyId, branchId, sourceId: invId, userId }));
+    await expect(
+      db.transaction((tx) => createSalesReturn(tx, { companyId, branchId, sourceId: invId, userId }))
+    ).rejects.toThrow(/already been posted/);
+  });
+
+  it("rejects a second full purchase return against the same bill", async () => {
+    const docNo = await db.transaction((tx) => nextDocNo(tx, companyId, "ORDER"));
+    const orderId = crypto.randomUUID();
+    await db.insert(s.purchaseDocs).values({
+      id: orderId, companyId, branchId, partyId: supplierId, docType: "ORDER", docNo,
+      date: new Date(), status: "DRAFT",
+      subtotal: parseMoney("2000"), discountTotal: 0n, taxTotal: 0n, grandTotal: parseMoney("2000"),
+      createdById: userId,
+    });
+    await db.insert(s.purchaseDocItems).values({
+      id: crypto.randomUUID(), docId: orderId, productId, description: "Rice 25kg",
+      qty: parseQty("1"), rate: parseMoney("2000"), discount: 0n, taxBps: 0,
+      taxAmount: 0n, lineTotal: parseMoney("2000"),
+    });
+    const { docId: billId } = await db.transaction((tx) =>
+      convertPurchaseDoc(tx, { companyId, branchId, sourceId: orderId, userId })
+    );
+    await db.transaction((tx) => createPurchaseReturn(tx, { companyId, branchId, sourceId: billId, userId }));
+    await expect(
+      db.transaction((tx) => createPurchaseReturn(tx, { companyId, branchId, sourceId: billId, userId }))
+    ).rejects.toThrow(/already been posted/);
+  });
+});
+
 describe("logAudit", () => {
   it("writes an audit row and never throws", async () => {
     await logAudit(db, {
