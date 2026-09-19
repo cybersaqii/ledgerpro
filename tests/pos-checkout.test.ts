@@ -41,7 +41,7 @@ beforeAll(async () => {
   });
   // stock in: 100 pcs @ 200
   const billId = crypto.randomUUID();
-  const docNo = await nextDocNo(db, companyId, "BILL");
+  const docNo = await db.transaction((tx) => nextDocNo(tx, companyId, "BILL"));
   const items: DocItemInput[] = [
     { productId, description: "POS Item", qtyMilli: parseQty("100"), ratePaisa: parseMoney("200"), discountPaisa: 0n, taxBps: 0 },
   ];

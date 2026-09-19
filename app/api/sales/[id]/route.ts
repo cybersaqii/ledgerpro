@@ -6,7 +6,7 @@ import { requireCompany, db } from "@/lib/route-helpers";
 
 async function find(companyId: string, id: string) {
   const docs = await db
-    .select({ doc: salesDocs, partyName: parties.name })
+    .select({ doc: salesDocs, partyName: parties.name, partyPhone: parties.phone })
     .from(salesDocs)
     .leftJoin(parties, eq(salesDocs.partyId, parties.id))
     .where(and(eq(salesDocs.id, id), eq(salesDocs.companyId, companyId)))
@@ -23,7 +23,7 @@ async function find(companyId: string, id: string) {
       .limit(1);
     journal = je[0] ?? null;
   }
-  return { ...row.doc, partyName: row.partyName, items, journal };
+  return { ...row.doc, partyName: row.partyName, partyPhone: row.partyPhone, items, journal };
 }
 
 export async function GET(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
