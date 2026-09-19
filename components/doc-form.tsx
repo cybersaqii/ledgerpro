@@ -8,7 +8,7 @@ import { api, fmtMoney, fmtDateInput } from "@/lib/format";
 import { useBusinessProfile } from "@/components/business-type";
 
 type Party = { id: string; name: string; phone: string | null };
-type Product = { id: string; sku: string; name: string; unit: string; salePrice: string; purchasePrice: string; totalQty: string };
+type Product = { id: string; sku: string; name: string; unit: string; salePrice: string; purchasePrice: string; totalQty: string; minSalePrice?: string | null };
 
 type Line = {
   key: number;
@@ -47,6 +47,7 @@ export function DocForm({ mode }: { mode: "SALES" | "PURCHASE" }) {
   const [quickPhone, setQuickPhone] = useState("");
   const keyRef = useRef(0);
   const prodBoxRef = useRef<HTMLDivElement>(null);
+  const productCache = useRef(new Map<string, Product>());
 
   // parties search
   useEffect(() => {
@@ -82,6 +83,7 @@ export function DocForm({ mode }: { mode: "SALES" | "PURCHASE" }) {
   }, []);
 
   function addLine(p: Product) {
+    productCache.current.set(p.id, p);
     keyRef.current += 1;
     const price = isSales ? p.salePrice : p.purchasePrice;
     setLines((ls) => [...ls, {
@@ -146,7 +148,7 @@ export function DocForm({ mode }: { mode: "SALES" | "PURCHASE" }) {
   const discTotal = Math.round(parseFloat(discountTotal || "0") * 100);
   const grand = Math.max(0, subtotal - discTotal);
 
-  async function submit(e: React.FormEvent) {
+  async function submit(e: React.FormEvent, priceOverride = false) {
     e.preventDefault();
     setError(null);
     if (!partyId) { setError(`Please select a ${isSales ? bp.partyOne.toLowerCase() : "supplier"}.`); return; }
@@ -154,6 +156,19 @@ export function DocForm({ mode }: { mode: "SALES" | "PURCHASE" }) {
     for (const l of lines) {
       if (!l.description.trim()) { setError("Every item needs a description."); return; }
       if (!(parseFloat(l.qty || "0") > 0)) { setError("Quantities must be positive."); return; }
+    }
+    // minimum sale price lock (posted invoices only) — one confirm, then retry with override
+    if (isSales && docType === "INVOICE" && !priceOverride) {
+      const low = lines.filter((l) => {
+        const p = l.productId ? productCache.current.get(l.productId) : undefined;
+        const floor = p?.minSalePrice != null ? BigInt(p.minSalePrice) : 0n;
+        return floor > 0n && BigInt(Math.round(parseFloat(l.rate || "0") * 100)) < floor;
+      });
+      if (low.length > 0) {
+        const names = low.slice(0, 3).map((l) => l.description).join(", ") + (low.length > 3 ? "…" : "");
+        if (!window.confirm(`Below minimum sale price: ${names}.\n\nSave anyway? This will be recorded in the activity log.`)) return;
+        return submit(e, true);
+      }
     }
     setSaving(true);
     try {
@@ -170,6 +185,7 @@ export function DocForm({ mode }: { mode: "SALES" | "PURCHASE" }) {
         })),
       };
       if (!isSales && refNo) body.refNo = refNo;
+      if (isSales && docType === "INVOICE") body.priceOverride = priceOverride;
       const d = await api<{ data: { docId: string } }>(endpoint, { method: "POST", body: JSON.stringify(body) });
       router.push(isSales ? `/sales/${d.data.docId}` : `/purchases/${d.data.docId}`);
     } catch (err) {

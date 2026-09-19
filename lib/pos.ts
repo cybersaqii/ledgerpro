@@ -11,6 +11,8 @@ export interface PosProduct {
   unit: string;
   /** sale price in paisa (string/number/bigint as returned by /api/products) */
   salePrice: string | number | bigint;
+  /** floor price in paisa; selling below needs an override (optional) */
+  minSalePrice?: string | number | bigint | null;
 }
 
 export interface PosLine {
@@ -116,6 +118,20 @@ export function toDocItems(lines: PosLine[]) {
     rate: l.rate,
     discount: l.discount || "0",
   }));
+}
+
+/** Lines priced below their product's minimum sale price (compares the line rate). */
+export function priceWarnings(lines: PosLine[], products: PosProduct[]): { line: PosLine; floor: string }[] {
+  const byId = new Map(products.map((p) => [p.id, p]));
+  const out: { line: PosLine; floor: string }[] = [];
+  for (const l of lines) {
+    const p = l.productId ? byId.get(l.productId) : undefined;
+    const floor = p?.minSalePrice != null ? BigInt(p.minSalePrice) : 0n;
+    if (floor > 0n && BigInt(Math.round(parseFloat(l.rate || "0") * 100)) < floor) {
+      out.push({ line: l, floor: paisaToRupees(floor) });
+    }
+  }
+  return out;
 }
 
 /** Validate the cart before saving; returns an error message or null. */

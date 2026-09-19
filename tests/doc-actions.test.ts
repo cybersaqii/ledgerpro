@@ -39,6 +39,7 @@ beforeAll(async () => {
     unit: "KG",
     purchasePrice: parseMoney("2000"),
     salePrice: parseMoney("2400"),
+    minSalePrice: parseMoney("2300"),
   });
   // receive 10 kg stock via a posted purchase bill
   const items: DocItemInput[] = [{
@@ -223,6 +224,75 @@ describe("logAudit", () => {
 
     // never throws, even on a broken db handle
     await expect(logAudit(null as never, { companyId, userId, userName: "x", action: "y" })).resolves.toBeUndefined();
+  });
+});
+
+describe("minimum sale price lock", () => {
+  async function createCheapQuotation(rateRs: string): Promise<string> {
+    const docNo = await db.transaction((tx) => nextDocNo(tx, companyId, "QUOTATION"));
+    const id = crypto.randomUUID();
+    const qty = parseQty("1");
+    const rate = parseMoney(rateRs);
+    await db.insert(s.salesDocs).values({
+      id, companyId, branchId, partyId: customerId, docType: "QUOTATION", docNo,
+      date: new Date(), status: "DRAFT",
+      subtotal: rate, discountTotal: 0n, taxTotal: 0n, grandTotal: rate,
+      createdById: userId,
+    });
+    await db.insert(s.salesDocItems).values({
+      id: crypto.randomUUID(), docId: id, productId, description: "Rice 25kg",
+      qty, rate, discount: 0n, taxBps: 0, taxAmount: 0n, lineTotal: rate,
+    });
+    return id;
+  }
+
+  it("refuses to convert a quotation priced below the floor", async () => {
+    const srcId = await createCheapQuotation("2000"); // floor is Rs 2300
+    await expect(
+      db.transaction((tx) => convertSalesDoc(tx, { companyId, branchId, sourceId: srcId, userId }))
+    ).rejects.toThrow("Below minimum sale price");
+  });
+
+  it("converts with an explicit price override", async () => {
+    const srcId = await createCheapQuotation("2000");
+    const res = await db.transaction((tx) =>
+      convertSalesDoc(tx, { companyId, branchId, sourceId: srcId, userId, priceOverride: true })
+    );
+    const [inv] = await db.select().from(s.salesDocs).where(eq(s.salesDocs.id, res.docId)).limit(1);
+    expect(inv!.docType).toBe("INVOICE");
+    expect(inv!.grandTotal).toBe(parseMoney("2000"));
+  });
+
+  it("belowMinPrice flags only the lines under their floor", async () => {
+    const { belowMinPrice } = await import("@/lib/min-price");
+    const map = new Map([
+      ["a", { minSalePrice: "230000" }], // Rs 2300
+      ["b", { minSalePrice: "0" }],
+      ["c", {}],
+    ]);
+    const out = belowMinPrice(
+      [
+        { productId: "a", description: "Rice", rate: "2299.99" },
+        { productId: "a", description: "Rice OK", rate: "2300" },
+        { productId: "b", description: "Freebie", rate: "0" },
+        { productId: "c", description: "NoFloor", rate: "1" },
+        { productId: null, description: "Custom", rate: "5" },
+      ],
+      map
+    );
+    expect(out).toEqual(["Rice"]);
+  });
+
+  it("priceWarnings mirrors the floor check for POS lines", async () => {
+    const { priceWarnings } = await import("@/lib/pos");
+    const products = [{ id: "p1", name: "Rice", sku: "R", unit: "KG", salePrice: "240000", minSalePrice: "230000" }];
+    const lines = [
+      { key: 1, productId: "p1", name: "Rice", sku: "R", unit: "KG", qty: "1", rate: "2299", discount: "0" },
+      { key: 2, productId: "p1", name: "Rice", sku: "R", unit: "KG", qty: "1", rate: "2300", discount: "0" },
+    ];
+    const warns = priceWarnings(lines, products);
+    expect(warns).toHaveLength(1);
+    expect(warns[0]!.floor).toBe("2300.00");
   });
 });
 

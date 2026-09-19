@@ -10,6 +10,7 @@ import { nextDocNo } from "@/lib/setup";
 import { json, err } from "@/lib/api";
 import { requireCompany, db, parseDateOnly, defaultBranchId, assertBranch } from "@/lib/route-helpers";
 import { logAudit } from "@/lib/audit";
+import { belowMinPrice, floorErrorMessage } from "@/lib/min-price";
 
 const POSTED_TYPES = ["INVOICE", "RETURN"] as const;
 
@@ -97,6 +98,12 @@ export async function POST(req: NextRequest) {
   const prodMap = new Map(prodRows.map((p) => [p.id, p]));
   for (const pid of productIds) {
     if (!prodMap.has(pid)) return err("One of the selected products is invalid.", 422);
+  }
+
+  // Minimum sale price lock applies to posted invoices only (not quotes/orders).
+  const belowFloor = b.docType === "INVOICE" ? belowMinPrice(b.items, prodMap) : [];
+  if (belowFloor.length > 0 && !b.priceOverride) {
+    return err(floorErrorMessage(belowFloor), 422);
   }
 
   const docItems: DocItemInput[] = b.items.map((i) => ({
@@ -187,6 +194,14 @@ export async function POST(req: NextRequest) {
       entity: "sale", entityId: result.docId,
       detail: `${b.docType} ${result.docNo}`,
     });
+    if (belowFloor.length > 0) {
+      await logAudit(db, {
+        companyId, userId: session.uid, userName: session.name,
+        action: "sale.price_override",
+        entity: "sale", entityId: result.docId,
+        detail: `Sold below minimum price: ${belowFloor.join(", ")} (${b.docType} ${result.docNo})`,
+      });
+    }
     return json({ data: result }, { status: 201 });
   } catch (e) {
     const msg = e instanceof Error ? e.message : "Could not save the document.";

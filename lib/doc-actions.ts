@@ -5,6 +5,7 @@ import {
 import { computeTotals, type DocItemInput, type ComputedItem } from "./totals";
 import { postSalesDoc, postPurchaseDoc } from "./posting";
 import { nextDocNo } from "./setup";
+import { floorErrorMessage } from "./min-price";
 import type { DbTx } from "./db";
 
 type Tx = DbTx;
@@ -26,7 +27,7 @@ interface ConvertResult { docId: string; docNo: string; }
 /** Convert a sales QUOTATION/ORDER into a posted INVOICE (copies lines, links source). */
 export async function convertSalesDoc(
   tx: Tx,
-  input: { companyId: string; branchId: string; sourceId: string; userId: string }
+  input: { companyId: string; branchId: string; sourceId: string; userId: string; priceOverride?: boolean }
 ): Promise<ConvertResult> {
   const [src] = await tx.select().from(salesDocs)
     .where(and(eq(salesDocs.id, input.sourceId), eq(salesDocs.companyId, input.companyId))).limit(1);
@@ -36,6 +37,21 @@ export async function convertSalesDoc(
 
   const srcItems = await tx.select().from(salesDocItems).where(eq(salesDocItems.docId, src.id));
   if (srcItems.length === 0) throw new Error("Source document has no items.");
+
+  // minimum sale price lock on the resulting posted invoice
+  // (source item rates are already in paisa — compare directly)
+  const pIds = [...new Set(srcItems.map((i) => i.productId).filter(Boolean))] as string[];
+  const pRows = pIds.length
+    ? await tx.select({ id: products.id, minSalePrice: products.minSalePrice }).from(products)
+        .where(and(eq(products.companyId, input.companyId), inArray(products.id, pIds)))
+    : [];
+  const floorMap = new Map(pRows.map((p) => [p.id, p.minSalePrice != null ? BigInt(p.minSalePrice) : 0n]));
+  const belowFloor: string[] = [];
+  for (const i of srcItems) {
+    const floor = (i.productId && floorMap.get(i.productId)) || 0n;
+    if (floor > 0n && BigInt(i.rate) < floor) belowFloor.push(i.description || "item");
+  }
+  if (belowFloor.length > 0 && !input.priceOverride) throw new Error(floorErrorMessage(belowFloor));
 
   const items: DocItemInput[] = srcItems.map((i) => ({
     productId: i.productId,

@@ -63,6 +63,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
       ...(p.taxBps !== undefined ? { taxBps: p.taxBps } : {}),
       ...(p.trackStock !== undefined ? { trackStock: p.trackStock } : {}),
       ...(p.reorderLevel !== undefined ? { reorderLevel: parseQty(p.reorderLevel) } : {}),
+      ...(p.minSalePrice !== undefined ? { minSalePrice: parseMoney(p.minSalePrice) } : {}),
       updatedAt: new Date(),
     })
     .where(eq(products.id, id));

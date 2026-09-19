@@ -10,12 +10,12 @@ import { useBusinessProfile } from "@/components/business-type";
 type Product = {
   id: string; sku: string; name: string; unit: string; category: string | null;
   purchasePrice: string; salePrice: string; trackStock: boolean;
-  reorderLevel: string; totalQty: string;
+  reorderLevel: string; totalQty: string; minSalePrice: string;
 };
 
 const emptyForm = {
   sku: "", name: "", barcode: "", category: "", unit: "PCS",
-  purchasePrice: "0", salePrice: "0", trackStock: true, reorderLevel: "0",
+  purchasePrice: "0", salePrice: "0", trackStock: true, reorderLevel: "0", minSalePrice: "0",
 };
 
 const UNITS = ["PCS", "KG", "G", "LTR", "ML", "MTR", "BOX", "CTN", "DOZ", "BAG"];
@@ -56,6 +56,7 @@ export default function ProductsPage() {
       salePrice: (Number(BigInt(p.salePrice)) / 100).toString(),
       trackStock: p.trackStock,
       reorderLevel: (Number(BigInt(p.reorderLevel)) / 1000).toString(),
+      minSalePrice: (Number(BigInt(p.minSalePrice ?? "0")) / 100).toString(),
     });
     setError(null);
     setModal({ mode: "edit", p });
@@ -154,6 +155,9 @@ export default function ProductsPage() {
             <div className="grid gap-4 sm:grid-cols-3">
               <Field label="Buy price (Rs)"><input className="field" type="number" min="0" step="0.01" value={form.purchasePrice} onChange={set("purchasePrice")} /></Field>
               <Field label="Sale price (Rs)"><input className="field" type="number" min="0" step="0.01" value={form.salePrice} onChange={set("salePrice")} /></Field>
+              <Field label="Min. sale price (Rs)" hint="Selling below this needs an override"><input className="field" type="number" min="0" step="0.01" value={form.minSalePrice} onChange={set("minSalePrice")} /></Field>
+            </div>
+            <div className="grid gap-4 sm:grid-cols-3">
               <Field label="Reorder level"><input className="field" type="number" min="0" step="0.001" value={form.reorderLevel} onChange={set("reorderLevel")} /></Field>
             </div>
             <label className="flex cursor-pointer items-center gap-2 text-sm font-semibold">

@@ -119,8 +119,8 @@ export async function GET(req: NextRequest) {
   } else if (kind === "products") {
     const rows = await db.select().from(products).where(eq(products.companyId, companyId));
     csv = toCSV(
-      ["SKU", "Barcode", "Name", "Category", "Unit", "Purchase Price (Rs)", "Sale Price (Rs)", "Track Stock", "Active"],
-      rows.map((p) => [p.sku, p.barcode, p.name, p.category, p.unit, rupees(p.purchasePrice), rupees(p.salePrice), p.trackStock ? "Yes" : "No", p.isActive ? "Yes" : "No"])
+      ["SKU", "Barcode", "Name", "Category", "Unit", "Purchase Price (Rs)", "Sale Price (Rs)", "Min Sale Price (Rs)", "Track Stock", "Active"],
+      rows.map((p) => [p.sku, p.barcode, p.name, p.category, p.unit, rupees(p.purchasePrice), rupees(p.salePrice), rupees(p.minSalePrice), p.trackStock ? "Yes" : "No", p.isActive ? "Yes" : "No"])
     );
   } else if (kind === "sales") {
     const rows = await db

@@ -258,19 +258,27 @@ function DocActions({ doc, isSales }: { doc: Doc; isSales: boolean }) {
   const canConvert = doc.status !== "CONVERTED" && (isSales ? doc.docType === "QUOTATION" || doc.docType === "ORDER" : doc.docType === "ORDER");
   const canReturn = doc.status === "POSTED" && (isSales ? doc.docType === "INVOICE" : doc.docType === "BILL");
 
-  async function run(action: "convert" | "return") {
+  async function run(action: "convert" | "return", priceOverride = false) {
     if (busy) return;
     const label = action === "convert" ? (isSales ? "invoice" : "bill") : "return";
-    if (!window.confirm(`Create a ${label} from ${doc.docNo}? This will post to stock and accounts.`)) return;
+    if (!priceOverride && !window.confirm(`Create a ${label} from ${doc.docNo}? This will post to stock and accounts.`)) return;
     setBusy(true); setError(null);
     try {
       const d = await api<{ data: { docId: string } }>(
         `${isSales ? "/api/sales" : "/api/purchases"}/${doc.id}/convert`,
-        { method: "POST", body: JSON.stringify({ action }) }
+        { method: "POST", body: JSON.stringify({ action, priceOverride }) }
       );
       router.push(`${isSales ? "/sales" : "/purchases"}/${d.data.docId}`);
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Could not complete the action.");
+      const msg = e instanceof Error ? e.message : "Could not complete the action.";
+      // minimum-price lock: offer a one-tap override retry
+      if (action === "convert" && msg.startsWith("Below minimum sale price")) {
+        if (window.confirm(`${msg}\n\nConvert anyway? This will be recorded in the activity log.`)) {
+          await run(action, true);
+          return;
+        }
+      }
+      setError(msg);
     } finally { setBusy(false); }
   }
 

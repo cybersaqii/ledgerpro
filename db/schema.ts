@@ -147,6 +147,7 @@ export const products = sqliteTable(
     taxBps: integer("tax_bps").notNull().default(0),
     trackStock: flag("track_stock", true),
     reorderLevel: qty("reorder_level"),
+    minSalePrice: money("min_sale_price"), // floor price; selling below needs an override
     isActive: flag("is_active", true),
     createdAt: createdAt(),
     updatedAt: updatedAt(),

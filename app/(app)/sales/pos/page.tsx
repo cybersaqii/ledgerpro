@@ -10,7 +10,7 @@ import {
 import { ErrorNote } from "@/components/ui";
 import { api, fmtMoney, fmtDateInput } from "@/lib/format";
 import {
-  addToCart, addAsNewLine, cartTotals, lineTotalPaisa, toDocItems, validateCart,
+  addToCart, addAsNewLine, cartTotals, lineTotalPaisa, toDocItems, validateCart, priceWarnings,
   type PosLine, type PosProduct,
 } from "@/lib/pos";
 import { useBusinessProfile } from "@/components/business-type";
@@ -51,6 +51,10 @@ export default function PosPage() {
 
   // duplicate-item protection
   const [dupProduct, setDupProduct] = useState<ApiProduct | null>(null);
+
+  // minimum-price cache + override confirm
+  const productCache = useRef(new Map<string, ApiProduct>());
+  const [priceWarn, setPriceWarn] = useState<{ line: PosLine; floor: string }[] | null>(null);
 
   // checkout
   const [stage, setStage] = useState<Stage>("billing");
@@ -146,6 +150,7 @@ export default function PosPage() {
   }
 
   function addProduct(p: ApiProduct, mode: "auto" | "merge" | "newline" = "auto") {
+    productCache.current.set(p.id, p);
     if (mode === "auto" && lines.some((l) => l.productId === p.id)) {
       // duplicate protection: let the cashier decide — merge or separate line
       setDupProduct(p);
@@ -210,10 +215,16 @@ export default function PosPage() {
     return c.data.id;
   }
 
-  async function completeSale() {
+  async function completeSale(priceOverride = false) {
     const err = validateCart(lines);
     if (err) { setError(err); return; }
     setError(null);
+
+    // minimum sale price lock — ask once, then re-enter with the override flag
+    if (!priceOverride) {
+      const warns = priceWarnings(lines, [...productCache.current.values()]);
+      if (warns.length > 0) { setPriceWarn(warns); return; }
+    }
 
     let partyId: string;
     try {
@@ -268,6 +279,7 @@ export default function PosPage() {
           items: toDocItems(lines),
           payments,
           tendered: tenderedVal,
+          priceOverride,
         }),
       });
       const docId = res.data.docId;
@@ -562,7 +574,7 @@ export default function PosPage() {
                   <span className="text-sm font-bold">Change to return</span>
                   <span className="text-xl font-extrabold">{fmtMoney(change)}</span>
                 </div>
-                <button onClick={completeSale} disabled={saving || lines.length === 0}
+                <button onClick={() => completeSale()} disabled={saving || lines.length === 0}
                   className="btn btn-primary w-full !py-3.5 text-base disabled:opacity-50">
                   {saving ? "Saving…" : "Complete sale"} <kbd className="ml-1 rounded bg-white/20 px-1.5 text-xs">Enter</kbd>
                 </button>
@@ -579,7 +591,7 @@ export default function PosPage() {
                     ))}
                   </select>
                 </div>
-                <button onClick={completeSale} disabled={saving || lines.length === 0}
+                <button onClick={() => completeSale()} disabled={saving || lines.length === 0}
                   className="btn btn-primary w-full !py-3.5 text-base disabled:opacity-50">
                   {saving ? "Saving…" : `Charge ${fmtMoney(totals.grand)}`}
                 </button>
@@ -631,7 +643,7 @@ export default function PosPage() {
                   <span className="text-sm font-bold">Remaining</span>
                   <span className="text-xl font-extrabold">{fmtMoney(splitRemaining)}</span>
                 </div>
-                <button onClick={completeSale} disabled={saving || lines.length === 0 || splitRemaining !== 0}
+                <button onClick={() => completeSale()} disabled={saving || lines.length === 0 || splitRemaining !== 0}
                   className="btn btn-primary w-full !py-3.5 text-base disabled:opacity-50">
                   {saving ? "Saving…" : `Complete split · ${fmtMoney(totals.grand)}`}
                 </button>
@@ -663,7 +675,7 @@ export default function PosPage() {
                     </ul>
                   )}
                 </div>
-                <button onClick={completeSale} disabled={saving || lines.length === 0}
+                <button onClick={() => completeSale()} disabled={saving || lines.length === 0}
                   className="btn btn-primary w-full !py-3.5 text-base disabled:opacity-50">
                   {saving ? "Saving…" : `Save to khata · ${fmtMoney(totals.grand)}`}
                 </button>
@@ -710,6 +722,38 @@ export default function PosPage() {
               </button>
               <button className="btn btn-ghost w-full text-muted-foreground" onClick={() => setDupProduct(null)}>
                 Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* minimum sale price override */}
+      {priceWarn && (
+        <div className="fixed inset-0 z-50 grid place-items-center bg-black/50 p-4" onClick={() => setPriceWarn(null)}>
+          <div className="w-full max-w-sm rounded-2xl bg-card p-6 shadow-xl" onClick={(e) => e.stopPropagation()}>
+            <h3 className="text-lg font-extrabold">Below minimum price</h3>
+            <p className="mt-1 text-sm text-muted-foreground">
+              These items are priced below their minimum sale price. This will be recorded in the activity log.
+            </p>
+            <ul className="mt-3 space-y-1.5">
+              {priceWarn.map((w) => (
+                <li key={w.line.key} className="flex items-center justify-between gap-2 rounded-xl bg-muted/70 px-3 py-2 text-sm">
+                  <span className="font-bold">{w.line.name}</span>
+                  <span className="text-muted-foreground">min Rs {w.floor}</span>
+                </li>
+              ))}
+            </ul>
+            <div className="mt-5 space-y-2">
+              <button
+                autoFocus
+                className="btn btn-primary w-full"
+                onClick={() => { setPriceWarn(null); completeSale(true); }}
+              >
+                Sell below minimum
+              </button>
+              <button className="btn btn-ghost w-full text-muted-foreground" onClick={() => setPriceWarn(null)}>
+                Go back and fix prices
               </button>
             </div>
           </div>

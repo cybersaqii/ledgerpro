@@ -87,6 +87,7 @@ export async function POST(req: NextRequest) {
     taxBps: p.taxBps,
     trackStock: p.trackStock,
     reorderLevel: parseQty(p.reorderLevel),
+    minSalePrice: parseMoney(p.minSalePrice),
   });
   const rows = await db.select().from(products).where(eq(products.id, id)).limit(1);
   return json({ data: rows[0] }, { status: 201 });

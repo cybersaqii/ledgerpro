@@ -7,7 +7,7 @@ import { requireCompany, db } from "@/lib/route-helpers";
 
 // POST /api/import — CSV import for products and parties.
 // multipart/form-data: file (CSV), kind=products|parties.
-// Products columns: SKU, Name, Barcode, Category, Unit, Purchase Price, Sale Price, Track Stock
+// Products columns: SKU, Name, Barcode, Category, Unit, Purchase Price, Sale Price, Min Sale Price, Track Stock
 // Parties columns: Name, Type (CUSTOMER/SUPPLIER), Phone, Email, Address, City, Credit Limit
 // Returns { imported, skipped, errors[] } — valid rows import, bad rows are reported.
 
@@ -94,9 +94,10 @@ export async function POST(req: NextRequest) {
     const iPP = idx(["purchaseprice", "purchase", "cost"]);
     const iSP = idx(["saleprice", "sale", "price", "rate"]);
     const iTrack = idx(["trackstock", "track", "stock"]);
+    const iMin = idx(["minsaleprice", "minprice", "floorprice", "minimumprice"]);
     if (iSku < 0 || iName < 0) return err("The CSV needs at least SKU and Name columns.", 422);
 
-    type PRow = { sku: string; name: string; barcode: string | null; category: string | null; unit: string; pp: bigint; sp: bigint; track: boolean };
+    type PRow = { sku: string; name: string; barcode: string | null; category: string | null; unit: string; pp: bigint; sp: bigint; track: boolean; min: bigint };
     const valid: PRow[] = [];
     const seen = new Set<string>();
     rows.slice(1).forEach((r, k) => {
@@ -109,7 +110,8 @@ export async function POST(req: NextRequest) {
       if (sku.length > 40) { errors.push({ row: rowNo, message: "SKU is too long (max 40)." }); return; }
       const ppS = cell(r, iPP) || "0";
       const spS = cell(r, iSP) || "0";
-      if (!moneyOk(ppS) || !moneyOk(spS)) { errors.push({ row: rowNo, message: "Prices must be numbers like 250 or 250.50." }); return; }
+      const minS = cell(r, iMin) || "0";
+      if (!moneyOk(ppS) || !moneyOk(spS) || !moneyOk(minS)) { errors.push({ row: rowNo, message: "Prices must be numbers like 250 or 250.50." }); return; }
       const key = sku.toLowerCase();
       if (seen.has(key)) { errors.push({ row: rowNo, message: `Duplicate SKU "${sku}" in this file.` }); return; }
       seen.add(key);
@@ -122,6 +124,7 @@ export async function POST(req: NextRequest) {
         unit,
         pp: parseMoney(ppS), sp: parseMoney(spS),
         track: trackRaw === "" ? true : ["yes", "y", "true", "1"].includes(trackRaw),
+        min: parseMoney(minS),
       });
     });
 
@@ -150,6 +153,7 @@ export async function POST(req: NextRequest) {
           purchasePrice: v.pp,
           salePrice: v.sp,
           trackStock: v.track,
+          minSalePrice: v.min,
           isActive: true,
         }))
       );

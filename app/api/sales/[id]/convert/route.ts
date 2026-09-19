@@ -12,11 +12,12 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   const { id } = await params;
   const body = await req.json().catch(() => ({}));
   const action = body.action === "return" ? "return" : "convert";
+  const priceOverride = body.priceOverride === true;
 
   try {
     const result = await db.transaction(async (tx) => {
       const branchId = await defaultBranchId(tx, companyId);
-      const args = { companyId, branchId, sourceId: id, userId: session.uid };
+      const args = { companyId, branchId, sourceId: id, userId: session.uid, priceOverride };
       if (action === "return") return createSalesReturn(tx, args);
       return convertSalesDoc(tx, args);
     });
@@ -26,6 +27,14 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       entity: "sale", entityId: result.docId,
       detail: action === "return" ? `Sales return ${result.docNo} created` : `Invoice ${result.docNo} converted`,
     });
+    if (action === "convert" && priceOverride) {
+      await logAudit(db, {
+        companyId, userId: session.uid, userName: session.name,
+        action: "sale.price_override",
+        entity: "sale", entityId: result.docId,
+        detail: `Converted below minimum price (invoice ${result.docNo})`,
+      });
+    }
     return json({ data: result }, { status: 201 });
   } catch (e) {
     return err(e instanceof Error ? e.message : "Could not process the document.", 422);

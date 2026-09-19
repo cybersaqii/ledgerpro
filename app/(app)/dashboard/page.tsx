@@ -88,11 +88,11 @@ export default function DashboardPage() {
         </Link>
       )}
 
-      {/* Quick actions */}
-      <div className="mb-5 grid grid-cols-4 gap-2.5 sm:grid-cols-8">
+      {/* Quick actions — horizontal swipe strip on phones, grid on larger screens */}
+      <div className="mb-5 flex gap-2.5 overflow-x-auto pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden sm:grid sm:grid-cols-4 sm:overflow-visible lg:grid-cols-8">
         {quickActions.map((q) => (
           <Link key={q.label} href={q.href}
-            className="card group flex flex-col items-center gap-1.5 py-3.5 transition hover:-translate-y-0.5">
+            className="card group flex w-[78px] shrink-0 snap-start flex-col items-center gap-1.5 py-3.5 transition hover:-translate-y-0.5 sm:w-auto">
             <span className={`grid h-10 w-10 place-items-center rounded-2xl ${q.cls} transition group-hover:scale-110`}>
               <q.icon size={19} />
             </span>

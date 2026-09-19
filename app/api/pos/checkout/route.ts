@@ -10,6 +10,7 @@ import { nextDocNo } from "@/lib/setup";
 import { json, err } from "@/lib/api";
 import { requireCompany, db, parseDateOnly, defaultBranchId, assertBranch } from "@/lib/route-helpers";
 import { logAudit } from "@/lib/audit";
+import { belowMinPrice, floorErrorMessage } from "@/lib/min-price";
 
 // POST /api/pos/checkout — atomic POS sale.
 // Creates the invoice AND its receipt(s) inside ONE database transaction:
@@ -46,6 +47,13 @@ export async function POST(req: NextRequest) {
   const prodMap = new Map(prodRows.map((p) => [p.id, p]));
   for (const pid of productIds) {
     if (!prodMap.has(pid)) return err("One of the selected products is invalid.", 422);
+  }
+
+  // Minimum sale price lock: any line priced below its product's floor needs
+  // an explicit override (which is audit-logged below).
+  const belowFloor = belowMinPrice(b.items, prodMap);
+  if (belowFloor.length > 0 && !b.priceOverride) {
+    return err(floorErrorMessage(belowFloor), 422);
   }
 
   // Cash/bank accounts must belong to this company.
@@ -178,6 +186,14 @@ export async function POST(req: NextRequest) {
       entity: "sale", entityId: result.docId,
       detail: `POS invoice ${result.docNo}`,
     });
+    if (belowFloor.length > 0) {
+      await logAudit(db, {
+        companyId, userId: session.uid, userName: session.name,
+        action: "pos.price_override",
+        entity: "sale", entityId: result.docId,
+        detail: `Sold below minimum price: ${belowFloor.join(", ")} (invoice ${result.docNo})`,
+      });
+    }
     return json(
       {
         data: {

@@ -44,6 +44,7 @@ export const productSchema = z.object({
   taxBps: z.coerce.number().int().min(0).max(10000).default(0),
   trackStock: z.boolean().default(true),
   reorderLevel: qtyStr.default("0"),
+  minSalePrice: moneyStr.default("0"),
 });
 
 export const docItemSchema = z.object({
@@ -64,6 +65,7 @@ export const salesDocSchema = z.object({
   discountTotal: moneyStr.default("0"),
   notes: z.string().trim().max(500).optional().or(z.literal("")),
   items: z.array(docItemSchema).min(1, "Add at least one item"),
+  priceOverride: z.boolean().default(false), // explicit override of minimum sale price
 });
 
 export const purchaseDocSchema = salesDocSchema.extend({
@@ -122,4 +124,5 @@ export const posCheckoutSchema = z.object({
     .default([]),
   // Cash received from the customer (for change); informational only.
   tendered: moneyStr.optional().or(z.literal("")),
+  priceOverride: z.boolean().default(false), // explicit override of minimum sale price
 });
