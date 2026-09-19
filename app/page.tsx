@@ -10,11 +10,11 @@ import { brand } from "@/lib/brand";
 
 const features = [
   { icon: FileText, title: "Sales & purchase bills", text: "Invoices, returns, quotations and orders with automatic double-entry posting behind every document." },
-  { icon: Boxes, title: "Smart stock control", text: "Quantities, average-cost valuation and low-stock alerts across all your branches." },
+  { icon: Boxes, title: "Smart stock control", text: "Quantities, average-cost valuation and low-stock tracking for your business." },
   { icon: Wallet, title: "Payments & receipts", text: "Allocate every receipt against invoices. Know exactly who owes you — and who you owe — at any second." },
   { icon: BarChart3, title: "Reports that matter", text: "Profit & loss, balance sheet, trial balance, party ledgers and stock valuation in one click." },
   { icon: ScanBarcode, title: "Fast billing", text: "Search products by name or SKU and build a bill in seconds — even on a phone." },
-  { icon: ShieldCheck, title: "Safe for 10 years", text: "Every entry is balanced and permanent. Your complete business history, always verifiable." },
+  { icon: ShieldCheck, title: "Safe for up to 10 years", text: "Every entry is balanced and permanent. Your complete business history, always verifiable." },
   { icon: Users, title: "Parties & credit limits", text: "Customers and suppliers with balances, credit limits and full transaction history." },
   { icon: Landmark, title: "Cash & bank", text: "Track every cash drawer, bank account and wallet with automatic balance updates." },
   { icon: Smartphone, title: "Works everywhere", text: "Fast on mobile, tablet and desktop. Light and dark mode included." },
@@ -114,7 +114,7 @@ export default function LandingPage() {
                 "Every customer's udhaar, one tap away",
                 "Stock, cash & profit update themselves",
                 "No accounting knowledge needed",
-                "Your data stays safe for 10 years",
+                "Your data stays safe for up to 10 years",
               ].map((t) => (
                 <li key={t} className="flex items-start gap-2 text-sm font-medium text-emerald-50">
                   <CheckCircle2 size={17} className="mt-0.5 shrink-0 text-emerald-300" />
@@ -131,7 +131,7 @@ export default function LandingPage() {
               </Link>
             </div>
             <p className="rise rise-4 mt-4 text-xs text-emerald-100/60">
-              Set up in 2 minutes · Free to start · Cancel anytime
+              Set up in 2 minutes · Free to start · No credit card needed
             </p>
           </div>
 
@@ -242,7 +242,7 @@ export default function LandingPage() {
                     "Every rupee tracked — nothing ever slips away",
                     "Live stock with low-stock alerts",
                     "Profit, dues and cash in one click",
-                    "10 years of balanced, verifiable history",
+                    "Up to 10 years of balanced, verifiable history",
                   ].map((t) => (
                     <li key={t} className="flex items-start gap-2.5 text-sm font-medium">
                       <CheckCircle2 size={17} className="mt-0.5 shrink-0 text-emerald-600" /> {t}
@@ -270,7 +270,7 @@ export default function LandingPage() {
               <Sparkles size={13} /> Built for your trade
             </span>
             <h2 className="mt-4 text-3xl font-extrabold tracking-tight sm:text-4xl">Made for every business</h2>
-            <p className="mx-auto mt-3 max-w-xl text-muted-foreground">Tell us your trade at signup — your workspace adapts. A retailer sees fast counter billing; a wholesaler sees bulk workflows.</p>
+            <p className="mx-auto mt-3 max-w-xl text-muted-foreground">Tell us your trade at signup — your workspace adapts to it. A clinic sees Patients and Treatments; a wholesaler sees Parties and Products — one reliable hisaab engine underneath.</p>
           </div>
           <div className="mt-10 grid grid-cols-2 gap-3 sm:grid-cols-4 sm:gap-4">
             {businessTypes.map((b) => (
