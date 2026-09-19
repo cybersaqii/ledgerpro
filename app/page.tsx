@@ -448,7 +448,11 @@ export default function LandingPage() {
         <div className="relative border-t border-white/10">
           <div className="mx-auto flex max-w-[1400px] flex-col items-center justify-between gap-2 px-4 py-5 text-xs text-emerald-100/50 sm:flex-row sm:px-8">
             <p>© 2026 {brand.name}. All rights reserved.</p>
-            <p>Complete hisaab-kitab for every business.</p>
+            <p className="flex items-center gap-4">
+              <Link href="/terms" className="transition hover:text-emerald-100">Terms</Link>
+              <Link href="/privacy" className="transition hover:text-emerald-100">Privacy</Link>
+              <span className="hidden sm:inline">Complete hisaab-kitab for every business.</span>
+            </p>
           </div>
         </div>
       </footer>
