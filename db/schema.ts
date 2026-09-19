@@ -373,6 +373,23 @@ export const settings = sqliteTable(
   (t) => [uniqueIndex("settings_company_key").on(t.companyId, t.key)]
 );
 
+// Held (parked) POS bills — durable, server-side, owned by company + user.
+// Replaces the old device-local localStorage parking so a held bill survives
+// browser clears and can be picked up from another counter.
+export const heldBills = sqliteTable(
+  "held_bills",
+  {
+    id: id(),
+    companyId: text("company_id").notNull(),
+    userId: text("user_id").notNull(),
+    label: text("label").notNull().default(""),
+    lines: text("lines").notNull(), // JSON: [{productId,name,sku,unit,qty,rate,discount}]
+    discount: text("discount").notNull().default("0"), // money string
+    createdAt: createdAt(),
+  },
+  (t) => [index("held_company_user").on(t.companyId, t.userId)]
+);
+
 // Audit trail: who did what, when.
 export const auditLogs = sqliteTable(
   "audit_logs",

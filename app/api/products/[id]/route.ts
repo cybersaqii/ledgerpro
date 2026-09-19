@@ -6,6 +6,7 @@ import { parseMoney } from "@/lib/money";
 import { parseQty } from "@/lib/qty";
 import { json, err } from "@/lib/api";
 import { requireCompany, db } from "@/lib/route-helpers";
+import { logAudit } from "@/lib/audit";
 
 async function find(companyId: string, id: string) {
   const rows = await db
@@ -32,7 +33,7 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
 export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const gate = await requireCompany();
   if (!gate.ok) return gate.response;
-  const { companyId } = gate;
+  const { session, companyId } = gate;
   const { id } = await params;
   const row = await find(companyId, id);
   if (!row) return err("Not found.", 404);
@@ -67,16 +68,26 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
       updatedAt: new Date(),
     })
     .where(eq(products.id, id));
+  await logAudit(db, {
+    companyId, userId: session.uid, userName: session.name,
+    action: "product.updated", entity: "product", entityId: id,
+    detail: `Product "${row.name}" updated`,
+  });
   return json({ data: await find(companyId, id) });
 }
 
 export async function DELETE(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const gate = await requireCompany();
   if (!gate.ok) return gate.response;
-  const { companyId } = gate;
+  const { session, companyId } = gate;
   const { id } = await params;
   const row = await find(companyId, id);
   if (!row) return err("Not found.", 404);
   await db.update(products).set({ isActive: false }).where(eq(products.id, id));
+  await logAudit(db, {
+    companyId, userId: session.uid, userName: session.name,
+    action: "product.deleted", entity: "product", entityId: id,
+    detail: `Product "${row.name}" deactivated`,
+  });
   return json({ ok: true });
 }

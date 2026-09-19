@@ -134,3 +134,23 @@ export const posCheckoutSchema = z.object({
   tendered: moneyStr.optional().or(z.literal("")),
   priceOverride: z.boolean().default(false), // explicit override of minimum sale price
 });
+
+// POST /api/pos/held — park a bill on the server (durable, user-owned).
+export const heldBillSchema = z.object({
+  label: z.string().trim().max(80).default(""),
+  discount: moneyStr.default("0"),
+  lines: z
+    .array(
+      z.object({
+        productId: z.string().min(1).nullable().optional(),
+        name: z.string().trim().min(1).max(200),
+        sku: z.string().trim().max(60).optional().default(""),
+        unit: z.string().trim().max(20).optional().default("PCS"),
+        qty: qtyStr,
+        rate: moneyStr,
+        discount: moneyStr.default("0"),
+      })
+    )
+    .min(1, "Hold at least one item")
+    .max(200, "Too many items"),
+});

@@ -5,6 +5,7 @@ import { partySchema } from "@/lib/validators";
 import { parseMoney } from "@/lib/money";
 import { json, err } from "@/lib/api";
 import { requireCompany, db } from "@/lib/route-helpers";
+import { logAudit } from "@/lib/audit";
 
 // GET /api/parties?kind=CUSTOMER&q=ahmad&page=1
 export async function GET(req: NextRequest) {
@@ -39,7 +40,7 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   const gate = await requireCompany();
   if (!gate.ok) return gate.response;
-  const { companyId } = gate;
+  const { session, companyId } = gate;
   const body = await req.json().catch(() => null);
   const parsed = partySchema.safeParse(body);
   if (!parsed.success) return err("Please check the form and try again.", 422);
@@ -66,6 +67,11 @@ export async function POST(req: NextRequest) {
     filerStatus: p.filerStatus,
     creditLimit: parseMoney(p.creditLimit),
     notes: p.notes || null,
+  });
+  await logAudit(db, {
+    companyId, userId: session.uid, userName: session.name,
+    action: "party.created", entity: "party", entityId: id,
+    detail: `${p.kind === "CUSTOMER" ? "Customer" : "Supplier"} "${p.name}" created`,
   });
   const rows = await db.select().from(parties).where(eq(parties.id, id)).limit(1);
   return json({ data: rows[0] }, { status: 201 });

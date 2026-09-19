@@ -172,13 +172,28 @@ describe("atomic POS checkout", () => {
     expect(Number((r as unknown as { rows: { n: number }[] }).rows[0].n)).toBe(1);
   });
 
+  it("supports mixed split + khata: partial payment, remainder stays receivable", async () => {
+    const balBefore = (await db.select().from(s.parties).where(eq(s.parties.id, customerId)).limit(1))[0]!.balance;
+    const r = await atomicCheckout({
+      customer: customerId, qty: "4", rate: "250", // grand 1000
+      payWith: [{ bankAccountId: cashAccountId, amount: parseMoney("400") }],
+    });
+    expect(r.paidTotal).toBe(parseMoney("400"));
+    const doc = (await db.select().from(s.salesDocs).where(eq(s.salesDocs.id, r.docId)).limit(1))[0]!;
+    expect(doc.status).toBe("PARTIAL");
+    expect(doc.amountPaid).toBe(parseMoney("400"));
+    const party = (await db.select().from(s.parties).where(eq(s.parties.id, customerId)).limit(1))[0]!;
+    expect(party.balance).toBe(balBefore + parseMoney("600")); // +1000 sale, -400 receipt
+  });
+
   it("supports khata (no payments): invoice posts, party owes", async () => {
+    const balBefore = (await db.select().from(s.parties).where(eq(s.parties.id, customerId)).limit(1))[0]!.balance;
     const r = await atomicCheckout({ customer: customerId, qty: "2", rate: "250", payWith: [] });
     expect(r.paidTotal).toBe(0n);
     const doc = (await db.select().from(s.salesDocs).where(eq(s.salesDocs.id, r.docId)).limit(1))[0]!;
     expect(doc.status).toBe("POSTED");
     const party = (await db.select().from(s.parties).where(eq(s.parties.id, customerId)).limit(1))[0]!;
-    expect(party.balance).toBe(parseMoney("500"));
+    expect(party.balance).toBe(balBefore + parseMoney("500"));
   });
 
   it("supports split payments across two accounts", async () => {

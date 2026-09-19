@@ -64,6 +64,21 @@ function PartyLedgerInner() {
 
   const selected = parties.find((p) => p.id === partyId);
 
+  // Deep link (?party=<id>): the target may sit beyond the first search page,
+  // so fetch it directly and merge it into the list instead of showing
+  // "Select party…" for a party whose ledger is already loaded.
+  useEffect(() => {
+    if (!partyId || parties.some((p) => p.id === partyId)) return;
+    let live = true;
+    api<{ data: Party }>(`/api/parties/${partyId}`)
+      .then((d) => {
+        if (!live) return;
+        setParties((ps) => (ps.some((p) => p.id === d.data.id) ? ps : [...ps, d.data]));
+      })
+      .catch(() => { /* invalid id: ledger load already no-ops */ });
+    return () => { live = false; };
+  }, [partyId, parties]);
+
   return (
     <div>
       <PageHeader title={`${bp.partyOne} ledger`} subtitle={`Complete history of one ${bp.partyOne.toLowerCase()} or supplier`} />

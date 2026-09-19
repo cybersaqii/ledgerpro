@@ -3,9 +3,11 @@ import { eq, and, inArray } from "drizzle-orm";
 import { parties, products } from "@/db/schema";
 import { parseMoney } from "@/lib/money";
 import { json, err } from "@/lib/api";
-import { requireCompany, db } from "@/lib/route-helpers";
+import { requireCompany, requireOwner, db } from "@/lib/route-helpers";
+import { logAudit } from "@/lib/audit";
 
 // POST /api/import — CSV import for products and parties.
+// Owner-only: bulk data mutation bypasses the per-record UI flow.
 // multipart/form-data: file (CSV), kind=products|parties.
 // Products columns: SKU, Name, Barcode, Category, Unit, Purchase Price, Sale Price, Min Sale Price, Track Stock
 // Parties columns: Name, Type (CUSTOMER/SUPPLIER), Phone, Email, Address, City, Credit Limit
@@ -54,9 +56,9 @@ function moneyOk(v: string): boolean {
 }
 
 export async function POST(req: NextRequest) {
-  const gate = await requireCompany();
+  const gate = await requireOwner();
   if (!gate.ok) return gate.response;
-  const { companyId } = gate;
+  const { session, companyId } = gate;
 
   const form = await req.formData().catch(() => null);
   const kind = form?.get("kind");
@@ -231,6 +233,11 @@ export async function POST(req: NextRequest) {
     }
   }
 
+  await logAudit(db, {
+    companyId, userId: session.uid, userName: session.name,
+    action: "data.imported", entity: "import",
+    detail: `CSV import (${kind}): ${imported} imported, ${skipped} skipped`,
+  });
   return json({ data: { imported, skipped, errors: errors.slice(0, 50), errorCount: errors.length } });
 }
 

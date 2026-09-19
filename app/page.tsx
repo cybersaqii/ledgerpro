@@ -287,11 +287,11 @@ export default function LandingPage() {
           </div>
           <div className="mt-10 grid grid-cols-2 gap-3 sm:grid-cols-4 sm:gap-4">
             {businessTypes.map((b) => (
-              <div key={b.label} className={`card group flex items-center gap-2.5 p-3 transition duration-300 hover:-translate-y-1 hover:shadow-xl ${b.glow} sm:gap-3 sm:p-5`}>
-                <span className={`grid h-10 w-10 shrink-0 place-items-center rounded-2xl bg-gradient-to-br ${b.grad} text-white shadow-md sm:h-12 sm:w-12`}>
-                  <b.icon size={18} className="sm:h-[21px] sm:w-[21px]" />
+              <div key={b.label} className={`card group flex items-center gap-2 p-3 transition duration-300 hover:-translate-y-1 hover:shadow-xl ${b.glow} sm:gap-3 sm:p-5`}>
+                <span className={`grid h-9 w-9 shrink-0 place-items-center rounded-2xl bg-gradient-to-br ${b.grad} text-white shadow-md sm:h-12 sm:w-12`}>
+                  <b.icon size={16} className="sm:h-[21px] sm:w-[21px]" />
                 </span>
-                <p className="min-w-0 flex-1 break-words text-[0.8rem] font-bold leading-tight sm:text-sm">{b.label}</p>
+                <p className="min-w-0 flex-1 break-words text-[0.72rem] font-bold leading-tight sm:text-sm">{b.label}</p>
               </div>
             ))}
           </div>

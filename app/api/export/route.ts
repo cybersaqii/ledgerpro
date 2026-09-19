@@ -6,10 +6,10 @@ import {
   payments, paymentAllocations, expenses,
   journalEntries, journalLines, numberSequences, stockLevels,
 } from "@/db/schema";
-import { requireCompany, db } from "@/lib/route-helpers";
+import { requireCompany, requireOwner, db } from "@/lib/route-helpers";
 
 // GET /api/export?kind=backup|parties|products|sales|purchases|payments|expenses|stock
-// - backup: full company JSON (your data is yours — download anytime)
+// - backup: full company JSON (owner-only — it contains everything)
 // - others: CSV for spreadsheets
 
 const CSV_KINDS = ["parties", "products", "sales", "purchases", "payments", "expenses", "stock"] as const;
@@ -40,10 +40,11 @@ function dateStr(v: Date | number | string | null | undefined): string {
 }
 
 export async function GET(req: NextRequest) {
-  const gate = await requireCompany();
+  const kind = req.nextUrl.searchParams.get("kind") ?? "";
+  // Full-data backup is owner-only; per-list CSV exports stay staff-accessible.
+  const gate = kind === "backup" ? await requireOwner() : await requireCompany();
   if (!gate.ok) return gate.response;
   const { companyId } = gate;
-  const kind = req.nextUrl.searchParams.get("kind") ?? "";
 
   if (kind === "backup") {
     const c = companyId;

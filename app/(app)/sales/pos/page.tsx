@@ -22,7 +22,9 @@ type Bank = { id: string; name: string; kind: string };
 type Stage = "billing" | "cash" | "bank" | "split" | "khata" | "done";
 
 interface Tender { key: number; bankId: string; amount: string; }
-interface ParkedBill { id: string; at: number; lines: PosLine[]; discount: string; }
+interface ParkedBill { id: string; at: number; lines: PosLine[]; discount: string; } // offline fallback only
+interface HeldLine { productId: string | null; name: string; sku: string; unit: string; qty: string; rate: string; discount: string; }
+interface HeldBillDto { id: string; userId: string; userName: string | null; label: string; lines: HeldLine[]; discount: string; createdAt: string; }
 
 interface DoneInfo {
   docId: string;
@@ -30,6 +32,7 @@ interface DoneInfo {
   change: number;
   method: string;
   advanceApplied: number;
+  khataAmount?: number; // paisa put on khata in a mixed split
 }
 
 const WALK_IN = "Walk-in Customer";
@@ -74,9 +77,12 @@ export default function PosPage() {
   // split payments
   const [tenders, setTenders] = useState<Tender[]>([]);
   const tenderKeyRef = useRef(0);
+  // mixed split + khata: remainder of the split goes on the customer's khata
+  const [splitKhata, setSplitKhata] = useState(false);
 
-  // parked bills (device-local, for the counter)
-  const [parked, setParked] = useState<ParkedBill[]>(() => {
+  // parked bills — server-side (durable, user-owned); device-local fallback when offline
+  const [parked, setParked] = useState<HeldBillDto[]>([]);
+  const [parkedLocal, setParkedLocal] = useState<ParkedBill[]>(() => {
     try {
       const raw = localStorage.getItem("ledgerpro-parked");
       return raw ? (JSON.parse(raw) as ParkedBill[]) : [];
@@ -85,10 +91,19 @@ export default function PosPage() {
     }
   });
   const [showParked, setShowParked] = useState(false);
-  function persistParked(next: ParkedBill[]) {
-    setParked(next);
+  const [parking, setParking] = useState(false);
+  function persistParkedLocal(next: ParkedBill[]) {
+    setParkedLocal(next);
     try { localStorage.setItem("ledgerpro-parked", JSON.stringify(next)); } catch { /* ignore */ }
   }
+  async function refreshParked() {
+    try {
+      const d = await api<{ data: HeldBillDto[] }>("/api/pos/held");
+      setParked(d.data);
+    } catch { /* offline: keep showing the device-local list */ }
+  }
+  // eslint-disable-next-line react-hooks/set-state-in-effect -- initial fetch of server-held bills on mount
+  useEffect(() => { refreshParked(); }, []);
 
   const totals = useMemo(() => cartTotals(lines, discount), [lines, discount]);
   const tenderedPaisa = Math.round(parseFloat(tendered || "0") * 100);
@@ -118,9 +133,9 @@ export default function PosPage() {
     }).catch(() => {});
   }, []);
 
-  // customer search for khata
+  // customer search for khata (full-khata stage and mixed split stage)
   useEffect(() => {
-    if (stage !== "khata") return;
+    if (stage !== "khata" && stage !== "split") return;
     const t = setTimeout(async () => {
       try {
         const d = await api<{ data: ApiParty[] }>(`/api/parties?kind=CUSTOMER&q=${encodeURIComponent(partyQ)}&perPage=20`);
@@ -227,21 +242,12 @@ export default function PosPage() {
       if (warns.length > 0) { setPriceWarn(warns); return; }
     }
 
-    let partyId: string;
-    try {
-      if (stage === "khata") {
-        if (!khataId) { setError(`Select a ${bp.partyOne.toLowerCase()} for khata.`); return; }
-        partyId = khataId;
-      } else {
-        partyId = await ensureWalkIn();
-      }
-    } catch (e) { setError(e instanceof Error ? e.message : "Could not resolve customer."); return; }
-
     // build the payment legs for the atomic checkout
     const amt = (totals.grand / 100).toFixed(2);
     type PayLeg = { bankAccountId: string; method: "CASH" | "BANK"; amount: string };
     let payments: PayLeg[] = [];
     let tenderedVal: string | undefined;
+    let splitSum = 0; // paisa actually tendered in the split stage
     if (stage === "cash") {
       const cash = banks.find((b) => b.kind === "CASH") ?? banks[0];
       if (!cash) { setError("No cash account found. Add one under Settings → Accounts."); return; }
@@ -261,11 +267,30 @@ export default function PosPage() {
         legs.push({ bankAccountId: t.bankId, method: acc?.kind === "CASH" ? "CASH" : "BANK", amount: (p / 100).toFixed(2) });
       }
       const sum = legs.reduce((a, l) => a + Math.round(parseFloat(l.amount) * 100), 0);
-      if (legs.length === 0) { setError("Add at least one tender."); return; }
-      if (sum !== totals.grand) { setError(`Tenders add up to ${fmtMoney(sum)} — they must equal the bill total ${fmtMoney(totals.grand)}.`); return; }
+      if (legs.length === 0 && !splitKhata) { setError("Add at least one tender."); return; }
+      if (sum > totals.grand) { setError(`Tenders exceed the bill total ${fmtMoney(totals.grand)}.`); return; }
+      if (sum < totals.grand && !splitKhata) {
+        setError(`Tenders add up to ${fmtMoney(sum)} — cover the remaining ${fmtMoney(totals.grand - sum)} or put it on khata.`);
+        return;
+      }
+      splitSum = sum;
       payments = legs;
     }
     // khata → payments stays empty
+
+    // resolve the customer: full khata, or the khata remainder of a mixed split
+    let partyId: string;
+    try {
+      if (stage === "khata") {
+        if (!khataId) { setError(`Select a ${bp.partyOne.toLowerCase()} for khata.`); return; }
+        partyId = khataId;
+      } else if (stage === "split" && splitKhata && splitSum < totals.grand) {
+        if (!khataId) { setError(`Select a ${bp.partyOne.toLowerCase()} for the khata remainder.`); return; }
+        partyId = khataId;
+      } else {
+        partyId = await ensureWalkIn();
+      }
+    } catch (e) { setError(e instanceof Error ? e.message : "Could not resolve customer."); return; }
 
     setSaving(true);
     try {
@@ -289,6 +314,7 @@ export default function PosPage() {
         change: parseInt(res.data.change || "0", 10),
         method: stage,
         advanceApplied: parseInt(res.data.advanceApplied || "0", 10),
+        khataAmount: stage === "split" && splitKhata ? totals.grand - splitSum : undefined,
       });
       setStage("done");
     } catch (e) {
@@ -303,6 +329,7 @@ export default function PosPage() {
     setDiscount("");
     setTendered("");
     setTenders([]);
+    setSplitKhata(false);
     setKhataId("");
     setPartyQ("");
     setDone(null);
@@ -310,22 +337,89 @@ export default function PosPage() {
     setStage("billing");
   }
 
-  function parkBill() {
-    if (lines.length === 0) return;
-    persistParked([{ id: crypto.randomUUID(), at: Date.now(), lines, discount }, ...parked]);
-    newBill();
+  async function parkBill() {
+    if (lines.length === 0 || parking) return;
+    setParking(true);
+    try {
+      await api<{ data: { id: string } }>("/api/pos/held", {
+        method: "POST",
+        body: JSON.stringify({
+          label: "",
+          discount,
+          lines: lines.map((l) => ({
+            productId: l.productId, name: l.name, sku: l.sku, unit: l.unit,
+            qty: l.qty, rate: l.rate, discount: l.discount,
+          })),
+        }),
+      });
+      await refreshParked();
+      newBill();
+    } catch {
+      // offline fallback: keep it on this device
+      persistParkedLocal([{ id: crypto.randomUUID(), at: Date.now(), lines, discount }, ...parkedLocal]);
+      newBill();
+    } finally {
+      setParking(false);
+    }
   }
 
-  function resumeParked(id: string) {
+  function linesFromHeld(held: HeldLine[]): PosLine[] {
+    return held.map((l) => ({
+      key: ++keyRef.current,
+      productId: l.productId ?? "",
+      name: l.name,
+      sku: l.sku || "",
+      unit: l.unit || "PCS",
+      qty: l.qty,
+      rate: l.rate,
+      discount: l.discount,
+    }));
+  }
+
+  // pure preview (no keyRef mutation) for rendering parked totals
+  function heldToPreview(held: HeldLine[]): PosLine[] {
+    return held.map((l, i) => ({
+      key: i,
+      productId: l.productId ?? "",
+      name: l.name,
+      sku: l.sku || "",
+      unit: l.unit || "PCS",
+      qty: l.qty,
+      rate: l.rate,
+      discount: l.discount,
+    }));
+  }
+
+  async function resumeParked(id: string) {
     const b = parked.find((p) => p.id === id);
+    if (!b) return;
+    setLines(linesFromHeld(b.lines));
+    setDiscount(b.discount);
+    setTenders([]);
+    setSplitKhata(false);
+    try { await api(`/api/pos/held/${id}`, { method: "DELETE" }); } catch { /* ignore */ }
+    await refreshParked();
+    setShowParked(false);
+    setStage("billing");
+    setTimeout(() => searchRef.current?.focus(), 60);
+  }
+
+  function resumeParkedLocal(id: string) {
+    const b = parkedLocal.find((p) => p.id === id);
     if (!b) return;
     setLines(b.lines.map((l) => ({ ...l, key: ++keyRef.current })));
     setDiscount(b.discount);
     setTenders([]);
-    persistParked(parked.filter((p) => p.id !== id));
+    setSplitKhata(false);
+    persistParkedLocal(parkedLocal.filter((p) => p.id !== id));
     setShowParked(false);
     setStage("billing");
     setTimeout(() => searchRef.current?.focus(), 60);
+  }
+
+  async function deleteParked(id: string) {
+    try { await api(`/api/pos/held/${id}`, { method: "DELETE" }); } catch { /* ignore */ }
+    await refreshParked();
   }
 
   function tenderPaisa(t: Tender): number {
@@ -350,6 +444,11 @@ export default function PosPage() {
         )}
         {done.method === "khata" && (
           <p className="mt-2 text-sm text-muted-foreground">Added to {bp.partyOne.toLowerCase()} khata (receivable).</p>
+        )}
+        {done.method === "split" && (done.khataAmount ?? 0) > 0 && (
+          <p className="mt-2 rounded-xl bg-amber-500/15 px-4 py-2 text-sm font-bold text-amber-700 dark:text-amber-300">
+            {fmtMoney(done.grand - done.khataAmount!)} received · {fmtMoney(done.khataAmount!)} on khata
+          </p>
         )}
         {done.advanceApplied > 0 && (
           <p className="mt-2 rounded-xl bg-emerald-500/15 px-4 py-2 text-sm font-bold text-emerald-700 dark:text-emerald-300">
@@ -386,29 +485,50 @@ export default function PosPage() {
 
       <ErrorNote message={error} />
 
-      {parked.length > 0 && (
+      {(parked.length > 0 || parkedLocal.length > 0) && (
         <div className="card mb-4 p-4">
           <button onClick={() => setShowParked((v) => !v)} className="flex w-full items-center justify-between">
             <span className="inline-flex items-center gap-2 text-sm font-extrabold">
-              <PauseCircle size={16} className="text-primary" /> Parked bills ({parked.length})
+              <PauseCircle size={16} className="text-primary" /> Parked bills ({parked.length + parkedLocal.length})
             </span>
             <span className="text-xs font-bold text-muted-foreground">{showParked ? "Hide" : "Show"}</span>
           </button>
           {showParked && (
             <ul className="mt-3 space-y-2">
               {parked.map((p) => {
-                const t = cartTotals(p.lines, p.discount);
+                const t = cartTotals(heldToPreview(p.lines), p.discount);
                 return (
                   <li key={p.id} className="flex items-center justify-between gap-3 rounded-xl bg-muted/60 px-4 py-3">
                     <div className="min-w-0">
                       <p className="text-sm font-bold">{t.itemCount} items · {fmtMoney(t.grand)}</p>
                       <p className="text-xs text-muted-foreground">
-                        Parked {new Date(p.at).toLocaleTimeString("en-PK", { hour: "numeric", minute: "2-digit" })}
+                        Parked {new Date(p.createdAt).toLocaleTimeString("en-PK", { hour: "numeric", minute: "2-digit" })}
+                        {p.userName ? ` · ${p.userName}` : ""}
                       </p>
                     </div>
                     <div className="flex shrink-0 gap-2">
                       <button onClick={() => resumeParked(p.id)} className="btn btn-primary !px-4 !py-2 text-sm">Resume</button>
-                      <button onClick={() => persistParked(parked.filter((x) => x.id !== p.id))}
+                      <button onClick={() => deleteParked(p.id)}
+                        className="btn btn-ghost !px-3 !py-2 text-sm" aria-label="Delete parked bill">
+                        <Trash2 size={15} />
+                      </button>
+                    </div>
+                  </li>
+                );
+              })}
+              {parkedLocal.map((p) => {
+                const t = cartTotals(p.lines, p.discount);
+                return (
+                  <li key={p.id} className="flex items-center justify-between gap-3 rounded-xl bg-amber-500/10 px-4 py-3">
+                    <div className="min-w-0">
+                      <p className="text-sm font-bold">{t.itemCount} items · {fmtMoney(t.grand)}</p>
+                      <p className="text-xs text-muted-foreground">
+                        On this device · {new Date(p.at).toLocaleTimeString("en-PK", { hour: "numeric", minute: "2-digit" })}
+                      </p>
+                    </div>
+                    <div className="flex shrink-0 gap-2">
+                      <button onClick={() => resumeParkedLocal(p.id)} className="btn btn-primary !px-4 !py-2 text-sm">Resume</button>
+                      <button onClick={() => persistParkedLocal(parkedLocal.filter((x) => x.id !== p.id))}
                         className="btn btn-ghost !px-3 !py-2 text-sm" aria-label="Delete parked bill">
                         <Trash2 size={15} />
                       </button>
@@ -654,9 +774,48 @@ export default function PosPage() {
                   <span className="text-sm font-bold">Remaining</span>
                   <span className="text-xl font-extrabold">{fmtMoney(splitRemaining)}</span>
                 </div>
-                <button onClick={() => completeSale()} disabled={saving || lines.length === 0 || splitRemaining !== 0}
+                <label className="flex cursor-pointer items-center gap-2.5 rounded-xl bg-amber-500/10 px-4 py-3">
+                  <input
+                    type="checkbox"
+                    checked={splitKhata}
+                    onChange={(e) => setSplitKhata(e.target.checked)}
+                    className="h-4 w-4 accent-amber-500"
+                  />
+                  <span className="text-sm font-bold">Put the remainder on khata</span>
+                </label>
+                {splitKhata && (
+                  <div className="rise space-y-2">
+                    <input className="field !py-2.5" placeholder={`Search ${bp.partyMany.toLowerCase()}…`}
+                      value={partyQ} onChange={(e) => setPartyQ(e.target.value)} />
+                    {partyQ.trim().length > 0 && (
+                      <ul className="max-h-44 overflow-y-auto rounded-xl border border-border">
+                        {parties.map((p) => (
+                          <li key={p.id}>
+                            <button onClick={() => { setKhataId(p.id); setPartyQ(p.name); }}
+                              className={`flex w-full items-center justify-between px-4 py-2.5 text-left text-sm hover:bg-muted ${p.id === khataId ? "bg-primary/10 font-bold text-primary" : ""}`}>
+                              <span>{p.name}</span>
+                              {p.phone && <span className="text-xs text-muted-foreground">{p.phone}</span>}
+                            </button>
+                          </li>
+                        ))}
+                        {parties.length === 0 && (
+                          <li className="px-4 py-3 text-sm text-muted-foreground">No match — add the {bp.partyOne.toLowerCase()} from the {bp.partyMany} page first.</li>
+                        )}
+                      </ul>
+                    )}
+                    {khataId && partyQ && (
+                      <p className="text-xs font-bold text-amber-700 dark:text-amber-300">
+                        {fmtMoney(splitRemaining)} will go on {partyQ}&apos;s khata.
+                      </p>
+                    )}
+                  </div>
+                )}
+                <button onClick={() => completeSale()}
+                  disabled={saving || lines.length === 0 || splitRemaining < 0 || (splitRemaining > 0 && !(splitKhata && khataId))}
                   className="btn btn-primary w-full !py-3.5 text-base disabled:opacity-50">
-                  {saving ? "Saving…" : `Complete split · ${fmtMoney(totals.grand)}`}
+                  {saving ? "Saving…" : splitRemaining > 0 && splitKhata && khataId
+                    ? `Complete · ${fmtMoney(totals.grand - splitRemaining)} paid + ${fmtMoney(splitRemaining)} khata`
+                    : `Complete split · ${fmtMoney(totals.grand)}`}
                 </button>
               </div>
             )}
@@ -699,8 +858,8 @@ export default function PosPage() {
                   Choose a payment method above to finish the bill
                 </p>
                 {lines.length > 0 && (
-                  <button onClick={parkBill} className="btn btn-ghost w-full text-sm">
-                    <PauseCircle size={15} /> Park this bill
+                  <button onClick={parkBill} disabled={parking} className="btn btn-ghost w-full text-sm disabled:opacity-50">
+                    <PauseCircle size={15} /> {parking ? "Parking…" : "Park this bill"}
                   </button>
                 )}
               </div>

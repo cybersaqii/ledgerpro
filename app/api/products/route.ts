@@ -6,6 +6,7 @@ import { parseMoney } from "@/lib/money";
 import { parseQty } from "@/lib/qty";
 import { json, err } from "@/lib/api";
 import { requireCompany, db, defaultBranchId } from "@/lib/route-helpers";
+import { logAudit } from "@/lib/audit";
 
 // GET /api/products?q=&category=&lowStock=1
 export async function GET(req: NextRequest) {
@@ -60,7 +61,7 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   const gate = await requireCompany();
   if (!gate.ok) return gate.response;
-  const { companyId } = gate;
+  const { session, companyId } = gate;
   const body = await req.json().catch(() => null);
   const parsed = productSchema.safeParse(body);
   if (!parsed.success) return err("Please check the form and try again.", 422);
@@ -88,6 +89,11 @@ export async function POST(req: NextRequest) {
     trackStock: p.trackStock,
     reorderLevel: parseQty(p.reorderLevel),
     minSalePrice: parseMoney(p.minSalePrice),
+  });
+  await logAudit(db, {
+    companyId, userId: session.uid, userName: session.name,
+    action: "product.created", entity: "product", entityId: id,
+    detail: `Product "${p.name}" (${p.sku}) created`,
   });
   const rows = await db.select().from(products).where(eq(products.id, id)).limit(1);
   return json({ data: rows[0] }, { status: 201 });

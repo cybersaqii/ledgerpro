@@ -4,6 +4,7 @@ import { z } from "zod";
 import { companies } from "@/db/schema";
 import { json, err } from "@/lib/api";
 import { requireCompany, requireOwner, db } from "@/lib/route-helpers";
+import { logAudit } from "@/lib/audit";
 import { businessTypeLabel } from "@/lib/business-types";
 
 const companySchema = z.object({
@@ -51,5 +52,10 @@ export async function PUT(req: NextRequest) {
     businessType: d.businessType,
     updatedAt: new Date(),
   }).where(eq(companies.id, gate.companyId));
+  await logAudit(db, {
+    companyId: gate.companyId, userId: gate.session.uid, userName: gate.session.name,
+    action: "settings.updated", entity: "company", entityId: gate.companyId,
+    detail: `Business profile updated ("${d.name}")`,
+  });
   return json({ ok: true });
 }
