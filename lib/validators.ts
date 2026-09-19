@@ -72,6 +72,13 @@ export const salesDocSchema = z.object({
 export const purchaseDocSchema = salesDocSchema.extend({
   docType: z.enum(["BILL", "ORDER", "GRN", "RETURN"]).default("BILL"),
   refNo: z.string().trim().max(60).optional().or(z.literal("")),
+  // Landed extra costs (freight, labour…) distributed into stock cost
+  extraCosts: z.array(z.object({
+    label: z.string().trim().min(1).max(60),
+    amount: moneyStr,
+  })).max(10).default([]),
+  extraCostPaidFrom: z.enum(["CASH", "SUPPLIER"]).default("CASH"),
+  extraCostAccountId: z.string().min(1).optional(), // bank account when paid from cash
 });
 
 export const paymentSchema = z.object({

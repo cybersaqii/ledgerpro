@@ -45,6 +45,11 @@ export function DocForm({ mode }: { mode: "SALES" | "PURCHASE" }) {
   const [error, setError] = useState<string | null>(null);
   const [creatingParty, setCreatingParty] = useState(false);
   const [quickPhone, setQuickPhone] = useState("");
+  // Landed extra costs (freight, labour…) — purchase bills only
+  const [extraCosts, setExtraCosts] = useState<{ key: number; label: string; amount: string }[]>([]);
+  const [extraPaidFrom, setExtraPaidFrom] = useState<"CASH" | "SUPPLIER">("CASH");
+  const [extraAccountId, setExtraAccountId] = useState("");
+  const [bankAccounts, setBankAccounts] = useState<{ id: string; name: string }[]>([]);
   const keyRef = useRef(0);
   const prodBoxRef = useRef<HTMLDivElement>(null);
   const productCache = useRef(new Map<string, Product>());
@@ -59,6 +64,24 @@ export function DocForm({ mode }: { mode: "SALES" | "PURCHASE" }) {
     }, 250);
     return () => clearTimeout(t);
   }, [partyQ, partyKind]);
+
+  // bank/cash accounts for landed-cost payment (purchase bills)
+  useEffect(() => {
+    if (isSales) return;
+    api<{ data: { id: string; name: string }[] }>("/api/bank-accounts?perPage=30")
+      .then((d) => setBankAccounts(d.data))
+      .catch(() => {});
+  }, [isSales]);
+
+  function addExtraCost() {
+    setExtraCosts((s) => [...s, { key: ++keyRef.current, label: s.length === 0 ? "Freight" : "Labour", amount: "" }]);
+  }
+  function updateExtraCost(key: number, patch: Partial<{ label: string; amount: string }>) {
+    setExtraCosts((s) => s.map((c) => (c.key === key ? { ...c, ...patch } : c)));
+  }
+  function removeExtraCost(key: number) {
+    setExtraCosts((s) => s.filter((c) => c.key !== key));
+  }
 
   // products search
   const searchProducts = useCallback(async (query: string) => {
@@ -185,6 +208,16 @@ export function DocForm({ mode }: { mode: "SALES" | "PURCHASE" }) {
         })),
       };
       if (!isSales && refNo) body.refNo = refNo;
+      if (!isSales && docType === "BILL") {
+        const costs = extraCosts
+          .filter((c) => c.label.trim() && parseFloat(c.amount) > 0)
+          .map((c) => ({ label: c.label.trim(), amount: c.amount }));
+        if (costs.length > 0) {
+          body.extraCosts = costs;
+          body.extraCostPaidFrom = extraPaidFrom;
+          if (extraPaidFrom === "CASH" && extraAccountId) body.extraCostAccountId = extraAccountId;
+        }
+      }
       if (isSales && docType === "INVOICE") body.priceOverride = priceOverride;
       const d = await api<{ data: { docId: string } }>(endpoint, { method: "POST", body: JSON.stringify(body) });
       router.push(isSales ? `/sales/${d.data.docId}` : `/purchases/${d.data.docId}`);
@@ -412,6 +445,53 @@ export function DocForm({ mode }: { mode: "SALES" | "PURCHASE" }) {
             </>
           )}
         </div>
+
+        {!isSales && docType === "BILL" && (
+          <div className="card p-5 sm:p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <h3 className="font-extrabold">Extra costs (freight, labour)</h3>
+                <p className="text-xs text-muted-foreground">Added into your stock cost, not the supplier&apos;s bill.</p>
+              </div>
+              <button type="button" className="btn btn-ghost !px-3 !py-1.5 text-xs" onClick={addExtraCost}>
+                <Plus size={14} /> Add
+              </button>
+            </div>
+            {extraCosts.length > 0 && (
+              <div className="mt-3 space-y-2">
+                {extraCosts.map((c) => (
+                  <div key={c.key} className="flex items-center gap-2">
+                    <input className="field flex-1" placeholder="Freight" value={c.label}
+                      onChange={(e) => updateExtraCost(c.key, { label: e.target.value })} />
+                    <input className="field num !w-32" type="number" min="0" step="0.01" placeholder="Rs"
+                      value={c.amount} onChange={(e) => updateExtraCost(c.key, { amount: e.target.value })} />
+                    <button type="button" onClick={() => removeExtraCost(c.key)}
+                      className="rounded-lg p-1.5 text-danger hover:bg-danger-soft" aria-label="Remove extra cost">
+                      <Trash2 size={16} />
+                    </button>
+                  </div>
+                ))}
+                <div className="flex flex-wrap items-center gap-3 pt-1">
+                  <label className="flex items-center gap-1.5 text-xs font-semibold">
+                    <input type="radio" name="extraPaidFrom" checked={extraPaidFrom === "CASH"}
+                      onChange={() => setExtraPaidFrom("CASH")} /> Paid from
+                  </label>
+                  {extraPaidFrom === "CASH" ? (
+                    <select className="field !w-auto !py-1.5 text-xs" value={extraAccountId}
+                      onChange={(e) => setExtraAccountId(e.target.value)}>
+                      <option value="">Default cash</option>
+                      {bankAccounts.map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}
+                    </select>
+                  ) : null}
+                  <label className="flex items-center gap-1.5 text-xs font-semibold">
+                    <input type="radio" name="extraPaidFrom" checked={extraPaidFrom === "SUPPLIER"}
+                      onChange={() => setExtraPaidFrom("SUPPLIER")} /> Add to supplier bill
+                  </label>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
 
         <div className="grid gap-5 lg:grid-cols-2">
           <div className="card h-fit p-5 sm:p-6">

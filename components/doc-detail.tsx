@@ -10,6 +10,7 @@ import { brand } from "@/lib/brand";
 
 type Item = {
   id: string; description: string; qty: string; rate: string; discount: string; lineTotal: string;
+  extraCost?: string | null;
 };
 type Doc = {
   id: string; docNo: string; docType: string; date: number; dueDate: number | null;
@@ -165,6 +166,12 @@ export function DocDetail({ mode, id }: { mode: "SALES" | "PURCHASE"; id: string
               )}
               {BigInt(doc.taxTotal) > 0n && (
                 <div className="flex justify-between"><span className="text-muted-foreground">Tax</span><span className="font-bold">{fmtMoney(doc.taxTotal)}</span></div>
+              )}
+              {doc.items.some((it) => it.extraCost && BigInt(it.extraCost) > 0n) && (
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Extra costs in stock</span>
+                  <span className="font-bold">{fmtMoney(doc.items.reduce((a, it) => a + BigInt(it.extraCost ?? "0"), 0n).toString())}</span>
+                </div>
               )}
               <div className="flex justify-between border-t border-border pt-2 text-base">
                 <span className="font-extrabold">Total</span>

@@ -230,6 +230,8 @@ export async function postSalesDoc(tx: DbTx, input: PostSalesInput): Promise<str
 
 // ─── Purchases ─────────────────────────────────────────────────
 
+export type ExtraCostInput = { label: string; amount: bigint };
+
 export type PostPurchaseInput = {
   companyId: string;
   branchId: string;
@@ -243,26 +245,76 @@ export type PostPurchaseInput = {
   taxTotal: bigint;
   grandTotal: bigint;
   createdById: string;
+  /** Landed extra costs (freight, labour): distributed into stock unit cost. */
+  extraCosts?: ExtraCostInput[];
+  /** How the extra costs were paid: cash/bank account, or added to the supplier bill. */
+  extraCostPaidFrom?: "CASH" | "SUPPLIER";
+  extraCostAccountId?: string;
 };
+
+/** Per-line landed extra cost allocation (same order as input.items). */
+export type LandedCost = { index: number; extraCost: bigint };
+
+/** Split a landed extra-cost total across stock lines in proportion to line value.
+ *  Rounding remainder goes to the last line so the parts always sum exactly. */
+export function distributeExtraCost(nets: bigint[], totalExtra: bigint): bigint[] {
+  const out = nets.map(() => 0n);
+  const base = nets.reduce((a, n) => a + n, 0n);
+  if (totalExtra <= 0n || base <= 0n || nets.length === 0) return out;
+  let assigned = 0n;
+  for (let j = 0; j < nets.length; j++) {
+    if (j === nets.length - 1) {
+      out[j] = totalExtra - assigned;
+    } else {
+      out[j] = (nets[j]! * totalExtra) / base;
+      assigned += out[j]!;
+    }
+  }
+  return out;
+}
 
 export async function postPurchaseDoc(tx: DbTx, input: PostPurchaseInput): Promise<string> {
   const ac = await accountMap(tx, input.companyId);
 
+  // Landed extra costs (freight, labour): only on bills, distributed over
+  // stock-tracked lines in proportion to line value so the moving average
+  // unit cost absorbs them.
+  const extraCosts = (input.extraCosts ?? []).filter((c) => c.amount > 0n);
+  const totalExtra = extraCosts.reduce((a, c) => a + c.amount, 0n);
+  if (totalExtra > 0n && input.docType !== "BILL")
+    throw new Error("Extra costs can only be added to a purchase bill.");
+
   let stockNet = 0n;
   let nonStockNet = 0n;
   const stockMoves: StockMove[] = [];
-  for (const i of input.items) {
+  const stockNets: bigint[] = [];
+  const stockItemIdx: number[] = [];
+  input.items.forEach((i, idx) => {
     const net = i.taxablePaisa;
     if (i.productId && i.trackStock) {
       stockNet += net;
+      stockNets.push(net);
+      stockItemIdx.push(idx);
+    } else {
+      nonStockNet += net;
+    }
+  });
+  if (totalExtra > 0n && stockNets.length === 0)
+    throw new Error("Extra costs need at least one stock-tracked item.");
+  const landed = distributeExtraCost(stockNets, totalExtra); // per stock line, same order
+  const landedByItem = new Map<number, bigint>();
+  stockItemIdx.forEach((idx, j) => landedByItem.set(idx, landed[j] ?? 0n));
+
+  for (let idx = 0; idx < input.items.length; idx++) {
+    const i = input.items[idx]!;
+    if (i.productId && i.trackStock) {
+      const net = i.taxablePaisa + (landedByItem.get(idx) ?? 0n);
       stockMoves.push({
         productId: i.productId,
         qtyMilli: input.docType === "BILL" ? i.qtyMilli : -i.qtyMilli,
         avgCostPaisa: 0n,
         unitCostPaisa: i.qtyMilli > 0n ? (net * 1000n) / i.qtyMilli : 0n,
       });
-    } else {
-      nonStockNet += net;
     }
   }
   const { cogsOut: stockCostOut } = await applyStock(tx, input.branchId, stockMoves);
@@ -270,14 +322,44 @@ export async function postPurchaseDoc(tx: DbTx, input: PostPurchaseInput): Promi
   // the return document's rate. Any difference is a price gain/loss vs cost.
   const priceDiff = stockNet - stockCostOut;
 
+  // Extra-cost credit side: cash/bank account, or added to the supplier's payable.
+  let extraCredit: JournalLineInput | null = null;
+  if (totalExtra > 0n) {
+    const paidFrom = input.extraCostPaidFrom ?? "CASH";
+    if (paidFrom === "SUPPLIER") {
+      extraCredit = { accountId: ac[SYS.AP], debit: 0n, credit: totalExtra, partyId: input.partyId };
+    } else {
+      const bankRows = await tx
+        .select()
+        .from(bankAccounts)
+        .where(
+          input.extraCostAccountId
+            ? and(eq(bankAccounts.id, input.extraCostAccountId), eq(bankAccounts.companyId, input.companyId))
+            : and(eq(bankAccounts.companyId, input.companyId), eq(bankAccounts.kind, "CASH"))
+        )
+        .limit(1);
+      const bank = bankRows[0];
+      if (!bank) throw new Error("Cash/bank account for extra costs not found.");
+      extraCredit = { accountId: bank.accountId, debit: 0n, credit: totalExtra };
+      await tx
+        .update(bankAccounts)
+        .set({ balance: sql`${bankAccounts.balance} - ${totalExtra}` })
+        .where(eq(bankAccounts.id, bank.id));
+    }
+  }
+
+  const extraMemo = extraCosts.length > 0
+    ? ` (+ ${extraCosts.map((c) => c.label).join(", ")} Rs ${(totalExtra / 100n).toLocaleString()})`
+    : "";
   const lines: JournalLineInput[] =
     input.docType === "BILL"
       ? [
-          ...(stockNet > 0n ? [{ accountId: ac[SYS.INVENTORY], debit: stockNet, credit: 0n }] : []),
+          ...((stockNet + totalExtra) > 0n ? [{ accountId: ac[SYS.INVENTORY], debit: stockNet + totalExtra, credit: 0n }] : []),
           ...(nonStockNet > 0n ? [{ accountId: ac[SYS.PURCHASES], debit: nonStockNet, credit: 0n }] : []),
           ...(input.taxTotal > 0n ? [{ accountId: ac[SYS.INPUT_TAX], debit: input.taxTotal, credit: 0n }] : []),
           { accountId: ac[SYS.AP], debit: 0n, credit: input.grandTotal, partyId: input.partyId },
           ...(input.discountTotal > 0n ? [{ accountId: ac[SYS.DISCOUNT_RECEIVED], debit: 0n, credit: input.discountTotal }] : []),
+          ...(extraCredit ? [extraCredit] : []),
         ]
       : [
           { accountId: ac[SYS.AP], debit: input.grandTotal, credit: 0n, partyId: input.partyId },
@@ -300,7 +382,7 @@ export async function postPurchaseDoc(tx: DbTx, input: PostPurchaseInput): Promi
     companyId: input.companyId,
     branchId: input.branchId,
     date: input.date,
-    memo: input.docType === "BILL" ? `Purchase bill ${input.docNo}` : `Purchase return ${input.docNo}`,
+    memo: input.docType === "BILL" ? `Purchase bill ${input.docNo}${extraMemo}` : `Purchase return ${input.docNo}`,
     reference: input.docNo,
     source: "PURCHASE",
     sourceId: input.docId,
@@ -309,6 +391,10 @@ export async function postPurchaseDoc(tx: DbTx, input: PostPurchaseInput): Promi
   });
 
   await bumpPartyBalance(tx, input.partyId, input.docType === "BILL" ? input.grandTotal : -input.grandTotal);
+  if (totalExtra > 0n && (input.extraCostPaidFrom ?? "CASH") === "SUPPLIER") {
+    // extra cost added to the supplier's bill increases what we owe them
+    await bumpPartyBalance(tx, input.partyId, totalExtra);
+  }
   return entryId;
 }
 

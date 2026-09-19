@@ -259,6 +259,7 @@ export const purchaseDocItems = sqliteTable("purchase_doc_items", {
   taxBps: integer("tax_bps").notNull().default(0),
   taxAmount: money("tax_amount"),
   lineTotal: money("line_total"),
+  extraCost: money("extra_cost"), // landed extra cost (freight/labour) allocated to this line
 });
 
 // ─── Payments & expenses ───────────────────────────────────────

@@ -5,7 +5,7 @@ import { purchaseDocSchema } from "@/lib/validators";
 import { computeTotals, type DocItemInput } from "@/lib/totals";
 import { parseMoney } from "@/lib/money";
 import { parseQty } from "@/lib/qty";
-import { postPurchaseDoc } from "@/lib/posting";
+import { postPurchaseDoc, distributeExtraCost } from "@/lib/posting";
 import { nextDocNo } from "@/lib/setup";
 import { json, err } from "@/lib/api";
 import { requireCompany, db, parseDateOnly, defaultBranchId, assertBranch } from "@/lib/route-helpers";
@@ -112,12 +112,29 @@ export async function POST(req: NextRequest) {
   const date = parseDateOnly(b.date);
   const dueDate = b.dueDate ? parseDateOnly(b.dueDate) : null;
 
+  // Landed extra costs: distribute over stock-tracked lines (same math as posting)
+  const extraCosts = (b.extraCosts ?? [])
+    .map((c) => ({ label: c.label, amount: parseMoney(c.amount) }))
+    .filter((c) => c.amount > 0n);
+  const totalExtra = extraCosts.reduce((a, c) => a + c.amount, 0n);
+
   try {
     const result = await db.transaction(async (tx) => {
       const branchId = b.branchId || (await defaultBranchId(tx, companyId));
       await assertBranch(tx, companyId, branchId);
       const docNo = await nextDocNo(tx, companyId, b.docType);
       const docId = crypto.randomUUID();
+
+      const stockNets: { idx: number; net: bigint }[] = [];
+      totals.items.forEach((it, idx) => {
+        const track = it.productId ? prodMap.get(it.productId)?.trackStock ?? false : false;
+        if (track) stockNets.push({ idx, net: it.taxablePaisa });
+      });
+      const landed = new Array<bigint>(totals.items.length).fill(0n);
+      if (totalExtra > 0n) {
+        const dist = distributeExtraCost(stockNets.map((s) => s.net), totalExtra);
+        stockNets.forEach((s, j) => { landed[s.idx] = dist[j] ?? 0n; });
+      }
 
       await tx.insert(purchaseDocs).values({
         id: docId,
@@ -138,7 +155,7 @@ export async function POST(req: NextRequest) {
         createdById: session.uid,
       });
       await tx.insert(purchaseDocItems).values(
-        totals.items.map((i) => ({
+        totals.items.map((i, idx) => ({
           id: crypto.randomUUID(),
           docId,
           productId: i.productId,
@@ -149,6 +166,7 @@ export async function POST(req: NextRequest) {
           taxBps: i.taxBps,
           taxAmount: i.taxAmountPaisa,
           lineTotal: i.lineTotalPaisa,
+          extraCost: landed[idx] ?? 0n,
         }))
       );
 
@@ -170,6 +188,9 @@ export async function POST(req: NextRequest) {
           taxTotal: totals.taxTotal,
           grandTotal: totals.grandTotal,
           createdById: session.uid,
+          extraCosts,
+          extraCostPaidFrom: b.extraCostPaidFrom,
+          extraCostAccountId: b.extraCostAccountId || undefined,
         });
         await tx.update(purchaseDocs).set({ journalEntryId: entryId }).where(eq(purchaseDocs.id, docId));
       }
@@ -179,7 +200,7 @@ export async function POST(req: NextRequest) {
       companyId, userId: session.uid, userName: session.name,
       action: `purchase.${b.docType.toLowerCase()}.created`,
       entity: "purchase", entityId: result.docId,
-      detail: `${b.docType} ${result.docNo}`,
+      detail: `${b.docType} ${result.docNo}${totalExtra > 0n ? ` (+ extra costs Rs ${(totalExtra / 100n).toLocaleString()})` : ""}`,
     });
     return json({ data: result }, { status: 201 });
   } catch (e) {
