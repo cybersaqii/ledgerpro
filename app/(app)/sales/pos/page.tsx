@@ -188,34 +188,25 @@ export default function PosPage() {
 
     setSaving(true);
     try {
-      const sale = await api<{ data: { docId: string } }>("/api/sales", {
+      // Single atomic request: invoice + receipt(s) post in ONE transaction.
+      const amt = (totals.grand / 100).toFixed(2);
+      const res = await api<{ data: { docId: string; change: string } }>("/api/pos/checkout", {
         method: "POST",
         body: JSON.stringify({
-          docType: "INVOICE",
           partyId,
           date,
           discountTotal: discount || "0",
+          notes: "POS sale",
           items: toDocItems(lines),
+          payments:
+            stage === "khata"
+              ? []
+              : [{ bankAccountId: payBankId, method, amount: amt }],
+          tendered: stage === "cash" ? tendered || amt : undefined,
         }),
       });
-      const docId = sale.data.docId;
-      if (stage !== "khata") {
-        const amt = (totals.grand / 100).toFixed(2);
-        await api("/api/payments", {
-          method: "POST",
-          body: JSON.stringify({
-            kind: "RECEIPT",
-            partyId,
-            bankAccountId: payBankId,
-            date,
-            amount: amt,
-            method,
-            notes: "POS sale",
-            allocations: [{ docId, docKind: "SALES", amount: amt }],
-          }),
-        });
-      }
-      setDone({ docId, grand: totals.grand, change: stage === "cash" ? change : 0, method: stage });
+      const docId = res.data.docId;
+      setDone({ docId, grand: totals.grand, change: parseInt(res.data.change || "0", 10), method: stage });
       setStage("done");
     } catch (e) {
       setError(e instanceof Error ? e.message : "Could not save the bill.");

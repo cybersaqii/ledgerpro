@@ -101,3 +101,25 @@ export const expenseSchema = z.object({
   taxAmount: moneyStr.default("0"),
   notes: z.string().trim().max(500).optional().or(z.literal("")),
 });
+
+export const posCheckoutSchema = z.object({
+  partyId: z.string().min(1),
+  date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Invalid date"),
+  discountTotal: moneyStr.default("0"),
+  notes: z.string().trim().max(500).optional().or(z.literal("")),
+  items: z.array(docItemSchema).min(1, "Add at least one item"),
+  // Empty payments array = khata (unpaid). Otherwise one entry per tender
+  // (split payments supported); each posts its own receipt in the same txn.
+  payments: z
+    .array(
+      z.object({
+        bankAccountId: z.string().min(1),
+        method: z.enum(["CASH", "BANK", "CHEQUE", "ONLINE"]).default("CASH"),
+        amount: moneyStr,
+        reference: z.string().trim().max(80).optional().or(z.literal("")),
+      })
+    )
+    .default([]),
+  // Cash received from the customer (for change); informational only.
+  tendered: moneyStr.optional().or(z.literal("")),
+});
