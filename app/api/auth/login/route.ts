@@ -6,8 +6,16 @@ import { verifyPassword, createSession } from "@/lib/auth";
 import { loginSchema } from "@/lib/validators";
 import { setupCompany, SYS } from "@/lib/setup";
 import { json, err } from "@/lib/api";
+import { rateLimit, clientIp } from "@/lib/rate-limit";
 
 export async function POST(req: NextRequest) {
+  const rl = rateLimit(`login:${clientIp(req)}`, 10, 60_000);
+  if (!rl.ok) {
+    return json(
+      { error: `Too many login attempts. Try again in ${rl.retryAfterSec} seconds.` },
+      { status: 429, headers: { "Retry-After": String(rl.retryAfterSec) } }
+    );
+  }
   const body = await req.json().catch(() => null);
   const parsed = loginSchema.safeParse(body);
   if (!parsed.success) return err("Please check the form and try again.", 422);
