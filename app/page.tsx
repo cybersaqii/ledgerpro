@@ -278,7 +278,7 @@ export default function LandingPage() {
                 <span className={`grid h-12 w-12 shrink-0 place-items-center rounded-2xl bg-gradient-to-br ${b.grad} text-white shadow-md`}>
                   <b.icon size={21} />
                 </span>
-                <p className="text-sm font-bold">{b.label}</p>
+                <p className="min-w-0 text-[0.83rem] font-bold leading-tight sm:text-sm">{b.label}</p>
               </div>
             ))}
           </div>

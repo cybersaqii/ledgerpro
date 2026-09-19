@@ -76,7 +76,7 @@ export default function DashboardPage() {
             <span className={`grid h-10 w-10 place-items-center rounded-2xl ${q.cls} transition group-hover:scale-110`}>
               <q.icon size={19} />
             </span>
-            <span className="text-[0.7rem] font-bold">{q.label}</span>
+            <span className="flex min-h-[2.2em] items-center px-0.5 text-center text-[0.7rem] font-bold leading-tight">{q.label}</span>
           </Link>
         ))}
       </div>
