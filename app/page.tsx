@@ -1,8 +1,9 @@
 import Link from "next/link";
 import {
   ArrowRight, BarChart3, Boxes, CheckCircle2, FileText, Landmark,
-  ScanBarcode, ShieldCheck, Smartphone, Sparkles, TrendingUp, Users, Wallet,
+  ScanBarcode, ShieldCheck, Smartphone, TrendingUp, Users, Wallet,
   Store, Factory, Stethoscope, Pill, UtensilsCrossed, Briefcase, Truck,
+  TriangleAlert, XCircle, BadgeCheck,
 } from "lucide-react";
 import { Logo, ThemeToggle } from "@/components/ui";
 import { brand } from "@/lib/brand";
@@ -36,6 +37,14 @@ const steps = [
   { n: "3", title: "Watch it all add up", text: "Stock, cash, profit and dues update themselves." },
 ];
 
+const faqs = [
+  { q: "Is LedgerPro really free?", a: "Yes — creating your company and getting started is free, and you never need a credit card to try it. Set up in about two minutes and see your real numbers the same day." },
+  { q: "I've never used accounting software. Will I manage?", a: "Absolutely. LedgerPro speaks your language — Sale, Payment, Stock — not accounting jargon. Guided forms walk you through every step, and every rupee is double-checked behind the scenes." },
+  { q: "Is my business data safe?", a: "Your company is protected by a secure login, every entry uses balanced double-entry accounting (so the books can never silently go wrong), and your complete history stays safe for up to 10 years." },
+  { q: "Can I use it on my phone?", a: "Yes. LedgerPro works on your phone, tablet and computer, with light and dark mode — bill a customer at the counter or check dues from home." },
+  { q: "What kinds of businesses is it for?", a: "Wholesalers, retail shops, distributors, pharmacies, clinics, restaurants, service providers and manufacturers. Tell us your trade at signup and your workspace adapts to it." },
+];
+
 export default function LandingPage() {
   return (
     <div className="min-h-screen overflow-x-clip bg-background">
@@ -55,6 +64,7 @@ export default function LandingPage() {
             <a href="#features" className="transition hover:text-white">Features</a>
             <a href="#businesses" className="transition hover:text-white">For every business</a>
             <a href="#how" className="transition hover:text-white">How it works</a>
+            <a href="#faq" className="transition hover:text-white">FAQ</a>
           </nav>
           <div className="flex items-center gap-2 sm:gap-3">
             <ThemeToggle />
@@ -78,8 +88,8 @@ export default function LandingPage() {
         <div className="relative mx-auto grid max-w-[1400px] items-center gap-12 px-4 pb-24 pt-32 sm:px-8 sm:pt-40 lg:grid-cols-2 lg:gap-8 lg:pb-32">
           <div className="text-center lg:text-left">
             <div className="rise inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/10 px-4 py-1.5 text-xs font-semibold text-emerald-50 shadow-sm backdrop-blur">
-              <Sparkles size={14} className="text-amber-300" />
-              One platform — wholesale, retail & every business
+              <BadgeCheck size={14} className="text-amber-300" />
+              Free to start · No credit card needed
             </div>
             <h1 className="rise rise-1 mt-6 text-4xl font-extrabold leading-[1.06] tracking-tight text-white sm:text-6xl lg:text-[3.6rem]">
               Your entire business{" "}
@@ -87,9 +97,23 @@ export default function LandingPage() {
               finally in one place
             </h1>
             <p className="rise rise-2 mt-5 max-w-xl text-base text-emerald-50/80 sm:text-lg lg:mx-0">
-              {brand.description} No more registers, no more guesswork.
+              Stop losing money to forgotten <span className="font-semibold text-white">udhaar</span> and guesswork.
+              LedgerPro tracks every sale, payment and stock item — and tells you exactly who owes you what, in seconds.
             </p>
-            <div className="rise rise-3 mt-8 flex flex-wrap items-center justify-center gap-3 lg:justify-start">
+            <ul className="rise rise-3 mx-auto mt-7 grid max-w-xl gap-2.5 text-left sm:grid-cols-2 lg:mx-0">
+              {[
+                "Every customer's udhaar, one tap away",
+                "Stock, cash & profit update themselves",
+                "No accounting knowledge needed",
+                "Your data stays safe for 10 years",
+              ].map((t) => (
+                <li key={t} className="flex items-start gap-2 text-sm font-medium text-emerald-50">
+                  <CheckCircle2 size={17} className="mt-0.5 shrink-0 text-emerald-300" />
+                  {t}
+                </li>
+              ))}
+            </ul>
+            <div className="rise rise-4 mt-8 flex flex-wrap items-center justify-center gap-3 lg:justify-start">
               <Link href="/signup" className="btn !border-0 !bg-white !px-7 !py-3.5 !text-base !text-[#0a2e25] shadow-xl shadow-black/20 hover:!bg-emerald-50">
                 Start free today <ArrowRight size={18} />
               </Link>
@@ -97,23 +121,34 @@ export default function LandingPage() {
                 Log in
               </Link>
             </div>
-            <div className="rise rise-4 mt-10 flex items-center justify-center gap-8 text-emerald-50/70 lg:justify-start">
-              {[
-                ["10 yrs", "data safety"],
-                ["100%", "balanced books"],
-                ["Free", "to start"],
-              ].map(([v, l]) => (
-                <div key={l} className="text-center lg:text-left">
-                  <p className="text-xl font-extrabold text-white">{v}</p>
-                  <p className="text-xs">{l}</p>
-                </div>
-              ))}
-            </div>
+            <p className="rise rise-4 mt-4 text-xs text-emerald-100/60">
+              Set up in 2 minutes · Free to start · Cancel anytime
+            </p>
           </div>
 
           {/* Floating dashboard mock */}
-          <div className="rise rise-2 relative">
+          <div className="rise rise-2 relative lg:pl-6">
             <div className="pointer-events-none absolute -inset-6 rounded-[2rem] bg-emerald-400/15 blur-3xl" />
+            {/* Floating proof card — payment */}
+            <div className="floaty absolute -top-6 right-2 z-10 hidden items-center gap-3 rounded-2xl border border-white/40 bg-white/95 p-3 pr-4 shadow-xl backdrop-blur md:flex">
+              <span className="grid h-10 w-10 place-items-center rounded-full bg-emerald-100 text-emerald-700">
+                <CheckCircle2 size={20} />
+              </span>
+              <span>
+                <span className="block text-xs font-bold text-slate-900">Payment received</span>
+                <span className="block text-[0.7rem] text-slate-500">Rs 25,000 · Ahmed Traders · just now</span>
+              </span>
+            </div>
+            {/* Floating proof card — stock alert */}
+            <div className="floaty absolute -bottom-7 left-0 z-10 hidden items-center gap-3 rounded-2xl border border-white/40 bg-white/95 p-3 pr-4 shadow-xl backdrop-blur md:flex" style={{ animationDelay: "-3.5s" }}>
+              <span className="grid h-10 w-10 place-items-center rounded-full bg-amber-100 text-amber-700">
+                <TriangleAlert size={20} />
+              </span>
+              <span>
+                <span className="block text-xs font-bold text-slate-900">Low stock alert</span>
+                <span className="block text-[0.7rem] text-slate-500">Sugar 50kg · only 8 bags left</span>
+              </span>
+            </div>
             <div className="floaty card card-gloss relative p-5 text-left shadow-2xl sm:p-7">
               <div className="flex items-center justify-between">
                 <div>
@@ -142,9 +177,61 @@ export default function LandingPage() {
             </div>
           </div>
         </div>
+        {/* Business-type marquee — fills the hero foot with motion */}
+        <div className="relative border-t border-white/10 py-5">
+          <div className="overflow-hidden [mask-image:linear-gradient(to_right,transparent,black_8%,black_92%,transparent)]">
+            <div className="animate-marquee flex w-max items-center gap-10 pr-10">
+              {[...businessTypes, ...businessTypes].map((b, i) => (
+                <span key={i} className="flex items-center gap-2 text-sm font-semibold text-emerald-100/70">
+                  <b.icon size={16} className="text-emerald-300/80" />
+                  {b.label}
+                </span>
+              ))}
+            </div>
+          </div>
+        </div>
       </section>
 
-      {/* Business types */}
+      {/* Paper vs LedgerPro — loss aversion */}
+      <section className="mx-auto max-w-[1400px] px-4 py-16 sm:px-8 sm:py-20">
+        <div className="text-center">
+          <h2 className="text-3xl font-extrabold tracking-tight sm:text-4xl">Still running on paper registers?</h2>
+          <p className="mx-auto mt-3 max-w-xl text-muted-foreground">Here is what paper quietly costs you — every single day.</p>
+        </div>
+        <div className="mx-auto mt-10 grid max-w-4xl gap-4 md:grid-cols-2">
+          <div className="rounded-3xl border border-border bg-card p-7">
+            <p className="text-sm font-bold uppercase tracking-wider text-muted-foreground">Paper register</p>
+            <ul className="mt-5 space-y-3.5">
+              {[
+                "Udhaar forgotten — money you will never collect",
+                "Stock counted by memory — overbuying and shortages",
+                "No idea of your real profit at month end",
+                "One lost register wipes out years of history",
+              ].map((t) => (
+                <li key={t} className="flex items-start gap-2.5 text-sm text-muted-foreground">
+                  <XCircle size={17} className="mt-0.5 shrink-0 text-red-400" /> {t}
+                </li>
+              ))}
+            </ul>
+          </div>
+          <div className="relative rounded-3xl border-2 border-primary/40 bg-primary-soft/40 p-7">
+            <span className="absolute -top-3 left-6 rounded-full bg-primary px-3 py-1 text-[0.68rem] font-extrabold uppercase tracking-wider text-primary-foreground">Recommended</span>
+            <p className="text-sm font-bold uppercase tracking-wider text-primary">{brand.name}</p>
+            <ul className="mt-5 space-y-3.5">
+              {[
+                "Every rupee tracked — nothing ever slips away",
+                "Live stock with low-stock alerts",
+                "Profit, dues and cash in one click",
+                "10 years of balanced, verifiable history",
+              ].map((t) => (
+                <li key={t} className="flex items-start gap-2.5 text-sm font-medium">
+                  <CheckCircle2 size={17} className="mt-0.5 shrink-0 text-primary" /> {t}
+                </li>
+              ))}
+            </ul>
+          </div>
+        </div>
+      </section>
       <section id="businesses" className="mx-auto max-w-[1400px] px-4 py-16 sm:px-8 sm:py-20">
         <div className="text-center">
           <h2 className="text-3xl font-extrabold tracking-tight sm:text-4xl">Made for every business</h2>
@@ -216,6 +303,25 @@ export default function LandingPage() {
         </div>
       </section>
 
+      {/* FAQ — objection handling */}
+      <section id="faq" className="mx-auto max-w-3xl px-4 py-16 sm:px-8 sm:py-20">
+        <div className="text-center">
+          <h2 className="text-3xl font-extrabold tracking-tight sm:text-4xl">Questions? Answered.</h2>
+          <p className="mx-auto mt-3 max-w-xl text-muted-foreground">Everything business owners ask before switching.</p>
+        </div>
+        <div className="mt-10 space-y-3">
+          {faqs.map((f) => (
+            <details key={f.q} className="card group px-6 py-5">
+              <summary className="flex cursor-pointer items-center justify-between gap-4 font-bold [&::-webkit-details-marker]:hidden">
+                {f.q}
+                <span className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-primary-soft text-xl leading-none text-primary transition group-open:rotate-45">+</span>
+              </summary>
+              <p className="mt-3 text-sm leading-relaxed text-muted-foreground">{f.a}</p>
+            </details>
+          ))}
+        </div>
+      </section>
+
       {/* CTA */}
       <section className="mx-auto max-w-[1400px] px-4 pb-20 sm:px-8">
         <div className="relative overflow-hidden rounded-3xl p-10 text-center sm:p-14">
@@ -223,11 +329,12 @@ export default function LandingPage() {
           <div className="pointer-events-none absolute inset-0">
             <div className="absolute -top-20 left-1/3 h-72 w-72 rounded-full bg-emerald-400/20 blur-[100px]" />
           </div>
-          <h2 className="relative text-3xl font-extrabold tracking-tight text-white sm:text-4xl">Stop guessing. Start knowing.</h2>
-          <p className="relative mx-auto mt-3 max-w-lg text-emerald-50/80">Create your company in under a minute and see your real numbers today.</p>
+          <h2 className="relative text-3xl font-extrabold tracking-tight text-white sm:text-4xl">Every day on paper is money you can&apos;t track.</h2>
+          <p className="relative mx-auto mt-3 max-w-lg text-emerald-50/80">Join {brand.name} free — see your real sales, stock, dues and profit today.</p>
           <Link href="/signup" className="btn relative mt-7 !border-0 !bg-white !px-8 !py-3.5 !text-base !text-[#0a2e25] shadow-xl hover:!bg-emerald-50">
             Create free account <ArrowRight size={18} />
           </Link>
+          <p className="relative mt-4 text-xs text-emerald-100/60">Free to start · No credit card · Set up in 2 minutes</p>
         </div>
       </section>
 

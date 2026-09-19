@@ -209,6 +209,13 @@ body {
 }
 .floaty { animation: floaty 7s ease-in-out infinite; }
 
+@keyframes marquee {
+  from { transform: translateX(0); }
+  to { transform: translateX(-50%); }
+}
+.animate-marquee { animation: marquee 32s linear infinite; }
+.animate-marquee:hover { animation-play-state: paused; }
+
 @keyframes shine {
   from { transform: translateX(-120%) skewX(-18deg); }
   to { transform: translateX(240%) skewX(-18deg); }
