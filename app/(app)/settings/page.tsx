@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Building2, Database, Download, Save } from "lucide-react";
+import { Building2, Database, Download, Save, Upload } from "lucide-react";
 import { PageHeader, Field, ErrorNote } from "@/components/ui";
 import { api } from "@/lib/format";
 import { BUSINESS_TYPES } from "@/lib/business-types";
@@ -132,6 +132,80 @@ export default function SettingsPage() {
           </div>
         </div>
       </div>
+      <ImportCard />
+    </div>
+  );
+}
+
+function ImportCard() {
+  const [busy, setBusy] = useState<string | null>(null);
+  const [result, setResult] = useState<{ kind: string; imported: number; skipped: number; errors: { row: number; message: string }[]; errorCount: number } | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  async function upload(kind: "products" | "parties", file: File | undefined) {
+    if (!file) return;
+    setBusy(kind); setError(null); setResult(null);
+    try {
+      const fd = new FormData();
+      fd.append("kind", kind);
+      fd.append("file", file);
+      const res = await fetch("/api/import", { method: "POST", body: fd, credentials: "include" });
+      const body = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(body.error || "Import failed.");
+      setResult({ kind, ...body.data });
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Import failed.");
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  return (
+    <div className="card mt-6 max-w-2xl p-6 sm:p-8">
+      <h2 className="text-lg font-extrabold">Import from spreadsheet</h2>
+      <p className="mt-1 text-sm text-muted-foreground">
+        Bring your existing products and parties from Excel. Download a template, fill it in, then upload the CSV.
+      </p>
+      <div className="mt-4 grid gap-4 sm:grid-cols-2">
+        {(["products", "parties"] as const).map((kind) => (
+          <div key={kind} className="rounded-2xl border border-border p-4">
+            <p className="font-bold capitalize">{kind}</p>
+            <a href={`/api/import/template?kind=${kind}`} className="mt-1 inline-block text-sm font-semibold text-primary hover:underline" download>
+              Download template
+            </a>
+            <label className="mt-3 block">
+              <span className="btn btn-ghost w-full cursor-pointer text-sm">
+                <Upload size={15} /> {busy === kind ? "Uploading…" : "Upload CSV"}
+              </span>
+              <input
+                type="file"
+                accept=".csv,text/csv"
+                className="hidden"
+                disabled={busy !== null}
+                onChange={(e) => { upload(kind, e.target.files?.[0]); e.target.value = ""; }}
+              />
+            </label>
+          </div>
+        ))}
+      </div>
+      {error && <ErrorNote message={error} />}
+      {result && (
+        <div className="mt-4 rounded-2xl bg-muted/60 p-4 text-sm">
+          <p className="font-bold capitalize">
+            {result.kind} import: {result.imported} added{result.skipped > 0 && `, ${result.skipped} skipped (already exist)`}
+          </p>
+          {result.errors.length > 0 && (
+            <ul className="mt-2 max-h-40 space-y-1 overflow-auto text-muted-foreground">
+              {result.errors.map((e, i) => (
+                <li key={i}>Row {e.row}: {e.message}</li>
+              ))}
+              {result.errorCount > result.errors.length && (
+                <li>…and {result.errorCount - result.errors.length} more.</li>
+              )}
+            </ul>
+          )}
+        </div>
+      )}
     </div>
   );
 }
