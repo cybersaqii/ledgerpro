@@ -1,8 +1,9 @@
 "use client";
 
 import { use, useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { ArrowLeft, MessageCircle, Printer, Wallet } from "lucide-react";
+import { ArrowLeft, ArrowRightLeft, MessageCircle, Printer, Undo2, Wallet } from "lucide-react";
 import { PageHeader, StatusPill } from "@/components/ui";
 import { api, fmtMoney, fmtQty, fmtDate } from "@/lib/format";
 import { brand } from "@/lib/brand";
@@ -14,7 +15,7 @@ type Doc = {
   id: string; docNo: string; docType: string; date: number; dueDate: number | null;
   status: string; subtotal: string; discountTotal: string; taxTotal: string; grandTotal: string;
   notes: string | null; refNo: string | null; partyName: string | null; partyId: string | null;
-  partyPhone: string | null;
+  partyPhone: string | null; sourceDocId: string | null;
   items: Item[];
 };
 type Company = {
@@ -94,6 +95,7 @@ export function DocDetail({ mode, id }: { mode: "SALES" | "PURCHASE"; id: string
               <a href={waLink(doc)} target="_blank" rel="noopener noreferrer" className="btn btn-ghost text-sm">
                 <MessageCircle size={15} /> WhatsApp
               </a>
+              <DocActions doc={doc} isSales={isSales} />
               <div className="inline-flex overflow-hidden rounded-xl border border-border text-sm font-bold">
                 {(["a4", "80mm"] as PrintFormat[]).map((f) => (
                   <button
@@ -237,4 +239,59 @@ export function SalesDetailPage({ params }: { params: Promise<{ id: string }> })
 export function PurchaseDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
   return <DocDetail mode="PURCHASE" id={id} />;
+}
+
+function DocActions({ doc, isSales }: { doc: Doc; isSales: boolean }) {
+  const router = useRouter();
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [sourceNo, setSourceNo] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (doc.sourceDocId) {
+      api<{ data: { docNo: string } }>(`${isSales ? "/api/sales" : "/api/purchases"}/${doc.sourceDocId}`)
+        .then((d) => setSourceNo(d.data.docNo))
+        .catch(() => {});
+    }
+  }, [doc.sourceDocId, isSales]);
+
+  const canConvert = doc.status !== "CONVERTED" && (isSales ? doc.docType === "QUOTATION" || doc.docType === "ORDER" : doc.docType === "ORDER");
+  const canReturn = doc.status === "POSTED" && (isSales ? doc.docType === "INVOICE" : doc.docType === "BILL");
+
+  async function run(action: "convert" | "return") {
+    if (busy) return;
+    const label = action === "convert" ? (isSales ? "invoice" : "bill") : "return";
+    if (!window.confirm(`Create a ${label} from ${doc.docNo}? This will post to stock and accounts.`)) return;
+    setBusy(true); setError(null);
+    try {
+      const d = await api<{ data: { docId: string } }>(
+        `${isSales ? "/api/sales" : "/api/purchases"}/${doc.id}/convert`,
+        { method: "POST", body: JSON.stringify({ action }) }
+      );
+      router.push(`${isSales ? "/sales" : "/purchases"}/${d.data.docId}`);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Could not complete the action.");
+    } finally { setBusy(false); }
+  }
+
+  return (
+    <>
+      {sourceNo && (
+        <span className="inline-flex items-center gap-1.5 rounded-xl bg-muted px-3 py-2 text-xs font-semibold text-muted-foreground">
+          <ArrowRightLeft size={13} /> Converted from {sourceNo}
+        </span>
+      )}
+      {canConvert && (
+        <button className="btn btn-primary text-sm" disabled={busy} onClick={() => run("convert")}>
+          <ArrowRightLeft size={15} /> {busy ? "Working…" : isSales ? "Convert to invoice" : "Convert to bill"}
+        </button>
+      )}
+      {canReturn && (
+        <button className="btn btn-ghost text-sm" disabled={busy} onClick={() => run("return")}>
+          <Undo2 size={15} /> {busy ? "Working…" : isSales ? "Create sales return" : "Create purchase return"}
+        </button>
+      )}
+      {error && <span className="text-xs font-semibold text-danger">{error}</span>}
+    </>
+  );
 }
