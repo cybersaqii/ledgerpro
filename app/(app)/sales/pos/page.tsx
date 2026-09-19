@@ -29,6 +29,7 @@ interface DoneInfo {
   grand: number;
   change: number;
   method: string;
+  advanceApplied: number;
 }
 
 const WALK_IN = "Walk-in Customer";
@@ -269,7 +270,7 @@ export default function PosPage() {
     setSaving(true);
     try {
       // Single atomic request: invoice + receipt(s) post in ONE transaction.
-      const res = await api<{ data: { docId: string; change: string } }>("/api/pos/checkout", {
+      const res = await api<{ data: { docId: string; change: string; advanceApplied?: string } }>("/api/pos/checkout", {
         method: "POST",
         body: JSON.stringify({
           partyId,
@@ -283,7 +284,12 @@ export default function PosPage() {
         }),
       });
       const docId = res.data.docId;
-      setDone({ docId, grand: totals.grand, change: parseInt(res.data.change || "0", 10), method: stage });
+      setDone({
+        docId, grand: totals.grand,
+        change: parseInt(res.data.change || "0", 10),
+        method: stage,
+        advanceApplied: parseInt(res.data.advanceApplied || "0", 10),
+      });
       setStage("done");
     } catch (e) {
       setError(e instanceof Error ? e.message : "Could not save the bill.");
@@ -344,6 +350,11 @@ export default function PosPage() {
         )}
         {done.method === "khata" && (
           <p className="mt-2 text-sm text-muted-foreground">Added to {bp.partyOne.toLowerCase()} khata (receivable).</p>
+        )}
+        {done.advanceApplied > 0 && (
+          <p className="mt-2 rounded-xl bg-emerald-500/15 px-4 py-2 text-sm font-bold text-emerald-700 dark:text-emerald-300">
+            Advance adjusted: {fmtMoney(done.advanceApplied)}
+          </p>
         )}
         <div className="mt-8 flex w-full flex-col gap-3 sm:flex-row">
           <button autoFocus onClick={newBill} onKeyDown={(e) => { if (e.key === "Enter") newBill(); }}

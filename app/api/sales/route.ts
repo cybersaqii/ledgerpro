@@ -11,6 +11,7 @@ import { json, err } from "@/lib/api";
 import { requireCompany, db, parseDateOnly, defaultBranchId, assertBranch } from "@/lib/route-helpers";
 import { logAudit } from "@/lib/audit";
 import { belowMinPrice, floorErrorMessage } from "@/lib/min-price";
+import { applyCustomerAdvance } from "@/lib/advance";
 
 const POSTED_TYPES = ["INVOICE", "RETURN"] as const;
 
@@ -166,6 +167,7 @@ export async function POST(req: NextRequest) {
       );
 
       let entryId: string | null = null;
+      let advanceApplied = 0n;
       if (isPosted) {
         entryId = await postSalesDoc(tx, {
           companyId,
@@ -185,8 +187,17 @@ export async function POST(req: NextRequest) {
           createdById: session.uid,
         });
         await tx.update(salesDocs).set({ journalEntryId: entryId }).where(eq(salesDocs.id, docId));
+        // advance auto-deduction: consume the customer's unallocated credit
+        if (b.docType === "INVOICE" && b.applyAdvance) {
+          advanceApplied = await applyCustomerAdvance(tx, {
+            companyId,
+            partyId: party.id,
+            docId,
+            grandTotal: totals.grandTotal,
+          });
+        }
       }
-      return { docId, docNo, entryId };
+      return { docId, docNo, entryId, advanceApplied };
     });
     await logAudit(db, {
       companyId, userId: session.uid, userName: session.name,
@@ -200,6 +211,14 @@ export async function POST(req: NextRequest) {
         action: "sale.price_override",
         entity: "sale", entityId: result.docId,
         detail: `Sold below minimum price: ${belowFloor.join(", ")} (${b.docType} ${result.docNo})`,
+      });
+    }
+    if (result.advanceApplied > 0n) {
+      await logAudit(db, {
+        companyId, userId: session.uid, userName: session.name,
+        action: "sale.advance_applied",
+        entity: "sale", entityId: result.docId,
+        detail: `Advance Rs ${(result.advanceApplied / 100n).toLocaleString()} auto-applied to ${result.docNo}`,
       });
     }
     return json({ data: result }, { status: 201 });

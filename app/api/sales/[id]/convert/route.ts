@@ -13,11 +13,12 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   const body = await req.json().catch(() => ({}));
   const action = body.action === "return" ? "return" : "convert";
   const priceOverride = body.priceOverride === true;
+  const applyAdvance = body.applyAdvance !== false;
 
   try {
     const result = await db.transaction(async (tx) => {
       const branchId = await defaultBranchId(tx, companyId);
-      const args = { companyId, branchId, sourceId: id, userId: session.uid, priceOverride };
+      const args = { companyId, branchId, sourceId: id, userId: session.uid, priceOverride, applyAdvance };
       if (action === "return") return createSalesReturn(tx, args);
       return convertSalesDoc(tx, args);
     });
@@ -27,6 +28,14 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       entity: "sale", entityId: result.docId,
       detail: action === "return" ? `Sales return ${result.docNo} created` : `Invoice ${result.docNo} converted`,
     });
+    if (action === "convert" && (result.advanceApplied ?? 0n) > 0n) {
+      await logAudit(db, {
+        companyId, userId: session.uid, userName: session.name,
+        action: "sale.advance_applied",
+        entity: "sale", entityId: result.docId,
+        detail: `Advance auto-applied on conversion to ${result.docNo}`,
+      });
+    }
     if (action === "convert" && priceOverride) {
       await logAudit(db, {
         companyId, userId: session.uid, userName: session.name,

@@ -7,6 +7,7 @@ import { parseMoney } from "@/lib/money";
 import { parseQty } from "@/lib/qty";
 import { postSalesDoc, postPayment } from "@/lib/posting";
 import { nextDocNo } from "@/lib/setup";
+import { applyCustomerAdvance } from "@/lib/advance";
 import { json, err } from "@/lib/api";
 import { requireCompany, db, parseDateOnly, defaultBranchId, assertBranch } from "@/lib/route-helpers";
 import { logAudit } from "@/lib/audit";
@@ -177,7 +178,19 @@ export async function POST(req: NextRequest) {
         paymentIds.push(pid);
         remaining -= alloc;
       }
-      return { docId, docNo, paymentIds, paidTotal: totals.grandTotal - remaining };
+      // advance auto-deduction on whatever is still unpaid (khata / partial)
+      const paidTotal = totals.grandTotal - remaining;
+      let advanceApplied = 0n;
+      if (remaining > 0n) {
+        advanceApplied = await applyCustomerAdvance(tx, {
+          companyId,
+          partyId: party.id,
+          docId,
+          grandTotal: totals.grandTotal,
+          alreadyPaid: paidTotal,
+        });
+      }
+      return { docId, docNo, paymentIds, paidTotal, advanceApplied };
     });
 
     await logAudit(db, {
@@ -194,6 +207,14 @@ export async function POST(req: NextRequest) {
         detail: `Sold below minimum price: ${belowFloor.join(", ")} (invoice ${result.docNo})`,
       });
     }
+    if (result.advanceApplied > 0n) {
+      await logAudit(db, {
+        companyId, userId: session.uid, userName: session.name,
+        action: "pos.advance_applied",
+        entity: "sale", entityId: result.docId,
+        detail: `Advance auto-applied to POS invoice ${result.docNo}`,
+      });
+    }
     return json(
       {
         data: {
@@ -202,6 +223,7 @@ export async function POST(req: NextRequest) {
           paymentIds: result.paymentIds,
           grandTotal: totals.grandTotal,
           paidTotal: result.paidTotal,
+          advanceApplied: result.advanceApplied,
           change,
         },
       },

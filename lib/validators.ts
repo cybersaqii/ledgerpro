@@ -66,6 +66,7 @@ export const salesDocSchema = z.object({
   notes: z.string().trim().max(500).optional().or(z.literal("")),
   items: z.array(docItemSchema).min(1, "Add at least one item"),
   priceOverride: z.boolean().default(false), // explicit override of minimum sale price
+  applyAdvance: z.boolean().default(true), // auto-consume customer's unallocated advance on invoices
 });
 
 export const purchaseDocSchema = salesDocSchema.extend({

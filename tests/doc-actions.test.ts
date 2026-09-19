@@ -2,7 +2,7 @@ import { describe, it, expect, beforeAll, afterAll } from "vitest";
 import { eq, and } from "drizzle-orm";
 import { createTestDb, type TestDb } from "./helpers";
 import { setupCompany, nextDocNo } from "@/lib/setup";
-import { postPurchaseDoc, assertBalanced } from "@/lib/posting";
+import { postPurchaseDoc, postPayment, assertBalanced } from "@/lib/posting";
 import { computeTotals, type DocItemInput } from "@/lib/totals";
 import { parseMoney } from "@/lib/money";
 import { parseQty } from "@/lib/qty";
@@ -293,6 +293,151 @@ describe("minimum sale price lock", () => {
     const warns = priceWarnings(lines, products);
     expect(warns).toHaveLength(1);
     expect(warns[0]!.floor).toBe("2300.00");
+  });
+});
+
+describe("applyCustomerAdvance", () => {
+  let advCustomerId = "";
+  let cashId = "";
+
+  async function receipt(amountRs: string, when: string) {
+    await db.transaction((tx) =>
+      postPayment(tx, {
+        companyId, branchId, kind: "RECEIPT", partyId: advCustomerId,
+        bankAccountId: cashId, date: new Date(when),
+        amount: parseMoney(amountRs), method: "CASH", allocations: [], createdById: userId,
+      })
+    );
+  }
+
+  async function cheapQuote(rateRs: string, qtyKg: string): Promise<string> {
+    const docNo = await db.transaction((tx) => nextDocNo(tx, companyId, "QUOTATION"));
+    const id = crypto.randomUUID();
+    const rate = parseMoney(rateRs);
+    const qty = parseQty(qtyKg);
+    const line = rate * qty / 1000n;
+    await db.insert(s.salesDocs).values({
+      id, companyId, branchId, partyId: advCustomerId, docType: "QUOTATION", docNo,
+      date: new Date(), status: "DRAFT",
+      subtotal: line, discountTotal: 0n, taxTotal: 0n, grandTotal: line,
+      createdById: userId,
+    });
+    await db.insert(s.salesDocItems).values({
+      id: crypto.randomUUID(), docId: id, productId, description: "Rice 25kg",
+      qty, rate, discount: 0n, taxBps: 0, taxAmount: 0n, lineTotal: line,
+    });
+    return id;
+  }
+
+  beforeAll(async () => {
+    advCustomerId = crypto.randomUUID();
+    await db.insert(s.parties).values({ id: advCustomerId, companyId, kind: "CUSTOMER", name: "Advance Customer" });
+    const rows = await db.select({ id: s.bankAccounts.id }).from(s.bankAccounts)
+      .where(eq(s.bankAccounts.companyId, companyId)).limit(1);
+    cashId = rows[0]!.id;
+    // receive plenty of stock for the advance-test invoices
+    const items: DocItemInput[] = [{
+      productId, description: "Rice 25kg", qtyMilli: parseQty("100"),
+      ratePaisa: parseMoney("2000"), discountPaisa: 0n, taxBps: 0,
+    }];
+    const totals = computeTotals(items, 0n);
+    const docNo = await db.transaction((tx) => nextDocNo(tx, companyId, "BILL"));
+    const billId = crypto.randomUUID();
+    await db.insert(s.purchaseDocs).values({
+      id: billId, companyId, branchId, partyId: supplierId, docType: "BILL", docNo,
+      date: new Date(), status: "POSTED",
+      subtotal: totals.subtotal, discountTotal: 0n, taxTotal: totals.taxTotal, grandTotal: totals.grandTotal,
+      createdById: userId,
+    });
+    await db.insert(s.purchaseDocItems).values(totals.items.map((i) => ({
+      id: crypto.randomUUID(), docId: billId, productId: i.productId, description: i.description,
+      qty: i.qtyMilli, rate: i.ratePaisa, discount: i.discountPaisa, taxBps: i.taxBps,
+      taxAmount: i.taxAmountPaisa, lineTotal: i.lineTotalPaisa,
+    })));
+    await db.transaction((tx) => postPurchaseDoc(tx, {
+      companyId, branchId, partyId: supplierId, docId: billId, docNo, docType: "BILL", date: new Date(),
+      items: totals.items.map((i) => ({ ...i, trackStock: true })),
+      discountTotal: 0n, taxTotal: totals.taxTotal, grandTotal: totals.grandTotal, createdById: userId,
+    }));
+  });
+
+  it("does nothing when the customer has no advance", async () => {
+    const otherId = crypto.randomUUID();
+    await db.insert(s.parties).values({ id: otherId, companyId, kind: "CUSTOMER", name: "No Advance Customer" });
+    const docNo = await db.transaction((tx) => nextDocNo(tx, companyId, "QUOTATION"));
+    const id = crypto.randomUUID();
+    await db.insert(s.salesDocs).values({
+      id, companyId, branchId, partyId: otherId, docType: "QUOTATION", docNo,
+      date: new Date(), status: "DRAFT",
+      subtotal: parseMoney("2400"), discountTotal: 0n, taxTotal: 0n, grandTotal: parseMoney("2400"),
+      createdById: userId,
+    });
+    await db.insert(s.salesDocItems).values({
+      id: crypto.randomUUID(), docId: id, productId, description: "Rice 25kg",
+      qty: parseQty("1"), rate: parseMoney("2400"), discount: 0n, taxBps: 0, taxAmount: 0n, lineTotal: parseMoney("2400"),
+    });
+    const res = await db.transaction((tx) =>
+      convertSalesDoc(tx, { companyId, branchId, sourceId: id, userId })
+    );
+    expect(res.advanceApplied ?? 0n).toBe(0n);
+    const [inv] = await db.select().from(s.salesDocs).where(eq(s.salesDocs.id, res.docId)).limit(1);
+    expect(inv!.amountPaid).toBe(0n);
+    expect(inv!.status).toBe("POSTED");
+  });
+
+  it("auto-consumes advance FIFO and marks the invoice paid/partial", async () => {
+    await receipt("2000", "2026-01-05");
+    await receipt("3000", "2026-02-05");
+    // invoice total Rs 4000.80 (rate 2400 x 1.667kg) — floor 2300 is respected
+    const srcId = await cheapQuote("2400", "1.667");
+    const res = await db.transaction((tx) =>
+      convertSalesDoc(tx, { companyId, branchId, sourceId: srcId, userId })
+    );
+    const [inv] = await db.select().from(s.salesDocs).where(eq(s.salesDocs.id, res.docId)).limit(1);
+    const applied = res.advanceApplied ?? 0n;
+    expect(applied).toBe(inv!.grandTotal);
+    expect(inv!.amountPaid).toBe(inv!.grandTotal);
+    expect(inv!.status).toBe("PAID");
+    // FIFO: oldest receipt fully consumed, newer partially
+    const allocs = await db.select().from(s.paymentAllocations)
+      .where(eq(s.paymentAllocations.salesDocId, res.docId));
+    const total = allocs.reduce((a, x) => a + BigInt(x.amount), 0n);
+    expect(total).toBe(inv!.grandTotal);
+    expect(allocs).toHaveLength(2);
+  });
+
+  it("leaves leftover advance for the next bill", async () => {
+    // Rs 999.20 of the second receipt is still free; a Rs 600 invoice consumes it
+    const srcId = await cheapQuote("2400", "0.25"); // 600
+    const res = await db.transaction((tx) =>
+      convertSalesDoc(tx, { companyId, branchId, sourceId: srcId, userId })
+    );
+    expect(res.advanceApplied ?? 0n).toBe(parseMoney("600"));
+    const [inv] = await db.select().from(s.salesDocs).where(eq(s.salesDocs.id, res.docId)).limit(1);
+    expect(inv!.status).toBe("PAID");
+  });
+
+  it("never over-applies past the grand total", async () => {
+    await receipt("50000", "2026-03-01"); // huge advance
+    const srcId = await cheapQuote("2400", "1"); // 2400
+    const res = await db.transaction((tx) =>
+      convertSalesDoc(tx, { companyId, branchId, sourceId: srcId, userId })
+    );
+    expect(res.advanceApplied ?? 0n).toBe(parseMoney("2400"));
+    const [inv] = await db.select().from(s.salesDocs).where(eq(s.salesDocs.id, res.docId)).limit(1);
+    expect(inv!.amountPaid).toBe(inv!.grandTotal);
+  });
+
+  it("respects alreadyPaid (POS checkout style)", async () => {
+    const { applyCustomerAdvance } = await import("@/lib/advance");
+    // advCustomer still has a large free advance; simulate a fully cash-paid bill
+    const out = await db.transaction((tx) =>
+      applyCustomerAdvance(tx, {
+        companyId, partyId: advCustomerId, docId: crypto.randomUUID(),
+        grandTotal: parseMoney("1000"), alreadyPaid: parseMoney("1000"),
+      })
+    );
+    expect(out).toBe(0n);
   });
 });
 

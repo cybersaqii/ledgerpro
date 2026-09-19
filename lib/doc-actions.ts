@@ -6,6 +6,7 @@ import { computeTotals, type DocItemInput, type ComputedItem } from "./totals";
 import { postSalesDoc, postPurchaseDoc } from "./posting";
 import { nextDocNo } from "./setup";
 import { floorErrorMessage } from "./min-price";
+import { applyCustomerAdvance } from "./advance";
 import type { DbTx } from "./db";
 
 type Tx = DbTx;
@@ -22,12 +23,12 @@ async function trackStockMap(tx: Tx, productIds: (string | null)[]) {
   return map;
 }
 
-interface ConvertResult { docId: string; docNo: string; }
+interface ConvertResult { docId: string; docNo: string; advanceApplied?: bigint }
 
 /** Convert a sales QUOTATION/ORDER into a posted INVOICE (copies lines, links source). */
 export async function convertSalesDoc(
   tx: Tx,
-  input: { companyId: string; branchId: string; sourceId: string; userId: string; priceOverride?: boolean }
+  input: { companyId: string; branchId: string; sourceId: string; userId: string; priceOverride?: boolean; applyAdvance?: boolean }
 ): Promise<ConvertResult> {
   const [src] = await tx.select().from(salesDocs)
     .where(and(eq(salesDocs.id, input.sourceId), eq(salesDocs.companyId, input.companyId))).limit(1);
@@ -113,8 +114,18 @@ export async function convertSalesDoc(
     createdById: input.userId,
   });
   await tx.update(salesDocs).set({ journalEntryId: entryId }).where(eq(salesDocs.id, docId));
+  // advance auto-deduction against the new invoice (same as the invoice form)
+  let advanceApplied = 0n;
+  if (input.applyAdvance !== false) {
+    advanceApplied = await applyCustomerAdvance(tx, {
+      companyId: input.companyId,
+      partyId: src.partyId,
+      docId,
+      grandTotal: totals.grandTotal,
+    });
+  }
   await tx.update(salesDocs).set({ status: "CONVERTED" }).where(eq(salesDocs.id, src.id));
-  return { docId, docNo };
+  return { docId, docNo, advanceApplied };
 }
 
 /** Create a full sales RETURN (credit note) from a posted INVOICE — stock + ledger reversed. */
