@@ -50,7 +50,7 @@ export default function LandingPage() {
     <div className="min-h-screen overflow-x-clip bg-background">
       {/* Nav */}
       <header className="fixed inset-x-0 top-0 z-40 border-b border-white/10 bg-[#0a2e25]/85 backdrop-blur-xl">
-        <div className="mx-auto flex h-16 max-w-[1400px] items-center justify-between px-4 sm:px-8">
+        <div className="flex h-16 items-center justify-between px-4 sm:px-8 lg:px-12">
           <Link href="/" className="flex items-center gap-2.5">
             <span className="grid h-9 w-9 place-items-center rounded-xl bg-white/15 shadow-lg">
               <FileText size={18} className="text-white" />
@@ -83,9 +83,9 @@ export default function LandingPage() {
           <div className="absolute -top-32 left-1/4 h-[420px] w-[620px] rounded-full bg-emerald-400/20 blur-[130px]" />
           <div className="absolute top-1/3 -right-32 h-96 w-96 rounded-full bg-teal-300/15 blur-[110px]" />
           <div className="absolute inset-0 opacity-[0.06]" style={{ backgroundImage: "radial-gradient(circle at 1px 1px, #fff 1px, transparent 0)", backgroundSize: "30px 30px" }} />
-          <div className="absolute inset-x-0 bottom-0 h-40 bg-gradient-to-t from-background to-transparent" />
+          <div className="absolute inset-x-0 bottom-0 h-24 bg-gradient-to-t from-background to-transparent" />
         </div>
-        <div className="relative mx-auto grid max-w-[1400px] items-center gap-12 px-4 pb-24 pt-32 sm:px-8 sm:pt-40 lg:grid-cols-2 lg:gap-8 lg:pb-32">
+        <div className="relative grid items-center gap-12 px-4 pb-16 pt-32 sm:px-8 sm:pt-40 lg:grid-cols-2 lg:gap-12 lg:px-12 lg:pb-20">
           <div className="text-center lg:text-left">
             <div className="rise inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/10 px-4 py-1.5 text-xs font-semibold text-emerald-50 shadow-sm backdrop-blur">
               <BadgeCheck size={14} className="text-amber-300" />
@@ -178,18 +178,20 @@ export default function LandingPage() {
           </div>
         </div>
         {/* Business-type marquee — fills the hero foot with motion */}
-        <div className="relative border-t border-white/10 py-5">
+        <div className="relative z-10 border-t border-white/10 py-6">
           <div className="overflow-hidden [mask-image:linear-gradient(to_right,transparent,black_8%,black_92%,transparent)]">
             <div className="animate-marquee flex w-max items-center gap-10 pr-10">
               {[...businessTypes, ...businessTypes].map((b, i) => (
-                <span key={i} className="flex items-center gap-2 text-sm font-semibold text-emerald-100/70">
-                  <b.icon size={16} className="text-emerald-300/80" />
+                <span key={i} className="flex items-center gap-2 text-sm font-semibold tracking-wide text-emerald-50">
+                  <b.icon size={16} className="text-emerald-300" />
                   {b.label}
                 </span>
               ))}
             </div>
           </div>
         </div>
+        {/* Spacer so the bottom fade blends below the marquee */}
+        <div className="relative h-14" />
       </section>
 
       {/* Paper vs LedgerPro — loss aversion */}
