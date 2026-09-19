@@ -1,5 +1,5 @@
 import { NextRequest } from "next/server";
-import { eq, and } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 import { users } from "@/db/schema";
 import { json, err } from "@/lib/api";
 import { requireOwner, db } from "@/lib/route-helpers";
