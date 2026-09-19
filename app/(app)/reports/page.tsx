@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { Scale, TrendingUp, Landmark, BookOpen, ArrowDownToLine, ArrowUpFromLine, Boxes, BarChart3 } from "lucide-react";
+import { Scale, TrendingUp, Landmark, BookOpen, ArrowDownToLine, ArrowUpFromLine, Boxes, BarChart3, ScrollText } from "lucide-react";
 import { PageHeader } from "@/components/ui";
 import { useBusinessProfile } from "@/components/business-type";
 
@@ -14,6 +14,7 @@ export default function ReportsHub() {
     { href: "/reports/party-ledger", icon: BookOpen, title: `${bp.partyOne} ledger`, text: `Full transaction history of any ${bp.partyOne.toLowerCase()} or supplier.` },
     { href: "/reports/receivables", icon: ArrowDownToLine, title: bp.receivables, text: `Who owes you money, and how much.` },
     { href: "/reports/payables", icon: ArrowUpFromLine, title: "Payables", text: "Who you owe money to, and how much." },
+    { href: "/reports/journal", icon: ScrollText, title: "Journal", text: "The audit trail — every balanced entry behind your books." },
     { href: "/stock", icon: Boxes, title: `${bp.stock} report`, text: `Quantities, average cost and value of every ${bp.productOne.toLowerCase()}.` },
   ];
   return (
