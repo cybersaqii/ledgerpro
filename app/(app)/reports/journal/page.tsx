@@ -35,7 +35,13 @@ export default function JournalPage() {
       .finally(() => setLoading(false));
   }
 
-  useEffect(() => { load(1, "", "", ""); }, []);
+  useEffect(() => {
+    const sp = new URLSearchParams({ page: "1", perPage: "20" });
+    api<{ data: Entry[]; total: number }>(`/api/reports/journal?${sp}`)
+      .then((d) => { setEntries(d.data); setTotal(d.total); setPage(1); })
+      .catch((e) => setError(e instanceof Error ? e.message : "Could not load journal."))
+      .finally(() => setLoading(false));
+  }, []);
 
   function applyFilters() { load(1, q, from, to); }
 
