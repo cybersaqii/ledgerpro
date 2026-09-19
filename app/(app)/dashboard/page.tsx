@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import {
   TrendingUp, ShoppingBag, ReceiptText, ArrowDownToLine, ArrowUpFromLine,
-  Landmark, TriangleAlert, FileText, LayoutDashboard,
+  Landmark, TriangleAlert, FileText, LayoutDashboard, Zap, ArrowRight,
   ShoppingCart, Truck, Users, Package, BarChart3,
 } from "lucide-react";
 import { PageHeader, Stat, EmptyState } from "@/components/ui";
@@ -67,6 +67,26 @@ export default function DashboardPage() {
         subtitle="Your business at a glance"
         icon={<LayoutDashboard size={20} />}
       />
+
+      {/* POS banner for counter businesses */}
+      {(bp.type === "RETAIL" || bp.type === "PHARMACY" || bp.type === "RESTAURANT") && (
+        <Link href="/sales/pos"
+          className="card group mb-5 flex items-center justify-between gap-4 overflow-hidden p-4 transition hover:-translate-y-0.5 sm:p-5">
+          <span className="pointer-events-none absolute inset-y-0 left-0 w-1.5 bg-gradient-to-b from-emerald-400 to-teal-600" />
+          <span className="flex min-w-0 items-center gap-4 pl-2">
+            <span className="grid h-12 w-12 shrink-0 place-items-center rounded-2xl bg-gradient-to-br from-emerald-500 to-teal-600 text-white shadow-md transition group-hover:scale-110">
+              <Zap size={22} />
+            </span>
+            <span className="min-w-0">
+              <span className="block truncate font-extrabold">Open POS billing</span>
+              <span className="block truncate text-sm text-muted-foreground">Fast counter checkout — scan, tap, done</span>
+            </span>
+          </span>
+          <span className="btn btn-primary shrink-0 !py-2 text-sm">
+            Start <ArrowRight size={16} />
+          </span>
+        </Link>
+      )}
 
       {/* Quick actions */}
       <div className="mb-5 grid grid-cols-4 gap-2.5 sm:grid-cols-8">

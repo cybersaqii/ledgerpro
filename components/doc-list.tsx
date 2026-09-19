@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
-import { Plus, Search, CalendarDays, ShoppingCart, Truck } from "lucide-react";
+import { Plus, Search, CalendarDays, ShoppingCart, Truck, Zap } from "lucide-react";
 import { PageHeader, EmptyState, FilterBar, SummaryChips, Pagination, StatusPill } from "@/components/ui";
 import { api, fmtMoney, fmtDate, toBig } from "@/lib/format";
 import { useBusinessProfile } from "@/components/business-type";
@@ -79,9 +79,16 @@ export function DocList({ mode }: { mode: "SALES" | "PURCHASE" }) {
         subtitle={isSales ? "Invoices, orders, challans and returns" : "Bills, orders, GRNs and returns"}
         icon={isSales ? <ShoppingCart size={20} /> : <Truck size={20} />}
         actions={
-          <Link href={isSales ? "/sales/new" : "/purchases/new"} className="btn btn-primary text-sm">
-            <Plus size={16} /> {isSales ? bp.newSale : "New purchase"}
-          </Link>
+          <div className="flex gap-2">
+            {isSales && (
+              <Link href="/sales/pos" className="btn text-sm">
+                <Zap size={16} /> POS
+              </Link>
+            )}
+            <Link href={isSales ? "/sales/new" : "/purchases/new"} className="btn btn-primary text-sm">
+              <Plus size={16} /> {isSales ? bp.newSale : "New purchase"}
+            </Link>
+          </div>
         }
       />
 
