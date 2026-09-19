@@ -87,7 +87,7 @@ export default function LandingPage() {
               finally in one place
             </h1>
             <p className="rise rise-2 mt-5 max-w-xl text-base text-emerald-50/80 sm:text-lg lg:mx-0">
-              {brand.description} Sales, stock, payments and full double-entry accounts — tailored to your trade. No more registers, no more guesswork.
+              {brand.description} No more registers, no more guesswork.
             </p>
             <div className="rise rise-3 mt-8 flex flex-wrap items-center justify-center gap-3 lg:justify-start">
               <Link href="/signup" className="btn !border-0 !bg-white !px-7 !py-3.5 !text-base !text-[#0a2e25] shadow-xl shadow-black/20 hover:!bg-emerald-50">
