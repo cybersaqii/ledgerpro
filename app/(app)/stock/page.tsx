@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import { Search, TriangleAlert, Boxes } from "lucide-react";
 import { PageHeader, EmptyState } from "@/components/ui";
 import { api, fmtMoney, fmtQty } from "@/lib/format";
+import { useBusinessProfile } from "@/components/business-type";
 
 type Row = {
   productId: string; sku: string; name: string; unit: string; category: string | null;
@@ -12,6 +13,7 @@ type Row = {
 };
 
 export default function StockPage() {
+  const bp = useBusinessProfile();
   const [rows, setRows] = useState<Row[]>([]);
   const [totalValue, setTotalValue] = useState("0");
   const [q, setQ] = useState("");
@@ -37,9 +39,9 @@ export default function StockPage() {
   return (
     <div>
       <PageHeader
-        title="Stock"
+        title={bp.stock}
         icon={<Boxes size={20} />}
-        subtitle={<>Total stock value: <span className="font-extrabold text-primary">{fmtMoney(totalValue)}</span></>}
+        subtitle={<>{`Total ${bp.stock.toLowerCase()} value`}:  <span className="font-extrabold text-primary">{fmtMoney(totalValue)}</span></>}
       />
 
       <div className="mb-4 flex flex-wrap items-center gap-3">

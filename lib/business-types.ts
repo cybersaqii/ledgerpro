@@ -16,3 +16,55 @@ export type BusinessType = (typeof BUSINESS_TYPES)[number]["value"];
 export function businessTypeLabel(value: string | null | undefined): string {
   return BUSINESS_TYPES.find((b) => b.value === value)?.label ?? "Wholesale trader";
 }
+
+/**
+ * Phase 2 — adaptive interface.
+ * Each business type gets its own vocabulary: the sidebar, dashboard, parties,
+ * products, billing and reports all re-label themselves from this one profile.
+ * Accounting behaviour is identical for every type; only the words change.
+ */
+export interface BusinessProfile {
+  type: BusinessType;
+  /** Who you sell to: Customer / Patient / Guest / Client */
+  partyOne: string;
+  partyMany: string;
+  /** What you sell: Product / Medicine / Menu item / Service / Treatment */
+  productOne: string;
+  productMany: string;
+  /** Sidebar label for the sales module: Sales / Billing / Treatments / Invoices */
+  salesNav: string;
+  /** Primary billing action: "New sale bill" / "New counter bill" / "New treatment bill" / "New invoice" */
+  newSale: string;
+  /** Save button on the billing form: "Save sale bill" / "Save treatment bill" / "Save invoice" */
+  saveSale: string;
+  /** Receivables KPI label: Receivables / Patient dues */
+  receivables: string;
+  /** Stock module label: Stock / Medicine stock */
+  stock: string;
+}
+
+const profile = (
+  type: BusinessType,
+  partyOne: string, partyMany: string,
+  productOne: string, productMany: string,
+  salesNav: string, newSale: string, saveSale: string,
+  receivables: string, stock: string,
+): BusinessProfile => ({ type, partyOne, partyMany, productOne, productMany, salesNav, newSale, saveSale, receivables, stock });
+
+export const BUSINESS_PROFILES: Record<BusinessType, BusinessProfile> = {
+  WHOLESALE: profile("WHOLESALE", "Customer", "Customers", "Product", "Products", "Sales", "New sale bill", "Save sale bill", "Receivables", "Stock"),
+  RETAIL: profile("RETAIL", "Customer", "Customers", "Product", "Products", "Billing", "New counter bill", "Save counter bill", "Receivables", "Stock"),
+  DISTRIBUTION: profile("DISTRIBUTION", "Customer", "Customers", "Product", "Products", "Sales", "New sale bill", "Save sale bill", "Receivables", "Stock"),
+  PHARMACY: profile("PHARMACY", "Customer", "Customers", "Medicine", "Medicines", "Sales", "New sale bill", "Save sale bill", "Receivables", "Medicine stock"),
+  CLINIC: profile("CLINIC", "Patient", "Patients", "Treatment", "Treatments", "Treatments", "New treatment bill", "Save treatment bill", "Patient dues", "Medicine stock"),
+  RESTAURANT: profile("RESTAURANT", "Guest", "Guests", "Menu item", "Menu items", "Billing", "New bill", "Save bill", "Receivables", "Stock"),
+  SERVICES: profile("SERVICES", "Client", "Clients", "Service", "Services", "Invoices", "New invoice", "Save invoice", "Receivables", "Stock"),
+  MANUFACTURING: profile("MANUFACTURING", "Customer", "Customers", "Product", "Products", "Sales", "New sale bill", "Save sale bill", "Receivables", "Stock"),
+  OTHER: profile("OTHER", "Customer", "Customers", "Product", "Products", "Sales", "New sale bill", "Save sale bill", "Receivables", "Stock"),
+};
+
+/** Profile for a stored business_type value; falls back to the generic profile. */
+export function getBusinessProfile(value: string | null | undefined): BusinessProfile {
+  const key = (value ?? "") as BusinessType;
+  return BUSINESS_PROFILES[key] ?? BUSINESS_PROFILES.OTHER;
+}

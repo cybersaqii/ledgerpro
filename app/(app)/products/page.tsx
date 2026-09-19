@@ -5,6 +5,7 @@ import { Plus, Search, Pencil, TriangleAlert, Package } from "lucide-react";
 import { PageHeader, EmptyState, Field, ErrorNote } from "@/components/ui";
 import { Modal } from "@/components/modal";
 import { api, fmtMoney, fmtQty } from "@/lib/format";
+import { useBusinessProfile } from "@/components/business-type";
 
 type Product = {
   id: string; sku: string; name: string; unit: string; category: string | null;
@@ -20,6 +21,7 @@ const emptyForm = {
 const UNITS = ["PCS", "KG", "G", "LTR", "ML", "MTR", "BOX", "CTN", "DOZ", "BAG"];
 
 export default function ProductsPage() {
+  const bp = useBusinessProfile();
   const [q, setQ] = useState("");
   const [lowOnly, setLowOnly] = useState(false);
   const [rows, setRows] = useState<Product[]>([]);
@@ -81,10 +83,10 @@ export default function ProductsPage() {
   return (
     <div>
       <PageHeader
-        title="Products"
-        subtitle={`${total} products · stock updates automatically on purchase & sale`}
+        title={bp.productMany}
+        subtitle={`${total} ${bp.productMany.toLowerCase()} · stock updates automatically on purchase & sale`}
         icon={<Package size={20} />}
-        actions={<button className="btn btn-primary text-sm" onClick={openAdd}><Plus size={16} /> Add product</button>}
+        actions={<button className="btn btn-primary text-sm" onClick={openAdd}><Plus size={16} /> Add {bp.productOne.toLowerCase()}</button>}
       />
 
       <div className="mb-4 flex flex-wrap items-center gap-3">
@@ -102,12 +104,12 @@ export default function ProductsPage() {
         {loading ? (
           <div className="space-y-3 p-5">{[1, 2, 3].map((i) => <div key={i} className="h-12 animate-pulse rounded-xl bg-muted" />)}</div>
         ) : rows.length === 0 ? (
-          <EmptyState title="No products yet" hint="Add products to start billing."
+          <EmptyState title={`No ${bp.productMany.toLowerCase()} yet`} hint={`Add ${bp.productMany.toLowerCase()} to start billing.`}
             action={<button className="btn btn-primary text-sm" onClick={openAdd}><Plus size={16} /> Add now</button>} />
         ) : (
           <div className="overflow-x-auto">
             <table className="tbl">
-              <thead><tr><th>Product</th><th>SKU</th><th className="num">Stock</th><th className="num">Buy price</th><th className="num">Sale price</th><th></th></tr></thead>
+              <thead><tr><th>{bp.productOne}</th><th>SKU</th><th className="num">Stock</th><th className="num">Buy price</th><th className="num">Sale price</th><th></th></tr></thead>
               <tbody>
                 {rows.map((p) => {
                   const low = p.trackStock && BigInt(p.totalQty) <= BigInt(p.reorderLevel);
@@ -133,14 +135,14 @@ export default function ProductsPage() {
       </div>
 
       {modal && (
-        <Modal title={modal.mode === "add" ? "Add product" : "Edit product"} onClose={() => setModal(null)}>
+        <Modal title={modal.mode === "add" ? `Add ${bp.productOne.toLowerCase()}` : `Edit ${bp.productOne.toLowerCase()}`} onClose={() => setModal(null)}>
           <form onSubmit={save} className="space-y-4">
             <ErrorNote message={error} />
             <div className="grid gap-4 sm:grid-cols-2">
               <Field label="SKU (code)"><input className="field" required value={form.sku} onChange={set("sku")} placeholder="e.g. RICE-001" /></Field>
               <Field label="Barcode (optional)"><input className="field" value={form.barcode} onChange={set("barcode")} /></Field>
             </div>
-            <Field label="Product name"><input className="field" required value={form.name} onChange={set("name")} placeholder="e.g. Basmati Rice" /></Field>
+            <Field label={`${bp.productOne} name`}><input className="field" required value={form.name} onChange={set("name")} placeholder="e.g. Basmati Rice" /></Field>
             <div className="grid gap-4 sm:grid-cols-2">
               <Field label="Category"><input className="field" value={form.category} onChange={set("category")} placeholder="e.g. Grocery" /></Field>
               <Field label="Unit">
@@ -156,7 +158,7 @@ export default function ProductsPage() {
             </div>
             <label className="flex cursor-pointer items-center gap-2 text-sm font-semibold">
               <input type="checkbox" checked={form.trackStock} onChange={set("trackStock")} className="h-4 w-4 accent-[var(--primary)]" />
-              Track stock for this product
+              Track stock for this {bp.productOne.toLowerCase()}
             </label>
             <div className="flex justify-end gap-2 pt-2">
               <button type="button" className="btn btn-ghost" onClick={() => setModal(null)}>Cancel</button>

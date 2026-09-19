@@ -2,12 +2,14 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { PageHeader, Field } from "@/components/ui";
+import { useBusinessProfile } from "@/components/business-type";
 import { api, fmtMoney, fmtDate, fmtDateInput } from "@/lib/format";
 
 type Party = { id: string; name: string; kind: string };
 type Entry = { date: number; memo: string; reference: string | null; source: string; debit: string; credit: string; balance: string };
 
 export default function PartyLedgerPage() {
+  const bp = useBusinessProfile();
   const [parties, setParties] = useState<Party[]>([]);
   const [partyQ, setPartyQ] = useState("");
   const [partyId, setPartyId] = useState("");
@@ -54,7 +56,7 @@ export default function PartyLedgerPage() {
 
   return (
     <div>
-      <PageHeader title="Party ledger" subtitle="Complete history of one customer or supplier" />
+      <PageHeader title={`${bp.partyOne} ledger`} subtitle={`Complete history of one ${bp.partyOne.toLowerCase()} or supplier`} />
       <div className="card mb-4 flex flex-wrap items-end gap-3 p-4">
         <div className="min-w-52 flex-1">
           <Field label="Party">

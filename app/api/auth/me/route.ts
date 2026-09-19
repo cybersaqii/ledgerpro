@@ -11,13 +11,13 @@ export async function GET() {
   const user = rows[0];
   if (!user || !user.isActive) return err("Session expired.", 401);
   const co = await db
-    .select({ name: companies.name })
+    .select({ name: companies.name, businessType: companies.businessType })
     .from(companies)
     .where(eq(companies.id, user.companyId))
     .limit(1);
   return json({
     user: { id: user.id, name: user.name, email: user.email, role: user.role },
-    company: { id: user.companyId, name: co[0]?.name ?? "" },
+    company: { id: user.companyId, name: co[0]?.name ?? "", businessType: co[0]?.businessType ?? "OTHER" },
   });
 }
 

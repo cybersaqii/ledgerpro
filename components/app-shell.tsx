@@ -9,41 +9,49 @@ import {
 } from "lucide-react";
 import { Logo, ThemeToggle } from "./ui";
 import { api } from "@/lib/format";
-
-const nav = [
-  { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
-  { href: "/sales", label: "Sales", icon: ShoppingCart },
-  { href: "/purchases", label: "Purchases", icon: Truck },
-  { href: "/payments", label: "Payments", icon: Wallet },
-  { href: "/expenses", label: "Expenses", icon: ReceiptText },
-  { href: "/parties", label: "Parties", icon: Users },
-  { href: "/products", label: "Products", icon: Package },
-  { href: "/stock", label: "Stock", icon: Boxes },
-  { href: "/reports", label: "Reports", icon: BarChart3 },
-  { href: "/settings", label: "Settings", icon: Settings },
-];
-
-const quickCreate = [
-  { href: "/sales/new", label: "New sale bill", icon: ShoppingCart },
-  { href: "/purchases/new", label: "New purchase bill", icon: Truck },
-  { href: "/payments/new?kind=RECEIPT", label: "Receive payment", icon: Wallet },
-  { href: "/payments/new?kind=PAYMENT", label: "Pay supplier", icon: Wallet },
-  { href: "/expenses", label: "Add expense", icon: ReceiptText },
-];
+import { BusinessTypeProvider } from "./business-type";
+import { getBusinessProfile } from "@/lib/business-types";
 
 export function AppShell({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [user, setUser] = useState<{ name: string; email: string } | null>(null);
+  const [businessType, setBusinessType] = useState<string | null>(null);
   const [quickOpen, setQuickOpen] = useState(false);
   const quickRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    api<{ user: { name: string; email: string } }>("/api/auth/me")
-      .then((d) => setUser(d.user))
+    api<{ user: { name: string; email: string }; company: { name: string; businessType: string } }>("/api/auth/me")
+      .then((d) => {
+        setUser(d.user);
+        setBusinessType(d.company.businessType);
+      })
       .catch(() => router.push("/login"));
-  }, [router]);
+  }, [router, pathname]);
+
+  const bp = getBusinessProfile(businessType);
+
+  const nav = [
+    { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
+    { href: "/sales", label: bp.salesNav, icon: ShoppingCart },
+    { href: "/purchases", label: "Purchases", icon: Truck },
+    { href: "/payments", label: "Payments", icon: Wallet },
+    { href: "/expenses", label: "Expenses", icon: ReceiptText },
+    { href: "/parties", label: bp.partyMany, icon: Users },
+    { href: "/products", label: bp.productMany, icon: Package },
+    { href: "/stock", label: bp.stock, icon: Boxes },
+    { href: "/reports", label: "Reports", icon: BarChart3 },
+    { href: "/settings", label: "Settings", icon: Settings },
+  ];
+
+  const quickCreate = [
+    { href: "/sales/new", label: bp.newSale, icon: ShoppingCart },
+    { href: "/purchases/new", label: "New purchase bill", icon: Truck },
+    { href: "/payments/new?kind=RECEIPT", label: "Receive payment", icon: Wallet },
+    { href: "/payments/new?kind=PAYMENT", label: "Pay supplier", icon: Wallet },
+    { href: "/expenses", label: "Add expense", icon: ReceiptText },
+  ];
 
   // eslint-disable-next-line react-hooks/set-state-in-effect -- close drawer on navigation
   useEffect(() => setOpen(false), [pathname]);
@@ -87,6 +95,7 @@ export function AppShell({ children }: { children: ReactNode }) {
   );
 
   return (
+    <BusinessTypeProvider businessType={businessType}>
     <div className="flex min-h-screen bg-background">
       {/* Desktop sidebar */}
       <aside className="sticky top-0 hidden h-screen w-64 shrink-0 flex-col bg-sidebar lg:flex">
@@ -96,7 +105,7 @@ export function AppShell({ children }: { children: ReactNode }) {
         <div className="flex-1 overflow-y-auto">{links}</div>
         <div className="border-t border-white/10 p-4">
           <Link href="/sales/new" className="btn btn-primary w-full !py-2.5 text-sm">
-            <Plus size={16} /> New sale bill
+            <Plus size={16} /> {bp.newSale}
           </Link>
         </div>
       </aside>
@@ -160,5 +169,6 @@ export function AppShell({ children }: { children: ReactNode }) {
         </main>
       </div>
     </div>
+    </BusinessTypeProvider>
   );
 }

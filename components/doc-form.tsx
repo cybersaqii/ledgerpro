@@ -5,6 +5,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { Plus, Search, Trash2 } from "lucide-react";
 import { PageHeader, Field, ErrorNote } from "@/components/ui";
 import { api, fmtMoney, fmtDateInput } from "@/lib/format";
+import { useBusinessProfile } from "@/components/business-type";
 
 type Party = { id: string; name: string; phone: string | null };
 type Product = { id: string; sku: string; name: string; unit: string; salePrice: string; purchasePrice: string; totalQty: string };
@@ -21,6 +22,7 @@ type Line = {
 };
 
 export function DocForm({ mode }: { mode: "SALES" | "PURCHASE" }) {
+  const bp = useBusinessProfile();
   const router = useRouter();
   const isSales = mode === "SALES";
   const partyKind = isSales ? "CUSTOMER" : "SUPPLIER";
@@ -147,7 +149,7 @@ export function DocForm({ mode }: { mode: "SALES" | "PURCHASE" }) {
   async function submit(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
-    if (!partyId) { setError(`Please select a ${isSales ? "customer" : "supplier"}.`); return; }
+    if (!partyId) { setError(`Please select a ${isSales ? bp.partyOne.toLowerCase() : "supplier"}.`); return; }
     if (lines.length === 0) { setError("Add at least one item."); return; }
     for (const l of lines) {
       if (!l.description.trim()) { setError("Every item needs a description."); return; }
@@ -180,14 +182,14 @@ export function DocForm({ mode }: { mode: "SALES" | "PURCHASE" }) {
 
   return (
     <div>
-      <PageHeader title={isSales ? "New sale bill" : "New purchase bill"}
+      <PageHeader title={isSales ? bp.newSale : "New purchase bill"}
         subtitle={isSales ? "Invoice posts to accounts & stock immediately" : "Bill posts to accounts & stock immediately"} />
       <form onSubmit={submit} className="space-y-5">
         <ErrorNote message={error} />
 
         <div className="card p-5 sm:p-6">
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-            <Field label={isSales ? "Customer" : "Supplier"}>
+            <Field label={isSales ? bp.partyOne : "Supplier"}>
               <div className="relative">
                 <button type="button" onClick={() => setShowPartyList((s) => !s)}
                   className="field flex items-center justify-between text-left">
@@ -271,7 +273,7 @@ export function DocForm({ mode }: { mode: "SALES" | "PURCHASE" }) {
             <div className="relative" ref={prodBoxRef}>
               <div className="relative">
                 <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
-                <input className="field !pl-9 sm:w-72" placeholder="Search product to add…"
+                <input className="field !pl-9 sm:w-72" placeholder={`Search ${bp.productOne.toLowerCase()} to add…`}
                   value={prodQ} onChange={(e) => { setProdQ(e.target.value); setShowProdList(true); }}
                   onFocus={() => setShowProdList(true)} />
               </div>
@@ -415,7 +417,7 @@ export function DocForm({ mode }: { mode: "SALES" | "PURCHASE" }) {
               </div>
             </div>
             <button className="btn btn-primary mt-5 w-full !py-3.5 !text-base" disabled={saving}>
-              {saving ? "Saving…" : isSales ? "Save sale bill" : "Save purchase bill"}
+              {saving ? "Saving…" : isSales ? bp.saveSale : "Save purchase bill"}
             </button>
           </div>
         </div>

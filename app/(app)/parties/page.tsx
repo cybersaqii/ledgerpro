@@ -5,6 +5,7 @@ import { Plus, Search, Pencil, Phone, Users } from "lucide-react";
 import { PageHeader, EmptyState, Field, ErrorNote } from "@/components/ui";
 import { Modal } from "@/components/modal";
 import { api, fmtMoney } from "@/lib/format";
+import { useBusinessProfile } from "@/components/business-type";
 
 type Party = {
   id: string; kind: string; name: string; phone: string | null; city: string | null;
@@ -14,6 +15,7 @@ type Party = {
 const emptyForm = { name: "", phone: "", email: "", address: "", city: "", ntn: "", filerStatus: "NA", creditLimit: "0", notes: "" };
 
 export default function PartiesPage() {
+  const bp = useBusinessProfile();
   const [kind, setKind] = useState<"CUSTOMER" | "SUPPLIER">("CUSTOMER");
   const [q, setQ] = useState("");
   const [rows, setRows] = useState<Party[]>([]);
@@ -72,10 +74,10 @@ export default function PartiesPage() {
   return (
     <div>
       <PageHeader
-        title={kind === "CUSTOMER" ? "Customers" : "Suppliers"}
+        title={kind === "CUSTOMER" ? bp.partyMany : "Suppliers"}
         subtitle={`${total} total · balances update automatically with every bill and payment`}
         icon={<Users size={20} />}
-        actions={<button className="btn btn-primary text-sm" onClick={openAdd}><Plus size={16} /> Add {kind === "CUSTOMER" ? "customer" : "supplier"}</button>}
+        actions={<button className="btn btn-primary text-sm" onClick={openAdd}><Plus size={16} /> Add {kind === "CUSTOMER" ? bp.partyOne.toLowerCase() : "supplier"}</button>}
       />
 
       <div className="mb-4 flex flex-wrap items-center gap-3">
@@ -83,7 +85,7 @@ export default function PartiesPage() {
           {(["CUSTOMER", "SUPPLIER"] as const).map((k) => (
             <button key={k} onClick={() => setKind(k)}
               className={`rounded-lg px-4 py-2 text-sm font-bold transition ${kind === k ? "bg-primary text-primary-foreground shadow" : "text-muted-foreground hover:text-foreground"}`}>
-              {k === "CUSTOMER" ? "Customers" : "Suppliers"}
+              {k === "CUSTOMER" ? bp.partyMany : "Suppliers"}
             </button>
           ))}
         </div>
@@ -97,7 +99,7 @@ export default function PartiesPage() {
         {loading ? (
           <div className="space-y-3 p-5">{[1, 2, 3].map((i) => <div key={i} className="h-12 animate-pulse rounded-xl bg-muted" />)}</div>
         ) : rows.length === 0 ? (
-          <EmptyState title={`No ${kind === "CUSTOMER" ? "customers" : "suppliers"} yet`}
+          <EmptyState title={`No ${kind === "CUSTOMER" ? bp.partyMany.toLowerCase() : "suppliers"} yet`}
             hint="Add your first one to start billing."
             action={<button className="btn btn-primary text-sm" onClick={openAdd}><Plus size={16} /> Add now</button>} />
         ) : (
@@ -121,7 +123,7 @@ export default function PartiesPage() {
       </div>
 
       {modal && (
-        <Modal title={modal.mode === "add" ? `Add ${kind === "CUSTOMER" ? "customer" : "supplier"}` : "Edit party"} onClose={() => setModal(null)}>
+        <Modal title={modal.mode === "add" ? `Add ${kind === "CUSTOMER" ? bp.partyOne.toLowerCase() : "supplier"}` : `Edit ${bp.partyOne.toLowerCase()}`} onClose={() => setModal(null)}>
           <form onSubmit={save} className="space-y-4">
             <ErrorNote message={error} />
             <Field label="Name"><input className="field" required value={form.name} onChange={set("name")} placeholder="e.g. Bilal Store" /></Field>

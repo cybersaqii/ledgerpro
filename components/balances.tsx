@@ -5,10 +5,12 @@ import { useEffect, useState } from "react";
 import { Phone, Plus } from "lucide-react";
 import { PageHeader, EmptyState } from "@/components/ui";
 import { api, fmtMoney } from "@/lib/format";
+import { useBusinessProfile } from "@/components/business-type";
 
 type Row = { id: string; name: string; phone: string | null; city: string | null; balance: string };
 
 export function BalancesPage({ kind }: { kind: "CUSTOMER" | "SUPPLIER" }) {
+  const bp = useBusinessProfile();
   const isCustomer = kind === "CUSTOMER";
   const [rows, setRows] = useState<Row[]>([]);
   const [total, setTotal] = useState("0");
@@ -24,7 +26,7 @@ export function BalancesPage({ kind }: { kind: "CUSTOMER" | "SUPPLIER" }) {
   return (
     <div>
       <PageHeader
-        title={isCustomer ? "Receivables" : "Payables"}
+        title={isCustomer ? bp.receivables : "Payables"}
         subtitle={<>Total outstanding: <span className="font-extrabold text-primary">{fmtMoney(total)}</span></>}
         actions={
           <Link href={`/payments/new?kind=${isCustomer ? "RECEIPT" : "PAYMENT"}`} className="btn btn-primary text-sm">

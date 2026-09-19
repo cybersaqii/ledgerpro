@@ -9,6 +9,7 @@ import {
 } from "lucide-react";
 import { PageHeader, Stat, EmptyState } from "@/components/ui";
 import { api, fmtMoney, fmtDate } from "@/lib/format";
+import { useBusinessProfile } from "@/components/business-type";
 import {
   ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, CartesianGrid,
 } from "recharts";
@@ -22,20 +23,21 @@ type DashboardData = {
   salesTrend: Array<{ month: string; total: string }>;
 };
 
-const quickActions = [
-  { href: "/sales/new", label: "New sale", icon: ShoppingCart, cls: "bg-primary-soft text-primary" },
-  { href: "/purchases/new", label: "New purchase", icon: Truck, cls: "bg-accent-soft text-accent" },
-  { href: "/payments/new?kind=RECEIPT", label: "Receive", icon: ArrowDownToLine, cls: "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400" },
-  { href: "/payments/new?kind=PAYMENT", label: "Pay", icon: ArrowUpFromLine, cls: "bg-sky-500/15 text-sky-600 dark:text-sky-400" },
-  { href: "/expenses", label: "Expense", icon: ReceiptText, cls: "bg-violet-500/15 text-violet-600 dark:text-violet-400" },
-  { href: "/parties", label: "Party", icon: Users, cls: "bg-amber-500/15 text-amber-600 dark:text-amber-400" },
-  { href: "/products", label: "Product", icon: Package, cls: "bg-rose-500/15 text-rose-600 dark:text-rose-400" },
-  { href: "/reports", label: "Reports", icon: BarChart3, cls: "bg-cyan-500/15 text-cyan-600 dark:text-cyan-400" },
-];
-
 export default function DashboardPage() {
+  const bp = useBusinessProfile();
   const [data, setData] = useState<DashboardData | null>(null);
   const [error, setError] = useState<string | null>(null);
+
+  const quickActions = [
+    { href: "/sales/new", label: bp.newSale, icon: ShoppingCart, cls: "bg-primary-soft text-primary" },
+    { href: "/purchases/new", label: "New purchase", icon: Truck, cls: "bg-accent-soft text-accent" },
+    { href: "/payments/new?kind=RECEIPT", label: "Receive", icon: ArrowDownToLine, cls: "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400" },
+    { href: "/payments/new?kind=PAYMENT", label: "Pay", icon: ArrowUpFromLine, cls: "bg-sky-500/15 text-sky-600 dark:text-sky-400" },
+    { href: "/expenses", label: "Expense", icon: ReceiptText, cls: "bg-violet-500/15 text-violet-600 dark:text-violet-400" },
+    { href: "/parties", label: bp.partyOne, icon: Users, cls: "bg-amber-500/15 text-amber-600 dark:text-amber-400" },
+    { href: "/products", label: bp.productOne, icon: Package, cls: "bg-rose-500/15 text-rose-600 dark:text-rose-400" },
+    { href: "/reports", label: "Reports", icon: BarChart3, cls: "bg-cyan-500/15 text-cyan-600 dark:text-cyan-400" },
+  ];
 
   useEffect(() => {
     api<{ kpis: DashboardData["kpis"]; recentSales: DashboardData["recentSales"]; salesTrend: DashboardData["salesTrend"] }>("/api/dashboard")
@@ -67,7 +69,7 @@ export default function DashboardPage() {
         actions={
           <>
             <Link href="/purchases/new" className="btn btn-ghost text-sm"><Plus size={16} /> Purchase</Link>
-            <Link href="/sales/new" className="btn btn-primary text-sm"><Plus size={16} /> New sale</Link>
+            <Link href="/sales/new" className="btn btn-primary text-sm"><Plus size={16} /> {bp.newSale}</Link>
           </>
         }
       />
@@ -86,9 +88,9 @@ export default function DashboardPage() {
       </div>
 
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <Stat label="Sales today" value={fmtMoney(k.salesToday)} icon={<TrendingUp size={20} />} tone="primary" />
-        <Stat label="Sales this month" value={fmtMoney(k.salesMonth)} sub={`Purchases: ${fmtMoney(k.purchasesMonth)}`} icon={<ShoppingBag size={20} />} tone="primary" />
-        <Stat label="To receive" value={fmtMoney(k.receivables)} sub="From customers" icon={<ArrowDownToLine size={20} />} tone="accent" />
+        <Stat label={`${bp.salesNav} today`} value={fmtMoney(k.salesToday)} icon={<TrendingUp size={20} />} tone="primary" />
+        <Stat label={`${bp.salesNav} this month`} value={fmtMoney(k.salesMonth)} sub={`Purchases: ${fmtMoney(k.purchasesMonth)}`} icon={<ShoppingBag size={20} />} tone="primary" />
+        <Stat label={bp.receivables} value={fmtMoney(k.receivables)} sub={`From ${bp.partyMany.toLowerCase()}`} icon={<ArrowDownToLine size={20} />} tone="accent" />
         <Stat label="To pay" value={fmtMoney(k.payables)} sub="To suppliers" icon={<ArrowUpFromLine size={20} />} tone="danger" />
         <Stat label="Cash & bank" value={fmtMoney(k.cashAndBank)} icon={<Landmark size={20} />} tone="neutral" />
         <Stat label="Expenses (month)" value={fmtMoney(k.expensesMonth)} icon={<ReceiptText size={20} />} tone="neutral" />
@@ -102,7 +104,7 @@ export default function DashboardPage() {
 
       <div className="mt-6 grid gap-4 xl:grid-cols-5">
         <div className="card card-gloss rise p-5 sm:p-6 xl:col-span-3">
-          <h2 className="text-base font-bold">Sales trend</h2>
+          <h2 className="text-base font-bold">{bp.salesNav} trend</h2>
           <p className="text-xs text-muted-foreground">Last 6 months (Rs)</p>
           <div className="mt-4 h-64">
             {trend.length === 0 ? (
@@ -127,11 +129,11 @@ export default function DashboardPage() {
 
         <div className="card rise rise-1 p-5 sm:p-6 xl:col-span-2">
           <div className="flex items-center justify-between">
-            <h2 className="text-base font-bold">Recent sales</h2>
+            <h2 className="text-base font-bold">Recent {bp.salesNav.toLowerCase()}</h2>
             <Link href="/sales" className="text-sm font-bold text-primary hover:underline">View all</Link>
           </div>
           {data.recentSales.length === 0 ? (
-            <EmptyState title="No sales yet" hint="Your recent invoices will appear here." />
+            <EmptyState title={`No ${bp.salesNav.toLowerCase()} yet`} hint={`Your recent ${bp.salesNav.toLowerCase()} will appear here.`} />
           ) : (
             <ul className="mt-3 divide-y divide-border">
               {data.recentSales.map((s) => (

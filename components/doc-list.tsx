@@ -5,6 +5,7 @@ import { useCallback, useEffect, useState } from "react";
 import { Plus, Search, CalendarDays, ShoppingCart, Truck } from "lucide-react";
 import { PageHeader, EmptyState, FilterBar, SummaryChips, Pagination, StatusPill } from "@/components/ui";
 import { api, fmtMoney, fmtDate, toBig } from "@/lib/format";
+import { useBusinessProfile } from "@/components/business-type";
 
 type Doc = {
   id: string; docNo: string; docType: string; date: number; status: string;
@@ -24,6 +25,7 @@ const typeBadge: Record<string, string> = {
 const PER_PAGE = 20;
 
 export function DocList({ mode }: { mode: "SALES" | "PURCHASE" }) {
+  const bp = useBusinessProfile();
   const isSales = mode === "SALES";
   const [rows, setRows] = useState<Doc[]>([]);
   const [total, setTotal] = useState(0);
@@ -73,12 +75,12 @@ export function DocList({ mode }: { mode: "SALES" | "PURCHASE" }) {
   return (
     <div>
       <PageHeader
-        title={isSales ? "Sales" : "Purchases"}
+        title={isSales ? bp.salesNav : "Purchases"}
         subtitle={isSales ? "Invoices, orders, challans and returns" : "Bills, orders, GRNs and returns"}
         icon={isSales ? <ShoppingCart size={20} /> : <Truck size={20} />}
         actions={
           <Link href={isSales ? "/sales/new" : "/purchases/new"} className="btn btn-primary text-sm">
-            <Plus size={16} /> {isSales ? "New sale" : "New purchase"}
+            <Plus size={16} /> {isSales ? bp.newSale : "New purchase"}
           </Link>
         }
       />
@@ -121,13 +123,13 @@ export function DocList({ mode }: { mode: "SALES" | "PURCHASE" }) {
         {loading ? (
           <div className="space-y-3 p-5">{[1, 2, 3, 4, 5].map((i) => <div key={i} className="h-12 animate-pulse rounded-xl bg-muted" />)}</div>
         ) : rows.length === 0 ? (
-          <EmptyState title={`No ${isSales ? "sales" : "purchases"} found`}
-            hint={hasFilter ? "Try widening the date range or clearing filters." : isSales ? "Create your first sale bill." : "Record your first purchase bill."}
+          <EmptyState title={isSales ? `No ${bp.salesNav.toLowerCase()} found` : "No purchases found"}
+            hint={hasFilter ? "Try widening the date range or clearing filters." : isSales ? `Create your first ${bp.newSale.replace(/^New /, "").toLowerCase()}.` : "Record your first purchase bill."}
             action={!hasFilter ? <Link href={isSales ? "/sales/new" : "/purchases/new"} className="btn btn-primary text-sm"><Plus size={16} /> Create now</Link> : undefined} />
         ) : (
           <div className="overflow-x-auto">
             <table className="tbl">
-              <thead><tr><th>Bill no</th><th>Type</th><th>{isSales ? "Customer" : "Supplier"}</th><th>Date</th><th>Status</th><th className="num">Total</th></tr></thead>
+              <thead><tr><th>Bill no</th><th>Type</th><th>{isSales ? bp.partyOne : "Supplier"}</th><th>Date</th><th>Status</th><th className="num">Total</th></tr></thead>
               <tbody>
                 {rows.map((d) => (
                   <tr key={d.id}>
