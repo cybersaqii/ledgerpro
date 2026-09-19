@@ -85,6 +85,15 @@ export function addToCart(
     );
     return { lines: lines2, touchedKey: existing.key };
   }
+  return addAsNewLine(lines, product, nextKey);
+}
+
+/** Always append a fresh line, even if the product is already in the cart. */
+export function addAsNewLine(
+  lines: PosLine[],
+  product: PosProduct,
+  nextKey: number
+): { lines: PosLine[]; touchedKey: number } {
   const line: PosLine = {
     key: nextKey,
     productId: product.id,

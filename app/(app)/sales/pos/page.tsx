@@ -10,7 +10,7 @@ import {
 import { ErrorNote } from "@/components/ui";
 import { api, fmtMoney, fmtDateInput } from "@/lib/format";
 import {
-  addToCart, cartTotals, lineTotalPaisa, toDocItems, validateCart,
+  addToCart, addAsNewLine, cartTotals, lineTotalPaisa, toDocItems, validateCart,
   type PosLine, type PosProduct,
 } from "@/lib/pos";
 import { useBusinessProfile } from "@/components/business-type";
@@ -48,6 +48,9 @@ export default function PosPage() {
   const [hi, setHi] = useState(0);
   const [showResults, setShowResults] = useState(false);
   const searchRef = useRef<HTMLInputElement>(null);
+
+  // duplicate-item protection
+  const [dupProduct, setDupProduct] = useState<ApiProduct | null>(null);
 
   // checkout
   const [stage, setStage] = useState<Stage>("billing");
@@ -142,9 +145,15 @@ export default function PosPage() {
     setStage(s);
   }
 
-  function addProduct(p: ApiProduct) {
+  function addProduct(p: ApiProduct, mode: "auto" | "merge" | "newline" = "auto") {
+    if (mode === "auto" && lines.some((l) => l.productId === p.id)) {
+      // duplicate protection: let the cashier decide — merge or separate line
+      setDupProduct(p);
+      return;
+    }
     keyRef.current += 1;
-    const { lines: next } = addToCart(lines, p, keyRef.current);
+    const fn = mode === "newline" ? addAsNewLine : addToCart;
+    const { lines: next } = fn(lines, p, keyRef.current);
     setLines(next);
     setQ("");
     setResults([]);
@@ -157,9 +166,24 @@ export default function PosPage() {
     else if (e.key === "ArrowUp") { e.preventDefault(); setHi((h) => Math.max(h - 1, 0)); }
     else if (e.key === "Enter") {
       e.preventDefault();
-      const p = results[hi] ?? results[0];
-      if (p) addProduct(p);
+      void barcodeThenAdd();
     } else if (e.key === "Escape") { setQ(""); setShowResults(false); }
+  }
+
+  // Barcode-first: if the typed text exactly matches a SKU/barcode, add it instantly
+  // (scanner flow: scan -> Enter). Otherwise add the highlighted/visible result.
+  async function barcodeThenAdd() {
+    const query = q.trim();
+    if (!query) return;
+    const exact = results.find((r) => r.sku && r.sku.toLowerCase() === query.toLowerCase());
+    if (exact) { addProduct(exact); return; }
+    try {
+      const d = await api<{ data: ApiProduct[] }>(`/api/products?q=${encodeURIComponent(query)}&perPage=5`);
+      const hit = d.data.find((r) => r.sku && r.sku.toLowerCase() === query.toLowerCase());
+      if (hit) { addProduct(hit); return; }
+    } catch { /* fall through to visible results */ }
+    const p = results[hi] ?? results[0];
+    if (p) addProduct(p);
   }
 
   function bumpQty(key: number, delta: number) {
@@ -424,7 +448,7 @@ export default function PosPage() {
             </div>
             <p className="mt-2.5 text-xs text-muted-foreground">
               <kbd className="rounded border border-border bg-muted px-1.5 py-0.5 font-sans">↑↓</kbd> choose ·{" "}
-              <kbd className="rounded border border-border bg-muted px-1.5 py-0.5 font-sans">Enter</kbd> add · same item twice bumps qty
+              <kbd className="rounded border border-border bg-muted px-1.5 py-0.5 font-sans">Enter</kbd> add · scan a barcode &amp; Enter for instant add
             </p>
           </div>
 
@@ -661,6 +685,36 @@ export default function PosPage() {
           </div>
         </div>
       </div>
+
+      {/* duplicate-item protection */}
+      {dupProduct && (
+        <div className="fixed inset-0 z-50 grid place-items-center bg-black/50 p-4" onClick={() => setDupProduct(null)}>
+          <div className="w-full max-w-sm rounded-2xl bg-card p-6 shadow-xl" onClick={(e) => e.stopPropagation()}>
+            <h3 className="text-lg font-extrabold">Already in this bill</h3>
+            <p className="mt-1 text-sm text-muted-foreground">
+              <span className="font-bold text-foreground">{dupProduct.name}</span> is already on the bill. What should we do?
+            </p>
+            <div className="mt-5 space-y-2">
+              <button
+                autoFocus
+                className="btn btn-primary w-full"
+                onClick={() => { const p = dupProduct; setDupProduct(null); if (p) addProduct(p, "merge"); }}
+              >
+                <Plus size={16} /> Increase quantity
+              </button>
+              <button
+                className="btn btn-ghost w-full"
+                onClick={() => { const p = dupProduct; setDupProduct(null); if (p) addProduct(p, "newline"); }}
+              >
+                Add as a separate line
+              </button>
+              <button className="btn btn-ghost w-full text-muted-foreground" onClick={() => setDupProduct(null)}>
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

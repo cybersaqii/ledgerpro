@@ -176,13 +176,19 @@ function TeamCard() {
   const [saving, setSaving] = useState(false);
 
   function load() {
-    setLoading(true);
     api<{ data: TeamUser[] }>("/api/users")
       .then((d) => { setUsers(d.data); setForbidden(false); })
       .catch((e) => { setForbidden(e instanceof Error && e.message.includes("owner")); setError(e instanceof Error ? e.message : "Could not load team."); })
       .finally(() => setLoading(false));
   }
-  useEffect(() => { load(); }, []);
+  useEffect(() => {
+    let alive = true;
+    api<{ data: TeamUser[] }>("/api/users")
+      .then((d) => { if (alive) { setUsers(d.data); setForbidden(false); } })
+      .catch((e) => { if (alive) { setForbidden(e instanceof Error && e.message.includes("owner")); setError(e instanceof Error ? e.message : "Could not load team."); } })
+      .finally(() => { if (alive) setLoading(false); });
+    return () => { alive = false; };
+  }, []);
 
   async function addStaff(e: React.FormEvent) {
     e.preventDefault();
