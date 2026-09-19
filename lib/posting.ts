@@ -37,7 +37,7 @@ export function assertBalanced(lines: JournalLineInput[]): void {
   }
 }
 
-async function createJournal(
+export async function createJournal(
   tx: DbTx,
   opts: {
     companyId: string;

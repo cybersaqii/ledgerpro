@@ -108,7 +108,10 @@ function PartyLedgerInner() {
           <div className="card overflow-hidden">
           <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border bg-muted/50 px-5 py-3">
             <p className="font-extrabold">{partyName}</p>
-            <p className="text-sm">Closing balance: <span className="font-extrabold text-primary">{fmtMoney(closing)}</span></p>
+            <div className="flex items-center gap-3">
+              <p className="text-sm">Closing balance: <span className="font-extrabold text-primary">{fmtMoney(closing)}</span></p>
+              {selected && <SetOffDialog partyId={partyId} kind={selected.kind} name={partyName} balance={closing} onDone={load} />}
+            </div>
           </div>
           {loading ? <div className="space-y-3 p-5">{[1, 2, 3].map((i) => <div key={i} className="h-10 animate-pulse rounded-xl bg-muted" />)}</div> : (
             <div className="overflow-x-auto">
@@ -148,6 +151,117 @@ type Stats = {
   avgBill: string; paymentsTotal: string; paymentCount: number; lastActivity: string | null;
   party: { kind: string; phone: string | null; city: string | null };
 };
+
+/** Set-off (contra): net this party's balance against an opposite-kind party. */
+function SetOffDialog({ partyId, kind, name, balance, onDone }: {
+  partyId: string; kind: string; name: string; balance: string; onDone: () => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const [q, setQ] = useState("");
+  const [options, setOptions] = useState<{ id: string; name: string; balance: string }[]>([]);
+  const [counterId, setCounterId] = useState("");
+  const [amount, setAmount] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const opposite = kind === "CUSTOMER" ? "SUPPLIER" : "CUSTOMER";
+
+  useEffect(() => {
+    if (!open) return;
+    const t = setTimeout(async () => {
+      try {
+        const d = await api<{ data: { id: string; name: string; balance: string }[] }>(
+          `/api/parties?kind=${opposite}&q=${encodeURIComponent(q)}&perPage=15`
+        );
+        setOptions(d.data.filter((p) => p.id !== partyId));
+      } catch { /* ignore */ }
+    }, 250);
+    return () => clearTimeout(t);
+  }, [q, open, opposite, partyId]);
+
+  const counter = options.find((p) => p.id === counterId);
+  const myBal = (() => { try { return BigInt(balance); } catch { return 0n; } })();
+  const maxSetoff = (() => {
+    try {
+      const cb = counter ? BigInt(counter.balance) : 0n;
+      const m = myBal < cb ? myBal : cb;
+      return m > 0n ? m : 0n;
+    } catch { return 0n; }
+  })();
+
+  async function submit(e: React.FormEvent) {
+    e.preventDefault();
+    setError(null);
+    if (!counterId) { setError(`Select a ${opposite === "CUSTOMER" ? "customer" : "supplier"}.`); return; }
+    const amt = amount.trim() || (Number(maxSetoff) / 100).toString();
+    if (!(parseFloat(amt) > 0)) { setError("Enter a positive amount."); return; }
+    setBusy(true);
+    try {
+      await api("/api/parties/setoff", {
+        method: "POST",
+        body: JSON.stringify(
+          kind === "CUSTOMER"
+            ? { customerId: partyId, supplierId: counterId, amount: amt }
+            : { customerId: counterId, supplierId: partyId, amount: amt }
+        ),
+      });
+      setOpen(false);
+      setCounterId(""); setAmount("");
+      onDone();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Could not post the set-off.");
+    } finally { setBusy(false); }
+  }
+
+  return (
+    <>
+      <button type="button" className="btn btn-ghost !px-3 !py-1.5 text-xs" onClick={() => setOpen(true)}>
+        Set off
+      </button>
+      {open && (
+        <div className="fixed inset-0 z-50 grid place-items-center bg-black/50 p-4" onClick={() => setOpen(false)}>
+          <form onSubmit={submit} onClick={(e) => e.stopPropagation()}
+            className="card w-full max-w-md p-5">
+            <h3 className="text-base font-extrabold">Set off balances</h3>
+            <p className="mt-1 text-xs text-muted-foreground">
+              Net {name}&rsquo;s balance against a {opposite === "CUSTOMER" ? "customer" : "supplier"} you also owe — a balanced contra entry, no cash moves.
+            </p>
+            <Field label={`${opposite === "CUSTOMER" ? "Customer" : "Supplier"} to set off against`}>
+              <input className="field" placeholder="Search…" value={q} onChange={(e) => setQ(e.target.value)} />
+            </Field>
+            <div className="mt-2 max-h-40 overflow-y-auto rounded-xl border border-border">
+              {options.map((p) => (
+                <button type="button" key={p.id}
+                  className={`flex w-full items-center justify-between px-3 py-2 text-left text-sm hover:bg-muted ${counterId === p.id ? "bg-muted font-bold" : ""}`}
+                  onClick={() => setCounterId(p.id)}>
+                  <span>{p.name}</span>
+                  <span className="text-xs text-muted-foreground">{fmtMoney(p.balance)}</span>
+                </button>
+              ))}
+              {options.length === 0 && <p className="px-3 py-4 text-center text-xs text-muted-foreground">No matches.</p>}
+            </div>
+            {counter && maxSetoff > 0n && (
+              <p className="mt-2 text-xs text-muted-foreground">
+                Max set-off: <span className="font-bold text-foreground">{fmtMoney(maxSetoff.toString())}</span>
+              </p>
+            )}
+            <Field label="Amount (Rs)">
+              <input className="field" inputMode="decimal" value={amount}
+                onChange={(e) => setAmount(e.target.value)}
+                placeholder={maxSetoff > 0n ? (Number(maxSetoff) / 100).toString() : "0"} />
+            </Field>
+            {error && <p className="mt-2 text-xs font-semibold text-danger">{error}</p>}
+            <div className="mt-4 flex gap-2">
+              <button type="button" className="btn flex-1" onClick={() => setOpen(false)}>Cancel</button>
+              <button type="submit" className="btn btn-primary flex-1" disabled={busy}>
+                {busy ? "Posting…" : "Post set-off"}
+              </button>
+            </div>
+          </form>
+        </div>
+      )}
+    </>
+  );
+}
 
 function PartyStats({ partyId }: { partyId: string }) {
   const [s, setS] = useState<Stats | null>(null);
