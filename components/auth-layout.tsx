@@ -8,21 +8,21 @@ const points = [
   { icon: FileText, title: "Bills in seconds", text: "Sales, purchases and returns with automatic accounting." },
   { icon: Wallet, title: "Know every rupee", text: "Who owes you, who you owe — always up to date." },
   { icon: BarChart3, title: "Real profit reports", text: "P&L, stock and ledgers in one click." },
-  { icon: ShieldCheck, title: "Safe for 10 years", text: "Balanced books, secure and permanent." },
+  { icon: ShieldCheck, title: "Safe for up to 10 years", text: "Balanced books, secure and permanent." },
 ];
 
 export function AuthLayout({ children }: { children: ReactNode }) {
   return (
     <div className="flex min-h-screen bg-background">
       {/* Brand panel */}
-      <aside className="relative hidden w-[44%] shrink-0 overflow-hidden lg:block">
+      <aside className="relative hidden w-[42%] shrink-0 overflow-hidden md:block lg:w-[44%]">
         <div className="absolute inset-0 bg-gradient-to-br from-[#0a2e25] via-[#0d4a3a] to-[#0d7a5f]" />
         <div className="pointer-events-none absolute inset-0">
           <div className="absolute -top-24 -left-24 h-96 w-96 rounded-full bg-emerald-400/20 blur-[100px]" />
           <div className="absolute bottom-0 right-0 h-[28rem] w-[28rem] rounded-full bg-teal-300/10 blur-[120px]" />
           <div className="absolute inset-0 opacity-[0.07]" style={{ backgroundImage: "radial-gradient(circle at 1px 1px, #fff 1px, transparent 0)", backgroundSize: "28px 28px" }} />
         </div>
-        <div className="relative flex h-full flex-col justify-between p-10 text-white">
+        <div className="relative flex h-full flex-col justify-between p-6 text-white lg:p-10">
           <Link href="/" className="inline-flex items-center gap-3">
             <span className="grid h-11 w-11 place-items-center rounded-2xl bg-white/15 shadow-lg backdrop-blur">
               <FileText size={22} className="text-white" />
@@ -33,7 +33,7 @@ export function AuthLayout({ children }: { children: ReactNode }) {
             </span>
           </Link>
           <div>
-            <h2 className="max-w-md text-3xl font-extrabold leading-tight tracking-tight xl:text-4xl">
+            <h2 className="max-w-md text-2xl font-extrabold leading-tight tracking-tight xl:text-4xl">
               Your entire business hisaab, finally in one place.
             </h2>
             <ul className="mt-8 space-y-5">
@@ -57,14 +57,16 @@ export function AuthLayout({ children }: { children: ReactNode }) {
       {/* Form side */}
       <div className="flex min-h-screen flex-1 flex-col">
         <header className="flex h-16 items-center justify-between px-4 sm:px-8">
-          <Link href="/" className="lg:hidden"><Logo /></Link>
-          <span className="hidden lg:block" />
+          <Link href="/" className="md:hidden"><Logo /></Link>
+          <span className="hidden md:block" />
           <ThemeToggle />
         </header>
         <main className="relative flex flex-1 items-center justify-center px-4 pb-16">
           <div className="pointer-events-none absolute inset-0 overflow-hidden">
-            <div className="absolute -top-24 right-0 h-72 w-72 rounded-full bg-primary/10 blur-[90px]" />
-            <div className="absolute bottom-0 left-1/4 h-72 w-72 rounded-full bg-accent/10 blur-[90px]" />
+            <div className="absolute inset-x-0 top-0 h-72 bg-gradient-to-b from-primary/[0.08] to-transparent" />
+            <div className="absolute -top-24 right-0 h-72 w-72 rounded-full bg-primary/15 blur-[90px]" />
+            <div className="absolute bottom-0 left-1/4 h-72 w-72 rounded-full bg-accent/15 blur-[90px]" />
+            <div className="absolute inset-0 opacity-60" style={{ backgroundImage: "radial-gradient(circle at 1px 1px, var(--border) 1.2px, transparent 0)", backgroundSize: "26px 26px", maskImage: "linear-gradient(to bottom, black 0%, transparent 65%)", WebkitMaskImage: "linear-gradient(to bottom, black 0%, transparent 65%)" }} />
           </div>
           <div className="relative w-full max-w-md">{children}</div>
         </main>

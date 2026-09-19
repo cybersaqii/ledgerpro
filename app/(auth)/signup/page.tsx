@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
-import { UserPlus } from "lucide-react";
+import { UserPlus, Eye, EyeOff } from "lucide-react";
 import { AuthLayout } from "@/components/auth-layout";
 import { Field, ErrorNote } from "@/components/ui";
 import { api } from "@/lib/format";
@@ -22,6 +22,7 @@ export default function SignupPage() {
   });
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [showPw, setShowPw] = useState(false);
 
   const set = (k: keyof Form) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) =>
     setForm((f) => ({ ...f, [k]: e.target.value }));
@@ -82,8 +83,16 @@ export default function SignupPage() {
             </Field>
           </div>
           <Field label="Password" hint="At least 8 characters">
-            <input className="field" type="password" required minLength={8} autoComplete="new-password"
-              placeholder="••••••••" value={form.password} onChange={set("password")} />
+            <div className="relative">
+              <input className="field pr-11" type={showPw ? "text" : "password"} required minLength={8} autoComplete="new-password"
+                placeholder="••••••••" value={form.password} onChange={set("password")} />
+              <button type="button" onClick={() => setShowPw((v) => !v)}
+                className="absolute right-2 top-1/2 -translate-y-1/2 rounded-lg p-1.5 text-muted-foreground transition hover:bg-muted hover:text-foreground"
+                aria-label={showPw ? "Hide password" : "Show password"}
+                title={showPw ? "Hide password" : "Show password"}>
+                {showPw ? <EyeOff size={18} /> : <Eye size={18} />}
+              </button>
+            </div>
           </Field>
           <button className="btn btn-primary w-full !py-3" disabled={busy}>
             <UserPlus size={17} /> {busy ? "Creating…" : "Create account"}
