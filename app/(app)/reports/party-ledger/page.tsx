@@ -1,6 +1,7 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { Suspense, useCallback, useEffect, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { PageHeader, Field } from "@/components/ui";
 import { useBusinessProfile } from "@/components/business-type";
 import { api, fmtMoney, fmtDate, fmtDateInput } from "@/lib/format";
@@ -9,10 +10,19 @@ type Party = { id: string; name: string; kind: string };
 type Entry = { date: number; memo: string; reference: string | null; source: string; debit: string; credit: string; balance: string };
 
 export default function PartyLedgerPage() {
+  return (
+    <Suspense fallback={<div className="card h-64 animate-pulse" />}>
+      <PartyLedgerInner />
+    </Suspense>
+  );
+}
+
+function PartyLedgerInner() {
+  const searchParams = useSearchParams();
   const bp = useBusinessProfile();
   const [parties, setParties] = useState<Party[]>([]);
   const [partyQ, setPartyQ] = useState("");
-  const [partyId, setPartyId] = useState("");
+  const [partyId, setPartyId] = useState(() => searchParams.get("party") ?? "");
   const [showList, setShowList] = useState(false);
   const [from, setFrom] = useState("");
   const [to, setTo] = useState(fmtDateInput());
@@ -93,7 +103,9 @@ export default function PartyLedgerPage() {
       {!partyId ? (
         <div className="card px-6 py-14 text-center text-sm text-muted-foreground">Select a party to view their ledger.</div>
       ) : (
-        <div className="card overflow-hidden">
+        <>
+          <PartyStats key={partyId} partyId={partyId} />
+          <div className="card overflow-hidden">
           <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border bg-muted/50 px-5 py-3">
             <p className="font-extrabold">{partyName}</p>
             <p className="text-sm">Closing balance: <span className="font-extrabold text-primary">{fmtMoney(closing)}</span></p>
@@ -125,7 +137,43 @@ export default function PartyLedgerPage() {
             </div>
           )}
         </div>
+        </>
       )}
+    </div>
+  );
+}
+
+type Stats = {
+  outstanding: string; lifetime: string; billCount: number; returnTotal: string;
+  avgBill: string; paymentsTotal: string; paymentCount: number; lastActivity: string | null;
+  party: { kind: string; phone: string | null; city: string | null };
+};
+
+function PartyStats({ partyId }: { partyId: string }) {
+  const [s, setS] = useState<Stats | null>(null);
+  useEffect(() => {
+    let alive = true;
+    api<{ data: Stats }>(`/api/parties/${partyId}/stats`)
+      .then((d) => { if (alive) setS(d.data); })
+      .catch(() => {});
+    return () => { alive = false; };
+  }, [partyId]);
+  if (!s) return <div className="mb-4 grid animate-pulse grid-cols-2 gap-3 sm:grid-cols-5">{[1, 2, 3, 4, 5].map((i) => <div key={i} className="h-20 rounded-2xl bg-muted" />)}</div>;
+  const tiles: [string, string, string][] = [
+    ["Lifetime value", fmtMoney(s.lifetime), "text-primary"],
+    ["Bills", String(s.billCount), ""],
+    ["Avg bill", fmtMoney(s.avgBill), ""],
+    [s.party.kind === "CUSTOMER" ? "Received" : "Paid", fmtMoney(s.paymentsTotal), ""],
+    ["Outstanding", fmtMoney(s.outstanding), "text-danger"],
+  ];
+  return (
+    <div className="mb-4 grid grid-cols-2 gap-3 sm:grid-cols-5">
+      {tiles.map(([label, value, cls]) => (
+        <div key={label} className="card !p-4">
+          <p className="text-[0.7rem] font-bold uppercase tracking-wide text-muted-foreground">{label}</p>
+          <p className={`mt-1 text-lg font-extrabold ${cls}`}>{value}</p>
+        </div>
+      ))}
     </div>
   );
 }

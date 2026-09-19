@@ -1,7 +1,8 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { Plus, Search, Pencil, Phone, Users } from "lucide-react";
+import Link from "next/link";
+import { Plus, Search, Pencil, Phone, Users, Eye } from "lucide-react";
 import { PageHeader, EmptyState, Field, ErrorNote } from "@/components/ui";
 import { Modal } from "@/components/modal";
 import { api, fmtMoney } from "@/lib/format";
@@ -113,7 +114,12 @@ export default function PartiesPage() {
                     <td className="text-muted-foreground">{p.phone ? <span className="inline-flex items-center gap-1.5"><Phone size={13} />{p.phone}</span> : "—"}</td>
                     <td className="text-muted-foreground">{p.city ?? "—"}</td>
                     <td className={`num font-extrabold ${BigInt(p.balance) > 0n ? "text-accent" : ""}`}>{fmtMoney(p.balance)}</td>
-                    <td className="text-right"><button className="btn btn-ghost !p-2" onClick={() => openEdit(p)} aria-label="Edit"><Pencil size={15} /></button></td>
+                    <td className="text-right whitespace-nowrap">
+                      <Link href={`/reports/party-ledger?party=${p.id}`} className="btn btn-ghost !p-2" aria-label="360 view" title="360 view">
+                        <Eye size={15} />
+                      </Link>
+                      <button className="btn btn-ghost !p-2" onClick={() => openEdit(p)} aria-label="Edit"><Pencil size={15} /></button>
+                    </td>
                   </tr>
                 ))}
               </tbody>
