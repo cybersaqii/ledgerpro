@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { Plus, Search, Pencil, TriangleAlert } from "lucide-react";
+import { Plus, Search, Pencil, TriangleAlert, Package } from "lucide-react";
 import { PageHeader, EmptyState, Field, ErrorNote } from "@/components/ui";
 import { Modal } from "@/components/modal";
 import { api, fmtMoney, fmtQty } from "@/lib/format";
@@ -83,6 +83,7 @@ export default function ProductsPage() {
       <PageHeader
         title="Products"
         subtitle={`${total} products · stock updates automatically on purchase & sale`}
+        icon={<Package size={20} />}
         actions={<button className="btn btn-primary text-sm" onClick={openAdd}><Plus size={16} /> Add product</button>}
       />
 

@@ -11,7 +11,7 @@ export async function POST(req: NextRequest) {
   const body = await req.json().catch(() => null);
   const parsed = signupSchema.safeParse(body);
   if (!parsed.success) return err("Please check the form and try again.", 422);
-  const { name, email, password, companyName } = parsed.data;
+  const { name, email, password, companyName, phone, businessType, address, city } = parsed.data;
 
   const existing = await db
     .select({ id: users.id })
@@ -22,7 +22,15 @@ export async function POST(req: NextRequest) {
 
   const passwordHash = await hashPassword(password);
   const companyId = crypto.randomUUID();
-  await db.insert(companies).values({ id: companyId, name: companyName });
+  await db.insert(companies).values({
+    id: companyId,
+    name: companyName,
+    email: email.toLowerCase(),
+    phone: phone || null,
+    address: address || null,
+    city: city || null,
+    businessType,
+  });
   const userId = crypto.randomUUID();
   await db.insert(users).values({
     id: userId,

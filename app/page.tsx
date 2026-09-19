@@ -2,6 +2,7 @@ import Link from "next/link";
 import {
   ArrowRight, BarChart3, Boxes, CheckCircle2, FileText, Landmark,
   ScanBarcode, ShieldCheck, Smartphone, Sparkles, TrendingUp, Users, Wallet,
+  Store, Factory, Stethoscope, Pill, UtensilsCrossed, Briefcase, Truck,
 } from "lucide-react";
 import { Logo, ThemeToggle } from "@/components/ui";
 import { brand } from "@/lib/brand";
@@ -18,58 +19,87 @@ const features = [
   { icon: Smartphone, title: "Works everywhere", text: "Fast on mobile, tablet and desktop. Light and dark mode included." },
 ];
 
+const businessTypes = [
+  { icon: Boxes, label: "Wholesale" },
+  { icon: Store, label: "Retail shops" },
+  { icon: Truck, label: "Distribution" },
+  { icon: Pill, label: "Pharmacy" },
+  { icon: Stethoscope, label: "Clinics" },
+  { icon: UtensilsCrossed, label: "Restaurants" },
+  { icon: Briefcase, label: "Services" },
+  { icon: Factory, label: "Manufacturing" },
+];
+
 const steps = [
-  { n: "1", title: "Add your stock & parties", text: "Enter your products and customers in minutes." },
+  { n: "1", title: "Tell us your business", text: "Sign up with your shop details — your workspace adapts to your trade." },
   { n: "2", title: "Bill like always", text: "Create sale and purchase bills the way you already do." },
   { n: "3", title: "Watch it all add up", text: "Stock, cash, profit and dues update themselves." },
 ];
 
 export default function LandingPage() {
   return (
-    <div className="min-h-screen overflow-x-clip">
+    <div className="min-h-screen overflow-x-clip bg-background">
       {/* Nav */}
-      <header className="sticky top-0 z-40 border-b border-border/70 bg-background/80 backdrop-blur-xl">
+      <header className="fixed inset-x-0 top-0 z-40 border-b border-white/10 bg-[#0a2e25]/85 backdrop-blur-xl">
         <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:px-6">
-          <Link href="/"><Logo /></Link>
+          <Link href="/" className="flex items-center gap-2.5">
+            <span className="grid h-9 w-9 place-items-center rounded-xl bg-white/15 shadow-lg">
+              <FileText size={18} className="text-white" />
+            </span>
+            <span>
+              <span className="block text-[1.05rem] font-extrabold leading-none tracking-tight text-white">{brand.name}</span>
+              <span className="block text-[0.68rem] text-emerald-100/70">{brand.tagline}</span>
+            </span>
+          </Link>
+          <nav className="hidden items-center gap-7 text-sm font-semibold text-emerald-50/85 md:flex">
+            <a href="#features" className="transition hover:text-white">Features</a>
+            <a href="#businesses" className="transition hover:text-white">For every business</a>
+            <a href="#how" className="transition hover:text-white">How it works</a>
+          </nav>
           <div className="flex items-center gap-2 sm:gap-3">
             <ThemeToggle />
-            <Link href="/login" className="btn btn-ghost hidden !px-4 !py-2 text-sm sm:inline-flex">Log in</Link>
-            <Link href="/signup" className="btn btn-primary !px-4 !py-2 text-sm">
+            <Link href="/login" className="hidden rounded-xl px-4 py-2 text-sm font-bold text-white transition hover:bg-white/10 sm:inline-flex">Log in</Link>
+            <Link href="/signup" className="btn !border-0 !bg-white !px-4 !py-2 text-sm !text-[#0a2e25] hover:!bg-emerald-50">
               Start free <ArrowRight size={16} />
             </Link>
           </div>
         </div>
       </header>
 
-      {/* Hero */}
+      {/* Hero — rich dark */}
       <section className="relative">
-        <div className="pointer-events-none absolute inset-0 -z-10">
-          <div className="absolute -top-32 left-1/2 h-[480px] w-[820px] -translate-x-1/2 rounded-full bg-primary/15 blur-[120px]" />
-          <div className="absolute top-40 -left-40 h-96 w-96 rounded-full bg-accent/10 blur-[100px]" />
+        <div className="absolute inset-0 bg-gradient-to-br from-[#0a2e25] via-[#0d4a3a] to-[#0b3d31]" />
+        <div className="pointer-events-none absolute inset-0">
+          <div className="absolute -top-32 left-1/4 h-[420px] w-[620px] rounded-full bg-emerald-400/20 blur-[130px]" />
+          <div className="absolute top-1/3 -right-32 h-96 w-96 rounded-full bg-teal-300/15 blur-[110px]" />
+          <div className="absolute inset-0 opacity-[0.06]" style={{ backgroundImage: "radial-gradient(circle at 1px 1px, #fff 1px, transparent 0)", backgroundSize: "30px 30px" }} />
+          <div className="absolute inset-x-0 bottom-0 h-40 bg-gradient-to-t from-background to-transparent" />
         </div>
-        <div className="mx-auto max-w-7xl px-4 pb-16 pt-16 text-center sm:px-6 sm:pt-24">
-          <div className="rise mx-auto inline-flex items-center gap-2 rounded-full border border-border bg-card px-4 py-1.5 text-xs font-semibold text-muted-foreground shadow-sm">
-            <Sparkles size={14} className="text-accent" />
-            Built for wholesale traders
+        <div className="relative mx-auto max-w-7xl px-4 pb-24 pt-32 text-center sm:px-6 sm:pt-40">
+          <div className="rise mx-auto inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/10 px-4 py-1.5 text-xs font-semibold text-emerald-50 shadow-sm backdrop-blur">
+            <Sparkles size={14} className="text-amber-300" />
+            One platform — wholesale, retail & every business
           </div>
-          <h1 className="rise rise-1 mx-auto mt-6 max-w-3xl text-4xl font-extrabold leading-[1.08] tracking-tight sm:text-6xl">
-            Your entire wholesale{" "}
-            <span className="bg-gradient-to-r from-primary to-emerald-500 bg-clip-text text-transparent">hisaab</span>,
+          <h1 className="rise rise-1 mx-auto mt-6 max-w-3xl text-4xl font-extrabold leading-[1.06] tracking-tight text-white sm:text-6xl">
+            Your entire business{" "}
+            <span className="bg-gradient-to-r from-amber-300 to-emerald-300 bg-clip-text text-transparent">hisaab</span>,
             finally in one place
           </h1>
-          <p className="rise rise-2 mx-auto mt-5 max-w-2xl text-base text-muted-foreground sm:text-lg">
-            {brand.description} No more registers, no more guesswork — just clear numbers you can trust.
+          <p className="rise rise-2 mx-auto mt-5 max-w-2xl text-base text-emerald-50/80 sm:text-lg">
+            {brand.description} Sales, stock, payments and full double-entry accounts — tailored to your trade. No more registers, no more guesswork.
           </p>
           <div className="rise rise-3 mt-8 flex flex-wrap items-center justify-center gap-3">
-            <Link href="/signup" className="btn btn-primary !px-7 !py-3.5 !text-base">
+            <Link href="/signup" className="btn !border-0 !bg-white !px-7 !py-3.5 !text-base !text-[#0a2e25] shadow-xl shadow-black/20 hover:!bg-emerald-50">
               Start free today <ArrowRight size={18} />
             </Link>
-            <Link href="/login" className="btn btn-ghost !px-7 !py-3.5 !text-base">Log in</Link>
+            <Link href="/login" className="btn !border-white/25 !bg-white/10 !px-7 !py-3.5 !text-base !text-white backdrop-blur hover:!bg-white/20">
+              Log in
+            </Link>
           </div>
 
           {/* Floating dashboard mock */}
           <div className="rise rise-4 relative mx-auto mt-14 max-w-4xl">
-            <div className="floaty card card-gloss p-5 text-left sm:p-7">
+            <div className="floaty card card-gloss p-5 text-left shadow-2xl sm:p-7">
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Today&apos;s business</p>
@@ -99,10 +129,28 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* Features */}
-      <section className="mx-auto max-w-7xl px-4 py-16 sm:px-6 sm:py-20">
+      {/* Business types */}
+      <section id="businesses" className="mx-auto max-w-7xl px-4 py-16 sm:px-6 sm:py-20">
         <div className="text-center">
-          <h2 className="text-3xl font-extrabold tracking-tight sm:text-4xl">Everything a wholesaler needs</h2>
+          <h2 className="text-3xl font-extrabold tracking-tight sm:text-4xl">Made for every business</h2>
+          <p className="mx-auto mt-3 max-w-xl text-muted-foreground">Tell us your trade at signup — your workspace adapts. A retailer sees fast counter billing; a wholesaler sees bulk workflows.</p>
+        </div>
+        <div className="mt-10 grid grid-cols-2 gap-3 sm:grid-cols-4">
+          {businessTypes.map((b) => (
+            <div key={b.label} className="card card-gloss flex items-center gap-3 p-4">
+              <span className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl bg-primary-soft text-primary">
+                <b.icon size={20} />
+              </span>
+              <p className="text-sm font-bold">{b.label}</p>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      {/* Features */}
+      <section id="features" className="mx-auto max-w-7xl px-4 py-16 sm:px-6 sm:py-20">
+        <div className="text-center">
+          <h2 className="text-3xl font-extrabold tracking-tight sm:text-4xl">Everything your business needs</h2>
           <p className="mx-auto mt-3 max-w-xl text-muted-foreground">From the first purchase bill to the final profit report — {brand.name} handles the full cycle.</p>
         </div>
         <div className="mt-10 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
@@ -119,7 +167,7 @@ export default function LandingPage() {
       </section>
 
       {/* Steps */}
-      <section className="border-y border-border bg-card/60">
+      <section id="how" className="border-y border-border bg-card/60">
         <div className="mx-auto max-w-7xl px-4 py-16 sm:px-6 sm:py-20">
           <h2 className="text-center text-3xl font-extrabold tracking-tight">Up and running in three steps</h2>
           <div className="mt-10 grid gap-4 md:grid-cols-3">
@@ -155,11 +203,14 @@ export default function LandingPage() {
 
       {/* CTA */}
       <section className="mx-auto max-w-7xl px-4 pb-20 sm:px-6">
-        <div className="card card-gloss relative overflow-hidden p-10 text-center sm:p-14">
-          <div className="pointer-events-none absolute inset-0 bg-gradient-to-br from-primary/12 via-transparent to-accent/10" />
-          <h2 className="relative text-3xl font-extrabold tracking-tight sm:text-4xl">Stop guessing. Start knowing.</h2>
-          <p className="relative mx-auto mt-3 max-w-lg text-muted-foreground">Create your company in under a minute and see your real numbers today.</p>
-          <Link href="/signup" className="btn btn-primary relative mt-7 !px-8 !py-3.5 !text-base">
+        <div className="relative overflow-hidden rounded-3xl p-10 text-center sm:p-14">
+          <div className="absolute inset-0 bg-gradient-to-br from-[#0a2e25] via-[#0d4a3a] to-[#0d7a5f]" />
+          <div className="pointer-events-none absolute inset-0">
+            <div className="absolute -top-20 left-1/3 h-72 w-72 rounded-full bg-emerald-400/20 blur-[100px]" />
+          </div>
+          <h2 className="relative text-3xl font-extrabold tracking-tight text-white sm:text-4xl">Stop guessing. Start knowing.</h2>
+          <p className="relative mx-auto mt-3 max-w-lg text-emerald-50/80">Create your company in under a minute and see your real numbers today.</p>
+          <Link href="/signup" className="btn relative mt-7 !border-0 !bg-white !px-8 !py-3.5 !text-base !text-[#0a2e25] shadow-xl hover:!bg-emerald-50">
             Create free account <ArrowRight size={18} />
           </Link>
         </div>

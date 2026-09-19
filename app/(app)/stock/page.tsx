@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { Search, TriangleAlert } from "lucide-react";
+import { Search, TriangleAlert, Boxes } from "lucide-react";
 import { PageHeader, EmptyState } from "@/components/ui";
 import { api, fmtMoney, fmtQty } from "@/lib/format";
 
@@ -38,6 +38,7 @@ export default function StockPage() {
     <div>
       <PageHeader
         title="Stock"
+        icon={<Boxes size={20} />}
         subtitle={<>Total stock value: <span className="font-extrabold text-primary">{fmtMoney(totalValue)}</span></>}
       />
 

@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { Plus, CalendarDays } from "lucide-react";
+import { Plus, CalendarDays, ReceiptText } from "lucide-react";
 import { PageHeader, EmptyState, Field, ErrorNote, FilterBar, SummaryChips, Pagination } from "@/components/ui";
 import { Modal } from "@/components/modal";
 import { api, fmtMoney, fmtDate, fmtDateInput, toBig } from "@/lib/format";
@@ -47,6 +47,7 @@ export default function ExpensesPage() {
 
   // eslint-disable-next-line react-hooks/set-state-in-effect -- data fetch on filter/mount change
   useEffect(() => { load(); }, [load]);
+  // eslint-disable-next-line react-hooks/set-state-in-effect -- reset to first page when filters change
   useEffect(() => { setPage(1); }, [from, to, accountId]);
 
   useEffect(() => {
@@ -93,6 +94,7 @@ export default function ExpensesPage() {
       <PageHeader
         title="Expenses"
         subtitle="Rent, salaries, fuel and other business costs"
+        icon={<ReceiptText size={20} />}
         actions={<button className="btn btn-primary text-sm" onClick={openModal}><Plus size={16} /> Add expense</button>}
       />
 

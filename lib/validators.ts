@@ -10,6 +10,9 @@ export const signupSchema = z.object({
   email: z.string().trim().toLowerCase().email().max(120),
   password: z.string().min(8).max(72),
   phone: z.string().trim().max(30).optional().or(z.literal("")),
+  businessType: z.enum(["WHOLESALE", "RETAIL", "DISTRIBUTION", "PHARMACY", "CLINIC", "RESTAURANT", "SERVICES", "MANUFACTURING", "OTHER"]).default("WHOLESALE"),
+  address: z.string().trim().max(300).optional().or(z.literal("")),
+  city: z.string().trim().max(60).optional().or(z.literal("")),
 });
 
 export const loginSchema = z.object({

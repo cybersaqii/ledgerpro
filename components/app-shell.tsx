@@ -5,7 +5,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import {
   LayoutDashboard, ShoppingCart, Truck, Wallet, ReceiptText, Users, Package,
-  BarChart3, Menu, X, LogOut, Boxes, Plus,
+  BarChart3, Menu, X, LogOut, Boxes, Plus, Settings,
 } from "lucide-react";
 import { Logo, ThemeToggle } from "./ui";
 import { api } from "@/lib/format";
@@ -20,6 +20,7 @@ const nav = [
   { href: "/products", label: "Products", icon: Package },
   { href: "/stock", label: "Stock", icon: Boxes },
   { href: "/reports", label: "Reports", icon: BarChart3 },
+  { href: "/settings", label: "Settings", icon: Settings },
 ];
 
 const quickCreate = [
@@ -46,6 +47,7 @@ export function AppShell({ children }: { children: ReactNode }) {
 
   // eslint-disable-next-line react-hooks/set-state-in-effect -- close drawer on navigation
   useEffect(() => setOpen(false), [pathname]);
+  // eslint-disable-next-line react-hooks/set-state-in-effect -- close quick menu on navigation
   useEffect(() => setQuickOpen(false), [pathname]);
 
   useEffect(() => {

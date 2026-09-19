@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
-import { Plus, Search, CalendarDays } from "lucide-react";
+import { Plus, Search, CalendarDays, ShoppingCart, Truck } from "lucide-react";
 import { PageHeader, EmptyState, FilterBar, SummaryChips, Pagination, StatusPill } from "@/components/ui";
 import { api, fmtMoney, fmtDate, toBig } from "@/lib/format";
 
@@ -61,6 +61,7 @@ export function DocList({ mode }: { mode: "SALES" | "PURCHASE" }) {
   }, [load, q]);
 
   // reset to first page whenever a filter changes
+  // eslint-disable-next-line react-hooks/set-state-in-effect -- reset to first page when filters change
   useEffect(() => { setPage(1); }, [q, docType, from, to]);
 
   const types = isSales
@@ -74,6 +75,7 @@ export function DocList({ mode }: { mode: "SALES" | "PURCHASE" }) {
       <PageHeader
         title={isSales ? "Sales" : "Purchases"}
         subtitle={isSales ? "Invoices, orders, challans and returns" : "Bills, orders, GRNs and returns"}
+        icon={isSales ? <ShoppingCart size={20} /> : <Truck size={20} />}
         actions={
           <Link href={isSales ? "/sales/new" : "/purchases/new"} className="btn btn-primary text-sm">
             <Plus size={16} /> {isSales ? "New sale" : "New purchase"}

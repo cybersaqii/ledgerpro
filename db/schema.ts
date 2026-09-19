@@ -31,6 +31,7 @@ export const companies = sqliteTable("companies", {
   city: text("city"),
   ntn: text("ntn"),
   logoUrl: text("logo_url"),
+  businessType: text("business_type").notNull().default("WHOLESALE"),
   currency: text("currency").notNull().default("PKR"),
   createdAt: createdAt(),
   updatedAt: updatedAt(),

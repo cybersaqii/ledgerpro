@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Scale, TrendingUp, Landmark, BookOpen, ArrowDownToLine, ArrowUpFromLine, Boxes } from "lucide-react";
+import { Scale, TrendingUp, Landmark, BookOpen, ArrowDownToLine, ArrowUpFromLine, Boxes, BarChart3 } from "lucide-react";
 import { PageHeader } from "@/components/ui";
 
 const reports = [
@@ -15,7 +15,7 @@ const reports = [
 export default function ReportsHub() {
   return (
     <div>
-      <PageHeader title="Reports" subtitle="Every number in your business, explained" />
+      <PageHeader title="Reports" subtitle="Every number in your business, explained" icon={<BarChart3 size={20} />} />
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         {reports.map((r, i) => (
           <Link key={r.href} href={r.href} className={`card card-gloss rise rise-${(i % 4) + 1} group p-6 transition hover:-translate-y-0.5`}>

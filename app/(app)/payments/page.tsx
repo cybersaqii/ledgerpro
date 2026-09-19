@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
-import { Plus, CalendarDays } from "lucide-react";
+import { Plus, CalendarDays, Wallet } from "lucide-react";
 import { PageHeader, EmptyState, FilterBar, SummaryChips, Pagination } from "@/components/ui";
 import { api, fmtMoney, fmtDate, toBig } from "@/lib/format";
 
@@ -43,6 +43,7 @@ export default function PaymentsPage() {
 
   // eslint-disable-next-line react-hooks/set-state-in-effect -- data fetch on filter/mount change
   useEffect(() => { load(); }, [load]);
+  // eslint-disable-next-line react-hooks/set-state-in-effect -- reset to first page when filters change
   useEffect(() => { setPage(1); }, [kind, from, to]);
 
   const hasFilter = kind !== "" || from !== "" || to !== "";
@@ -52,6 +53,7 @@ export default function PaymentsPage() {
       <PageHeader
         title="Payments"
         subtitle="Money received from customers & paid to suppliers"
+        icon={<Wallet size={20} />}
         actions={
           <>
             <Link href="/payments/new?kind=PAYMENT" className="btn btn-ghost text-sm"><Plus size={16} /> Pay supplier</Link>

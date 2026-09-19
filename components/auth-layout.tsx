@@ -1,0 +1,74 @@
+import Link from "next/link";
+import { FileText, Wallet, BarChart3, ShieldCheck } from "lucide-react";
+import { Logo, ThemeToggle } from "./ui";
+import { brand } from "@/lib/brand";
+import type { ReactNode } from "react";
+
+const points = [
+  { icon: FileText, title: "Bills in seconds", text: "Sales, purchases and returns with automatic accounting." },
+  { icon: Wallet, title: "Know every rupee", text: "Who owes you, who you owe — always up to date." },
+  { icon: BarChart3, title: "Real profit reports", text: "P&L, stock and ledgers in one click." },
+  { icon: ShieldCheck, title: "Safe for 10 years", text: "Balanced books, secure and permanent." },
+];
+
+export function AuthLayout({ children }: { children: ReactNode }) {
+  return (
+    <div className="flex min-h-screen bg-background">
+      {/* Brand panel */}
+      <aside className="relative hidden w-[44%] shrink-0 overflow-hidden lg:block">
+        <div className="absolute inset-0 bg-gradient-to-br from-[#0a2e25] via-[#0d4a3a] to-[#0d7a5f]" />
+        <div className="pointer-events-none absolute inset-0">
+          <div className="absolute -top-24 -left-24 h-96 w-96 rounded-full bg-emerald-400/20 blur-[100px]" />
+          <div className="absolute bottom-0 right-0 h-[28rem] w-[28rem] rounded-full bg-teal-300/10 blur-[120px]" />
+          <div className="absolute inset-0 opacity-[0.07]" style={{ backgroundImage: "radial-gradient(circle at 1px 1px, #fff 1px, transparent 0)", backgroundSize: "28px 28px" }} />
+        </div>
+        <div className="relative flex h-full flex-col justify-between p-10 text-white">
+          <Link href="/" className="inline-flex items-center gap-3">
+            <span className="grid h-11 w-11 place-items-center rounded-2xl bg-white/15 shadow-lg backdrop-blur">
+              <FileText size={22} className="text-white" />
+            </span>
+            <span>
+              <span className="block text-lg font-extrabold tracking-tight">{brand.name}</span>
+              <span className="block text-xs text-emerald-100/80">{brand.tagline}</span>
+            </span>
+          </Link>
+          <div>
+            <h2 className="max-w-md text-3xl font-extrabold leading-tight tracking-tight xl:text-4xl">
+              Your entire business hisaab, finally in one place.
+            </h2>
+            <ul className="mt-8 space-y-5">
+              {points.map((p) => (
+                <li key={p.title} className="flex items-start gap-4">
+                  <span className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl bg-white/12 backdrop-blur">
+                    <p.icon size={20} className="text-emerald-100" />
+                  </span>
+                  <span>
+                    <span className="block font-bold">{p.title}</span>
+                    <span className="block text-sm text-emerald-100/75">{p.text}</span>
+                  </span>
+                </li>
+              ))}
+            </ul>
+          </div>
+          <p className="text-xs text-emerald-100/60">© 2026 {brand.name} · Built for every business</p>
+        </div>
+      </aside>
+
+      {/* Form side */}
+      <div className="flex min-h-screen flex-1 flex-col">
+        <header className="flex h-16 items-center justify-between px-4 sm:px-8">
+          <Link href="/" className="lg:hidden"><Logo /></Link>
+          <span className="hidden lg:block" />
+          <ThemeToggle />
+        </header>
+        <main className="relative flex flex-1 items-center justify-center px-4 pb-16">
+          <div className="pointer-events-none absolute inset-0 overflow-hidden">
+            <div className="absolute -top-24 right-0 h-72 w-72 rounded-full bg-primary/10 blur-[90px]" />
+            <div className="absolute bottom-0 left-1/4 h-72 w-72 rounded-full bg-accent/10 blur-[90px]" />
+          </div>
+          <div className="relative w-full max-w-md">{children}</div>
+        </main>
+      </div>
+    </div>
+  );
+}

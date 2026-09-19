@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { Plus, Search, Pencil, Phone } from "lucide-react";
+import { Plus, Search, Pencil, Phone, Users } from "lucide-react";
 import { PageHeader, EmptyState, Field, ErrorNote } from "@/components/ui";
 import { Modal } from "@/components/modal";
 import { api, fmtMoney } from "@/lib/format";
@@ -74,6 +74,7 @@ export default function PartiesPage() {
       <PageHeader
         title={kind === "CUSTOMER" ? "Customers" : "Suppliers"}
         subtitle={`${total} total · balances update automatically with every bill and payment`}
+        icon={<Users size={20} />}
         actions={<button className="btn btn-primary text-sm" onClick={openAdd}><Plus size={16} /> Add {kind === "CUSTOMER" ? "customer" : "supplier"}</button>}
       />
 
