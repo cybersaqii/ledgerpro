@@ -9,7 +9,7 @@ import { api, fmtMoney, fmtQty, fmtDate } from "@/lib/format";
 import { brand } from "@/lib/brand";
 
 type Item = {
-  id: string; description: string; qty: string; rate: string; discount: string; lineTotal: string;
+  id: string; description: string; qty: string; qtyReturned?: string | null; rate: string; discount: string; lineTotal: string;
   extraCost?: string | null;
 };
 type Doc = {
@@ -23,7 +23,7 @@ type Company = {
   name: string; phone: string | null; address: string | null; city: string | null; ntn: string | null;
 };
 
-type PrintFormat = "a4" | "80mm";
+type PrintFormat = "a4" | "80mm" | "challan";
 
 export function DocDetail({ mode, id }: { mode: "SALES" | "PURCHASE"; id: string }) {
   const [doc, setDoc] = useState<Doc | null>(null);
@@ -57,6 +57,20 @@ export function DocDetail({ mode, id }: { mode: "SALES" | "PURCHASE"; id: string
     .join(" · ");
 
   function waText(d: Doc): string {
+    if (format === "challan") {
+      // delivery challan: quantities only, no rates
+      const lines = [
+        `*${sellerName}*`,
+        `Delivery Challan (against ${d.docNo})`,
+        `Date: ${fmtDate(d.date)}`,
+        `Party: ${d.partyName ?? "—"}`,
+        `------------------------------`,
+        ...d.items.map((it) => `${fmtQty(it.qty)} x ${it.description}`),
+        `------------------------------`,
+        `Received in good condition.`,
+      ];
+      return lines.join("\n");
+    }
     const lines = [
       `*${sellerName}*`,
       `${docTitle} ${d.docNo}`,
@@ -98,13 +112,15 @@ export function DocDetail({ mode, id }: { mode: "SALES" | "PURCHASE"; id: string
               </a>
               <DocActions doc={doc} isSales={isSales} />
               <div className="inline-flex overflow-hidden rounded-xl border border-border text-sm font-bold">
-                {(["a4", "80mm"] as PrintFormat[]).map((f) => (
+                {((["a4", "80mm"] as PrintFormat[]).concat(
+                  isSales && (doc.docType === "INVOICE" || doc.docType === "ORDER") ? ["challan" as PrintFormat] : []
+                )).map((f) => (
                   <button
                     key={f}
                     onClick={() => setFormat(f)}
                     className={`px-3 py-2 transition ${format === f ? "bg-primary text-white" : "text-muted-foreground hover:bg-muted"}`}
                   >
-                    {f === "a4" ? "A4" : "80mm"}
+                    {f === "a4" ? "A4" : f === "80mm" ? "80mm" : "Challan"}
                   </button>
                 ))}
               </div>
@@ -114,7 +130,56 @@ export function DocDetail({ mode, id }: { mode: "SALES" | "PURCHASE"; id: string
         />
       </div>
 
-      {format === "a4" ? (
+      {format === "challan" ? (
+        <div className="card mx-auto max-w-3xl p-6 sm:p-10 print:border-0 print:shadow-none">
+          <div className="flex items-start justify-between gap-4">
+            <div>
+              <h1 className="text-2xl font-extrabold tracking-tight">{sellerName}</h1>
+              {sellerLines && <p className="mt-1 max-w-sm text-sm text-muted-foreground">{sellerLines}</p>}
+              {company?.ntn && <p className="mt-0.5 text-xs text-muted-foreground">NTN: {company.ntn}</p>}
+              <p className="mt-2 text-sm font-bold text-primary">Delivery Challan</p>
+              <p className="text-xs text-muted-foreground">Against {docTitle} {doc.docNo}</p>
+            </div>
+            <div className="text-right">
+              <p className="text-lg font-extrabold">{doc.docNo}</p>
+              <p className="mt-1"><StatusPill status={doc.status} /></p>
+              <p className="mt-1 text-sm text-muted-foreground">{fmtDate(doc.date)}</p>
+            </div>
+          </div>
+
+          <div className="mt-6 rounded-2xl bg-muted/60 p-4">
+            <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Delivered to</p>
+            <p className="mt-1 font-bold">{doc.partyName ?? "—"}</p>
+            {doc.notes && (<><p className="mt-2 text-xs font-bold uppercase tracking-wider text-muted-foreground">Notes</p><p className="mt-1 text-sm">{doc.notes}</p></>)}
+          </div>
+
+          <table className="tbl mt-6">
+            <thead><tr><th>#</th><th>Item</th><th className="num">Qty</th></tr></thead>
+            <tbody>
+              {doc.items.map((it, i) => (
+                <tr key={it.id}>
+                  <td className="text-muted-foreground">{i + 1}</td>
+                  <td className="font-semibold">{it.description}</td>
+                  <td className="num font-bold">{fmtQty(it.qty)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+
+          <div className="mt-12 grid grid-cols-2 gap-8 text-sm">
+            <div>
+              <p className="font-bold">Prepared by</p>
+              <p className="mt-10 border-t border-black pt-1 text-xs text-muted-foreground">Name &amp; signature</p>
+            </div>
+            <div>
+              <p className="font-bold">Received by</p>
+              <p className="mt-10 border-t border-black pt-1 text-xs text-muted-foreground">Name &amp; signature</p>
+            </div>
+          </div>
+
+          <p className="mt-10 text-center text-xs text-muted-foreground">Goods received in good condition · Generated by {brand.name}</p>
+        </div>
+      ) : format === "a4" ? (
         <div className="card mx-auto max-w-3xl p-6 sm:p-10 print:border-0 print:shadow-none">
           <div className="flex items-start justify-between gap-4">
             <div>
@@ -253,6 +318,48 @@ function DocActions({ doc, isSales }: { doc: Doc; isSales: boolean }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [sourceNo, setSourceNo] = useState<string | null>(null);
+  const [showReturn, setShowReturn] = useState(false);
+  const [returnQtys, setReturnQtys] = useState<Record<string, string>>({});
+  const [returnError, setReturnError] = useState<string | null>(null);
+
+  // milli -> plain decimal string for the qty input
+  function milliToDisplay(m: bigint): string {
+    const whole = m / 1000n;
+    const frac = (m % 1000n).toString().padStart(3, "0").replace(/0+$/, "");
+    return frac ? `${whole}.${frac}` : whole.toString();
+  }
+  function remainingQty(it: Item): bigint {
+    return BigInt(it.qty) - BigInt(it.qtyReturned ?? "0");
+  }
+  function openReturn() {
+    const init: Record<string, string> = {};
+    for (const it of doc.items) {
+      const r = remainingQty(it);
+      if (r > 0n) init[it.id] = milliToDisplay(r);
+    }
+    setReturnQtys(init);
+    setReturnError(null);
+    setShowReturn(true);
+  }
+
+  async function submitReturn() {
+    if (busy) return;
+    const lines = doc.items
+      .map((it) => ({ itemId: it.id, qty: (returnQtys[it.id] ?? "").trim() }))
+      .filter((l) => l.qty !== "" && l.qty !== "0");
+    if (lines.length === 0) { setReturnError("Enter a quantity for at least one item."); return; }
+    setBusy(true); setReturnError(null);
+    try {
+      const d = await api<{ data: { docId: string } }>(
+        `${isSales ? "/api/sales" : "/api/purchases"}/${doc.id}/convert`,
+        { method: "POST", body: JSON.stringify({ action: "return", lines }) }
+      );
+      setShowReturn(false);
+      router.push(`${isSales ? "/sales" : "/purchases"}/${d.data.docId}`);
+    } catch (e) {
+      setReturnError(e instanceof Error ? e.message : "Could not post the return.");
+    } finally { setBusy(false); }
+  }
 
   useEffect(() => {
     if (doc.sourceDocId) {
@@ -267,7 +374,8 @@ function DocActions({ doc, isSales }: { doc: Doc; isSales: boolean }) {
 
   async function run(action: "convert" | "return", priceOverride = false) {
     if (busy) return;
-    const label = action === "convert" ? (isSales ? "invoice" : "bill") : "return";
+    if (action === "return") { openReturn(); return; } // return goes through the qty dialog
+    const label = isSales ? "invoice" : "bill";
     if (!priceOverride && !window.confirm(`Create a ${label} from ${doc.docNo}? This will post to stock and accounts.`)) return;
     setBusy(true); setError(null);
     try {
@@ -307,6 +415,47 @@ function DocActions({ doc, isSales }: { doc: Doc; isSales: boolean }) {
         </button>
       )}
       {error && <span className="text-xs font-semibold text-danger">{error}</span>}
+      {showReturn && doc && (
+        <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/50 p-0 sm:items-center sm:p-4" onClick={() => !busy && setShowReturn(false)}>
+          <div className="w-full max-w-lg rounded-t-2xl bg-card p-5 shadow-xl sm:rounded-2xl" onClick={(e) => e.stopPropagation()}>
+            <h3 className="text-base font-bold">{isSales ? "Sales return (credit note)" : "Purchase return (debit note)"}</h3>
+            <p className="mt-1 text-xs text-muted-foreground">
+              Enter the quantity to return per item. Leave everything as-is for a full return.
+            </p>
+            <div className="mt-4 max-h-64 space-y-2 overflow-y-auto">
+              {doc.items.map((it) => {
+                const r = remainingQty(it);
+                if (r <= 0n) return null;
+                return (
+                  <div key={it.id} className="flex items-center gap-3 rounded-xl bg-muted/50 px-3 py-2">
+                    <div className="min-w-0 flex-1">
+                      <div className="truncate text-sm font-semibold">{it.description}</div>
+                      <div className="text-xs text-muted-foreground">Returnable: {fmtQty(r.toString())}</div>
+                    </div>
+                    <input
+                      className="input w-24 text-right"
+                      inputMode="decimal"
+                      value={returnQtys[it.id] ?? ""}
+                      onChange={(e) => setReturnQtys((q) => ({ ...q, [it.id]: e.target.value }))}
+                      placeholder="0"
+                      disabled={busy}
+                    />
+                  </div>
+                );
+              })}
+            </div>
+            {returnError && <p className="mt-3 text-xs font-semibold text-danger">{returnError}</p>}
+            <div className="mt-4 flex gap-2">
+              <button className="btn btn-ghost flex-1" disabled={busy} onClick={() => setShowReturn(false)}>
+                Cancel
+              </button>
+              <button className="btn btn-primary flex-1" disabled={busy} onClick={submitReturn}>
+                {busy ? "Posting…" : "Post return"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </>
   );
 }

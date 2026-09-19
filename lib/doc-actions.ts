@@ -133,33 +133,62 @@ export async function convertSalesDoc(
   return { docId, docNo, advanceApplied };
 }
 
-/** Create a full sales RETURN (credit note) from a posted INVOICE — stock + ledger reversed. */
+/** Create a sales RETURN (credit note) from a posted INVOICE — stock + ledger reversed.
+ *  Full return when `lines` is omitted; partial when per-item quantities are given.
+ *  Returned quantities are tracked on the source lines, so several partial
+ *  returns are allowed until nothing remains. */
 export async function createSalesReturn(
   tx: Tx,
-  input: { companyId: string; branchId: string; sourceId: string; userId: string }
+  input: { companyId: string; branchId: string; sourceId: string; userId: string; lines?: { itemId: string; qty: bigint }[] }
 ): Promise<ConvertResult> {
   const [src] = await tx.select().from(salesDocs)
     .where(and(eq(salesDocs.id, input.sourceId), eq(salesDocs.companyId, input.companyId))).limit(1);
   if (!src) throw new Error("Source invoice not found.");
   if (src.docType !== "INVOICE" || src.status !== "POSTED") throw new Error("Only posted invoices can be returned.");
-  await assertNoExistingReturn(tx, "sales", src.id, "invoice");
 
   const srcItems = await tx.select().from(salesDocItems).where(eq(salesDocItems.docId, src.id));
   if (srcItems.length === 0) throw new Error("Source invoice has no items.");
+  if (input.lines) {
+    const ids = new Set(srcItems.map((i) => i.id));
+    for (const l of input.lines) if (!ids.has(l.itemId)) throw new Error("Invalid return lines.");
+  }
 
-  const items: DocItemInput[] = srcItems.map((i) => ({
-    productId: i.productId,
-    description: i.description,
-    qtyMilli: i.qty,
-    ratePaisa: i.rate,
-    discountPaisa: i.discount,
-    taxBps: i.taxBps,
-  }));
-  const totals = computeTotals(items, src.discountTotal ?? 0n);
+  const requested = new Map((input.lines ?? []).map((l) => [l.itemId, l.qty]));
+  const items: DocItemInput[] = [];
+  const returnedById = new Map<string, bigint>();
+  for (const si of srcItems) {
+    const already = BigInt(si.qtyReturned ?? 0n);
+    const remaining = BigInt(si.qty) - already;
+    if (remaining <= 0n) continue;
+    const q = input.lines ? (requested.get(si.id) ?? 0n) : remaining;
+    if (q <= 0n) continue;
+    if (q > remaining)
+      throw new Error(`Return quantity for "${si.description}" exceeds the remaining ${(Number(remaining) / 1000).toLocaleString()}.`);
+    items.push({
+      productId: si.productId,
+      description: si.description,
+      qtyMilli: q,
+      ratePaisa: si.rate,
+      // line discount scales with the returned quantity
+      discountPaisa: si.qty > 0n ? (BigInt(si.discount) * q) / BigInt(si.qty) : 0n,
+      taxBps: si.taxBps,
+    });
+    returnedById.set(si.id, already + q);
+  }
+  if (items.length === 0) throw new Error("This invoice has already been fully returned.");
+
+  // document-level discount scales with the returned share of the subtotal
+  const srcDiscount = src.discountTotal ?? 0n;
+  const srcSubtotal = src.subtotal ?? 0n;
+  const returnedSubtotal = items.reduce((a, i) => a + (i.qtyMilli * i.ratePaisa) / 1000n, 0n);
+  const docDiscount = srcSubtotal > 0n && srcDiscount > 0n ? (srcDiscount * returnedSubtotal) / srcSubtotal : 0n;
+
+  const totals = computeTotals(items, docDiscount);
   const docNo = await nextDocNo(tx, input.companyId, "RETURN");
   const docId = crypto.randomUUID();
   const date = new Date();
   const tsMap = await trackStockMap(tx, items.map((i) => i.productId));
+  const isFull = srcItems.every((si) => BigInt(si.qty) - (returnedById.get(si.id) ?? BigInt(si.qtyReturned ?? 0n)) <= 0n);
 
   await tx.insert(salesDocs).values({
     id: docId,
@@ -171,10 +200,10 @@ export async function createSalesReturn(
     date,
     status: "POSTED",
     subtotal: totals.subtotal,
-    discountTotal: src.discountTotal ?? 0n,
+    discountTotal: docDiscount,
     taxTotal: totals.taxTotal,
     grandTotal: totals.grandTotal,
-    notes: `Return of invoice ${src.docNo}`,
+    notes: `${isFull ? "Return" : "Partial return"} of invoice ${src.docNo}`,
     sourceDocId: src.id,
     createdById: input.userId,
   });
@@ -192,6 +221,9 @@ export async function createSalesReturn(
       lineTotal: i.lineTotalPaisa,
     }))
   );
+  for (const [id, qtyReturned] of returnedById) {
+    await tx.update(salesDocItems).set({ qtyReturned }).where(eq(salesDocItems.id, id));
+  }
   const entryId = await postSalesDoc(tx, {
     companyId: input.companyId,
     branchId: src.branchId,
@@ -201,7 +233,7 @@ export async function createSalesReturn(
     docType: "RETURN",
     date,
     items: withStock(totals.items, tsMap),
-    discountTotal: src.discountTotal ?? 0n,
+    discountTotal: docDiscount,
     taxTotal: totals.taxTotal,
     grandTotal: totals.grandTotal,
     createdById: input.userId,
@@ -291,33 +323,57 @@ export async function convertPurchaseDoc(
   return { docId, docNo };
 }
 
-/** Create a full purchase RETURN (debit note) from a posted BILL. */
+/** Create a purchase RETURN (debit note) from a posted BILL — full or partial. */
 export async function createPurchaseReturn(
   tx: Tx,
-  input: { companyId: string; branchId: string; sourceId: string; userId: string }
+  input: { companyId: string; branchId: string; sourceId: string; userId: string; lines?: { itemId: string; qty: bigint }[] }
 ): Promise<ConvertResult> {
   const [src] = await tx.select().from(purchaseDocs)
     .where(and(eq(purchaseDocs.id, input.sourceId), eq(purchaseDocs.companyId, input.companyId))).limit(1);
   if (!src) throw new Error("Source bill not found.");
   if (src.docType !== "BILL" || src.status !== "POSTED") throw new Error("Only posted bills can be returned.");
-  await assertNoExistingReturn(tx, "purchase", src.id, "bill");
 
   const srcItems = await tx.select().from(purchaseDocItems).where(eq(purchaseDocItems.docId, src.id));
   if (srcItems.length === 0) throw new Error("Source bill has no items.");
+  if (input.lines) {
+    const ids = new Set(srcItems.map((i) => i.id));
+    for (const l of input.lines) if (!ids.has(l.itemId)) throw new Error("Invalid return lines.");
+  }
 
-  const items: DocItemInput[] = srcItems.map((i) => ({
-    productId: i.productId,
-    description: i.description,
-    qtyMilli: i.qty,
-    ratePaisa: i.rate,
-    discountPaisa: i.discount,
-    taxBps: i.taxBps,
-  }));
-  const totals = computeTotals(items, src.discountTotal ?? 0n);
+  const requested = new Map((input.lines ?? []).map((l) => [l.itemId, l.qty]));
+  const items: DocItemInput[] = [];
+  const returnedById = new Map<string, bigint>();
+  for (const si of srcItems) {
+    const already = BigInt(si.qtyReturned ?? 0n);
+    const remaining = BigInt(si.qty) - already;
+    if (remaining <= 0n) continue;
+    const q = input.lines ? (requested.get(si.id) ?? 0n) : remaining;
+    if (q <= 0n) continue;
+    if (q > remaining)
+      throw new Error(`Return quantity for "${si.description}" exceeds the remaining ${(Number(remaining) / 1000).toLocaleString()}.`);
+    items.push({
+      productId: si.productId,
+      description: si.description,
+      qtyMilli: q,
+      ratePaisa: si.rate,
+      discountPaisa: si.qty > 0n ? (BigInt(si.discount) * q) / BigInt(si.qty) : 0n,
+      taxBps: si.taxBps,
+    });
+    returnedById.set(si.id, already + q);
+  }
+  if (items.length === 0) throw new Error("This bill has already been fully returned.");
+
+  const srcDiscount = src.discountTotal ?? 0n;
+  const srcSubtotal = src.subtotal ?? 0n;
+  const returnedSubtotal = items.reduce((a, i) => a + (i.qtyMilli * i.ratePaisa) / 1000n, 0n);
+  const docDiscount = srcSubtotal > 0n && srcDiscount > 0n ? (srcDiscount * returnedSubtotal) / srcSubtotal : 0n;
+
+  const totals = computeTotals(items, docDiscount);
   const docNo = await nextDocNo(tx, input.companyId, "RETURN");
   const docId = crypto.randomUUID();
   const date = new Date();
   const tsMap = await trackStockMap(tx, items.map((i) => i.productId));
+  const isFull = srcItems.every((si) => BigInt(si.qty) - (returnedById.get(si.id) ?? BigInt(si.qtyReturned ?? 0n)) <= 0n);
 
   await tx.insert(purchaseDocs).values({
     id: docId,
@@ -329,10 +385,10 @@ export async function createPurchaseReturn(
     date,
     status: "POSTED",
     subtotal: totals.subtotal,
-    discountTotal: src.discountTotal ?? 0n,
+    discountTotal: docDiscount,
     taxTotal: totals.taxTotal,
     grandTotal: totals.grandTotal,
-    notes: `Return of bill ${src.docNo}`,
+    notes: `${isFull ? "Return" : "Partial return"} of bill ${src.docNo}`,
     sourceDocId: src.id,
     createdById: input.userId,
   });
@@ -359,26 +415,18 @@ export async function createPurchaseReturn(
     docType: "RETURN",
     date,
     items: withStock(totals.items, tsMap),
-    discountTotal: src.discountTotal ?? 0n,
+    discountTotal: docDiscount,
     taxTotal: totals.taxTotal,
     grandTotal: totals.grandTotal,
     createdById: input.userId,
   });
   await tx.update(purchaseDocs).set({ journalEntryId: entryId }).where(eq(purchaseDocs.id, docId));
+  for (const [id, qtyReturned] of returnedById) {
+    await tx.update(purchaseDocItems).set({ qtyReturned }).where(eq(purchaseDocItems.id, id));
+  }
   return { docId, docNo };
 }
 
 function withStock(items: ComputedItem[], tsMap: Map<string, boolean>) {
   return items.map((i) => ({ ...i, trackStock: i.productId ? tsMap.get(i.productId) ?? false : false }));
-}
-
-/** A full return may be posted only once per source document. */
-async function assertNoExistingReturn(tx: Tx, side: "sales" | "purchase", sourceId: string, label: string) {
-  const table = side === "sales" ? salesDocs : purchaseDocs;
-  const [existing] = await tx
-    .select({ id: table.id })
-    .from(table)
-    .where(and(eq(table.sourceDocId, sourceId), eq(table.docType, "RETURN")))
-    .limit(1);
-  if (existing) throw new Error(`A return has already been posted against this ${label}.`);
 }

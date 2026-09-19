@@ -302,11 +302,10 @@ describe("conversion/return correctness", () => {
     await db.transaction((tx) => createSalesReturn(tx, { companyId, branchId, sourceId: invId, userId }));
     await expect(
       db.transaction((tx) => createSalesReturn(tx, { companyId, branchId, sourceId: invId, userId }))
-    ).rejects.toThrow(/already been posted/);
+    ).rejects.toThrow(/fully returned/);
   });
 
-  it("rejects a second full purchase return against the same bill", async () => {
-    const docNo = await db.transaction((tx) => nextDocNo(tx, companyId, "ORDER"));
+  it("rejects a second full purchase return against the same bill", async () => {    const docNo = await db.transaction((tx) => nextDocNo(tx, companyId, "ORDER"));
     const orderId = crypto.randomUUID();
     await db.insert(s.purchaseDocs).values({
       id: orderId, companyId, branchId, partyId: supplierId, docType: "ORDER", docNo,
@@ -325,7 +324,73 @@ describe("conversion/return correctness", () => {
     await db.transaction((tx) => createPurchaseReturn(tx, { companyId, branchId, sourceId: billId, userId }));
     await expect(
       db.transaction((tx) => createPurchaseReturn(tx, { companyId, branchId, sourceId: billId, userId }))
-    ).rejects.toThrow(/already been posted/);
+    ).rejects.toThrow(/fully returned/);
+  });
+  it("partial sales return: quantities tracked, remainder returnable later", async () => {
+    const srcId = await createQuotation(); // 2 kg @ 2400 = 4800
+    const { docId: invId } = await db.transaction((tx) =>
+      convertSalesDoc(tx, { companyId, branchId, sourceId: srcId, userId })
+    );
+    const [item] = await db.select().from(s.salesDocItems).where(eq(s.salesDocItems.docId, invId)).limit(1);
+
+    // return 1 of 2 kg
+    const r1 = await db.transaction((tx) =>
+      createSalesReturn(tx, { companyId, branchId, sourceId: invId, userId, lines: [{ itemId: item!.id, qty: parseQty("1") }] })
+    );
+    const [ret1] = await db.select().from(s.salesDocs).where(eq(s.salesDocs.id, r1.docId)).limit(1);
+    expect(ret1!.grandTotal).toBe(parseMoney("2400"));
+    expect(ret1!.notes).toMatch(/Partial return/);
+    const [srcAfter] = await db.select().from(s.salesDocItems).where(eq(s.salesDocItems.id, item!.id)).limit(1);
+    expect(srcAfter!.qtyReturned).toBe(parseQty("1"));
+
+    // over-return rejected
+    await expect(
+      db.transaction((tx) =>
+        createSalesReturn(tx, { companyId, branchId, sourceId: invId, userId, lines: [{ itemId: item!.id, qty: parseQty("2") }] })
+      )
+    ).rejects.toThrow(/exceeds the remaining/);
+
+    // return the remaining 1 kg — now a full return in two steps
+    const r2 = await db.transaction((tx) =>
+      createSalesReturn(tx, { companyId, branchId, sourceId: invId, userId })
+    );
+    const [ret2] = await db.select().from(s.salesDocs).where(eq(s.salesDocs.id, r2.docId)).limit(1);
+    expect(ret2!.grandTotal).toBe(parseMoney("2400"));
+    const [srcFinal] = await db.select().from(s.salesDocItems).where(eq(s.salesDocItems.id, item!.id)).limit(1);
+    expect(srcFinal!.qtyReturned).toBe(parseQty("2"));
+
+    // nothing left: rejected
+    await expect(
+      db.transaction((tx) => createSalesReturn(tx, { companyId, branchId, sourceId: invId, userId }))
+    ).rejects.toThrow(/fully returned/);
+  });
+
+  it("partial purchase return scales the document discount", async () => {
+    const docNo = await db.transaction((tx) => nextDocNo(tx, companyId, "ORDER"));
+    const orderId = crypto.randomUUID();
+    await db.insert(s.purchaseDocs).values({
+      id: orderId, companyId, branchId, partyId: supplierId, docType: "ORDER", docNo,
+      date: new Date(), status: "DRAFT",
+      subtotal: parseMoney("4000"), discountTotal: parseMoney("400"), taxTotal: 0n, grandTotal: parseMoney("3600"),
+      createdById: userId,
+    });
+    await db.insert(s.purchaseDocItems).values({
+      id: crypto.randomUUID(), docId: orderId, productId, description: "Rice 25kg",
+      qty: parseQty("2"), rate: parseMoney("2000"), discount: 0n, taxBps: 0,
+      taxAmount: 0n, lineTotal: parseMoney("4000"),
+    });
+    const { docId: billId } = await db.transaction((tx) =>
+      convertPurchaseDoc(tx, { companyId, branchId, sourceId: orderId, userId })
+    );
+    const [billItem] = await db.select().from(s.purchaseDocItems).where(eq(s.purchaseDocItems.docId, billId)).limit(1);
+
+    // return half: discount 400 -> 200, grand 1800
+    const r = await db.transaction((tx) =>
+      createPurchaseReturn(tx, { companyId, branchId, sourceId: billId, userId, lines: [{ itemId: billItem!.id, qty: parseQty("1") }] })
+    );
+    const [ret] = await db.select().from(s.purchaseDocs).where(eq(s.purchaseDocs.id, r.docId)).limit(1);
+    expect(ret!.discountTotal).toBe(parseMoney("200"));
+    expect(ret!.grandTotal).toBe(parseMoney("1800"));
   });
 });
 

@@ -209,6 +209,7 @@ export const salesDocItems = sqliteTable("sales_doc_items", {
   productId: text("product_id"),
   description: text("description").notNull(),
   qty: qty("qty"),
+  qtyReturned: qty("qty_returned"), // milli-units already returned (partial credit notes)
   rate: money("rate"),
   discount: money("discount"),
   taxBps: integer("tax_bps").notNull().default(0),
@@ -254,6 +255,7 @@ export const purchaseDocItems = sqliteTable("purchase_doc_items", {
   productId: text("product_id"),
   description: text("description").notNull(),
   qty: qty("qty"),
+  qtyReturned: qty("qty_returned"), // milli-units already returned (partial debit notes)
   rate: money("rate"),
   discount: money("discount"),
   taxBps: integer("tax_bps").notNull().default(0),
