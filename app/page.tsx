@@ -41,7 +41,7 @@ export default function LandingPage() {
     <div className="min-h-screen overflow-x-clip bg-background">
       {/* Nav */}
       <header className="fixed inset-x-0 top-0 z-40 border-b border-white/10 bg-[#0a2e25]/85 backdrop-blur-xl">
-        <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:px-6">
+        <div className="mx-auto flex h-16 max-w-[1400px] items-center justify-between px-4 sm:px-8">
           <Link href="/" className="flex items-center gap-2.5">
             <span className="grid h-9 w-9 place-items-center rounded-xl bg-white/15 shadow-lg">
               <FileText size={18} className="text-white" />
@@ -75,31 +75,46 @@ export default function LandingPage() {
           <div className="absolute inset-0 opacity-[0.06]" style={{ backgroundImage: "radial-gradient(circle at 1px 1px, #fff 1px, transparent 0)", backgroundSize: "30px 30px" }} />
           <div className="absolute inset-x-0 bottom-0 h-40 bg-gradient-to-t from-background to-transparent" />
         </div>
-        <div className="relative mx-auto max-w-7xl px-4 pb-24 pt-32 text-center sm:px-6 sm:pt-40">
-          <div className="rise mx-auto inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/10 px-4 py-1.5 text-xs font-semibold text-emerald-50 shadow-sm backdrop-blur">
-            <Sparkles size={14} className="text-amber-300" />
-            One platform — wholesale, retail & every business
-          </div>
-          <h1 className="rise rise-1 mx-auto mt-6 max-w-3xl text-4xl font-extrabold leading-[1.06] tracking-tight text-white sm:text-6xl">
-            Your entire business{" "}
-            <span className="bg-gradient-to-r from-amber-300 to-emerald-300 bg-clip-text text-transparent">hisaab</span>,
-            finally in one place
-          </h1>
-          <p className="rise rise-2 mx-auto mt-5 max-w-2xl text-base text-emerald-50/80 sm:text-lg">
-            {brand.description} Sales, stock, payments and full double-entry accounts — tailored to your trade. No more registers, no more guesswork.
-          </p>
-          <div className="rise rise-3 mt-8 flex flex-wrap items-center justify-center gap-3">
-            <Link href="/signup" className="btn !border-0 !bg-white !px-7 !py-3.5 !text-base !text-[#0a2e25] shadow-xl shadow-black/20 hover:!bg-emerald-50">
-              Start free today <ArrowRight size={18} />
-            </Link>
-            <Link href="/login" className="btn !border-white/25 !bg-white/10 !px-7 !py-3.5 !text-base !text-white backdrop-blur hover:!bg-white/20">
-              Log in
-            </Link>
+        <div className="relative mx-auto grid max-w-[1400px] items-center gap-12 px-4 pb-24 pt-32 sm:px-8 sm:pt-40 lg:grid-cols-2 lg:gap-8 lg:pb-32">
+          <div className="text-center lg:text-left">
+            <div className="rise inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/10 px-4 py-1.5 text-xs font-semibold text-emerald-50 shadow-sm backdrop-blur">
+              <Sparkles size={14} className="text-amber-300" />
+              One platform — wholesale, retail & every business
+            </div>
+            <h1 className="rise rise-1 mt-6 text-4xl font-extrabold leading-[1.06] tracking-tight text-white sm:text-6xl lg:text-[3.6rem]">
+              Your entire business{" "}
+              <span className="bg-gradient-to-r from-amber-300 to-emerald-300 bg-clip-text text-transparent">hisaab</span>,
+              finally in one place
+            </h1>
+            <p className="rise rise-2 mt-5 max-w-xl text-base text-emerald-50/80 sm:text-lg lg:mx-0">
+              {brand.description} Sales, stock, payments and full double-entry accounts — tailored to your trade. No more registers, no more guesswork.
+            </p>
+            <div className="rise rise-3 mt-8 flex flex-wrap items-center justify-center gap-3 lg:justify-start">
+              <Link href="/signup" className="btn !border-0 !bg-white !px-7 !py-3.5 !text-base !text-[#0a2e25] shadow-xl shadow-black/20 hover:!bg-emerald-50">
+                Start free today <ArrowRight size={18} />
+              </Link>
+              <Link href="/login" className="btn !border-white/25 !bg-white/10 !px-7 !py-3.5 !text-base !text-white backdrop-blur hover:!bg-white/20">
+                Log in
+              </Link>
+            </div>
+            <div className="rise rise-4 mt-10 flex items-center justify-center gap-8 text-emerald-50/70 lg:justify-start">
+              {[
+                ["10 yrs", "data safety"],
+                ["100%", "balanced books"],
+                ["Free", "to start"],
+              ].map(([v, l]) => (
+                <div key={l} className="text-center lg:text-left">
+                  <p className="text-xl font-extrabold text-white">{v}</p>
+                  <p className="text-xs">{l}</p>
+                </div>
+              ))}
+            </div>
           </div>
 
           {/* Floating dashboard mock */}
-          <div className="rise rise-4 relative mx-auto mt-14 max-w-4xl">
-            <div className="floaty card card-gloss p-5 text-left shadow-2xl sm:p-7">
+          <div className="rise rise-2 relative">
+            <div className="pointer-events-none absolute -inset-6 rounded-[2rem] bg-emerald-400/15 blur-3xl" />
+            <div className="floaty card card-gloss relative p-5 text-left shadow-2xl sm:p-7">
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Today&apos;s business</p>
@@ -130,7 +145,7 @@ export default function LandingPage() {
       </section>
 
       {/* Business types */}
-      <section id="businesses" className="mx-auto max-w-7xl px-4 py-16 sm:px-6 sm:py-20">
+      <section id="businesses" className="mx-auto max-w-[1400px] px-4 py-16 sm:px-8 sm:py-20">
         <div className="text-center">
           <h2 className="text-3xl font-extrabold tracking-tight sm:text-4xl">Made for every business</h2>
           <p className="mx-auto mt-3 max-w-xl text-muted-foreground">Tell us your trade at signup — your workspace adapts. A retailer sees fast counter billing; a wholesaler sees bulk workflows.</p>
@@ -148,7 +163,7 @@ export default function LandingPage() {
       </section>
 
       {/* Features */}
-      <section id="features" className="mx-auto max-w-7xl px-4 py-16 sm:px-6 sm:py-20">
+      <section id="features" className="mx-auto max-w-[1400px] px-4 py-16 sm:px-8 sm:py-20">
         <div className="text-center">
           <h2 className="text-3xl font-extrabold tracking-tight sm:text-4xl">Everything your business needs</h2>
           <p className="mx-auto mt-3 max-w-xl text-muted-foreground">From the first purchase bill to the final profit report — {brand.name} handles the full cycle.</p>
@@ -168,7 +183,7 @@ export default function LandingPage() {
 
       {/* Steps */}
       <section id="how" className="border-y border-border bg-card/60">
-        <div className="mx-auto max-w-7xl px-4 py-16 sm:px-6 sm:py-20">
+        <div className="mx-auto max-w-[1400px] px-4 py-16 sm:px-8 sm:py-20">
           <h2 className="text-center text-3xl font-extrabold tracking-tight">Up and running in three steps</h2>
           <div className="mt-10 grid gap-4 md:grid-cols-3">
             {steps.map((s) => (
@@ -183,7 +198,7 @@ export default function LandingPage() {
       </section>
 
       {/* Trust strip */}
-      <section className="mx-auto max-w-7xl px-4 py-14 sm:px-6">
+      <section className="mx-auto max-w-[1400px] px-4 py-14 sm:px-8">
         <div className="grid gap-3 sm:grid-cols-3">
           {[
             { t: "Double-entry core", d: "Every rupee is debited and credited. Books always balance." },
@@ -202,7 +217,7 @@ export default function LandingPage() {
       </section>
 
       {/* CTA */}
-      <section className="mx-auto max-w-7xl px-4 pb-20 sm:px-6">
+      <section className="mx-auto max-w-[1400px] px-4 pb-20 sm:px-8">
         <div className="relative overflow-hidden rounded-3xl p-10 text-center sm:p-14">
           <div className="absolute inset-0 bg-gradient-to-br from-[#0a2e25] via-[#0d4a3a] to-[#0d7a5f]" />
           <div className="pointer-events-none absolute inset-0">
@@ -217,7 +232,7 @@ export default function LandingPage() {
       </section>
 
       <footer className="border-t border-border">
-        <div className="mx-auto flex max-w-7xl flex-col items-center justify-between gap-4 px-4 py-8 sm:flex-row sm:px-6">
+        <div className="mx-auto flex max-w-[1400px] flex-col items-center justify-between gap-4 px-4 py-8 sm:flex-row sm:px-8">
           <Logo />
           <p className="text-xs text-muted-foreground">© 2026 {brand.name}. {brand.tagline}.</p>
         </div>
