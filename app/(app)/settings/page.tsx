@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Building2, Database, Download, Save, Upload } from "lucide-react";
+import Link from "next/link";
+import { Building2, Database, Download, Save, Upload, Users, UserPlus, ScrollText } from "lucide-react";
 import { PageHeader, Field, ErrorNote } from "@/components/ui";
 import { api } from "@/lib/format";
 import { BUSINESS_TYPES } from "@/lib/business-types";
@@ -19,6 +20,13 @@ export default function SettingsPage() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
+  const [isOwner, setIsOwner] = useState(true);
+
+  useEffect(() => {
+    api<{ user: { role: string } }>("/api/auth/me")
+      .then((d) => setIsOwner(d.user.role === "OWNER"))
+      .catch(() => {});
+  }, []);
 
   useEffect(() => {
     api<{ data: Company }>("/api/company")
@@ -60,6 +68,11 @@ export default function SettingsPage() {
         ) : (
           <form onSubmit={submit} className="space-y-4">
             <ErrorNote message={error} />
+            {!isOwner && (
+              <div className="rounded-xl bg-amber-500/10 px-4 py-3 text-sm font-semibold text-amber-600 dark:text-amber-400">
+                You are signed in as staff. Only the owner can change company settings.
+              </div>
+            )}
             {saved && (
               <div className="rounded-xl bg-primary-soft px-4 py-3 text-sm font-semibold text-primary">
                 Company profile saved.
@@ -96,7 +109,7 @@ export default function SettingsPage() {
               </Field>
             </div>
             <div className="flex justify-end pt-2">
-              <button className="btn btn-primary" disabled={saving}>
+              <button className="btn btn-primary" disabled={saving || !isOwner}>
                 <Save size={16} /> {saving ? "Saving…" : "Save changes"}
               </button>
             </div>
@@ -133,6 +146,122 @@ export default function SettingsPage() {
         </div>
       </div>
       <ImportCard />
+      <TeamCard />
+      <div className="card mt-6 max-w-2xl p-6 sm:p-8">
+        <div className="flex items-center justify-between gap-3">
+          <div>
+            <h2 className="text-lg font-extrabold">Activity log</h2>
+            <p className="mt-1 text-sm text-muted-foreground">Who did what, and when — the audit trail.</p>
+          </div>
+          <Link href="/settings/activity" className="btn btn-ghost text-sm">
+            <ScrollText size={15} /> View log
+          </Link>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+type TeamUser = { id: string; name: string; email: string; role: string; isActive: boolean; lastLoginAt: number | string | null };
+
+function TeamCard() {
+  const [users, setUsers] = useState<TeamUser[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [forbidden, setForbidden] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [showForm, setShowForm] = useState(false);
+  const [name, setName] = useState("");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [saving, setSaving] = useState(false);
+
+  function load() {
+    setLoading(true);
+    api<{ data: TeamUser[] }>("/api/users")
+      .then((d) => { setUsers(d.data); setForbidden(false); })
+      .catch((e) => { setForbidden(e instanceof Error && e.message.includes("owner")); setError(e instanceof Error ? e.message : "Could not load team."); })
+      .finally(() => setLoading(false));
+  }
+  useEffect(() => { load(); }, []);
+
+  async function addStaff(e: React.FormEvent) {
+    e.preventDefault();
+    setSaving(true); setError(null);
+    try {
+      await api("/api/users", { method: "POST", body: JSON.stringify({ name, email, password }) });
+      setName(""); setEmail(""); setPassword(""); setShowForm(false);
+      load();
+    } catch (err) { setError(err instanceof Error ? err.message : "Could not add staff."); }
+    finally { setSaving(false); }
+  }
+
+  async function patchUser(id: string, patch: { role?: string; isActive?: boolean }) {
+    setError(null);
+    try {
+      await api(`/api/users/${id}`, { method: "PATCH", body: JSON.stringify(patch) });
+      load();
+    } catch (err) { setError(err instanceof Error ? err.message : "Could not update."); }
+  }
+
+  return (
+    <div className="card mt-6 max-w-2xl p-6 sm:p-8">
+      <div className="flex items-center justify-between gap-3">
+        <div>
+          <h2 className="inline-flex items-center gap-2 text-lg font-extrabold"><Users size={19} /> Team</h2>
+          <p className="mt-1 text-sm text-muted-foreground">Owners see everything. Staff can bill and record, but cannot change settings or the team.</p>
+        </div>
+        {!forbidden && (
+          <button className="btn btn-ghost shrink-0 text-sm" onClick={() => setShowForm((s) => !s)}>
+            <UserPlus size={15} /> Add staff
+          </button>
+        )}
+      </div>
+      <ErrorNote message={forbidden ? null : error} />
+      {loading ? (
+        <div className="mt-4 space-y-3">{[1, 2].map((i) => <div key={i} className="h-14 animate-pulse rounded-xl bg-muted" />)}</div>
+      ) : forbidden ? (
+        <p className="mt-4 rounded-xl bg-muted/60 px-4 py-3 text-sm text-muted-foreground">Only the owner can manage the team.</p>
+      ) : (
+        <>
+          {showForm && (
+            <form onSubmit={addStaff} className="mt-4 space-y-3 rounded-2xl border border-border p-4">
+              <div className="grid gap-3 sm:grid-cols-2">
+                <Field label="Name"><input className="field" required value={name} onChange={(e) => setName(e.target.value)} placeholder="Staff name" /></Field>
+                <Field label="Email"><input className="field" required type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="staff@example.com" /></Field>
+              </div>
+              <Field label="Password (min 8 characters)"><input className="field" required type="password" minLength={8} value={password} onChange={(e) => setPassword(e.target.value)} /></Field>
+              <button className="btn btn-primary text-sm" disabled={saving}>{saving ? "Adding…" : "Add staff member"}</button>
+            </form>
+          )}
+          <ul className="mt-4 divide-y divide-border">
+            {users.map((u) => (
+              <li key={u.id} className="flex items-center justify-between gap-3 py-3">
+                <div className="min-w-0">
+                  <p className="truncate text-sm font-bold">{u.name} {!u.isActive && <span className="badge bg-muted text-xs text-muted-foreground">inactive</span>}</p>
+                  <p className="truncate text-xs text-muted-foreground">{u.email}</p>
+                </div>
+                <div className="flex shrink-0 items-center gap-2">
+                  <select
+                    className="field !w-auto !py-1.5 text-xs"
+                    value={u.role}
+                    onChange={(e) => patchUser(u.id, { role: e.target.value })}
+                    aria-label="Role"
+                  >
+                    <option value="OWNER">Owner</option>
+                    <option value="STAFF">Staff</option>
+                  </select>
+                  <button
+                    className="btn btn-ghost !px-3 !py-1.5 text-xs"
+                    onClick={() => patchUser(u.id, { isActive: !u.isActive })}
+                  >
+                    {u.isActive ? "Deactivate" : "Activate"}
+                  </button>
+                </div>
+              </li>
+            ))}
+          </ul>
+        </>
+      )}
     </div>
   );
 }

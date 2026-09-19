@@ -3,7 +3,7 @@ import { eq } from "drizzle-orm";
 import { z } from "zod";
 import { companies } from "@/db/schema";
 import { json, err } from "@/lib/api";
-import { requireCompany, db } from "@/lib/route-helpers";
+import { requireCompany, requireOwner, db } from "@/lib/route-helpers";
 import { businessTypeLabel } from "@/lib/business-types";
 
 const companySchema = z.object({
@@ -35,7 +35,7 @@ export async function GET() {
 
 // PUT /api/company — update profile
 export async function PUT(req: NextRequest) {
-  const gate = await requireCompany();
+  const gate = await requireOwner();
   if (!gate.ok) return gate.response;
   const body = await req.json().catch(() => null);
   const parsed = companySchema.safeParse(body);
