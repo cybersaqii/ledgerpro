@@ -1,6 +1,12 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { FileText } from "lucide-react";
 import { brand } from "@/lib/brand";
+
+export const metadata: Metadata = {
+  title: "Privacy Policy",
+  description: `${brand.name} Privacy Policy — what we collect, how we use it, and your rights to your data.`,
+};
 
 const sections: { h: string; p: string[] }[] = [
   {

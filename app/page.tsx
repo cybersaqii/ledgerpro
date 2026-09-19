@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import {
   ArrowRight, BarChart3, Boxes, CheckCircle2, FileText, Landmark,
@@ -7,6 +8,18 @@ import {
 } from "lucide-react";
 import { ThemeToggle } from "@/components/ui";
 import { brand } from "@/lib/brand";
+
+export const metadata: Metadata = {
+  title: "Free Accounting Software for Every Business",
+  description:
+    "Sales, purchases, stock, POS, payments and profit reports — double-entry hisaab-kitab tailored to your trade. Free to start, no credit card needed.",
+  alternates: { canonical: "/" },
+  openGraph: {
+    title: `${brand.name} — ${brand.tagline}`,
+    description: "Sales, stock, udhaar, cash and profit — your entire business hisaab, finally in one place. Free to start.",
+    url: "/",
+  },
+};
 
 const features = [
   { icon: FileText, title: "Sales & purchase bills", text: "Invoices, returns, quotations and orders with automatic double-entry posting behind every document." },

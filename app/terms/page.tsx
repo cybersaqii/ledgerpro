@@ -1,6 +1,12 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { FileText } from "lucide-react";
 import { brand } from "@/lib/brand";
+
+export const metadata: Metadata = {
+  title: "Terms of Service",
+  description: `${brand.name} Terms of Service — your account, your data, fair use and liability.`,
+};
 
 const sections: { h: string; p: string[] }[] = [
   {
