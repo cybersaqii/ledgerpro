@@ -5,9 +5,9 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Building2, Database, Download, Save, Upload, Users, UserPlus, ScrollText, KeyRound, Copy, Check, Lock, Activity, TriangleAlert, MonitorSmartphone, LogOut, CircleCheck, History, ShieldCheck, RefreshCw, Crown } from "lucide-react";
 import { PageHeader, Field, ErrorNote } from "@/components/ui";
+import { useLang } from "@/components/lang-provider";
 import { api, fmtDate } from "@/lib/format";
 import { BUSINESS_TYPES } from "@/lib/business-types";
-import { PERIOD_LOCK_GUIDANCE } from "@/lib/period-guidance";
 import { AUDIT_LOG_RETENTION_YEARS } from "@/lib/audit";
 
 type Company = {
@@ -17,28 +17,43 @@ type Company = {
 
 const empty: Company = { name: "", email: "", phone: "", address: "", city: "", ntn: "", businessType: "WHOLESALE" };
 
-const SECTIONS: Array<[string, string]> = [
-  ["sec-company", "Company"],
-  ["sec-data", "Data"],
-  ["sec-import", "Import"],
-  ["sec-backups", "Backups"],
-  ["sec-team", "Team"],
-  ["sec-security", "Password"],
-  ["sec-sessions", "Sessions"],
-  ["sec-lock", "Period lock"],
-  ["sec-health", "Health"],
-  ["sec-activity", "Activity"],
-  ["sec-danger", "Delete"],
-];
+const SECTIONS = [
+  "sec-company",
+  "sec-data",
+  "sec-import",
+  "sec-backups",
+  "sec-team",
+  "sec-security",
+  "sec-sessions",
+  "sec-lock",
+  "sec-health",
+  "sec-activity",
+  "sec-danger",
+] as const;
+
+const SECTION_KEYS: Record<(typeof SECTIONS)[number], string> = {
+  "sec-company": "navCompany",
+  "sec-data": "navData",
+  "sec-import": "navImport",
+  "sec-backups": "navBackups",
+  "sec-team": "navTeam",
+  "sec-security": "navPassword",
+  "sec-sessions": "navSessions",
+  "sec-lock": "navLock",
+  "sec-health": "navHealth",
+  "sec-activity": "navActivity",
+  "sec-danger": "navDelete",
+};
 
 /** Sticky jump-links so the long Settings page stays navigable on every screen. */
 function SettingsJumpNav() {
+  const { t } = useLang();
   return (
-    <nav aria-label="Settings sections" className="sticky top-16 z-20 -mx-1 mb-6 flex gap-2 overflow-x-auto bg-background/90 px-1 py-2 backdrop-blur-xl">
-      {SECTIONS.map(([id, label]) => (
+    <nav aria-label={t("settings.navAria")} className="sticky top-16 z-20 -mx-1 mb-6 flex gap-2 overflow-x-auto bg-background/90 px-1 py-2 backdrop-blur-xl">
+      {SECTIONS.map((id) => (
         <a key={id} href={`#${id}`}
           className="shrink-0 rounded-full border border-border bg-card px-3.5 py-2 text-xs font-bold text-muted-foreground transition hover:border-primary hover:text-primary">
-          {label}
+          {t(`settings.${SECTION_KEYS[id]}`)}
         </a>
       ))}
     </nav>
@@ -46,6 +61,7 @@ function SettingsJumpNav() {
 }
 
 export default function SettingsPage() {
+  const { t } = useLang();
   const [form, setForm] = useState<Company>(empty);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -66,9 +82,9 @@ export default function SettingsPage() {
         address: d.data.address ?? "", city: d.data.city ?? "", ntn: d.data.ntn ?? "",
         businessType: d.data.businessType ?? "WHOLESALE",
       }))
-      .catch(() => setError("Could not load company profile."))
+      .catch(() => setError(t("settings.loadError")))
       .finally(() => setLoading(false));
-  }, []);
+  }, [t]);
 
   const set = (k: keyof Company) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
     setForm((f) => ({ ...f, [k]: e.target.value }));
@@ -82,15 +98,15 @@ export default function SettingsPage() {
       await api("/api/company", { method: "PUT", body: JSON.stringify(form) });
       setSaved(true);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Could not save.");
+      setError(err instanceof Error ? err.message : t("settings.saveError"));
     } finally { setSaving(false); }
   }
 
   return (
     <div>
       <PageHeader
-        title="Company settings"
-        subtitle="Your shop details — shown on invoices and used to tailor your workspace"
+        title={t("settings.title")}
+        subtitle={t("settings.subtitle")}
         icon={<Building2 size={20} />}
       />
       <SettingsJumpNav />
@@ -102,73 +118,73 @@ export default function SettingsPage() {
             <ErrorNote message={error} />
             {!isOwner && (
               <div className="rounded-xl bg-amber-500/10 px-4 py-3 text-sm font-semibold text-amber-600 dark:text-amber-400">
-                You are signed in as staff. Only the owner can change company settings.
+                {t("settings.staffNote")}
               </div>
             )}
             {saved && (
               <div className="rounded-xl bg-primary-soft px-4 py-3 text-sm font-semibold text-primary">
-                Company profile saved.
+                {t("settings.saved")}
               </div>
             )}
-            <Field label="Business name">
+            <Field label={t("settings.businessName")}>
               <input className="field" required value={form.name} onChange={set("name")} />
             </Field>
-            <Field label="Business type">
+            <Field label={t("settings.businessType")}>
               <select className="field" value={form.businessType} onChange={set("businessType")}>
                 {BUSINESS_TYPES.map((b) => <option key={b.value} value={b.value}>{b.label} — {b.hint}</option>)}
               </select>
               <p className="mt-1 text-xs text-muted-foreground">
-                Your workspace adapts to your business type — a retailer sees fast counter billing, a wholesaler sees bulk workflows.
+                {t("settings.businessTypeHint")}
               </p>
             </Field>
             <div className="grid gap-4 sm:grid-cols-2">
-              <Field label="Phone">
-                <input className="field" value={form.phone ?? ""} onChange={set("phone")} placeholder="03xx xxxxxxx" />
+              <Field label={t("settings.phone")}>
+                <input className="field" value={form.phone ?? ""} onChange={set("phone")} placeholder={t("settings.phonePh")} />
               </Field>
-              <Field label="Email">
+              <Field label={t("settings.email")}>
                 <input className="field" type="email" value={form.email ?? ""} onChange={set("email")} placeholder="you@business.com" />
               </Field>
             </div>
-            <Field label="Shop address">
-              <textarea className="field min-h-20" value={form.address ?? ""} onChange={set("address")} placeholder="Shop no, market, road…" />
+            <Field label={t("settings.address")}>
+              <textarea className="field min-h-20" value={form.address ?? ""} onChange={set("address")} placeholder={t("settings.addressPh")} />
             </Field>
             <div className="grid gap-4 sm:grid-cols-2">
-              <Field label="City">
-                <input className="field" value={form.city ?? ""} onChange={set("city")} placeholder="e.g. Lahore" />
+              <Field label={t("settings.city")}>
+                <input className="field" value={form.city ?? ""} onChange={set("city")} placeholder={t("settings.cityPh")} />
               </Field>
-              <Field label="NTN (optional)">
+              <Field label={t("settings.ntn")}>
                 <input className="field" value={form.ntn ?? ""} onChange={set("ntn")} />
               </Field>
             </div>
             <div className="flex justify-end pt-2">
               <button className="btn btn-primary" disabled={saving || !isOwner}>
-                <Save size={16} /> {saving ? "Saving…" : "Save changes"}
+                <Save size={16} /> {saving ? t("settings.saving") : t("settings.saveChanges")}
               </button>
             </div>
           </form>
         )}
       </div>
       <div id="sec-data" className="card card-gloss anchor-scroll mt-6 mx-auto max-w-2xl p-6 sm:p-8">
-        <h2 className="text-lg font-extrabold">Data &amp; backup</h2>
+        <h2 className="text-lg font-extrabold">{t("settings.dataTitle")}</h2>
         <p className="mt-1 text-sm text-muted-foreground">
-          Your data is yours. Download a full backup anytime, or export any register to a spreadsheet.
+          {t("settings.dataHint")}
         </p>
         <div className="mt-4">
           <a href="/api/export?kind=backup" className="btn btn-primary text-sm" download>
-            <Database size={16} /> Download full backup (JSON)
+            <Database size={16} /> {t("settings.downloadBackup")}
           </a>
         </div>
         <div className="mt-5 border-t border-border pt-5">
-          <p className="text-sm font-bold">Export to spreadsheet (CSV)</p>
+          <p className="text-sm font-bold">{t("settings.exportCsv")}</p>
           <div className="mt-3 flex flex-wrap gap-2">
             {[
-              ["parties", "Parties"],
-              ["products", "Products"],
-              ["sales", "Sales"],
-              ["purchases", "Purchases"],
-              ["payments", "Payments"],
-              ["expenses", "Expenses"],
-              ["stock", "Stock"],
+              ["parties", t("settings.expParties")],
+              ["products", t("settings.expProducts")],
+              ["sales", t("settings.expSales")],
+              ["purchases", t("settings.expPurchases")],
+              ["payments", t("settings.expPayments")],
+              ["expenses", t("settings.expExpenses")],
+              ["stock", t("settings.expStock")],
             ].map(([kind, label]) => (
               <a key={kind} href={`/api/export?kind=${kind}`} className="btn btn-ghost text-sm" download>
                 <Download size={15} /> {label}
@@ -188,15 +204,15 @@ export default function SettingsPage() {
       <div id="sec-activity" className="card card-gloss anchor-scroll mt-6 mx-auto max-w-2xl p-6 sm:p-8">
         <div className="flex items-center justify-between gap-3">
           <div>
-            <h2 className="text-lg font-extrabold">Activity log</h2>
-            <p className="mt-1 text-sm text-muted-foreground">Who did what, and when — the audit trail.</p>
+            <h2 className="text-lg font-extrabold">{t("settings.activityTitle")}</h2>
+            <p className="mt-1 text-sm text-muted-foreground">{t("settings.activityHint")}</p>
           </div>
           <Link href="/settings/activity" className="btn btn-ghost text-sm">
-            <ScrollText size={15} /> View log
+            <ScrollText size={15} /> {t("settings.viewLog")}
           </Link>
         </div>
         <p className="mt-3 text-xs text-muted-foreground">
-          Audit entries are kept for {AUDIT_LOG_RETENTION_YEARS} years and are never auto-deleted.
+          {t("settings.auditRetention", { years: AUDIT_LOG_RETENTION_YEARS })}
         </p>
       </div>
     </div>
@@ -206,6 +222,7 @@ export default function SettingsPage() {
 type TeamUser = { id: string; name: string; email: string; role: string; isActive: boolean; lastLoginAt: number | string | null };
 
 function BackupsCard({ isOwner }: { isOwner: boolean }) {
+  const { t } = useLang();
   type BackupItem = { id: string; createdAt: string; byteSize: number; rowCounts: Record<string, number>; trigger: "auto" | "manual" };
   type Verify = { ok: boolean; rowCounts: Record<string, number>; errors: string[] };
   const [items, setItems] = useState<BackupItem[] | null>(null);
@@ -238,7 +255,7 @@ function BackupsCard({ isOwner }: { isOwner: boolean }) {
   }
 
   async function uploadAndVerify() {
-    if (!file) { setUploadError("Choose a backup JSON file first."); return; }
+    if (!file) { setUploadError(t("settingsbackups.chooseFirst")); return; }
     setPhase("verifying"); setUploadError(null); setVerifyErrors([]);
     try {
       const form = new FormData();
@@ -249,12 +266,12 @@ function BackupsCard({ isOwner }: { isOwner: boolean }) {
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
         if (res.status === 422 && Array.isArray(data?.data?.errors)) setVerifyErrors(data.data.errors);
-        throw new Error(data.error || "Could not verify the backup file.");
+        throw new Error(data.error || t("settingsbackups.verifyFileError"));
       }
       setVerified(data.data);
       setPhase("verified");
     } catch (e) {
-      setUploadError(e instanceof Error ? e.message : "Could not verify the backup file.");
+      setUploadError(e instanceof Error ? e.message : t("settingsbackups.verifyFileError"));
       setPhase("failed");
     }
   }
@@ -274,7 +291,7 @@ function BackupsCard({ isOwner }: { isOwner: boolean }) {
       api<{ data: BackupItem[] }>("/api/backups").then((b) => setItems(b.data)).catch(() => {});
     } catch (err) {
       // The token stays valid for 10 minutes, so the user can fix the name and retry.
-      setUploadError(err instanceof Error ? err.message : "Could not restore the backup.");
+      setUploadError(err instanceof Error ? err.message : t("settingsbackups.restoreError"));
       setPhase("verified");
     }
   }
@@ -292,9 +309,9 @@ function BackupsCard({ isOwner }: { isOwner: boolean }) {
         return api<{ data: BackupItem[] }>("/api/backups")
           .then((b) => { if (alive) setItems(b.data); });
       })
-      .catch((e) => { if (alive) setError(e instanceof Error ? e.message : "Could not load backups."); });
+      .catch((e) => { if (alive) setError(e instanceof Error ? e.message : t("settingsbackups.loadError")); });
     return () => { alive = false; };
-  }, [isOwner]);
+  }, [isOwner, t]);
 
   if (!isOwner) return null;
 
@@ -304,7 +321,7 @@ function BackupsCard({ isOwner }: { isOwner: boolean }) {
       const d = await api<{ data: { backups: BackupItem[] } }>("/api/backups", { method: "POST" });
       setItems(d.data.backups);
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Could not create the backup.");
+      setError(e instanceof Error ? e.message : t("settingsbackups.createError"));
     } finally { setBusy(false); }
   }
 
@@ -314,7 +331,7 @@ function BackupsCard({ isOwner }: { isOwner: boolean }) {
       const d = await api<{ data: Verify }>(`/api/backups/${id}/verify`, { method: "POST" });
       setResults((r) => ({ ...r, [id]: d.data }));
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Could not verify the backup.");
+      setError(e instanceof Error ? e.message : t("settingsbackups.verifyError"));
     } finally { setVerifying(null); }
   }
 
@@ -323,20 +340,20 @@ function BackupsCard({ isOwner }: { isOwner: boolean }) {
 
   return (
     <div id="sec-backups" className="card card-gloss anchor-scroll mt-6 mx-auto max-w-2xl p-6 sm:p-8">
-      <h2 className="inline-flex items-center gap-2 text-lg font-extrabold"><History size={19} /> Automatic backups</h2>
+      <h2 className="inline-flex items-center gap-2 text-lg font-extrabold"><History size={19} /> {t("settingsbackups.title")}</h2>
       <p className="mt-1 text-sm text-muted-foreground">
-        Your whole company is backed up automatically twice a day. The last 14 automatic backups are kept — manual ones are never deleted.
+        {t("settingsbackups.hint")}
       </p>
       <ErrorNote message={error} />
       {pro === false ? (
         <div className="mt-4 rounded-2xl border border-amber-500/30 bg-amber-500/5 p-4">
           <p className="inline-flex items-center gap-2 text-sm font-bold text-amber-700 dark:text-amber-300">
-            <Crown size={15} /> Scheduled backups are a PRO feature
+            <Crown size={15} /> {t("settingsbackups.proTitle")}
           </p>
           <p className="mt-1 text-sm text-muted-foreground">
-            Upgrade to keep automatic twice-daily backups of your company.
+            {t("settingsbackups.proHint")}
           </p>
-          <Link href="/billing" className="btn btn-primary mt-3 text-sm">View plans</Link>
+          <Link href="/billing" className="btn btn-primary mt-3 text-sm">{t("settingsbackups.viewPlans")}</Link>
         </div>
       ) : items === null ? (
         <div className="mt-4 space-y-2">{[1, 2].map((i) => <div key={i} className="skeleton h-14 rounded-xl" />)}</div>
@@ -344,14 +361,14 @@ function BackupsCard({ isOwner }: { isOwner: boolean }) {
         <>
           <div className="mt-4 flex flex-wrap gap-2">
             <button onClick={backupNow} disabled={busy} className="btn btn-primary text-sm">
-              <RefreshCw size={15} /> {busy ? "Backing up…" : "Back up now"}
+              <RefreshCw size={15} /> {busy ? t("settingsbackups.backingUp") : t("settingsbackups.backupNow")}
             </button>
             <button onClick={openUpload} className="btn btn-ghost text-sm">
-              <Upload size={15} /> Upload backup
+              <Upload size={15} /> {t("settingsbackups.uploadBackup")}
             </button>
           </div>
           {items.length === 0 ? (
-            <p className="mt-4 text-sm text-muted-foreground">No backups yet — press “Back up now” or wait for the next automatic run.</p>
+            <p className="mt-4 text-sm text-muted-foreground">{t("settingsbackups.noBackups")}</p>
           ) : (
             <ul className="mt-4 divide-y divide-border rounded-2xl border border-border">
               {items.map((b) => {
@@ -366,21 +383,21 @@ function BackupsCard({ isOwner }: { isOwner: boolean }) {
                         <p className="truncate text-sm font-bold">
                           {fmtDate(b.createdAt)}
                           <span className={`ml-2 rounded-full px-2 py-0.5 text-[0.7rem] font-extrabold ${b.trigger === "auto" ? "bg-muted text-muted-foreground" : "bg-primary-soft text-primary"}`}>
-                            {b.trigger === "auto" ? "Auto" : "Manual"}
+                            {b.trigger === "auto" ? t("settingsbackups.auto") : t("settingsbackups.manual")}
                           </span>
                         </p>
                         <p className="truncate text-xs text-muted-foreground">
-                          {kb(b.byteSize)} · {totalRows(b.rowCounts)} records
+                          {kb(b.byteSize)} · {t("settingsbackups.records", { count: totalRows(b.rowCounts) })}
                         </p>
                       </div>
-                      <a href={`/api/backups/${b.id}`} download className="btn btn-ghost shrink-0 !px-2.5 !py-2 text-xs" title="Download backup">
+                      <a href={`/api/backups/${b.id}`} download className="btn btn-ghost shrink-0 !px-2.5 !py-2 text-xs" title={t("settingsbackups.downloadTitle")}>
                         <Download size={15} />
                       </a>
                       <button
                         onClick={() => verify(b.id)}
                         disabled={verifying === b.id}
                         className="btn btn-ghost shrink-0 !px-2.5 !py-2 text-xs"
-                        title="Verify backup (dry-run — checks the backup without touching your data)"
+                        title={t("settingsbackups.verifyTitle")}
                       >
                         <ShieldCheck size={15} /> {verifying === b.id ? "…" : ""}
                       </button>
@@ -388,10 +405,10 @@ function BackupsCard({ isOwner }: { isOwner: boolean }) {
                     {v && (
                       <div className={`mt-2 rounded-xl px-3 py-2 text-xs font-semibold ${v.ok ? "bg-emerald-500/10 text-emerald-700 dark:text-emerald-300" : "bg-red-500/10 text-red-600 dark:text-red-400"}`}>
                         {v.ok ? (
-                          <>Verified — {totalRows(v.rowCounts)} records across {Object.keys(v.rowCounts).length} sections are intact and restorable.</>
+                          <>{t("settingsbackups.verifiedOk", { records: totalRows(v.rowCounts), sections: Object.keys(v.rowCounts).length })}</>
                         ) : (
                           <>
-                            <p>Verification found problems:</p>
+                            <p>{t("settingsbackups.verifiedBad")}</p>
                             <ul className="mt-1 list-disc space-y-0.5 pl-4">
                               {v.errors.map((e, i) => <li key={i}>{e}</li>)}
                             </ul>
@@ -411,18 +428,18 @@ function BackupsCard({ isOwner }: { isOwner: boolean }) {
           <div
             role="dialog"
             aria-modal="true"
-            aria-label="Upload and restore a backup"
+            aria-label={t("settingsbackups.dialogLabel")}
             className="max-h-[90vh] w-full max-w-md overflow-y-auto rounded-2xl bg-card p-6 shadow-xl"
             onClick={(e) => e.stopPropagation()}
           >
             <h3 className="inline-flex items-center gap-2 text-lg font-extrabold">
-              <Upload size={18} /> Restore from backup
+              <Upload size={18} /> {t("settingsbackups.restoreTitle")}
             </h3>
 
             {phase === "pick" && (
               <>
                 <p className="mt-1 text-sm text-muted-foreground">
-                  Choose a LedgerPro backup JSON file. It will be verified first — nothing changes until you confirm.
+                  {t("settingsbackups.pickHint")}
                 </p>
                 <ErrorNote message={uploadError} />
                 <label className="mt-4 block cursor-pointer rounded-2xl border-2 border-dashed border-border p-6 text-center transition-colors hover:border-primary">
@@ -434,15 +451,15 @@ function BackupsCard({ isOwner }: { isOwner: boolean }) {
                   />
                   <Database size={22} className="mx-auto text-muted-foreground" />
                   <span className="mt-2 block text-sm font-bold">
-                    {file ? file.name : "Choose a backup file"}
+                    {file ? file.name : t("settingsbackups.chooseFile")}
                   </span>
-                  <span className="mt-0.5 block text-xs text-muted-foreground">JSON only, max 8 MB</span>
+                  <span className="mt-0.5 block text-xs text-muted-foreground">{t("settingsbackups.fileHint")}</span>
                 </label>
                 <div className="mt-5 flex flex-wrap gap-2">
                   <button onClick={uploadAndVerify} disabled={!file} className="btn btn-primary text-sm disabled:opacity-60">
-                    <ShieldCheck size={15} /> Verify backup file
+                    <ShieldCheck size={15} /> {t("settingsbackups.verifyBackupFile")}
                   </button>
-                  <button onClick={closeUpload} className="btn btn-ghost text-sm">Cancel</button>
+                  <button onClick={closeUpload} className="btn btn-ghost text-sm">{t("settingsbackups.cancel")}</button>
                 </div>
               </>
             )}
@@ -450,7 +467,7 @@ function BackupsCard({ isOwner }: { isOwner: boolean }) {
             {phase === "verifying" && (
               <div className="mt-6 flex items-center gap-3 text-sm text-muted-foreground" role="status">
                 <span className="h-5 w-5 animate-spin rounded-full border-2 border-primary border-t-transparent" />
-                Verifying the backup — checking every section…
+                {t("settingsbackups.verifying")}
               </div>
             )}
 
@@ -459,7 +476,7 @@ function BackupsCard({ isOwner }: { isOwner: boolean }) {
                 <ErrorNote message={uploadError} />
                 {verifyErrors.length > 0 && (
                   <div className="mt-3 rounded-xl bg-red-500/10 px-3 py-2 text-xs font-semibold text-red-600 dark:text-red-400">
-                    <p>This file cannot be restored:</p>
+                    <p>{t("settingsbackups.cannotRestore")}</p>
                     <ul className="mt-1 list-disc space-y-0.5 pl-4">
                       {verifyErrors.map((e, i) => <li key={i}>{e}</li>)}
                     </ul>
@@ -467,9 +484,9 @@ function BackupsCard({ isOwner }: { isOwner: boolean }) {
                 )}
                 <div className="mt-5 flex flex-wrap gap-2">
                   <button onClick={() => { setPhase("pick"); setUploadError(null); setVerifyErrors([]); }} className="btn btn-primary text-sm" autoFocus>
-                    Choose a different file
+                    {t("settingsbackups.chooseDifferent")}
                   </button>
-                  <button onClick={closeUpload} className="btn btn-ghost text-sm">Cancel</button>
+                  <button onClick={closeUpload} className="btn btn-ghost text-sm">{t("settingsbackups.cancel")}</button>
                 </div>
               </>
             )}
@@ -477,20 +494,20 @@ function BackupsCard({ isOwner }: { isOwner: boolean }) {
             {phase === "verified" && verified && (
               <form onSubmit={doRestore}>
                 <div className="mt-3 rounded-2xl border border-border p-4 text-sm">
-                  <p className="font-bold">Backup verified — ready to restore</p>
+                  <p className="font-bold">{t("settingsbackups.verifiedReady")}</p>
                   <dl className="mt-2 space-y-1 text-muted-foreground">
                     <div className="flex justify-between gap-3">
-                      <dt>Taken</dt>
-                      <dd className="font-semibold text-foreground">{verified.exportedAt ? fmtDate(verified.exportedAt) : "Unknown date"}</dd>
+                      <dt>{t("settingsbackups.taken")}</dt>
+                      <dd className="font-semibold text-foreground">{verified.exportedAt ? fmtDate(verified.exportedAt) : t("settingsbackups.unknownDate")}</dd>
                     </div>
                     <div className="flex justify-between gap-3">
-                      <dt>Company in backup</dt>
-                      <dd className="font-semibold text-foreground">{verified.companyName ?? "Unknown"}</dd>
+                      <dt>{t("settingsbackups.companyInBackup")}</dt>
+                      <dd className="font-semibold text-foreground">{verified.companyName ?? t("settingsbackups.unknown")}</dd>
                     </div>
                     <div className="flex justify-between gap-3">
-                      <dt>Records</dt>
+                      <dt>{t("settingsbackups.recordsRow")}</dt>
                       <dd className="font-semibold text-foreground">
-                        {verifiedTotal(verified.rowCounts)} across {Object.keys(verified.rowCounts).length} sections
+                        {t("settingsbackups.acrossSections", { sections: Object.keys(verified.rowCounts).length, records: verifiedTotal(verified.rowCounts) })}
                       </dd>
                     </div>
                   </dl>
@@ -498,16 +515,15 @@ function BackupsCard({ isOwner }: { isOwner: boolean }) {
                 <div className="mt-3 flex gap-2 rounded-2xl border border-red-500/30 bg-red-500/5 p-4">
                   <TriangleAlert size={17} className="mt-0.5 shrink-0 text-red-600 dark:text-red-400" />
                   <p className="text-sm font-semibold text-red-700 dark:text-red-300">
-                    This will REPLACE all current company data with this backup. Your current bills,
-                    stock, parties and payments will be gone. This cannot be undone.
+                    {t("settingsbackups.replaceWarning")}
                   </p>
                 </div>
                 <ErrorNote message={uploadError} />
                 <p className="mt-4 text-sm font-semibold">
-                  To confirm, type your company name exactly:{" "}
+                  {t("settingsbackups.confirmType")}{" "}
                   <span className="font-extrabold">{companyName ?? "…"}</span>
                 </p>
-                <Field label="Company name">
+                <Field label={t("settingsbackups.companyName")}>
                   <input
                     className="field"
                     value={typedName}
@@ -519,13 +535,12 @@ function BackupsCard({ isOwner }: { isOwner: boolean }) {
                 </Field>
                 <div className="mt-4 flex flex-wrap gap-2">
                   <button type="submit" className="btn bg-red-600 text-sm text-white hover:bg-red-700">
-                    Restore — replace all data
+                    {t("settingsbackups.restoreBtn")}
                   </button>
-                  <button type="button" onClick={closeUpload} className="btn btn-ghost text-sm">Cancel</button>
+                  <button type="button" onClick={closeUpload} className="btn btn-ghost text-sm">{t("settingsbackups.cancel")}</button>
                 </div>
                 <p className="mt-3 text-xs text-muted-foreground">
-                  Your login stays valid — restoring data never logs you out. Company settings, team logins,
-                  stored backups and billing stay exactly as they are.
+                  {t("settingsbackups.restoreNote")}
                 </p>
               </form>
             )}
@@ -533,7 +548,7 @@ function BackupsCard({ isOwner }: { isOwner: boolean }) {
             {phase === "restoring" && (
               <div className="mt-6 flex items-center gap-3 text-sm text-muted-foreground" role="status">
                 <span className="h-5 w-5 animate-spin rounded-full border-2 border-primary border-t-transparent" />
-                Restoring… please keep this page open.
+                {t("settingsbackups.restoring")}
               </div>
             )}
 
@@ -542,14 +557,14 @@ function BackupsCard({ isOwner }: { isOwner: boolean }) {
                 <div className="mt-3 flex gap-2 rounded-2xl border border-emerald-500/30 bg-emerald-500/5 p-4">
                   <CircleCheck size={17} className="mt-0.5 shrink-0 text-emerald-600 dark:text-emerald-400" />
                   <p className="text-sm font-semibold text-emerald-700 dark:text-emerald-300">
-                    Restore complete. Your company data now matches the backup.
+                    {t("settingsbackups.restoreDone")}
                   </p>
                 </div>
                 <div className="mt-5 flex flex-wrap gap-2">
                   <button onClick={() => window.location.reload()} className="btn btn-primary text-sm" autoFocus>
-                    Reload page
+                    {t("settingsbackups.reloadPage")}
                   </button>
-                  <button onClick={closeUpload} className="btn btn-ghost text-sm">Close</button>
+                  <button onClick={closeUpload} className="btn btn-ghost text-sm">{t("settingsbackups.close")}</button>
                 </div>
               </>
             )}
@@ -561,6 +576,7 @@ function BackupsCard({ isOwner }: { isOwner: boolean }) {
 }
 
 function TeamCard() {
+  const { t } = useLang();
   const [users, setUsers] = useState<TeamUser[]>([]);
   const [loading, setLoading] = useState(true);
   const [forbidden, setForbidden] = useState(false);
@@ -579,17 +595,17 @@ function TeamCard() {
   function load() {
     api<{ data: TeamUser[] }>("/api/users")
       .then((d) => { setUsers(d.data); setForbidden(false); })
-      .catch((e) => { setForbidden(e instanceof Error && e.message.includes("owner")); setError(e instanceof Error ? e.message : "Could not load team."); })
+      .catch((e) => { setForbidden(e instanceof Error && e.message.includes("owner")); setError(e instanceof Error ? e.message : t("settingsteam.loadError")); })
       .finally(() => setLoading(false));
   }
   useEffect(() => {
     let alive = true;
     api<{ data: TeamUser[] }>("/api/users")
       .then((d) => { if (alive) { setUsers(d.data); setForbidden(false); } })
-      .catch((e) => { if (alive) { setForbidden(e instanceof Error && e.message.includes("owner")); setError(e instanceof Error ? e.message : "Could not load team."); } })
+      .catch((e) => { if (alive) { setForbidden(e instanceof Error && e.message.includes("owner")); setError(e instanceof Error ? e.message : t("settingsteam.loadError")); } })
       .finally(() => { if (alive) setLoading(false); });
     return () => { alive = false; };
-  }, []);
+  }, [t]);
 
   async function addStaff(e: React.FormEvent) {
     e.preventDefault();
@@ -598,7 +614,7 @@ function TeamCard() {
       await api("/api/users", { method: "POST", body: JSON.stringify({ name, email, password }) });
       setName(""); setEmail(""); setPassword(""); setShowForm(false);
       load();
-    } catch (err) { setError(err instanceof Error ? err.message : "Could not add staff."); }
+    } catch (err) { setError(err instanceof Error ? err.message : t("settingsteam.addError")); }
     finally { setSaving(false); }
   }
 
@@ -607,19 +623,19 @@ function TeamCard() {
     try {
       await api(`/api/users/${id}`, { method: "PATCH", body: JSON.stringify(patch) });
       load();
-    } catch (err) { setError(err instanceof Error ? err.message : "Could not update."); }
+    } catch (err) { setError(err instanceof Error ? err.message : t("settingsteam.updateError")); }
   }
 
   async function resetPassword(e: React.FormEvent, id: string, userName: string) {
     e.preventDefault();
     setResetError(null); setResetDone(null);
-    if (resetPw.length < 8) { setResetError("Password must be at least 8 characters."); return; }
+    if (resetPw.length < 8) { setResetError(t("settingsteam.pwShort")); return; }
     setResetBusy(true);
     try {
       await api(`/api/users/${id}/reset-password`, { method: "POST", body: JSON.stringify({ password: resetPw }) });
-      setResetDone(`Password reset for ${userName}. They have been logged out everywhere.`);
+      setResetDone(t("settingsteam.resetDone", { name: userName }));
       setResetPw(""); setResetFor(null);
-    } catch (err) { setResetError(err instanceof Error ? err.message : "Could not reset password."); }
+    } catch (err) { setResetError(err instanceof Error ? err.message : t("settingsteam.resetError")); }
     finally { setResetBusy(false); }
   }
 
@@ -627,12 +643,12 @@ function TeamCard() {
     <div id="sec-team" className="card card-gloss anchor-scroll mt-6 mx-auto max-w-2xl p-6 sm:p-8">
       <div className="flex items-center justify-between gap-3">
         <div>
-          <h2 className="inline-flex items-center gap-2 text-lg font-extrabold"><Users size={19} /> Team</h2>
-          <p className="mt-1 text-sm text-muted-foreground">Owners see everything. Staff can bill and record, but cannot change settings or the team.</p>
+          <h2 className="inline-flex items-center gap-2 text-lg font-extrabold"><Users size={19} /> {t("settingsteam.title")}</h2>
+          <p className="mt-1 text-sm text-muted-foreground">{t("settingsteam.hint")}</p>
         </div>
         {!forbidden && (
           <button className="btn btn-ghost shrink-0 text-sm" onClick={() => setShowForm((s) => !s)}>
-            <UserPlus size={15} /> Add staff
+            <UserPlus size={15} /> {t("settingsteam.addStaff")}
           </button>
         )}
       </div>
@@ -640,17 +656,17 @@ function TeamCard() {
       {loading ? (
         <div className="mt-4 space-y-3">{[1, 2].map((i) => <div key={i} className="skeleton h-14 rounded-xl" />)}</div>
       ) : forbidden ? (
-        <p className="mt-4 rounded-xl bg-muted/60 px-4 py-3 text-sm text-muted-foreground">Only the owner can manage the team.</p>
+        <p className="mt-4 rounded-xl bg-muted/60 px-4 py-3 text-sm text-muted-foreground">{t("settingsteam.ownerOnly")}</p>
       ) : (
         <>
           {showForm && (
             <form onSubmit={addStaff} className="mt-4 space-y-3 rounded-2xl border border-border p-4">
               <div className="grid gap-3 sm:grid-cols-2">
-                <Field label="Name"><input className="field" required value={name} onChange={(e) => setName(e.target.value)} placeholder="Staff name" /></Field>
-                <Field label="Email"><input className="field" required type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="staff@example.com" /></Field>
+                <Field label={t("settingsteam.name")}><input className="field" required value={name} onChange={(e) => setName(e.target.value)} placeholder={t("settingsteam.namePh")} /></Field>
+                <Field label={t("settingsteam.email")}><input className="field" required type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder={t("settingsteam.emailPh")} /></Field>
               </div>
-              <Field label="Password (min 8 characters)"><input className="field" required type="password" minLength={8} value={password} onChange={(e) => setPassword(e.target.value)} /></Field>
-              <button className="btn btn-primary text-sm" disabled={saving}>{saving ? "Adding…" : "Add staff member"}</button>
+              <Field label={t("settingsteam.password")}><input className="field" required type="password" minLength={8} value={password} onChange={(e) => setPassword(e.target.value)} /></Field>
+              <button className="btn btn-primary text-sm" disabled={saving}>{saving ? t("settingsteam.adding") : t("settingsteam.addMember")}</button>
             </form>
           )}
           <ul className="mt-4 divide-y divide-border">
@@ -658,7 +674,7 @@ function TeamCard() {
               <li key={u.id} className="py-3">
                 <div className="flex flex-col gap-2.5 sm:flex-row sm:items-center sm:justify-between sm:gap-3">
                   <div className="min-w-0">
-                    <p className="truncate text-sm font-bold">{u.name} {!u.isActive && <span className="badge bg-muted text-xs text-muted-foreground">inactive</span>}</p>
+                    <p className="truncate text-sm font-bold">{u.name} {!u.isActive && <span className="badge bg-muted text-xs text-muted-foreground">{t("settingsteam.inactive")}</span>}</p>
                     <p className="truncate text-xs text-muted-foreground">{u.email}</p>
                   </div>
                   <div className="flex flex-wrap items-center gap-2">
@@ -666,34 +682,34 @@ function TeamCard() {
                       className="field !w-auto !py-1.5 text-xs"
                       value={u.role}
                       onChange={(e) => patchUser(u.id, { role: e.target.value })}
-                      aria-label={`Role for ${u.name}`}
+                      aria-label={t("settingsteam.roleFor", { name: u.name })}
                     >
-                      <option value="OWNER">Owner</option>
-                      <option value="STAFF">Staff</option>
+                      <option value="OWNER">{t("settingsteam.owner")}</option>
+                      <option value="STAFF">{t("settingsteam.staff")}</option>
                     </select>
                     <button
                       className="btn btn-ghost !px-3 !py-1.5 text-xs"
                       onClick={() => patchUser(u.id, { isActive: !u.isActive })}
                     >
-                      {u.isActive ? "Deactivate" : "Activate"}
+                      {u.isActive ? t("settingsteam.deactivate") : t("settingsteam.activate")}
                     </button>
                     <button
                       className="btn btn-ghost !px-3 !py-1.5 text-xs"
-                      title="Set a new password for this staff member"
+                      title={t("settingsteam.resetPassword")}
                       onClick={() => { setResetFor(resetFor === u.id ? null : u.id); setResetPw(""); setResetError(null); }}
                     >
-                      <KeyRound size={13} /> Reset password
+                      <KeyRound size={13} /> {t("settingsteam.resetPassword")}
                     </button>
                   </div>
                 </div>
                 {resetFor === u.id && (
                   <form onSubmit={(e) => resetPassword(e, u.id, u.name)} className="mt-3 flex flex-wrap items-end gap-2 rounded-2xl bg-muted/60 p-3">
-                    <Field label={`New password for ${u.name}`}>
+                    <Field label={t("settingsteam.newPwFor", { name: u.name })}>
                       <input className="field !w-56" type="password" required minLength={8} autoFocus
-                        placeholder="Min 8 characters" value={resetPw} onChange={(e) => setResetPw(e.target.value)} />
+                        placeholder={t("settingsteam.newPwPh")} value={resetPw} onChange={(e) => setResetPw(e.target.value)} />
                     </Field>
                     <button className="btn btn-primary !px-3 !py-2 text-xs" disabled={resetBusy}>
-                      {resetBusy ? "Resetting…" : "Set password"}
+                      {resetBusy ? t("settingsteam.resetting") : t("settingsteam.setPassword")}
                     </button>
                     {resetError && <p className="w-full text-xs font-semibold text-red-500">{resetError}</p>}
                   </form>
@@ -709,6 +725,7 @@ function TeamCard() {
 }
 
 function ImportCard() {
+  const { t } = useLang();
   const [busy, setBusy] = useState<string | null>(null);
   const [result, setResult] = useState<{ kind: string; imported: number; skipped: number; errors: { row: number; message: string }[]; errorCount: number } | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -722,10 +739,10 @@ function ImportCard() {
       fd.append("file", file);
       const res = await fetch("/api/import", { method: "POST", body: fd, credentials: "include" });
       const body = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(body.error || "Import failed.");
+      if (!res.ok) throw new Error(body.error || t("settings.importError"));
       setResult({ kind, ...body.data });
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Import failed.");
+      setError(e instanceof Error ? e.message : t("settings.importError"));
     } finally {
       setBusy(null);
     }
@@ -733,20 +750,20 @@ function ImportCard() {
 
   return (
     <div id="sec-import" className="card card-gloss anchor-scroll mt-6 mx-auto max-w-2xl p-6 sm:p-8">
-      <h2 className="text-lg font-extrabold">Import from spreadsheet</h2>
+      <h2 className="text-lg font-extrabold">{t("settings.importTitle")}</h2>
       <p className="mt-1 text-sm text-muted-foreground">
-        Bring your existing products and parties from Excel. Download a template, fill it in, then upload the CSV.
+        {t("settings.importHint")}
       </p>
       <div className="mt-4 grid gap-4 sm:grid-cols-2">
         {(["products", "parties"] as const).map((kind) => (
           <div key={kind} className="rounded-2xl border border-border p-4">
-            <p className="font-bold capitalize">{kind}</p>
+            <p className="font-bold capitalize">{kind === "products" ? t("settings.expProducts") : t("settings.expParties")}</p>
             <a href={`/api/import/template?kind=${kind}`} className="mt-1 inline-block text-sm font-semibold text-primary hover:underline" download>
-              Download template
+              {t("settings.downloadTemplate")}
             </a>
             <label className="mt-3 block">
               <span className="btn btn-ghost w-full cursor-pointer text-sm">
-                <Upload size={15} /> {busy === kind ? "Uploading…" : "Upload CSV"}
+                <Upload size={15} /> {busy === kind ? t("settings.uploading") : t("settings.uploadCsv")}
               </span>
               <input
                 type="file"
@@ -763,15 +780,15 @@ function ImportCard() {
       {result && (
         <div className="mt-4 rounded-2xl bg-muted/60 p-4 text-sm">
           <p className="font-bold capitalize">
-            {result.kind} import: {result.imported} added{result.skipped > 0 && `, ${result.skipped} skipped (already exist)`}
+            {t("settings.importResult", { kind: result.kind, imported: result.imported })}{result.skipped > 0 && t("settings.importSkipped", { skipped: result.skipped })}
           </p>
           {result.errors.length > 0 && (
             <ul className="mt-2 max-h-40 space-y-1 overflow-auto text-muted-foreground">
               {result.errors.map((e, i) => (
-                <li key={i}>Row {e.row}: {e.message}</li>
+                <li key={i}>{t("settings.importRow", { row: e.row })}: {e.message}</li>
               ))}
               {result.errorCount > result.errors.length && (
-                <li>…and {result.errorCount - result.errors.length} more.</li>
+                <li>{t("settings.importMoreErrors", { count: result.errorCount - result.errors.length })}</li>
               )}
             </ul>
           )}
@@ -782,6 +799,7 @@ function ImportCard() {
 }
 
 function SecurityCard() {
+  const { t } = useLang();
   const [current, setCurrent] = useState("");
   const [pw1, setPw1] = useState("");
   const [pw2, setPw2] = useState("");
@@ -806,14 +824,14 @@ function SecurityCard() {
   async function changePassword(e: React.FormEvent) {
     e.preventDefault();
     setPwError(null); setPwDone(false);
-    if (pw1 !== pw2) { setPwError("The two new passwords do not match."); return; }
-    if (pw1.length < 8) { setPwError("New password must be at least 8 characters."); return; }
+    if (pw1 !== pw2) { setPwError(t("settingssecurity.pwMismatch")); return; }
+    if (pw1.length < 8) { setPwError(t("settingssecurity.pwShort")); return; }
     setPwBusy(true);
     try {
       await api("/api/auth/change-password", { method: "POST", body: JSON.stringify({ currentPassword: current, newPassword: pw1 }) });
       setCurrent(""); setPw1(""); setPw2(""); setPwDone(true);
     } catch (err) {
-      setPwError(err instanceof Error ? err.message : "Could not change password.");
+      setPwError(err instanceof Error ? err.message : t("settingssecurity.changeError"));
     } finally { setPwBusy(false); }
   }
 
@@ -823,7 +841,7 @@ function SecurityCard() {
       const d = await api<{ recoveryCode: string }>("/api/auth/recovery-code", { method: "POST" });
       setCode(d.recoveryCode); setCopied(false); setSavedAck(false); setHasCode(true);
     } catch (err) {
-      setCodeError(err instanceof Error ? err.message : "Could not generate code.");
+      setCodeError(err instanceof Error ? err.message : t("settingssecurity.codeError"));
     } finally { setCodeBusy(false); }
   }
 
@@ -834,59 +852,58 @@ function SecurityCard() {
 
   return (
     <div id="sec-security" className="card card-gloss anchor-scroll mt-6 mx-auto max-w-2xl p-6 sm:p-8">
-      <h2 className="inline-flex items-center gap-2 text-lg font-extrabold"><KeyRound size={19} /> Password & recovery</h2>
-      <p className="mt-1 text-sm text-muted-foreground">Change your password, or get a new recovery code for forgotten passwords.</p>
+      <h2 className="inline-flex items-center gap-2 text-lg font-extrabold"><KeyRound size={19} /> {t("settingssecurity.title")}</h2>
+      <p className="mt-1 text-sm text-muted-foreground">{t("settingssecurity.hint")}</p>
 
       <form onSubmit={changePassword} className="mt-5 space-y-3 rounded-2xl border border-border p-4">
-        <h3 className="text-sm font-extrabold">Change password</h3>
+        <h3 className="text-sm font-extrabold">{t("settingssecurity.changeTitle")}</h3>
         <ErrorNote message={pwError} />
-        {pwDone && <p className="rounded-xl bg-primary-soft px-4 py-2.5 text-sm font-semibold text-primary">Password changed. Your other devices have been logged out.</p>}
-        <Field label="Current password">
+        {pwDone && <p className="rounded-xl bg-primary-soft px-4 py-2.5 text-sm font-semibold text-primary">{t("settingssecurity.changed")}</p>}
+        <Field label={t("settingssecurity.currentPw")}>
           <input className="field" type="password" required autoComplete="current-password" value={current} onChange={(e) => setCurrent(e.target.value)} />
         </Field>
         <div className="grid gap-3 sm:grid-cols-2">
-          <Field label="New password">
+          <Field label={t("settingssecurity.newPw")}>
             <input className="field" type="password" required minLength={8} autoComplete="new-password" value={pw1} onChange={(e) => setPw1(e.target.value)} />
           </Field>
-          <Field label="Repeat new password">
+          <Field label={t("settingssecurity.repeatPw")}>
             <input className="field" type="password" required minLength={8} autoComplete="new-password" value={pw2} onChange={(e) => setPw2(e.target.value)} />
           </Field>
         </div>
-        <button className="btn btn-ghost text-sm" disabled={pwBusy}>{pwBusy ? "Changing…" : "Change password"}</button>
+        <button className="btn btn-ghost text-sm" disabled={pwBusy}>{pwBusy ? t("settingssecurity.changing") : t("settingssecurity.changeBtn")}</button>
       </form>
 
       <div className="mt-4 rounded-2xl border border-border p-4">
-        <h3 className="text-sm font-extrabold">Recovery code</h3>
+        <h3 className="text-sm font-extrabold">{t("settingssecurity.recoveryTitle")}</h3>
         {hasCode === false && !code && (
           <div className="mt-3 flex items-start gap-3 rounded-xl bg-amber-500/10 px-4 py-3 text-sm">
             <TriangleAlert size={17} className="mt-0.5 shrink-0 text-amber-600 dark:text-amber-400" />
             <p className="font-semibold text-amber-700 dark:text-amber-300">
-              Your account was created before recovery codes existed — you don&apos;t have one yet.
-              Generate one now so you can reset your password if you ever forget it.
+              {t("settingssecurity.noCode")}
             </p>
           </div>
         )}
         <p className="mt-1 text-sm text-muted-foreground">
-          Your recovery code resets your password when you forget it. Generating a new one invalidates the old one.
+          {t("settingssecurity.recoveryHint")}
         </p>
         <ErrorNote message={codeError} />
         {code ? (
           <div className="mt-3">
             <button type="button" onClick={copy}
               className="flex w-full items-center justify-between gap-3 rounded-2xl border-2 border-dashed border-primary/40 bg-primary-soft/50 px-5 py-3.5 font-mono text-base font-extrabold tracking-[0.2em] text-primary"
-              title="Copy recovery code">
+              title={t("settingssecurity.copyCode")}>
               <span>{code}</span>
               {copied ? <Check size={18} /> : <Copy size={18} />}
             </button>
             <label className="mt-3 flex cursor-pointer items-start gap-3 text-sm">
               <input type="checkbox" className="mt-1 h-4 w-4 accent-primary" checked={savedAck} onChange={(e) => setSavedAck(e.target.checked)} />
-              <span>I have saved this code somewhere safe.</span>
+              <span>{t("settingssecurity.savedAck")}</span>
             </label>
-            {!savedAck && <p className="mt-2 text-xs text-muted-foreground">Keep this page open until you have saved the code — it will not be shown again.</p>}
+            {!savedAck && <p className="mt-2 text-xs text-muted-foreground">{t("settingssecurity.keepOpen")}</p>}
           </div>
         ) : (
           <button className="btn btn-ghost mt-3 text-sm" onClick={regenCode} disabled={codeBusy}>
-            <KeyRound size={15} /> {codeBusy ? "Generating…" : "Generate new recovery code"}
+            <KeyRound size={15} /> {codeBusy ? t("settingssecurity.generating") : t("settingssecurity.generateCode")}
           </button>
         )}
       </div>
@@ -897,6 +914,7 @@ function SecurityCard() {
 type LoginEvent = { id: string; device: string; ip: string | null; createdAt: string };
 
 function SessionsCard() {
+  const { t } = useLang();
   const router = useRouter();
   const [events, setEvents] = useState<LoginEvent[]>([]);
   const [loading, setLoading] = useState(true);
@@ -907,35 +925,35 @@ function SessionsCard() {
     let alive = true;
     api<{ data: LoginEvent[] }>("/api/auth/login-events")
       .then((d) => { if (alive) setEvents(d.data); })
-      .catch((e) => { if (alive) setError(e instanceof Error ? e.message : "Could not load sessions."); })
+      .catch((e) => { if (alive) setError(e instanceof Error ? e.message : t("settingssessions.loadError")); })
       .finally(() => { if (alive) setLoading(false); });
     return () => { alive = false; };
-  }, []);
+  }, [t]);
 
   async function logoutEverywhere() {
-    if (!window.confirm("Log out on all devices, including this one? You will need to sign in again.")) return;
+    if (!window.confirm(t("settingssessions.logoutConfirm"))) return;
     setBusy(true); setError(null);
     try {
       await api("/api/auth/logout-everywhere", { method: "POST" });
       router.push("/login");
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Could not log out everywhere.");
+      setError(e instanceof Error ? e.message : t("settingssessions.logoutError"));
       setBusy(false);
     }
   }
 
   return (
     <div id="sec-sessions" className="card card-gloss anchor-scroll mt-6 mx-auto max-w-2xl p-6 sm:p-8">
-      <h2 className="inline-flex items-center gap-2 text-lg font-extrabold"><MonitorSmartphone size={19} /> Sessions &amp; devices</h2>
+      <h2 className="inline-flex items-center gap-2 text-lg font-extrabold"><MonitorSmartphone size={19} /> {t("settingssessions.title")}</h2>
       <p className="mt-1 text-sm text-muted-foreground">
-        Where your account is signed in. For your security, a session ends automatically after a day without activity.
+        {t("settingssessions.hint")}
       </p>
       <ErrorNote message={error} />
       <div className="mt-4">
         {loading ? (
           <div className="space-y-2">{[1, 2, 3].map((i) => <div key={i} className="skeleton h-12 rounded-xl" />)}</div>
         ) : events.length === 0 ? (
-          <p className="text-sm text-muted-foreground">No recent sign-ins recorded yet.</p>
+          <p className="text-sm text-muted-foreground">{t("settingssessions.noSessions")}</p>
         ) : (
           <ul className="divide-y divide-border rounded-2xl border border-border">
             {events.map((ev) => (
@@ -956,13 +974,14 @@ function SessionsCard() {
         )}
       </div>
       <button onClick={logoutEverywhere} disabled={busy || loading} className="btn btn-ghost mt-4 text-sm text-rose-600 dark:text-rose-400">
-        <LogOut size={15} /> {busy ? "Logging out…" : "Log out all devices"}
+        <LogOut size={15} /> {busy ? t("settingssessions.loggingOut") : t("settingssessions.logoutAll")}
       </button>
     </div>
   );
 }
 
 function PeriodLockCard() {
+  const { t } = useLang();
   const [lockedUntil, setLockedUntil] = useState<string | null>(null);
   const [isOwner, setIsOwner] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -987,24 +1006,23 @@ function PeriodLockCard() {
         method: "PUT", body: JSON.stringify({ lockedUntil: next }),
       });
       setLockedUntil(d.lockedUntil);
-      setDone(d.lockedUntil ? `Books locked up to ${d.lockedUntil}.` : "Period lock cleared.");
+      setDone(d.lockedUntil ? t("settingslock.lockedDone", { date: d.lockedUntil }) : t("settingslock.clearedDone"));
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Could not update period lock.");
+      setError(err instanceof Error ? err.message : t("settingslock.updateError"));
     } finally { setBusy(false); }
   }
 
   return (
     <div id="sec-lock" className="card card-gloss anchor-scroll mt-6 mx-auto max-w-2xl p-6 sm:p-8">
-      <h2 className="inline-flex items-center gap-2 text-lg font-extrabold"><Lock size={19} /> Accounting period lock</h2>
+      <h2 className="inline-flex items-center gap-2 text-lg font-extrabold"><Lock size={19} /> {t("settingslock.title")}</h2>
       <p className="mt-1 text-sm text-muted-foreground">
-        Lock the books up to a date — for example after closing the month. While locked, no entry dated on or
-        before that date can be added, changed, converted, returned or deleted.
+        {t("settingslock.hint")}
       </p>
       <ul className="mt-3 space-y-1.5 rounded-2xl bg-muted/50 px-4 py-3.5">
-        {PERIOD_LOCK_GUIDANCE.map((g, i) => (
-          <li key={i} className="flex gap-2.5 text-[0.83rem] leading-relaxed text-muted-foreground">
+        {["guide0", "guide1", "guide2", "guide3", "guide4"].map((g) => (
+          <li key={g} className="flex gap-2.5 text-[0.83rem] leading-relaxed text-muted-foreground">
             <span className="mt-[0.45rem] h-1.5 w-1.5 shrink-0 rounded-full bg-primary/60" />
-            <span>{g}</span>
+            <span>{t(`settingslock.${g}`)}</span>
           </li>
         ))}
       </ul>
@@ -1016,28 +1034,28 @@ function PeriodLockCard() {
           {done && <p className="rounded-xl bg-primary-soft px-4 py-2.5 text-sm font-semibold text-primary">{done}</p>}
           {lockedUntil ? (
             <p className="rounded-xl bg-amber-500/10 px-4 py-3 text-sm font-semibold text-amber-600 dark:text-amber-400">
-              Currently locked up to {lockedUntil}.
+              {t("settingslock.lockedUpTo", { date: lockedUntil })}
             </p>
           ) : (
-            <p className="rounded-xl bg-muted/60 px-4 py-3 text-sm text-muted-foreground">No period lock set — all dates are open.</p>
+            <p className="rounded-xl bg-muted/60 px-4 py-3 text-sm text-muted-foreground">{t("settingslock.noLock")}</p>
           )}
           {isOwner ? (
             <div className="mt-4 flex flex-wrap items-end gap-3">
-              <Field label="Lock books up to">
+              <Field label={t("settingslock.lockLabel")}>
                 <input type="date" className="field !w-auto" value={date} max={new Date().toISOString().slice(0, 10)}
                   onChange={(e) => setDate(e.target.value)} />
               </Field>
               <button className="btn btn-primary text-sm" disabled={busy || !date} onClick={() => save(date)}>
-                {busy ? "Saving…" : "Lock period"}
+                {busy ? t("settingslock.saving") : t("settingslock.lockPeriod")}
               </button>
               {lockedUntil && (
                 <button className="btn btn-ghost text-sm" disabled={busy} onClick={() => save(null)}>
-                  Clear lock
+                  {t("settingslock.clearLock")}
                 </button>
               )}
             </div>
           ) : (
-            <p className="mt-4 text-sm text-muted-foreground">Only the owner can change the period lock.</p>
+            <p className="mt-4 text-sm text-muted-foreground">{t("settingslock.ownerOnly")}</p>
           )}
         </div>
       )}
@@ -1053,6 +1071,7 @@ function fmtErrorTime(v: number | string): string {
 }
 
 function SystemHealthCard({ isOwner }: { isOwner: boolean }) {
+  const { t } = useLang();
   const [rows, setRows] = useState<ErrorRow[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -1070,14 +1089,14 @@ function SystemHealthCard({ isOwner }: { isOwner: boolean }) {
 
   return (
     <div id="sec-health" className="card card-gloss anchor-scroll mt-6 mx-auto max-w-2xl p-6 sm:p-8">
-      <h2 className="inline-flex items-center gap-2 text-lg font-extrabold"><Activity size={19} /> System health</h2>
+      <h2 className="inline-flex items-center gap-2 text-lg font-extrabold"><Activity size={19} /> {t("settingshealth.title")}</h2>
       <p className="mt-1 text-sm text-muted-foreground">
-        Recent unexpected server errors. If something breaks for your team, it shows up here.
+        {t("settingshealth.hint")}
       </p>
       {loading ? (
         <div className="mt-4 h-12 animate-pulse rounded-xl bg-muted" />
       ) : rows.length === 0 ? (
-        <p className="mt-4 rounded-xl bg-muted/60 px-4 py-3 text-sm text-muted-foreground">No errors logged.</p>
+        <p className="mt-4 rounded-xl bg-muted/60 px-4 py-3 text-sm text-muted-foreground">{t("settingshealth.noErrors")}</p>
       ) : (
         <ul className="mt-4 divide-y divide-border rounded-2xl border border-border">
           {rows.map((r) => (
@@ -1094,6 +1113,7 @@ function SystemHealthCard({ isOwner }: { isOwner: boolean }) {
 }
 
 function DangerZoneCard({ isOwner }: { isOwner: boolean }) {
+  const { t } = useLang();
   const router = useRouter();
   const [companyName, setCompanyName] = useState<string | null>(null);
   const [typed, setTyped] = useState("");
@@ -1117,10 +1137,10 @@ function DangerZoneCard({ isOwner }: { isOwner: boolean }) {
     e.preventDefault();
     setError(null);
     if (!companyName || typed.trim() !== companyName) {
-      setError("Type your company name exactly as shown to confirm.");
+      setError(t("settingsdanger.nameMismatch"));
       return;
     }
-    if (!password) { setError("Enter your current password."); return; }
+    if (!password) { setError(t("settingsdanger.pwRequired")); return; }
     setBusy(true);
     try {
       const res = await fetch("/api/company", {
@@ -1130,11 +1150,11 @@ function DangerZoneCard({ isOwner }: { isOwner: boolean }) {
         body: JSON.stringify({ companyName: typed.trim(), password }),
       });
       const data = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(data.error || "Could not delete the company.");
+      if (!res.ok) throw new Error(data.error || t("settingsdanger.deleteError"));
       router.push("/login");
       router.refresh();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Could not delete the company.");
+      setError(err instanceof Error ? err.message : t("settingsdanger.deleteError"));
       setBusy(false);
     }
   }
@@ -1142,40 +1162,39 @@ function DangerZoneCard({ isOwner }: { isOwner: boolean }) {
   return (
     <div id="sec-danger" className="card anchor-scroll mx-auto mt-6 max-w-2xl border-red-500/30 p-6 sm:p-8">
       <h2 className="inline-flex items-center gap-2 text-lg font-extrabold text-red-600 dark:text-red-400">
-        <TriangleAlert size={19} /> Danger zone
+        <TriangleAlert size={19} /> {t("settingsdanger.title")}
       </h2>
       <p className="mt-1 text-sm text-muted-foreground">
-        Permanently delete this company and <strong>all</strong> of its data — bills, stock, parties,
-        payments, reports, team logins and backups of this company. This cannot be undone.
+        {t("settingsdanger.hint")}
       </p>
       {!confirming ? (
         <button className="btn mt-4 border-red-500/40 text-sm text-red-600 hover:bg-red-500/10 dark:text-red-400"
           onClick={() => { setConfirming(true); setError(null); }}>
-          Delete this company…
+          {t("settingsdanger.deleteBtn")}
         </button>
       ) : (
         <form onSubmit={destroy} className="mt-4 space-y-3 rounded-2xl border border-red-500/30 bg-red-500/5 p-4">
           <ErrorNote message={error} />
           <p className="text-sm font-semibold">
-            To confirm, type your company name exactly:{" "}
+            {t("settingsdanger.confirmType")}{" "}
             <span className="font-extrabold">{companyName ?? "…"}</span>
           </p>
-          <Field label="Company name">
+          <Field label={t("settingsdanger.companyName")}>
             <input className="field" value={typed} onChange={(e) => setTyped(e.target.value)}
               placeholder={companyName ?? ""} autoComplete="off" />
           </Field>
-          <Field label="Your current password">
+          <Field label={t("settingsdanger.currentPw")}>
             <input className="field" type="password" value={password}
               onChange={(e) => setPassword(e.target.value)} autoComplete="current-password" />
           </Field>
           <div className="flex flex-wrap gap-2 pt-1">
             <button type="submit" disabled={busy}
               className="btn bg-red-600 text-sm text-white hover:bg-red-700 disabled:opacity-60">
-              {busy ? "Deleting…" : "Delete everything permanently"}
+              {busy ? t("settingsdanger.deleting") : t("settingsdanger.deleteAll")}
             </button>
             <button type="button" className="btn btn-ghost text-sm"
               onClick={() => { setConfirming(false); setTyped(""); setPassword(""); setError(null); }}>
-              Cancel
+              {t("settingsdanger.cancel")}
             </button>
           </div>
         </form>

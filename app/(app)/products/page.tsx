@@ -6,6 +6,7 @@ import { PageHeader, EmptyState, Field, ErrorNote } from "@/components/ui";
 import { Modal } from "@/components/modal";
 import { api, fmtMoney, fmtQty } from "@/lib/format";
 import { useBusinessProfile } from "@/components/business-type";
+import { useLang } from "@/components/lang-provider";
 
 type Product = {
   id: string; sku: string; name: string; unit: string; category: string | null;
@@ -22,6 +23,7 @@ const UNITS = ["PCS", "KG", "G", "LTR", "ML", "MTR", "BOX", "CTN", "DOZ", "BAG"]
 
 export default function ProductsPage() {
   const bp = useBusinessProfile();
+  const { t } = useLang();
   const [q, setQ] = useState("");
   const [lowOnly, setLowOnly] = useState(false);
   const [rows, setRows] = useState<Product[]>([]);
@@ -74,30 +76,33 @@ export default function ProductsPage() {
       setModal(null);
       load();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Could not save.");
+      setError(err instanceof Error ? err.message : t("products.saveError"));
     } finally { setSaving(false); }
   }
 
   const set = (k: keyof typeof emptyForm) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) =>
     setForm((f) => ({ ...f, [k]: e.target.type === "checkbox" ? (e.target as HTMLInputElement).checked : e.target.value }));
 
+  const productOne = bp.productOne;
+  const productMany = bp.productMany;
+
   return (
     <div>
       <PageHeader
-        title={bp.productMany}
-        subtitle={`${total} ${bp.productMany.toLowerCase()} · stock updates automatically on purchase & sale`}
+        title={productMany}
+        subtitle={t("products.subtitle", { total, products: productMany.toLowerCase() })}
         icon={<Package size={20} />}
-        actions={<button className="btn btn-primary text-sm" onClick={openAdd}><Plus size={16} /> Add {bp.productOne.toLowerCase()}</button>}
+        actions={<button className="btn btn-primary text-sm" onClick={openAdd}><Plus size={16} /> {t("products.addProduct", { product: productOne.toLowerCase() })}</button>}
       />
 
       <div className="mb-4 flex flex-wrap items-center gap-3">
         <div className="relative min-w-52 flex-1 sm:max-w-xs">
           <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
-          <input className="field !pl-9" placeholder="Search name or SKU…" value={q} onChange={(e) => setQ(e.target.value)} />
+          <input className="field !pl-9" placeholder={t("products.searchSku")} value={q} onChange={(e) => setQ(e.target.value)} />
         </div>
         <label className="flex cursor-pointer items-center gap-2 rounded-xl border border-border bg-card px-4 py-2.5 text-sm font-semibold">
           <input type="checkbox" checked={lowOnly} onChange={(e) => setLowOnly(e.target.checked)} className="h-4 w-4 accent-[var(--primary)]" />
-          <TriangleAlert size={15} className="text-accent" /> Low stock only
+          <TriangleAlert size={15} className="text-accent" /> {t("products.lowStockOnly")}
         </label>
       </div>
 
@@ -105,12 +110,12 @@ export default function ProductsPage() {
         {loading ? (
           <div className="space-y-3 p-5">{[1, 2, 3].map((i) => <div key={i} className="skeleton h-12 rounded-xl" />)}</div>
         ) : rows.length === 0 ? (
-          <EmptyState title={`No ${bp.productMany.toLowerCase()} yet`} hint={`Add ${bp.productMany.toLowerCase()} to start billing.`}
-            action={<button className="btn btn-primary text-sm" onClick={openAdd}><Plus size={16} /> Add now</button>} />
+          <EmptyState title={t("products.noProducts", { products: productMany.toLowerCase() })} hint={t("products.emptyHint", { products: productMany.toLowerCase() })}
+            action={<button className="btn btn-primary text-sm" onClick={openAdd}><Plus size={16} /> {t("products.addNow")}</button>} />
         ) : (
           <div className="overflow-x-auto">
             <table className="tbl">
-              <thead><tr><th>{bp.productOne}</th><th>SKU</th><th className="num">Stock</th><th className="num">Buy price</th><th className="num">Sale price</th><th></th></tr></thead>
+              <thead><tr><th>{productOne}</th><th>{t("products.colSku")}</th><th className="num">{t("products.colStock")}</th><th className="num">{t("products.colBuyPrice")}</th><th className="num">{t("products.colSalePrice")}</th><th></th></tr></thead>
               <tbody>
                 {rows.map((p) => {
                   const low = p.trackStock && BigInt(p.totalQty) <= BigInt(p.reorderLevel);
@@ -118,14 +123,14 @@ export default function ProductsPage() {
                     <tr key={p.id}>
                       <td>
                         <span className="font-bold">{p.name}</span>
-                        {low && <span className="badge ml-2 bg-danger-soft text-danger"><TriangleAlert size={11} /> Low</span>}
+                        {low && <span className="badge ml-2 bg-danger-soft text-danger"><TriangleAlert size={11} /> {t("products.lowBadge")}</span>}
                         <span className="block text-xs text-muted-foreground">{p.category ?? ""}</span>
                       </td>
                       <td className="text-muted-foreground">{p.sku}</td>
                       <td className="num font-bold">{p.trackStock ? fmtQty(p.totalQty, p.unit) : "—"}</td>
                       <td className="num">{fmtMoney(p.purchasePrice)}</td>
                       <td className="num">{fmtMoney(p.salePrice)}</td>
-                      <td className="text-right"><button className="btn btn-ghost !p-2" onClick={() => openEdit(p)} aria-label="Edit"><Pencil size={15} /></button></td>
+                      <td className="text-right"><button className="btn btn-ghost !p-2" onClick={() => openEdit(p)} aria-label={t("common.edit")}><Pencil size={15} /></button></td>
                     </tr>
                   );
                 })}
@@ -136,37 +141,37 @@ export default function ProductsPage() {
       </div>
 
       {modal && (
-        <Modal title={modal.mode === "add" ? `Add ${bp.productOne.toLowerCase()}` : `Edit ${bp.productOne.toLowerCase()}`} onClose={() => setModal(null)}>
+        <Modal title={modal.mode === "add" ? t("products.addTitle", { product: productOne.toLowerCase() }) : t("products.editTitle", { product: productOne.toLowerCase() })} onClose={() => setModal(null)}>
           <form onSubmit={save} className="space-y-4">
             <ErrorNote message={error} />
             <div className="grid gap-4 sm:grid-cols-2">
-              <Field label="SKU (code)"><input className="field" required value={form.sku} onChange={set("sku")} placeholder="e.g. RICE-001" /></Field>
-              <Field label="Barcode (optional)"><input className="field" value={form.barcode} onChange={set("barcode")} /></Field>
+              <Field label={t("products.skuCode")}><input className="field" required value={form.sku} onChange={set("sku")} placeholder={t("products.skuPlaceholder")} /></Field>
+              <Field label={t("products.barcode")}><input className="field" value={form.barcode} onChange={set("barcode")} /></Field>
             </div>
-            <Field label={`${bp.productOne} name`}><input className="field" required value={form.name} onChange={set("name")} placeholder="e.g. Basmati Rice" /></Field>
+            <Field label={t("products.productName", { product: productOne })}><input className="field" required value={form.name} onChange={set("name")} placeholder={t("products.namePlaceholder")} /></Field>
             <div className="grid gap-4 sm:grid-cols-2">
-              <Field label="Category"><input className="field" value={form.category} onChange={set("category")} placeholder="e.g. Grocery" /></Field>
-              <Field label="Unit">
+              <Field label={t("products.category")}><input className="field" value={form.category} onChange={set("category")} placeholder={t("products.categoryPlaceholder")} /></Field>
+              <Field label={t("products.unit")}>
                 <select className="field" value={form.unit} onChange={set("unit")}>
                   {UNITS.map((u) => <option key={u}>{u}</option>)}
                 </select>
               </Field>
             </div>
             <div className="grid gap-4 sm:grid-cols-3">
-              <Field label="Buy price (Rs)"><input className="field" type="number" min="0" step="0.01" placeholder="0.00" value={form.purchasePrice} onChange={set("purchasePrice")} /></Field>
-              <Field label="Sale price (Rs)"><input className="field" type="number" min="0" step="0.01" placeholder="0.00" value={form.salePrice} onChange={set("salePrice")} /></Field>
-              <Field label="Min. sale price (Rs)" hint="Selling below this needs an override"><input className="field" type="number" min="0" step="0.01" placeholder="0.00" value={form.minSalePrice} onChange={set("minSalePrice")} /></Field>
+              <Field label={t("products.buyPrice")}><input className="field" type="number" min="0" step="0.01" placeholder="0.00" value={form.purchasePrice} onChange={set("purchasePrice")} /></Field>
+              <Field label={t("products.salePrice")}><input className="field" type="number" min="0" step="0.01" placeholder="0.00" value={form.salePrice} onChange={set("salePrice")} /></Field>
+              <Field label={t("products.minSalePrice")} hint={t("products.minSaleHint")}><input className="field" type="number" min="0" step="0.01" placeholder="0.00" value={form.minSalePrice} onChange={set("minSalePrice")} /></Field>
             </div>
             <div className="grid gap-4 sm:grid-cols-3">
-              <Field label="Reorder level"><input className="field" type="number" min="0" step="0.001" placeholder="0" value={form.reorderLevel} onChange={set("reorderLevel")} /></Field>
+              <Field label={t("products.reorderLevel")}><input className="field" type="number" min="0" step="0.001" placeholder="0" value={form.reorderLevel} onChange={set("reorderLevel")} /></Field>
             </div>
             <label className="flex cursor-pointer items-center gap-2 text-sm font-semibold">
               <input type="checkbox" checked={form.trackStock} onChange={set("trackStock")} className="h-4 w-4 accent-[var(--primary)]" />
-              Track stock for this {bp.productOne.toLowerCase()}
+              {t("products.trackStock", { product: productOne.toLowerCase() })}
             </label>
             <div className="flex justify-end gap-2 pt-2">
-              <button type="button" className="btn btn-ghost" onClick={() => setModal(null)}>Cancel</button>
-              <button className="btn btn-primary" disabled={saving}>{saving ? "Saving…" : "Save"}</button>
+              <button type="button" className="btn btn-ghost" onClick={() => setModal(null)}>{t("common.cancel")}</button>
+              <button className="btn btn-primary" disabled={saving}>{saving ? t("common.saving") : t("common.save")}</button>
             </div>
           </form>
         </Modal>

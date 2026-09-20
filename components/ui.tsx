@@ -1,9 +1,11 @@
 "use client";
 
 import { useTheme } from "next-themes";
-import { Moon, Sun, BookOpenCheck, ChevronLeft, ChevronRight } from "lucide-react";
+import { Moon, Sun, BookOpenCheck, ChevronLeft, ChevronRight, Download, Languages } from "lucide-react";
 import { useEffect, useState, type ReactNode } from "react";
 import { brand } from "@/lib/brand";
+import { downloadCsv } from "@/lib/csv";
+import { useLang } from "./lang-provider";
 
 export function Logo({ compact = false }: { compact?: boolean }) {
   return (
@@ -23,6 +25,7 @@ export function Logo({ compact = false }: { compact?: boolean }) {
 
 export function ThemeToggle() {
   const { theme, setTheme } = useTheme();
+  const { t } = useLang();
   const [mounted, setMounted] = useState(false);
   // eslint-disable-next-line react-hooks/set-state-in-effect -- avoid hydration mismatch for theme
   useEffect(() => setMounted(true), []);
@@ -32,10 +35,29 @@ export function ThemeToggle() {
     <button
       onClick={() => setTheme(dark ? "light" : "dark")}
       className="grid h-11 w-11 place-items-center rounded-xl border border-border bg-card text-foreground shadow-sm transition hover:scale-105 active:scale-95"
-      aria-label={dark ? "Switch to light mode" : "Switch to dark mode"}
-      title={dark ? "Light mode" : "Dark mode"}
+      aria-label={dark ? t("ui.switchToLight") : t("ui.switchToDark")}
+      title={dark ? t("ui.lightMode") : t("ui.darkMode")}
     >
       {dark ? <Sun size={18} /> : <Moon size={18} />}
+    </button>
+  );
+}
+
+export function LangToggle() {
+  const { lang, setLang, t } = useLang();
+  const [mounted, setMounted] = useState(false);
+  // eslint-disable-next-line react-hooks/set-state-in-effect -- avoid hydration mismatch for language
+  useEffect(() => setMounted(true), []);
+  if (!mounted) return <span className="h-11 w-11" />;
+  const urdu = lang === "ur";
+  return (
+    <button
+      onClick={() => setLang(urdu ? "en" : "ur")}
+      className="grid h-11 w-11 place-items-center rounded-xl border border-border bg-card text-foreground shadow-sm transition hover:scale-105 active:scale-95"
+      aria-label={urdu ? t("header.switchToEnglish") : t("header.switchToUrdu")}
+      title={urdu ? t("header.switchToEnglish") : t("header.switchToUrdu")}
+    >
+      {urdu ? <span className="text-sm font-extrabold">EN</span> : <Languages size={18} />}
     </button>
   );
 }
@@ -157,24 +179,39 @@ export function FilterBar({ children }: { children: ReactNode }) {
   );
 }
 
+/** One-click CSV download button for reports. Pass a rows() builder so the CSV reflects current filters. */
+export function ExportCsv({ filename, rows, disabled }: { filename: string; rows: () => (string | number)[][]; disabled?: boolean }) {
+  const { t } = useLang();
+  return (
+    <button
+      className="btn btn-ghost text-sm"
+      disabled={disabled}
+      onClick={() => downloadCsv(filename, rows())}
+      title={t("ui.exportCsvHint")}
+    >
+      <Download size={15} /> CSV
+    </button>
+  );
+}
+
 /** Prev/next pagination controls for list pages. */
-export function Pagination({ page, perPage, total, onPage }: { page: number; perPage: number; total: number; onPage: (p: number) => void }) {
-  const pages = Math.max(1, Math.ceil(total / perPage));
+export function Pagination({ page, perPage, total, onPage }: { page: number; perPage: number; total: number; onPage: (p: number) => void }) {  const pages = Math.max(1, Math.ceil(total / perPage));
+  const { t } = useLang();
   if (pages <= 1) return null;
   const from = (page - 1) * perPage + 1;
   const to = Math.min(page * perPage, total);
   return (
     <div className="flex flex-wrap items-center justify-between gap-3 px-1 py-4">
       <p className="text-xs font-semibold text-muted-foreground">
-        Showing {from}–{to} of {total}
+        {t("common.showing")} {from}–{to} {t("common.of")} {total}
       </p>
       <div className="flex items-center gap-2">
-        <button className="btn btn-ghost !px-3 !py-2 text-sm" disabled={page <= 1} onClick={() => onPage(page - 1)} aria-label="Previous page">
-          <ChevronLeft size={16} /> Prev
+        <button className="btn btn-ghost !px-3 !py-2 text-sm" disabled={page <= 1} onClick={() => onPage(page - 1)} aria-label={t("pagination.prev")}>
+          <ChevronLeft size={16} /> {t("pagination.prev")}
         </button>
-        <span className="text-xs font-bold text-muted-foreground">Page {page} of {pages}</span>
-        <button className="btn btn-ghost !px-3 !py-2 text-sm" disabled={page >= pages} onClick={() => onPage(page + 1)} aria-label="Next page">
-          Next <ChevronRight size={16} />
+        <span className="text-xs font-bold text-muted-foreground">{t("pagination.page", { page, pages })}</span>
+        <button className="btn btn-ghost !px-3 !py-2 text-sm" disabled={page >= pages} onClick={() => onPage(page + 1)} aria-label={t("pagination.next")}>
+          {t("pagination.next")} <ChevronRight size={16} />
         </button>
       </div>
     </div>

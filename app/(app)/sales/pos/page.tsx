@@ -14,6 +14,7 @@ import {
   type PosLine, type PosProduct,
 } from "@/lib/pos";
 import { useBusinessProfile } from "@/components/business-type";
+import { useLang } from "@/components/lang-provider";
 
 type ApiProduct = PosProduct & { totalQty: string };
 type ApiParty = { id: string; name: string; phone: string | null };
@@ -38,6 +39,7 @@ interface DoneInfo {
 const WALK_IN = "Walk-in Customer";
 
 export default function PosPage() {
+  const { t } = useLang();
   const bp = useBusinessProfile();
   const [date] = useState(fmtDateInput());
 
@@ -113,7 +115,7 @@ export default function PosPage() {
   useEffect(() => {
     const query = q.trim();
     if (!query) return;
-    const t = setTimeout(async () => {
+    const tmr = setTimeout(async () => {
       try {
         const d = await api<{ data: ApiProduct[] }>(`/api/products?q=${encodeURIComponent(query)}&perPage=20`);
         setResults(d.data);
@@ -121,7 +123,7 @@ export default function PosPage() {
         setShowResults(true);
       } catch { /* ignore */ }
     }, 220);
-    return () => clearTimeout(t);
+    return () => clearTimeout(tmr);
   }, [q]);
 
   // bank accounts (once)
@@ -136,22 +138,22 @@ export default function PosPage() {
   // customer search for khata (full-khata stage and mixed split stage)
   useEffect(() => {
     if (stage !== "khata" && stage !== "split") return;
-    const t = setTimeout(async () => {
+    const tmr = setTimeout(async () => {
       try {
         const d = await api<{ data: ApiParty[] }>(`/api/parties?kind=CUSTOMER&q=${encodeURIComponent(partyQ)}&perPage=20`);
         setParties(d.data);
       } catch { /* ignore */ }
     }, 250);
-    return () => clearTimeout(t);
+    return () => clearTimeout(tmr);
   }, [partyQ, stage]);
 
   // focus management only (no state writes) when the stage changes
   useEffect(() => {
-    const t = setTimeout(() => {
+    const tmr = setTimeout(() => {
       if (stage === "cash") tenderedRef.current?.select();
       else if (stage === "billing") searchRef.current?.focus();
     }, 60);
-    return () => clearTimeout(t);
+    return () => clearTimeout(tmr);
   }, [stage]);
 
   // Escape closes the small confirm dialogs (dup product / min-price override)
@@ -260,27 +262,27 @@ export default function PosPage() {
     let splitSum = 0; // paisa actually tendered in the split stage
     if (stage === "cash") {
       const cash = banks.find((b) => b.kind === "CASH") ?? banks[0];
-      if (!cash) { setError("No cash account found. Add one under Settings → Accounts."); return; }
-      if (tenderedPaisa < totals.grand) { setError("Tendered amount is less than the bill total."); return; }
+      if (!cash) { setError(t("pos.errNoCash")); return; }
+      if (tenderedPaisa < totals.grand) { setError(t("pos.errTenderedLess")); return; }
       payments = [{ bankAccountId: cash.id, method: "CASH", amount: amt }];
       tenderedVal = tendered || amt;
     } else if (stage === "bank") {
-      if (!bankId) { setError("Select the bank account."); return; }
+      if (!bankId) { setError(t("pos.errSelectBank")); return; }
       payments = [{ bankAccountId: bankId, method: "BANK", amount: amt }];
     } else if (stage === "split") {
       const legs: PayLeg[] = [];
-      for (const t of tenders) {
-        const p = tenderPaisa(t);
-        if (p <= 0) { setError("Each tender needs a positive amount."); return; }
-        if (!t.bankId) { setError("Choose an account for every tender."); return; }
-        const acc = banks.find((b) => b.id === t.bankId);
-        legs.push({ bankAccountId: t.bankId, method: acc?.kind === "CASH" ? "CASH" : "BANK", amount: (p / 100).toFixed(2) });
+      for (const td of tenders) {
+        const p = tenderPaisa(td);
+        if (p <= 0) { setError(t("pos.errTenderPositive")); return; }
+        if (!td.bankId) { setError(t("pos.errTenderAccount")); return; }
+        const acc = banks.find((b) => b.id === td.bankId);
+        legs.push({ bankAccountId: td.bankId, method: acc?.kind === "CASH" ? "CASH" : "BANK", amount: (p / 100).toFixed(2) });
       }
       const sum = legs.reduce((a, l) => a + Math.round(parseFloat(l.amount) * 100), 0);
-      if (legs.length === 0 && !splitKhata) { setError("Add at least one tender."); return; }
-      if (sum > totals.grand) { setError(`Tenders exceed the bill total ${fmtMoney(totals.grand)}.`); return; }
+      if (legs.length === 0 && !splitKhata) { setError(t("pos.errAddTender")); return; }
+      if (sum > totals.grand) { setError(t("pos.errTendersExceed", { total: fmtMoney(totals.grand) })); return; }
       if (sum < totals.grand && !splitKhata) {
-        setError(`Tenders add up to ${fmtMoney(sum)} — cover the remaining ${fmtMoney(totals.grand - sum)} or put it on khata.`);
+        setError(t("pos.errTendersShort", { sum: fmtMoney(sum), rem: fmtMoney(totals.grand - sum) }));
         return;
       }
       splitSum = sum;
@@ -292,15 +294,15 @@ export default function PosPage() {
     let partyId: string;
     try {
       if (stage === "khata") {
-        if (!khataId) { setError(`Select a ${bp.partyOne.toLowerCase()} for khata.`); return; }
+        if (!khataId) { setError(t("pos.errSelectKhataParty", { party: bp.partyOne.toLowerCase() })); return; }
         partyId = khataId;
       } else if (stage === "split" && splitKhata && splitSum < totals.grand) {
-        if (!khataId) { setError(`Select a ${bp.partyOne.toLowerCase()} for the khata remainder.`); return; }
+        if (!khataId) { setError(t("pos.errSelectKhataRemainder", { party: bp.partyOne.toLowerCase() })); return; }
         partyId = khataId;
       } else {
         partyId = await ensureWalkIn();
       }
-    } catch (e) { setError(e instanceof Error ? e.message : "Could not resolve customer."); return; }
+    } catch (e) { setError(e instanceof Error ? e.message : t("pos.errResolveCustomer")); return; }
 
     setSaving(true);
     try {
@@ -328,7 +330,7 @@ export default function PosPage() {
       });
       setStage("done");
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Could not save the bill.");
+      setError(e instanceof Error ? e.message : t("pos.errSaveBill"));
     } finally {
       setSaving(false);
     }
@@ -432,10 +434,10 @@ export default function PosPage() {
     await refreshParked();
   }
 
-  function tenderPaisa(t: Tender): number {
-    return Math.round((parseFloat(t.amount) || 0) * 100);
+  function tenderPaisa(td: Tender): number {
+    return Math.round((parseFloat(td.amount) || 0) * 100);
   }
-  const splitTotal = tenders.reduce((a, t) => a + tenderPaisa(t), 0);
+  const splitTotal = tenders.reduce((a, td) => a + tenderPaisa(td), 0);
   const splitRemaining = totals.grand - splitTotal;
 
   // ---------- success screen ----------
@@ -445,34 +447,34 @@ export default function PosPage() {
         <span className="grid h-20 w-20 place-items-center rounded-full bg-emerald-500/15 text-emerald-600 dark:text-emerald-400">
           <CheckCircle2 size={40} />
         </span>
-        <h1 className="mt-5 text-2xl font-extrabold">Bill saved</h1>
+        <h1 className="mt-5 text-2xl font-extrabold">{t("pos.doneTitle")}</h1>
         <p className="mt-2 text-4xl font-extrabold tracking-tight text-primary">{fmtMoney(done.grand)}</p>
         {done.method === "cash" && done.change > 0 && (
           <p className="mt-2 rounded-xl bg-amber-500/15 px-4 py-2 text-lg font-bold text-amber-700 dark:text-amber-300">
-            Return change: {fmtMoney(done.change)}
+            {t("pos.doneChange", { amount: fmtMoney(done.change) })}
           </p>
         )}
         {done.method === "khata" && (
-          <p className="mt-2 text-sm text-muted-foreground">Added to {bp.partyOne.toLowerCase()} khata (receivable).</p>
+          <p className="mt-2 text-sm text-muted-foreground">{t("pos.doneKhata", { party: bp.partyOne.toLowerCase() })}</p>
         )}
         {done.method === "split" && (done.khataAmount ?? 0) > 0 && (
           <p className="mt-2 rounded-xl bg-amber-500/15 px-4 py-2 text-sm font-bold text-amber-700 dark:text-amber-300">
-            {fmtMoney(done.grand - done.khataAmount!)} received · {fmtMoney(done.khataAmount!)} on khata
+            {t("pos.doneSplit", { paid: fmtMoney(done.grand - done.khataAmount!), khata: fmtMoney(done.khataAmount!) })}
           </p>
         )}
         {done.advanceApplied > 0 && (
           <p className="mt-2 rounded-xl bg-emerald-500/15 px-4 py-2 text-sm font-bold text-emerald-700 dark:text-emerald-300">
-            Advance adjusted: {fmtMoney(done.advanceApplied)}
+            {t("pos.doneAdvance", { amount: fmtMoney(done.advanceApplied) })}
           </p>
         )}
         <div className="mt-8 flex w-full flex-col gap-3 sm:flex-row">
           <button autoFocus onClick={newBill} onKeyDown={(e) => { if (e.key === "Enter") newBill(); }}
             className="btn btn-primary flex-1 !py-3.5 text-base">
-            <ReceiptText size={18} /> New bill <kbd className="ml-1 rounded bg-white/20 px-1.5 text-xs">Enter</kbd>
+            <ReceiptText size={18} /> {t("pos.newBill")} <kbd className="ml-1 rounded bg-white/20 px-1.5 text-xs">Enter</kbd>
           </button>
-          <Link href={`/sales/${done.docId}`} className="btn flex-1 !py-3.5 text-base">View bill</Link>
+          <Link href={`/sales/${done.docId}`} className="btn flex-1 !py-3.5 text-base">{t("pos.viewBill")}</Link>
         </div>
-        <p className="mt-4 text-xs text-muted-foreground">Press Enter to start the next bill</p>
+        <p className="mt-4 text-xs text-muted-foreground">{t("pos.pressEnter")}</p>
       </div>
     );
   }
@@ -482,12 +484,12 @@ export default function PosPage() {
     <div>
       <div className="mb-4 flex items-center justify-between gap-3">
         <div className="flex items-center gap-3">
-          <Link href="/sales" className="btn btn-ghost !p-2" aria-label="Back to sales">
+          <Link href="/sales" className="btn btn-ghost !p-2" aria-label={t("pos.backToSales")}>
             <ArrowLeft size={20} />
           </Link>
           <div>
-            <h1 className="text-xl font-extrabold tracking-tight sm:text-2xl">POS billing</h1>
-            <p className="text-xs text-muted-foreground sm:text-sm">Scan or type, Enter to add — built for the counter</p>
+            <h1 className="text-xl font-extrabold tracking-tight sm:text-2xl">{t("pos.title")}</h1>
+            <p className="text-xs text-muted-foreground sm:text-sm">{t("pos.subtitle")}</p>
           </div>
         </div>
         <span className="hidden rounded-full bg-primary/10 px-3 py-1.5 text-xs font-bold text-primary sm:block">{date}</span>
@@ -499,27 +501,27 @@ export default function PosPage() {
         <div className="card mb-4 p-4">
           <button onClick={() => setShowParked((v) => !v)} className="flex w-full items-center justify-between">
             <span className="inline-flex items-center gap-2 text-sm font-extrabold">
-              <PauseCircle size={16} className="text-primary" /> Parked bills ({parked.length + parkedLocal.length})
+              <PauseCircle size={16} className="text-primary" /> {t("pos.parkedTitle", { count: parked.length + parkedLocal.length })}
             </span>
-            <span className="text-xs font-bold text-muted-foreground">{showParked ? "Hide" : "Show"}</span>
+            <span className="text-xs font-bold text-muted-foreground">{showParked ? t("pos.hide") : t("pos.show")}</span>
           </button>
           {showParked && (
             <ul className="mt-3 space-y-2">
               {parked.map((p) => {
-                const t = cartTotals(heldToPreview(p.lines), p.discount);
+                const tt = cartTotals(heldToPreview(p.lines), p.discount);
                 return (
                   <li key={p.id} className="flex items-center justify-between gap-3 rounded-xl bg-muted/60 px-4 py-3">
                     <div className="min-w-0">
-                      <p className="text-sm font-bold">{t.itemCount} items · {fmtMoney(t.grand)}</p>
+                      <p className="text-sm font-bold">{t("pos.parkedItems", { n: tt.itemCount })} · {fmtMoney(tt.grand)}</p>
                       <p className="text-xs text-muted-foreground">
-                        Parked {new Date(p.createdAt).toLocaleTimeString("en-PK", { hour: "numeric", minute: "2-digit" })}
+                        {t("pos.parkedAt", { time: new Date(p.createdAt).toLocaleTimeString("en-PK", { hour: "numeric", minute: "2-digit" }) })}
                         {p.userName ? ` · ${p.userName}` : ""}
                       </p>
                     </div>
                     <div className="flex shrink-0 gap-2">
-                      <button onClick={() => resumeParked(p.id)} className="btn btn-primary !px-4 !py-2 text-sm">Resume</button>
+                      <button onClick={() => resumeParked(p.id)} className="btn btn-primary !px-4 !py-2 text-sm">{t("pos.resume")}</button>
                       <button onClick={() => deleteParked(p.id)}
-                        className="btn btn-ghost !px-3 !py-2 text-sm" aria-label="Delete parked bill">
+                        className="btn btn-ghost !px-3 !py-2 text-sm" aria-label={t("pos.deleteParked")}>
                         <Trash2 size={15} />
                       </button>
                     </div>
@@ -527,19 +529,19 @@ export default function PosPage() {
                 );
               })}
               {parkedLocal.map((p) => {
-                const t = cartTotals(p.lines, p.discount);
+                const tt = cartTotals(p.lines, p.discount);
                 return (
                   <li key={p.id} className="flex items-center justify-between gap-3 rounded-xl bg-amber-500/10 px-4 py-3">
                     <div className="min-w-0">
-                      <p className="text-sm font-bold">{t.itemCount} items · {fmtMoney(t.grand)}</p>
+                      <p className="text-sm font-bold">{t("pos.parkedItems", { n: tt.itemCount })} · {fmtMoney(tt.grand)}</p>
                       <p className="text-xs text-muted-foreground">
-                        On this device · {new Date(p.at).toLocaleTimeString("en-PK", { hour: "numeric", minute: "2-digit" })}
+                        {t("pos.parkedLocalAt", { time: new Date(p.at).toLocaleTimeString("en-PK", { hour: "numeric", minute: "2-digit" }) })}
                       </p>
                     </div>
                     <div className="flex shrink-0 gap-2">
-                      <button onClick={() => resumeParkedLocal(p.id)} className="btn btn-primary !px-4 !py-2 text-sm">Resume</button>
+                      <button onClick={() => resumeParkedLocal(p.id)} className="btn btn-primary !px-4 !py-2 text-sm">{t("pos.resume")}</button>
                       <button onClick={() => persistParkedLocal(parkedLocal.filter((x) => x.id !== p.id))}
-                        className="btn btn-ghost !px-3 !py-2 text-sm" aria-label="Delete parked bill">
+                        className="btn btn-ghost !px-3 !py-2 text-sm" aria-label={t("pos.deleteParked")}>
                         <Trash2 size={15} />
                       </button>
                     </div>
@@ -561,7 +563,7 @@ export default function PosPage() {
                 ref={searchRef}
                 autoFocus
                 className="field !py-3.5 !pl-11 !text-base"
-                placeholder={`Scan barcode or type ${bp.productOne.toLowerCase()} name…`}
+                placeholder={t("pos.searchPh", { product: bp.productOne.toLowerCase() })}
                 value={q}
                 onChange={(e) => {
                   const v = e.target.value;
@@ -573,7 +575,7 @@ export default function PosPage() {
               />
               {q && (
                 <button onClick={() => { setQ(""); setShowResults(false); searchRef.current?.focus(); }}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 rounded-lg p-1 text-muted-foreground hover:bg-muted" aria-label="Clear search">
+                  className="absolute right-3 top-1/2 -translate-y-1/2 rounded-lg p-1 text-muted-foreground hover:bg-muted" aria-label={t("pos.clearSearch")}>
                   <X size={18} />
                 </button>
               )}
@@ -589,7 +591,7 @@ export default function PosPage() {
                         <span className="min-w-0">
                           <span className="block truncate text-sm font-bold">{p.name}</span>
                           <span className="block text-xs text-muted-foreground">
-                            {p.sku}{Number(p.totalQty) <= 0 ? " · out of stock" : ` · stock ${p.totalQty}`}
+                            {p.sku}{Number(p.totalQty) <= 0 ? t("pos.outOfStock") : t("pos.inStock", { qty: p.totalQty })}
                           </span>
                         </span>
                         <span className="shrink-0 text-sm font-extrabold text-primary">{fmtMoney(p.salePrice)}</span>
@@ -600,8 +602,8 @@ export default function PosPage() {
               )}
             </div>
             <p className="mt-2.5 text-xs text-muted-foreground">
-              <kbd className="rounded border border-border bg-muted px-1.5 py-0.5 font-sans">↑↓</kbd> choose ·{" "}
-              <kbd className="rounded border border-border bg-muted px-1.5 py-0.5 font-sans">Enter</kbd> add · scan a barcode &amp; Enter for instant add
+              <kbd className="rounded border border-border bg-muted px-1.5 py-0.5 font-sans">↑↓</kbd> {t("pos.searchHintChoose")} ·{" "}
+              <kbd className="rounded border border-border bg-muted px-1.5 py-0.5 font-sans">Enter</kbd> {t("pos.searchHintAdd")} · {t("pos.searchHintScan")}
             </p>
           </div>
 
@@ -611,9 +613,9 @@ export default function PosPage() {
                 <span className="grid h-16 w-16 place-items-center rounded-3xl bg-primary/10 text-primary">
                   <Search size={28} />
                 </span>
-                <p className="mt-4 font-bold">Cart is empty</p>
+                <p className="mt-4 font-bold">{t("pos.cartEmpty")}</p>
                 <p className="mt-1 max-w-xs text-sm text-muted-foreground">
-                  Scan a barcode or type a {bp.productOne.toLowerCase()} name above and press Enter.
+                  {t("pos.cartEmptyHint", { product: bp.productOne.toLowerCase() })}
                 </p>
               </div>
             ) : (
@@ -626,7 +628,7 @@ export default function PosPage() {
                     </div>
                     <div className="flex items-center justify-between gap-2 sm:justify-end sm:gap-3">
                     <div className="flex shrink-0 items-center gap-1">
-                      <button onClick={() => bumpQty(l.key, -1)} className="grid h-11 w-11 place-items-center rounded-lg bg-muted transition hover:bg-primary/15" aria-label={`Decrease quantity of ${l.name}`}>
+                      <button onClick={() => bumpQty(l.key, -1)} className="grid h-11 w-11 place-items-center rounded-lg bg-muted transition hover:bg-primary/15" aria-label={t("pos.decQty", { name: l.name })}>
                         <Minus size={15} />
                       </button>
                       <input
@@ -634,9 +636,9 @@ export default function PosPage() {
                         inputMode="decimal"
                         value={l.qty}
                         onChange={(e) => patchLine(l.key, { qty: e.target.value.replace(/[^0-9.]/g, "") })}
-                        aria-label={`Quantity of ${l.name}`}
+                        aria-label={t("pos.qtyOf", { name: l.name })}
                       />
-                      <button onClick={() => bumpQty(l.key, 1)} className="grid h-11 w-11 place-items-center rounded-lg bg-muted transition hover:bg-primary/15" aria-label={`Increase quantity of ${l.name}`}>
+                      <button onClick={() => bumpQty(l.key, 1)} className="grid h-11 w-11 place-items-center rounded-lg bg-muted transition hover:bg-primary/15" aria-label={t("pos.incQty", { name: l.name })}>
                         <Plus size={15} />
                       </button>
                     </div>
@@ -645,14 +647,14 @@ export default function PosPage() {
                       inputMode="decimal"
                       value={l.rate}
                       onChange={(e) => patchLine(l.key, { rate: e.target.value.replace(/[^0-9.]/g, "") })}
-                      aria-label={`Rate for ${l.name}`}
-                      title="Rate"
+                      aria-label={t("pos.rateFor", { name: l.name })}
+                      title={t("pos.rateTitle")}
                     />
                     <span className="hidden w-24 shrink-0 text-right text-sm font-extrabold sm:block">
                       {fmtMoney(lineTotalPaisa(l))}
                     </span>
                     <button onClick={() => setLines((ls) => ls.filter((x) => x.key !== l.key))}
-                      className="grid h-11 w-11 shrink-0 place-items-center rounded-lg text-muted-foreground transition hover:bg-red-500/10 hover:text-red-500" aria-label={`Remove ${l.name} from cart`}>
+                      className="grid h-11 w-11 shrink-0 place-items-center rounded-lg text-muted-foreground transition hover:bg-red-500/10 hover:text-red-500" aria-label={t("pos.removeFromCart", { name: l.name })}>
                       <Trash2 size={16} />
                     </button>
                     </div>
@@ -667,29 +669,29 @@ export default function PosPage() {
         <div className="space-y-4">
           <div className="card card-gloss card-edge p-5">
             <div className="flex items-center justify-between text-sm">
-              <span className="text-muted-foreground">Subtotal ({totals.itemCount} items)</span>
+              <span className="text-muted-foreground">{t("pos.subtotal", { count: totals.itemCount })}</span>
               <span className="font-bold tabular-nums">{fmtMoney(totals.subtotal)}</span>
             </div>
             <div className="mt-3 flex items-center justify-between gap-3">
-              <label className="text-sm text-muted-foreground" htmlFor="pos-discount">Bill discount</label>
+              <label className="text-sm text-muted-foreground" htmlFor="pos-discount">{t("pos.billDiscount")}</label>
               <input id="pos-discount" className="field !w-28 !py-1.5 text-right text-sm" inputMode="decimal"
                 placeholder="0.00" value={discount}
                 onChange={(e) => setDiscount(e.target.value.replace(/[^0-9.]/g, ""))} />
             </div>
             <div className="mt-4 flex items-end justify-between border-t border-border pt-4">
-              <span className="text-sm font-bold uppercase tracking-wide text-muted-foreground">Total</span>
+              <span className="text-sm font-bold uppercase tracking-wide text-muted-foreground">{t("pos.total")}</span>
               <span className="text-gradient text-3xl font-extrabold tabular-nums tracking-tight">{fmtMoney(totals.grand)}</span>
             </div>
           </div>
 
           <div className="card card-gloss p-4 sm:p-5">
-            <p className="mb-3 text-xs font-extrabold uppercase tracking-wider text-muted-foreground">Payment</p>
+            <p className="mb-3 text-xs font-extrabold uppercase tracking-wider text-muted-foreground">{t("pos.payment")}</p>
             <div className="grid grid-cols-4 gap-2">
               {([
-                { s: "cash" as Stage, label: "Cash", icon: Banknote, cls: "tile-emerald" },
-                { s: "bank" as Stage, label: "Card", icon: CreditCard, cls: "tile-sky" },
-                { s: "split" as Stage, label: "Split", icon: SplitSquareHorizontal, cls: "tile-violet" },
-                { s: "khata" as Stage, label: "Khata", icon: Users, cls: "tile-amber" },
+                { s: "cash" as Stage, label: t("pos.payCash"), icon: Banknote, cls: "tile-emerald" },
+                { s: "bank" as Stage, label: t("pos.payCard"), icon: CreditCard, cls: "tile-sky" },
+                { s: "split" as Stage, label: t("pos.paySplit"), icon: SplitSquareHorizontal, cls: "tile-violet" },
+                { s: "khata" as Stage, label: t("pos.payKhata"), icon: Users, cls: "tile-amber" },
               ]).map((m) => (
                 <button
                   key={m.s}
@@ -707,19 +709,19 @@ export default function PosPage() {
             {stage === "cash" && (
               <div className="rise mt-4 space-y-3">
                 <div className="flex items-center justify-between gap-3">
-                  <label className="text-sm font-bold" htmlFor="pos-tendered">Cash received</label>
+                  <label className="text-sm font-bold" htmlFor="pos-tendered">{t("pos.cashReceived")}</label>
                   <input id="pos-tendered" ref={tenderedRef} className="field !w-36 !py-2.5 text-right text-lg font-extrabold"
                     inputMode="decimal" value={tendered}
                     onChange={(e) => setTendered(e.target.value.replace(/[^0-9.]/g, ""))}
                     onKeyDown={(e) => { if (e.key === "Enter") completeSale(); }} />
                 </div>
                 <div className={`flex items-center justify-between rounded-xl px-4 py-3 ${change > 0 ? "bg-amber-500/15" : "bg-muted"}`}>
-                  <span className="text-sm font-bold">Change to return</span>
+                  <span className="text-sm font-bold">{t("pos.changeReturn")}</span>
                   <span className="text-xl font-extrabold">{fmtMoney(change)}</span>
                 </div>
                 <button onClick={() => completeSale()} disabled={saving || lines.length === 0}
                   className="btn btn-primary w-full !py-3.5 text-base disabled:opacity-50">
-                  {saving ? "Saving…" : "Complete sale"} <kbd className="ml-1 rounded bg-white/20 px-1.5 text-xs">Enter</kbd>
+                  {saving ? t("pos.saving") : t("pos.completeSale")} <kbd className="ml-1 rounded bg-white/20 px-1.5 text-xs">Enter</kbd>
                 </button>
               </div>
             )}
@@ -727,47 +729,47 @@ export default function PosPage() {
             {stage === "bank" && (
               <div className="rise mt-4 space-y-3">
                 <div>
-                  <label className="mb-1.5 block text-sm font-bold" htmlFor="pos-bank">Received in</label>
+                  <label className="mb-1.5 block text-sm font-bold" htmlFor="pos-bank">{t("pos.receivedIn")}</label>
                   <select id="pos-bank" className="field !py-2.5" value={bankId} onChange={(e) => setBankId(e.target.value)}>
                     {banks.map((b) => (
-                      <option key={b.id} value={b.id}>{b.name}{b.kind === "CASH" ? " (cash)" : ""}</option>
+                      <option key={b.id} value={b.id}>{b.name}{b.kind === "CASH" ? t("pos.cashSuffix") : ""}</option>
                     ))}
                   </select>
                 </div>
                 <button onClick={() => completeSale()} disabled={saving || lines.length === 0}
                   className="btn btn-primary w-full !py-3.5 text-base disabled:opacity-50">
-                  {saving ? "Saving…" : `Charge ${fmtMoney(totals.grand)}`}
+                  {saving ? t("pos.saving") : t("pos.charge", { amount: fmtMoney(totals.grand) })}
                 </button>
               </div>
             )}
 
             {stage === "split" && (
               <div className="rise mt-4 space-y-3">
-                {tenders.map((t) => (
-                  <div key={t.key} className="flex items-center gap-2">
+                {tenders.map((td) => (
+                  <div key={td.key} className="flex items-center gap-2">
                     <select
                       className="field min-w-0 flex-1 !py-2.5 text-sm"
-                      value={t.bankId}
-                      onChange={(e) => setTenders((ts) => ts.map((x) => x.key === t.key ? { ...x, bankId: e.target.value } : x))}
-                      aria-label="Tender account"
+                      value={td.bankId}
+                      onChange={(e) => setTenders((ts) => ts.map((x) => x.key === td.key ? { ...x, bankId: e.target.value } : x))}
+                      aria-label={t("pos.tenderAccount")}
                     >
-                      <option value="">Account…</option>
+                      <option value="">{t("pos.accountPh")}</option>
                       {banks.map((b) => (
-                        <option key={b.id} value={b.id}>{b.name}{b.kind === "CASH" ? " (cash)" : ""}</option>
+                        <option key={b.id} value={b.id}>{b.name}{b.kind === "CASH" ? t("pos.cashSuffix") : ""}</option>
                       ))}
                     </select>
                     <input
                       className="field !w-28 !py-2.5 text-right text-sm font-bold"
                       inputMode="decimal"
                       placeholder="0.00"
-                      value={t.amount}
-                      onChange={(e) => setTenders((ts) => ts.map((x) => x.key === t.key ? { ...x, amount: e.target.value.replace(/[^0-9.]/g, "") } : x))}
-                      aria-label="Tender amount"
+                      value={td.amount}
+                      onChange={(e) => setTenders((ts) => ts.map((x) => x.key === td.key ? { ...x, amount: e.target.value.replace(/[^0-9.]/g, "") } : x))}
+                      aria-label={t("pos.tenderAmount")}
                     />
                     <button
-                      onClick={() => setTenders((ts) => ts.filter((x) => x.key !== t.key))}
+                      onClick={() => setTenders((ts) => ts.filter((x) => x.key !== td.key))}
                       className="grid h-11 w-11 shrink-0 place-items-center rounded-xl text-muted-foreground transition hover:bg-red-500/10 hover:text-red-500"
-                      aria-label="Remove tender"
+                      aria-label={t("pos.removeTender")}
                     >
                       <Trash2 size={16} />
                     </button>
@@ -781,10 +783,10 @@ export default function PosPage() {
                   disabled={tenders.length >= banks.length}
                   className="btn btn-ghost w-full text-sm disabled:opacity-50"
                 >
-                  <Plus size={15} /> Add tender
+                  <Plus size={15} /> {t("pos.addTender")}
                 </button>
                 <div className={`flex items-center justify-between rounded-xl px-4 py-3 ${splitRemaining === 0 ? "bg-emerald-500/15" : "bg-muted"}`}>
-                  <span className="text-sm font-bold">Remaining</span>
+                  <span className="text-sm font-bold">{t("pos.remaining")}</span>
                   <span className="text-xl font-extrabold">{fmtMoney(splitRemaining)}</span>
                 </div>
                 <label className="flex cursor-pointer items-center gap-2.5 rounded-xl bg-amber-500/10 px-4 py-3">
@@ -794,11 +796,11 @@ export default function PosPage() {
                     onChange={(e) => setSplitKhata(e.target.checked)}
                     className="h-4 w-4 accent-amber-500"
                   />
-                  <span className="text-sm font-bold">Put the remainder on khata</span>
+                  <span className="text-sm font-bold">{t("pos.remainderKhata")}</span>
                 </label>
                 {splitKhata && (
                   <div className="rise space-y-2">
-                    <input className="field !py-2.5" placeholder={`Search ${bp.partyMany.toLowerCase()}…`}
+                    <input className="field !py-2.5" placeholder={t("pos.searchPartiesPh", { parties: bp.partyMany.toLowerCase() })}
                       value={partyQ} onChange={(e) => setPartyQ(e.target.value)} />
                     {partyQ.trim().length > 0 && (
                       <ul className="max-h-44 overflow-y-auto rounded-xl border border-border">
@@ -812,13 +814,13 @@ export default function PosPage() {
                           </li>
                         ))}
                         {parties.length === 0 && (
-                          <li className="px-4 py-3 text-sm text-muted-foreground">No match — add the {bp.partyOne.toLowerCase()} from the {bp.partyMany} page first.</li>
+                          <li className="px-4 py-3 text-sm text-muted-foreground">{t("pos.noMatch", { party: bp.partyOne.toLowerCase(), parties: bp.partyMany })}</li>
                         )}
                       </ul>
                     )}
                     {khataId && partyQ && (
                       <p className="text-xs font-bold text-amber-700 dark:text-amber-300">
-                        {fmtMoney(splitRemaining)} will go on {partyQ}&apos;s khata.
+                        {t("pos.khataWillGo", { amount: fmtMoney(splitRemaining), name: partyQ })}
                       </p>
                     )}
                   </div>
@@ -826,9 +828,9 @@ export default function PosPage() {
                 <button onClick={() => completeSale()}
                   disabled={saving || lines.length === 0 || splitRemaining < 0 || (splitRemaining > 0 && !(splitKhata && khataId))}
                   className="btn btn-primary w-full !py-3.5 text-base disabled:opacity-50">
-                  {saving ? "Saving…" : splitRemaining > 0 && splitKhata && khataId
-                    ? `Complete · ${fmtMoney(totals.grand - splitRemaining)} paid + ${fmtMoney(splitRemaining)} khata`
-                    : `Complete split · ${fmtMoney(totals.grand)}`}
+                  {saving ? t("pos.saving") : splitRemaining > 0 && splitKhata && khataId
+                    ? t("pos.completeMixed", { paid: fmtMoney(totals.grand - splitRemaining), khata: fmtMoney(splitRemaining) })
+                    : t("pos.completeSplit", { total: fmtMoney(totals.grand) })}
                 </button>
               </div>
             )}
@@ -837,9 +839,9 @@ export default function PosPage() {
               <div className="rise mt-4 space-y-3">
                 <div>
                   <label className="mb-1.5 block text-sm font-bold" htmlFor="pos-party">
-                    {bp.partyOne} (credit)
+                    {t("pos.khataLabel", { party: bp.partyOne })}
                   </label>
-                  <input id="pos-party" className="field !py-2.5" placeholder={`Search ${bp.partyMany.toLowerCase()}…`}
+                  <input id="pos-party" className="field !py-2.5" placeholder={t("pos.searchPartiesPh", { parties: bp.partyMany.toLowerCase() })}
                     value={partyQ} onChange={(e) => setPartyQ(e.target.value)} />
                   {partyQ.trim().length > 0 && (
                     <ul className="mt-2 max-h-44 overflow-y-auto rounded-xl border border-border">
@@ -853,14 +855,14 @@ export default function PosPage() {
                         </li>
                       ))}
                       {parties.length === 0 && (
-                        <li className="px-4 py-3 text-sm text-muted-foreground">No match — add the {bp.partyOne.toLowerCase()} from the {bp.partyMany} page first.</li>
+                        <li className="px-4 py-3 text-sm text-muted-foreground">{t("pos.noMatch", { party: bp.partyOne.toLowerCase(), parties: bp.partyMany })}</li>
                       )}
                     </ul>
                   )}
                 </div>
                 <button onClick={() => completeSale()} disabled={saving || lines.length === 0}
                   className="btn btn-primary w-full !py-3.5 text-base disabled:opacity-50">
-                  {saving ? "Saving…" : `Save to khata · ${fmtMoney(totals.grand)}`}
+                  {saving ? t("pos.saving") : t("pos.saveToKhata", { total: fmtMoney(totals.grand) })}
                 </button>
               </div>
             )}
@@ -868,11 +870,11 @@ export default function PosPage() {
             {stage === "billing" && (
               <div className="mt-3 space-y-2">
                 <p className="text-center text-xs text-muted-foreground">
-                  Choose a payment method above to finish the bill
+                  {t("pos.chooseMethod")}
                 </p>
                 {lines.length > 0 && (
                   <button onClick={parkBill} disabled={parking} className="btn btn-ghost w-full text-sm disabled:opacity-50">
-                    <PauseCircle size={15} /> {parking ? "Parking…" : "Park this bill"}
+                    <PauseCircle size={15} /> {parking ? t("pos.parking") : t("pos.parkBill")}
                   </button>
                 )}
               </div>
@@ -884,11 +886,11 @@ export default function PosPage() {
       {/* duplicate-item protection */}
       {dupProduct && (
         <div className="fixed inset-0 z-50 grid place-items-center bg-black/50 p-4" onClick={() => setDupProduct(null)}>
-          <div role="dialog" aria-modal="true" aria-label="Item already in this bill"
+          <div role="dialog" aria-modal="true" aria-label={t("pos.dupAria")}
             className="w-full max-w-sm rounded-2xl bg-card p-6 shadow-xl" onClick={(e) => e.stopPropagation()}>
-            <h3 className="text-lg font-extrabold">Already in this bill</h3>
+            <h3 className="text-lg font-extrabold">{t("pos.dupTitle")}</h3>
             <p className="mt-1 text-sm text-muted-foreground">
-              <span className="font-bold text-foreground">{dupProduct.name}</span> is already on the bill. What should we do?
+              <span className="font-bold text-foreground">{dupProduct.name}</span> {t("pos.dupBodyAfter")}
             </p>
             <div className="mt-5 space-y-2">
               <button
@@ -896,16 +898,16 @@ export default function PosPage() {
                 className="btn btn-primary w-full"
                 onClick={() => { const p = dupProduct; setDupProduct(null); if (p) addProduct(p, "merge"); }}
               >
-                <Plus size={16} /> Increase quantity
+                <Plus size={16} /> {t("pos.dupMerge")}
               </button>
               <button
                 className="btn btn-ghost w-full"
                 onClick={() => { const p = dupProduct; setDupProduct(null); if (p) addProduct(p, "newline"); }}
               >
-                Add as a separate line
+                {t("pos.dupNewline")}
               </button>
               <button className="btn btn-ghost w-full text-muted-foreground" onClick={() => setDupProduct(null)}>
-                Cancel
+                {t("pos.cancel")}
               </button>
             </div>
           </div>
@@ -915,17 +917,17 @@ export default function PosPage() {
       {/* minimum sale price override */}
       {priceWarn && (
         <div className="fixed inset-0 z-50 grid place-items-center bg-black/50 p-4" onClick={() => setPriceWarn(null)}>
-          <div role="dialog" aria-modal="true" aria-label="Below minimum price"
+          <div role="dialog" aria-modal="true" aria-label={t("pos.minAria")}
             className="w-full max-w-sm rounded-2xl bg-card p-6 shadow-xl" onClick={(e) => e.stopPropagation()}>
-            <h3 className="text-lg font-extrabold">Below minimum price</h3>
+            <h3 className="text-lg font-extrabold">{t("pos.minTitle")}</h3>
             <p className="mt-1 text-sm text-muted-foreground">
-              These items are priced below their minimum sale price. This will be recorded in the activity log.
+              {t("pos.minBody")}
             </p>
             <ul className="mt-3 space-y-1.5">
               {priceWarn.map((w) => (
                 <li key={w.line.key} className="flex items-center justify-between gap-2 rounded-xl bg-muted/70 px-3 py-2 text-sm">
                   <span className="font-bold">{w.line.name}</span>
-                  <span className="text-muted-foreground">min Rs {w.floor}</span>
+                  <span className="text-muted-foreground">{t("pos.minFloor", { floor: w.floor })}</span>
                 </li>
               ))}
             </ul>
@@ -935,10 +937,10 @@ export default function PosPage() {
                 className="btn btn-primary w-full"
                 onClick={() => { setPriceWarn(null); completeSale(true); }}
               >
-                Sell below minimum
+                {t("pos.minSell")}
               </button>
               <button className="btn btn-ghost w-full text-muted-foreground" onClick={() => setPriceWarn(null)}>
-                Go back and fix prices
+                {t("pos.minFix")}
               </button>
             </div>
           </div>

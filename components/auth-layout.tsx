@@ -1,17 +1,22 @@
+"use client";
+
 import Link from "next/link";
 import { FileText, Wallet, BarChart3, ShieldCheck } from "lucide-react";
-import { Logo, ThemeToggle } from "./ui";
+import { Logo, ThemeToggle, LangToggle } from "./ui";
 import { brand } from "@/lib/brand";
+import { useLang } from "./lang-provider";
 import type { ReactNode } from "react";
 
 const points = [
-  { icon: FileText, title: "Bills in seconds", text: "Sales, purchases and returns with automatic accounting." },
-  { icon: Wallet, title: "Know every rupee", text: "Who owes you, who you owe — always up to date." },
-  { icon: BarChart3, title: "Real profit reports", text: "P&L, stock and ledgers in one click." },
-  { icon: ShieldCheck, title: "Safe for up to 10 years", text: "Balanced books, secure and permanent." },
+  { icon: FileText, t: "p0t", d: "p0d" },
+  { icon: Wallet, t: "p1t", d: "p1d" },
+  { icon: BarChart3, t: "p2t", d: "p2d" },
+  { icon: ShieldCheck, t: "p3t", d: "p3d" },
 ];
 
 export function AuthLayout({ children }: { children: ReactNode }) {
+  const { t } = useLang();
+  const L = (k: string, vars?: Record<string, string | number>) => t(`authlayout.${k}`, vars);
   return (
     <div className="flex min-h-screen bg-background">
       {/* Brand panel */}
@@ -34,23 +39,23 @@ export function AuthLayout({ children }: { children: ReactNode }) {
           </Link>
           <div>
             <h2 className="max-w-md text-2xl font-extrabold leading-tight tracking-tight xl:text-4xl">
-              Your entire business hisaab, finally in one place.
+              {L("headline")}
             </h2>
             <ul className="mt-8 space-y-5">
               {points.map((p) => (
-                <li key={p.title} className="flex items-start gap-4">
+                <li key={p.t} className="flex items-start gap-4">
                   <span className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl bg-white/12 backdrop-blur">
                     <p.icon size={20} className="text-emerald-100" />
                   </span>
                   <span>
-                    <span className="block font-bold">{p.title}</span>
-                    <span className="block text-sm text-emerald-100/75">{p.text}</span>
+                    <span className="block font-bold">{L(p.t)}</span>
+                    <span className="block text-sm text-emerald-100/75">{L(p.d)}</span>
                   </span>
                 </li>
               ))}
             </ul>
           </div>
-          <p className="text-xs text-emerald-100/60">© 2026 {brand.name} · Built for every business</p>
+          <p className="text-xs text-emerald-100/60">{L("footer", { brand: brand.name })}</p>
         </div>
       </aside>
 
@@ -59,7 +64,10 @@ export function AuthLayout({ children }: { children: ReactNode }) {
         <header className="flex h-16 items-center justify-between px-4 sm:px-8">
           <Link href="/" className="md:hidden"><Logo /></Link>
           <span className="hidden md:block" />
-          <ThemeToggle />
+          <div className="flex items-center gap-2">
+            <LangToggle />
+            <ThemeToggle />
+          </div>
         </header>
         <main className="relative flex flex-1 items-center justify-center px-4 pb-16">
           <div className="pointer-events-none absolute inset-0 overflow-hidden">

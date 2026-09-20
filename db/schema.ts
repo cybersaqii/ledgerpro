@@ -146,6 +146,7 @@ export const parties = sqliteTable(
     filerStatus: text("filer_status").notNull().default("NA"),
     creditLimit: money("credit_limit"),
     balance: money("balance"), // cached: +receivable / +payable
+    priceListId: text("price_list_id"), // party-wise price level (sales)
     isActive: flag("is_active", true),
     notes: text("notes"),
     createdAt: createdAt(),
@@ -190,6 +191,35 @@ export const stockLevels = sqliteTable(
     avgCost: money("avg_cost"), // paisa per base unit, moving average
   },
   (t) => [uniqueIndex("stock_product_branch").on(t.productId, t.branchId)]
+);
+
+// ─── Price lists (multiple price levels per product) ──────────
+
+export const priceLists = sqliteTable(
+  "price_lists",
+  {
+    id: id(),
+    companyId: text("company_id").notNull(),
+    name: text("name").notNull(),
+    isDefault: flag("is_default", false),
+    createdAt: createdAt(),
+  },
+  (t) => [index("price_lists_company").on(t.companyId)]
+);
+
+export const priceListItems = sqliteTable(
+  "price_list_items",
+  {
+    id: id(),
+    priceListId: text("price_list_id").notNull(),
+    productId: text("product_id").notNull(),
+    rate: money("rate"),
+  },
+  (t) => [
+    uniqueIndex("pli_list_product").on(t.priceListId, t.productId),
+    index("pli_list").on(t.priceListId),
+    index("pli_product").on(t.productId),
+  ]
 );
 
 // ─── Sales / purchase documents ────────────────────────────────

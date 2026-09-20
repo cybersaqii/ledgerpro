@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { Crown, Clock, Check, Copy, BadgeCheck, Hourglass, XCircle } from "lucide-react";
 import { PageHeader, Field, ErrorNote, EmptyState } from "@/components/ui";
 import { api, fmtMoney } from "@/lib/format";
+import { useLang } from "@/components/lang-provider";
 
 type Status = {
   level: "TRIAL" | "PRO" | "FREE";
@@ -22,15 +23,8 @@ type Payment = {
   months: number; status: string; note: string | null; createdAt: string;
 };
 
-const PRO_POINTS = [
-  "POS with split payments & held bills",
-  "Staff / team accounts",
-  "Accounting period lock",
-  "CSV import, exports & full backup",
-  "Advanced reports: P&L, balance sheet, journal",
-];
-
 export default function BillingPage() {
+  const { t } = useLang();
   const [status, setStatus] = useState<Status | null>(null);
   const [payments, setPayments] = useState<Payment[]>([]);
   const [loading, setLoading] = useState(true);
@@ -42,18 +36,26 @@ export default function BillingPage() {
   const [done, setDone] = useState(false);
   const [copied, setCopied] = useState<string | null>(null);
 
+  const PRO_POINTS = [
+    t("billing.point0"),
+    t("billing.point1"),
+    t("billing.point2"),
+    t("billing.point3"),
+    t("billing.point4"),
+  ];
+
   useEffect(() => {
     Promise.all([
       api<{ data: Status }>("/api/billing/status").then((d) => setStatus(d.data)),
       api<{ data: Payment[] }>("/api/billing/payments").then((d) => setPayments(d.data)).catch(() => {}),
     ])
-      .catch(() => setError("Could not load billing info."))
+      .catch(() => setError(t("billing.loadError")))
       .finally(() => setLoading(false));
-  }, []);
+  }, [t]);
 
   async function submit() {
     setError(null); setDone(false);
-    if (reference.trim().length < 4) { setError("Enter the transaction reference."); return; }
+    if (reference.trim().length < 4) { setError(t("billing.refRequired")); return; }
     setSubmitting(true);
     try {
       await api("/api/billing/payments", {
@@ -64,7 +66,7 @@ export default function BillingPage() {
       const d = await api<{ data: Payment[] }>("/api/billing/payments");
       setPayments(d.data);
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Could not submit payment.");
+      setError(e instanceof Error ? e.message : t("billing.submitError"));
     } finally {
       setSubmitting(false);
     }
@@ -76,15 +78,15 @@ export default function BillingPage() {
     setTimeout(() => setCopied(null), 1500);
   }
 
-  if (loading) return <PageHeader title="Billing" subtitle="Plans & subscription" icon={<Crown size={22} />} />;
-  if (!status) return <PageHeader title="Billing" subtitle="Plans & subscription" icon={<Crown size={22} />} />;
+  if (loading) return <PageHeader title={t("billing.title")} subtitle={t("billing.subtitle")} icon={<Crown size={22} />} />;
+  if (!status) return <PageHeader title={t("billing.title")} subtitle={t("billing.subtitle")} icon={<Crown size={22} />} />;
 
-  const planName = status.level === "TRIAL" ? "Free trial" : status.level === "PRO" ? "PRO" : "Free";
+  const planName = status.level === "TRIAL" ? t("billing.freeTrial") : status.level === "PRO" ? t("billing.pro") : t("billing.free");
   const price = months === 12 ? status.prices.yearlyPaisa : status.prices.monthlyPaisa;
 
   return (
     <div className="space-y-6">
-      <PageHeader title="Billing" subtitle="Plans & subscription" icon={<Crown size={22} />} />
+      <PageHeader title={t("billing.title")} subtitle={t("billing.subtitle")} icon={<Crown size={22} />} />
 
       {/* Current status */}
       <div className="card card-gloss card-edge rise rise-1 p-5 sm:p-6">
@@ -92,30 +94,29 @@ export default function BillingPage() {
           <div className="flex items-center gap-4">
             <span className="tile tile-primary h-14 w-14"><Crown size={24} /></span>
             <div>
-              <p className="text-[0.72rem] font-semibold uppercase tracking-wider text-muted-foreground">Current plan</p>
+              <p className="text-[0.72rem] font-semibold uppercase tracking-wider text-muted-foreground">{t("billing.currentPlan")}</p>
               <p className="text-2xl font-extrabold tracking-tight">{planName}</p>
             </div>
           </div>
           {status.level === "TRIAL" && (
             <span className="inline-flex items-center gap-1.5 rounded-full bg-gradient-to-r from-amber-100 to-orange-100 px-3.5 py-1.5 text-sm font-bold text-amber-800 shadow-sm dark:from-amber-900/50 dark:to-orange-900/50 dark:text-amber-200">
-              <Clock size={15} /> {status.trialDaysLeft} day{status.trialDaysLeft === 1 ? "" : "s"} left
+              <Clock size={15} /> {t("billing.daysLeftOther", { count: status.trialDaysLeft })}
             </span>
           )}
           {status.level === "PRO" && status.proExpiresAt && (
             <span className="inline-flex items-center gap-1.5 rounded-full bg-gradient-to-r from-emerald-100 to-teal-100 px-3.5 py-1.5 text-sm font-bold text-emerald-800 shadow-sm dark:from-emerald-900/50 dark:to-teal-900/50 dark:text-emerald-200">
-              <BadgeCheck size={15} /> Active until {status.proExpiresAt.slice(0, 10)}
+              <BadgeCheck size={15} /> {t("billing.activeUntil", { date: status.proExpiresAt.slice(0, 10) })}
             </span>
           )}
           {status.level === "FREE" && (
             <span className="inline-flex items-center gap-1.5 rounded-full bg-gradient-to-r from-rose-100 to-pink-100 px-3.5 py-1.5 text-sm font-bold text-rose-800 shadow-sm dark:from-rose-900/50 dark:to-pink-900/50 dark:text-rose-200">
-              <Crown size={15} /> Trial ended
+              <Crown size={15} /> {t("billing.trialEnded")}
             </span>
           )}
         </div>
         {status.level === "FREE" && (
           <p className="mt-3 text-sm text-muted-foreground">
-            Free plan includes dashboard, sales &amp; purchase entry, parties, products, payments, expenses and basic reports.
-            Upgrade to PRO to unlock everything again.
+            {t("billing.freeHint")}
           </p>
         )}
       </div>
@@ -125,8 +126,8 @@ export default function BillingPage() {
           {/* Plans */}
           <div className="rise rise-2 grid gap-4 sm:grid-cols-2">
             {([
-              { m: 1 as const, name: "Monthly", paisa: status.prices.monthlyPaisa, hint: "billed every month", tag: null as string | null },
-              { m: 12 as const, name: "Yearly", paisa: status.prices.yearlyPaisa, hint: "billed once a year", tag: "Save 17%" },
+              { m: 1 as const, name: t("billing.monthly"), paisa: status.prices.monthlyPaisa, hint: t("billing.billedMonthly"), tag: null as string | null },
+              { m: 12 as const, name: t("billing.yearly"), paisa: status.prices.yearlyPaisa, hint: t("billing.billedYearly"), tag: t("billing.save17") },
             ]).map((p) => (
               <button
                 key={p.m}
@@ -151,7 +152,7 @@ export default function BillingPage() {
 
           {/* What's in PRO */}
           <div className="card card-gloss rise rise-3 p-5 sm:p-6">
-            <p className="text-base font-extrabold tracking-tight">Everything in PRO</p>
+            <p className="text-base font-extrabold tracking-tight">{t("billing.proTitle")}</p>
             <ul className="mt-3 grid gap-2.5 text-sm sm:grid-cols-2">
               {PRO_POINTS.map((pt) => (
                 <li key={pt} className="flex items-center gap-2.5 text-muted-foreground">
@@ -164,19 +165,19 @@ export default function BillingPage() {
 
           {/* Pay + submit */}
           <div className="card card-gloss rise rise-4 space-y-4 p-5 sm:p-6">
-            <p className="text-base font-extrabold tracking-tight">Pay &amp; activate</p>
+            <p className="text-base font-extrabold tracking-tight">{t("billing.payTitle")}</p>
             <ol className="list-decimal space-y-1 pl-5 text-sm text-muted-foreground">
-              <li>Transfer <strong className="text-foreground">{fmtMoney(price)}</strong> to any account below.</li>
-              <li>Submit the transaction reference here — PRO activates after verification.</li>
+              <li>{t("billing.payStep1", { amount: fmtMoney(price) })}</li>
+              <li>{t("billing.payStep2")}</li>
             </ol>
             {([
-              { label: "Bank transfer", value: status.paymentDetails.bank, key: "bank" },
-              { label: "JazzCash", value: status.paymentDetails.jazzcash, key: "jazzcash" },
-              { label: "EasyPaisa", value: status.paymentDetails.easypaisa, key: "easypaisa" },
+              { label: t("billing.bankTransfer"), value: status.paymentDetails.bank, key: "bank" },
+              { label: t("billing.jazzcash"), value: status.paymentDetails.jazzcash, key: "jazzcash" },
+              { label: t("billing.easypaisa"), value: status.paymentDetails.easypaisa, key: "easypaisa" },
             ]).filter((r) => r.value && r.value !== "—").map((r) => (
               <div key={r.key} className="card-lift flex items-center justify-between gap-3 rounded-xl border border-border bg-muted/50 px-3.5 py-2.5 text-sm">
                 <span><strong>{r.label}:</strong> {r.value}</span>
-                <button onClick={() => copy(r.value, r.key)} className="btn btn-ghost !min-h-0 !px-2.5 !py-1.5 text-xs" aria-label={`Copy ${r.label}`}>
+                <button onClick={() => copy(r.value, r.key)} className="btn btn-ghost !min-h-0 !px-2.5 !py-1.5 text-xs" aria-label={t("billing.copyLabel", { label: r.label })}>
                   {copied === r.key ? <Check size={14} /> : <Copy size={14} />}
                 </button>
               </div>
@@ -186,24 +187,24 @@ export default function BillingPage() {
             )}
 
             <div className="grid gap-4 pt-2 sm:grid-cols-3">
-              <Field label="Method">
+              <Field label={t("billing.method")}>
                 <select className="field" value={method} onChange={(e) => setMethod(e.target.value)}>
-                  <option value="BANK">Bank transfer</option>
-                  <option value="JAZZCASH">JazzCash</option>
-                  <option value="EASYPAISA">EasyPaisa</option>
+                  <option value="BANK">{t("billing.methodBank")}</option>
+                  <option value="JAZZCASH">{t("billing.methodJazzcash")}</option>
+                  <option value="EASYPAISA">{t("billing.methodEasypaisa")}</option>
                 </select>
               </Field>
-              <Field label="Transaction reference" hint="From your bank / JazzCash / EasyPaisa receipt">
-                <input className="field" value={reference} onChange={(e) => setReference(e.target.value)} placeholder="e.g. FT123456789" maxLength={60} />
+              <Field label={t("billing.refLabel")} hint={t("billing.refHint")}>
+                <input className="field" value={reference} onChange={(e) => setReference(e.target.value)} placeholder={t("billing.refPh")} maxLength={60} />
               </Field>
-              <Field label="Amount">
+              <Field label={t("billing.amount")}>
                 <input className="field" value={fmtMoney(price)} disabled />
               </Field>
             </div>
             <ErrorNote message={error} />
-            {done && <p className="text-sm font-semibold text-emerald-600">Submitted! We&apos;ll verify and activate your PRO plan soon.</p>}
+            {done && <p className="text-sm font-semibold text-emerald-600">{t("billing.submitted")}</p>}
             <button onClick={submit} disabled={submitting} className="btn btn-accent w-full sm:w-auto">
-              {submitting ? "Submitting…" : `Submit payment — ${fmtMoney(price)}`}
+              {submitting ? t("billing.submitting") : t("billing.submitPay", { amount: fmtMoney(price) })}
             </button>
           </div>
         </>
@@ -212,20 +213,20 @@ export default function BillingPage() {
       {/* History */}
       {status.isOwner && (
         <div className="card card-gloss rise p-5 sm:p-6">
-          <p className="text-base font-extrabold tracking-tight">Payment history</p>
+          <p className="text-base font-extrabold tracking-tight">{t("billing.history")}</p>
           {payments.length === 0 ? (
-            <div className="mt-2"><EmptyState title="No payments yet" hint="Your submitted payments will appear here." /></div>
+            <div className="mt-2"><EmptyState title={t("billing.noPayments")} hint={t("billing.noPaymentsHint")} /></div>
           ) : (
             <div className="mt-3 space-y-2">
               {payments.map((p) => (
                 <div key={p.id} className="card-lift flex flex-wrap items-center justify-between gap-2 rounded-xl border border-border px-3.5 py-2.5 text-sm">
                   <span>
-                    <strong>{p.months === 12 ? "Yearly" : "Monthly"}</strong> · {fmtMoney(p.amountPaisa)} · {p.method} · <span className="text-muted-foreground">ref {p.reference}</span>
+                    <strong>{p.months === 12 ? t("billing.yearly") : t("billing.monthly")}</strong> · {fmtMoney(p.amountPaisa)} · {p.method} · <span className="text-muted-foreground">{t("billing.refLabel")} {p.reference}</span>
                     <span className="block text-xs text-muted-foreground">{p.createdAt.slice(0, 10)}{p.note ? ` — ${p.note}` : ""}</span>
                   </span>
-                  {p.status === "PENDING" && <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-2.5 py-1 text-xs font-bold text-amber-800 dark:bg-amber-900/40 dark:text-amber-200"><Hourglass size={12} /> Pending</span>}
-                  {p.status === "APPROVED" && <span className="inline-flex items-center gap-1 rounded-full bg-emerald-100 px-2.5 py-1 text-xs font-bold text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-200"><BadgeCheck size={12} /> Approved</span>}
-                  {p.status === "REJECTED" && <span className="inline-flex items-center gap-1 rounded-full bg-rose-100 px-2.5 py-1 text-xs font-bold text-rose-800 dark:bg-rose-900/40 dark:text-rose-200"><XCircle size={12} /> Rejected</span>}
+                  {p.status === "PENDING" && <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-2.5 py-1 text-xs font-bold text-amber-800 dark:bg-amber-900/40 dark:text-amber-200"><Hourglass size={12} /> {t("billing.pending")}</span>}
+                  {p.status === "APPROVED" && <span className="inline-flex items-center gap-1 rounded-full bg-emerald-100 px-2.5 py-1 text-xs font-bold text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-200"><BadgeCheck size={12} /> {t("billing.approved")}</span>}
+                  {p.status === "REJECTED" && <span className="inline-flex items-center gap-1 rounded-full bg-rose-100 px-2.5 py-1 text-xs font-bold text-rose-800 dark:bg-rose-900/40 dark:text-rose-200"><XCircle size={12} /> {t("billing.rejected")}</span>}
                 </div>
               ))}
             </div>

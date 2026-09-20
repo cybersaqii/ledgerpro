@@ -5,6 +5,7 @@ import { Plus, CalendarDays, ReceiptText } from "lucide-react";
 import { PageHeader, EmptyState, Field, ErrorNote, FilterBar, SummaryChips, Pagination } from "@/components/ui";
 import { Modal } from "@/components/modal";
 import { api, fmtMoney, fmtDate, fmtDateInput, toBig } from "@/lib/format";
+import { useLang } from "@/components/lang-provider";
 
 type Expense = {
   id: string; date: number; amount: string; taxAmount: string; notes: string | null;
@@ -16,6 +17,7 @@ type Bank = { id: string; name: string };
 const PER_PAGE = 20;
 
 export default function ExpensesPage() {
+  const { t } = useLang();
   const [rows, setRows] = useState<Expense[]>([]);
   const [total, setTotal] = useState(0);
   const [sum, setSum] = useState("0");
@@ -82,7 +84,7 @@ export default function ExpensesPage() {
       setModal(false);
       load();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Could not save.");
+      setError(err instanceof Error ? err.message : t("expenses.saveError"));
     } finally { setSaving(false); }
   }
 
@@ -92,35 +94,35 @@ export default function ExpensesPage() {
   return (
     <div>
       <PageHeader
-        title="Expenses"
-        subtitle="Rent, salaries, fuel and other business costs"
+        title={t("expenses.title")}
+        subtitle={t("expenses.subtitle")}
         icon={<ReceiptText size={20} />}
-        actions={<button className="btn btn-primary text-sm" onClick={openModal}><Plus size={16} /> Add expense</button>}
+        actions={<button className="btn btn-primary text-sm" onClick={openModal}><Plus size={16} /> {t("expenses.addExpense")}</button>}
       />
 
       <FilterBar>
-        <select className="field !w-auto !py-2 text-xs font-semibold" value={accountId} onChange={(e) => setAccountId(e.target.value)} aria-label="Expense account">
-          <option value="">All accounts</option>
+        <select className="field !w-auto !py-2 text-xs font-semibold" value={accountId} onChange={(e) => setAccountId(e.target.value)} aria-label={t("expenses.accountFilter")}>
+          <option value="">{t("expenses.allAccounts")}</option>
           {accounts.map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}
         </select>
         <div className="flex items-center gap-2">
           <CalendarDays size={15} className="shrink-0 text-muted-foreground" />
-          <input type="date" className="field !w-auto !py-2 text-xs" value={from} onChange={(e) => setFrom(e.target.value)} aria-label="From date" />
-          <span className="text-xs text-muted-foreground">to</span>
-          <input type="date" className="field !w-auto !py-2 text-xs" value={to} onChange={(e) => setTo(e.target.value)} aria-label="To date" />
+          <input type="date" className="field !w-auto !py-2 text-xs" value={from} onChange={(e) => setFrom(e.target.value)} aria-label={t("payments.fromDate")} />
+          <span className="text-xs text-muted-foreground">{t("payments.toWord")}</span>
+          <input type="date" className="field !w-auto !py-2 text-xs" value={to} onChange={(e) => setTo(e.target.value)} aria-label={t("payments.toDate")} />
         </div>
         {hasFilter && (
           <button className="text-xs font-bold text-danger hover:underline"
             onClick={() => { setFrom(""); setTo(""); setAccountId(""); }}>
-            Clear filters
+            {t("expenses.clearFilters")}
           </button>
         )}
       </FilterBar>
 
       {!loading && (
         <SummaryChips items={[
-          { label: "Expenses", value: total.toLocaleString() },
-          { label: "Total spent", value: fmtMoney(toBig(sum)), tone: "danger" },
+          { label: t("expenses.sumCount"), value: total.toLocaleString() },
+          { label: t("expenses.sumTotal"), value: fmtMoney(toBig(sum)), tone: "danger" },
         ]} />
       )}
 
@@ -128,13 +130,13 @@ export default function ExpensesPage() {
         {loading ? (
           <div className="space-y-3 p-5">{[1, 2, 3, 4, 5].map((i) => <div key={i} className="skeleton h-12 rounded-xl" />)}</div>
         ) : rows.length === 0 ? (
-          <EmptyState title="No expenses found"
-            hint={hasFilter ? "Try widening the date range or clearing filters." : "Record rent, salaries, fuel and other business expenses."}
-            action={!hasFilter ? <button className="btn btn-primary text-sm" onClick={openModal}><Plus size={16} /> Add now</button> : undefined} />
+          <EmptyState title={t("expenses.emptyTitle")}
+            hint={hasFilter ? t("expenses.emptyHintFilter") : t("expenses.emptyHint")}
+            action={!hasFilter ? <button className="btn btn-primary text-sm" onClick={openModal}><Plus size={16} /> {t("expenses.addNow")}</button> : undefined} />
         ) : (
           <div className="overflow-x-auto">
             <table className="tbl">
-              <thead><tr><th>Date</th><th>Account</th><th>Paid from</th><th>Notes</th><th className="num">Amount</th></tr></thead>
+              <thead><tr><th>{t("expenses.colDate")}</th><th>{t("expenses.colAccount")}</th><th>{t("expenses.colPaidFrom")}</th><th>{t("expenses.colNotes")}</th><th className="num">{t("expenses.colAmount")}</th></tr></thead>
               <tbody>
                 {rows.map((x) => (
                   <tr key={x.id}>
@@ -154,29 +156,29 @@ export default function ExpensesPage() {
       <Pagination page={page} perPage={PER_PAGE} total={total} onPage={setPage} />
 
       {modal && (
-        <Modal title="Add expense" onClose={() => setModal(false)}>
+        <Modal title={t("expenses.modalTitle")} onClose={() => setModal(false)}>
           <form onSubmit={save} className="space-y-4">
             <ErrorNote message={error} />
             <div className="grid gap-4 sm:grid-cols-2">
-              <Field label="Expense account">
+              <Field label={t("expenses.expenseAccount")}>
                 <select className="field" required value={form.accountId} onChange={set("accountId")}>
-                  <option value="">Select…</option>
+                  <option value="">{t("expenses.selectPlaceholder")}</option>
                   {accounts.map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}
                 </select>
               </Field>
-              <Field label="Paid from">
+              <Field label={t("expenses.paidFrom")}>
                 <select className="field" required value={form.bankAccountId} onChange={set("bankAccountId")}>
-                  <option value="">Select…</option>
+                  <option value="">{t("expenses.selectPlaceholder")}</option>
                   {banks.map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}
                 </select>
               </Field>
-              <Field label="Date"><input type="date" className="field" required value={form.date} onChange={set("date")} /></Field>
-              <Field label="Amount (Rs)"><input className="field num" type="number" min="0" step="0.01" required value={form.amount} onChange={set("amount")} placeholder="0.00" /></Field>
+              <Field label={t("expenses.date")}><input type="date" className="field" required value={form.date} onChange={set("date")} /></Field>
+              <Field label={t("expenses.amount")}><input className="field num" type="number" min="0" step="0.01" required value={form.amount} onChange={set("amount")} placeholder="0.00" /></Field>
             </div>
-            <Field label="Notes (optional)"><input className="field" value={form.notes} onChange={set("notes")} placeholder="e.g. Shop rent for September" /></Field>
+            <Field label={t("expenses.notes")}><input className="field" value={form.notes} onChange={set("notes")} placeholder={t("expenses.notesPlaceholder")} /></Field>
             <div className="flex justify-end gap-2 pt-2">
-              <button type="button" className="btn btn-ghost" onClick={() => setModal(false)}>Cancel</button>
-              <button className="btn btn-primary" disabled={saving}>{saving ? "Saving…" : "Save expense"}</button>
+              <button type="button" className="btn btn-ghost" onClick={() => setModal(false)}>{t("common.cancel")}</button>
+              <button className="btn btn-primary" disabled={saving}>{saving ? t("common.saving") : t("expenses.saveExpense")}</button>
             </div>
           </form>
         </Modal>

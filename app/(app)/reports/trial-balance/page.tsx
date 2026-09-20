@@ -2,12 +2,15 @@
 
 import { useEffect, useState } from "react";
 import { CheckCircle2, TriangleAlert } from "lucide-react";
-import { PageHeader } from "@/components/ui";
+import { PageHeader, ExportCsv } from "@/components/ui";
+import { csvMoney } from "@/lib/csv";
 import { api, fmtMoney } from "@/lib/format";
+import { useLang } from "@/components/lang-provider";
 
 type Line = { code: string; name: string; type: string; debit: string; credit: string };
 
 export default function TrialBalancePage() {
+  const { t } = useLang();
   const [lines, setLines] = useState<Line[]>([]);
   const [totalD, setTotalD] = useState("0");
   const [totalC, setTotalC] = useState("0");
@@ -29,19 +32,24 @@ export default function TrialBalancePage() {
   return (
     <div>
       <PageHeader
-        title="Trial balance"
-        subtitle="Debits and credits of every account"
-        actions={
-          balanced
-            ? <span className="badge bg-primary-soft text-primary !text-xs !py-1.5 !px-3"><CheckCircle2 size={13} /> Balanced</span>
-            : <span className="badge bg-danger-soft text-danger !text-xs !py-1.5 !px-3"><TriangleAlert size={13} /> Out of balance</span>
-        }
+        title={t("trialbalance.title")}
+        subtitle={t("trialbalance.subtitle")}
+        actions={<>
+          {balanced
+            ? <span className="badge bg-primary-soft text-primary !text-xs !py-1.5 !px-3"><CheckCircle2 size={13} /> {t("trialbalance.balanced")}</span>
+            : <span className="badge bg-danger-soft text-danger !text-xs !py-1.5 !px-3"><TriangleAlert size={13} /> {t("trialbalance.outOfBalance")}</span>}
+          <ExportCsv filename="trial-balance" disabled={loading || lines.length === 0} rows={() => [
+            [t("trialbalance.colCode"), t("trialbalance.colAccount"), t("trialbalance.colType"), t("trialbalance.csvDebit"), t("trialbalance.csvCredit")],
+            ...lines.map((l) => [l.code, l.name, l.type, csvMoney(l.debit), csvMoney(l.credit)]),
+            ["", t("trialbalance.csvTotal"), "", csvMoney(totalD), csvMoney(totalC)],
+          ]} />
+        </>}
       />
       <div className="card rise rise-1 overflow-hidden">
         {loading ? <div className="space-y-3 p-5">{[1, 2, 3].map((i) => <div key={i} className="skeleton h-12 rounded-xl" />)}</div> : (
           <div className="overflow-x-auto">
             <table className="tbl">
-              <thead><tr><th>Code</th><th>Account</th><th>Type</th><th className="num">Debit</th><th className="num">Credit</th></tr></thead>
+              <thead><tr><th>{t("trialbalance.colCode")}</th><th>{t("trialbalance.colAccount")}</th><th>{t("trialbalance.colType")}</th><th className="num">{t("trialbalance.colDebit")}</th><th className="num">{t("trialbalance.colCredit")}</th></tr></thead>
               <tbody>
                 {Object.entries(groups).map(([type, ls]) => (
                   <>
@@ -60,7 +68,7 @@ export default function TrialBalancePage() {
               </tbody>
               <tfoot>
                 <tr className="border-t-2 border-border">
-                  <td colSpan={3} className="!py-3 font-extrabold">Total</td>
+                  <td colSpan={3} className="!py-3 font-extrabold">{t("common.total")}</td>
                   <td className="num !py-3 font-extrabold">{fmtMoney(totalD)}</td>
                   <td className="num !py-3 font-extrabold">{fmtMoney(totalC)}</td>
                 </tr>

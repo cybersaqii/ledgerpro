@@ -10,6 +10,7 @@ import {
 import { PageHeader, Stat, EmptyState } from "@/components/ui";
 import { api, fmtMoney, fmtDate } from "@/lib/format";
 import { useBusinessProfile } from "@/components/business-type";
+import { useLang } from "@/components/lang-provider";
 import {
   ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, CartesianGrid,
 } from "recharts";
@@ -34,6 +35,7 @@ async function loadSampleDataNow(): Promise<void> {
 
 export default function DashboardPage() {
   const bp = useBusinessProfile();
+  const { t } = useLang();
   const [data, setData] = useState<DashboardData | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [showRecoveryNudge, setShowRecoveryNudge] = useState(false);
@@ -47,25 +49,25 @@ export default function DashboardPage() {
     try {
       setData(await api<{ kpis: DashboardData["kpis"]; recentSales: DashboardData["recentSales"]; salesTrend: DashboardData["salesTrend"] }>("/api/dashboard"));
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Could not load dashboard.");
+      setError(e instanceof Error ? e.message : t("dashboard.loadError"));
     }
   }
 
   const quickActions = [
     { href: "/sales/new", label: bp.newSale, icon: ShoppingCart, cls: "tile-primary" },
-    { href: "/purchases/new", label: "New purchase", icon: Truck, cls: "tile-accent" },
-    { href: "/payments/new?kind=RECEIPT", label: "Receive", icon: ArrowDownToLine, cls: "tile-emerald" },
-    { href: "/payments/new?kind=PAYMENT", label: "Pay", icon: ArrowUpFromLine, cls: "tile-sky" },
-    { href: "/expenses", label: "Expense", icon: ReceiptText, cls: "tile-violet" },
+    { href: "/purchases/new", label: t("dashboard.qaNewPurchase"), icon: Truck, cls: "tile-accent" },
+    { href: "/payments/new?kind=RECEIPT", label: t("dashboard.qaReceive"), icon: ArrowDownToLine, cls: "tile-emerald" },
+    { href: "/payments/new?kind=PAYMENT", label: t("dashboard.qaPay"), icon: ArrowUpFromLine, cls: "tile-sky" },
+    { href: "/expenses", label: t("dashboard.qaExpense"), icon: ReceiptText, cls: "tile-violet" },
     { href: "/parties", label: bp.partyMany, icon: Users, cls: "tile-amber" },
     { href: "/products", label: bp.productMany, icon: Package, cls: "tile-rose" },
-    { href: "/reports", label: "Reports", icon: BarChart3, cls: "tile-cyan" },
+    { href: "/reports", label: t("dashboard.qaReports"), icon: BarChart3, cls: "tile-cyan" },
   ];
 
   useEffect(() => {
     api<{ kpis: DashboardData["kpis"]; recentSales: DashboardData["recentSales"]; salesTrend: DashboardData["salesTrend"] }>("/api/dashboard")
       .then(setData)
-      .catch((e) => setError(e instanceof Error ? e.message : "Could not load dashboard."));
+      .catch((e) => setError(e instanceof Error ? e.message : t("dashboard.loadError")));
     // Nudge pre-recovery-code accounts to generate one (dismissible, once).
     if (typeof window !== "undefined" && !localStorage.getItem("lp-recovery-nudge-dismissed")) {
       api<{ hasCode: boolean }>("/api/auth/recovery-status")
@@ -78,19 +80,19 @@ export default function DashboardPage() {
         .then((d) => { if (d.data.some((s) => !s.done)) setSteps(d.data); })
         .catch(() => {});
     }
-  }, []);
+  }, [t]);
 
   if (error) return (
     <div>
-      <PageHeader title="Dashboard" icon={<LayoutDashboard size={20} />} />
+      <PageHeader title={t("dashboard.title")} icon={<LayoutDashboard size={20} />} />
       <div className="card card-gloss mx-auto flex max-w-lg flex-col items-center gap-3 p-8 text-center">
         <span className="tile tile-danger h-14 w-14">
           <TriangleAlert size={26} />
         </span>
-        <h2 className="text-lg font-extrabold">Could not load the dashboard</h2>
+        <h2 className="text-lg font-extrabold">{t("dashboard.loadError")}</h2>
         <p className="text-sm text-muted-foreground">{error}</p>
         <button className="btn btn-primary text-sm" onClick={retry}>
-          <RotateCcw size={15} /> Try again
+          <RotateCcw size={15} /> {t("ui.tryAgain")}
         </button>
       </div>
     </div>
@@ -98,7 +100,7 @@ export default function DashboardPage() {
   if (!data) {
     return (
       <div>
-        <PageHeader title="Dashboard" subtitle="Loading your numbers…" />
+        <PageHeader title={t("dashboard.title")} subtitle={t("dashboard.loading")} />
         <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
           {[1, 2, 3, 4].map((i) => <div key={i} className="card h-28"><div className="skeleton h-full rounded-[var(--radius)]" /></div>)}
         </div>
@@ -112,8 +114,8 @@ export default function DashboardPage() {
   return (
     <div>
       <PageHeader
-        title="Dashboard"
-        subtitle="Your business at a glance"
+        title={t("dashboard.title")}
+        subtitle={t("dashboard.subtitle")}
         icon={<LayoutDashboard size={20} />}
       />
 
@@ -124,16 +126,16 @@ export default function DashboardPage() {
             <KeyRound size={19} />
           </span>
           <div className="min-w-0 flex-1">
-            <p className="font-extrabold text-amber-900 dark:text-amber-100">Secure your account</p>
+            <p className="font-extrabold text-amber-900 dark:text-amber-100">{t("dashboard.secureAccount")}</p>
             <p className="mt-0.5 text-sm text-amber-800/90 dark:text-amber-200/80">
-              You don&apos;t have a recovery code yet — generate one so you can reset your password if you ever forget it.
+              {t("dashboard.secureHint")}
             </p>
             <Link href="/settings" className="mt-2 inline-block text-sm font-bold text-amber-900 underline underline-offset-2 hover:text-amber-700 dark:text-amber-100">
-              Go to Settings → Password &amp; recovery
+              {t("dashboard.secureLink")}
             </Link>
           </div>
           <button
-            aria-label="Dismiss"
+            aria-label={t("dashboard.dismiss")}
             onClick={() => { setShowRecoveryNudge(false); try { localStorage.setItem("lp-recovery-nudge-dismissed", "1"); } catch {} }}
             className="grid h-11 w-11 shrink-0 place-items-center rounded-lg text-amber-700/70 transition hover:bg-amber-500/15 dark:text-amber-300/70"
           >
@@ -151,14 +153,14 @@ export default function DashboardPage() {
                 <ListChecks size={19} />
               </span>
               <div>
-                <p className="font-extrabold">Get set up</p>
+                <p className="font-extrabold">{t("dashboard.getSetUp")}</p>
                 <p className="text-sm text-muted-foreground">
-                  {steps.filter((s) => s.done).length} of {steps.length} done — a few steps and you&apos;re running.
+                  {t("dashboard.stepsDone", { done: steps.filter((s) => s.done).length, total: steps.length })}
                 </p>
               </div>
             </div>
             <button
-              aria-label="Dismiss"
+              aria-label={t("dashboard.dismiss")}
               onClick={() => { setSteps(null); try { localStorage.setItem("lp-onboarding-dismissed", "1"); } catch {} }}
               className="grid h-11 w-11 shrink-0 place-items-center rounded-lg text-muted-foreground transition hover:bg-muted"
             >
@@ -189,7 +191,7 @@ export default function DashboardPage() {
                       <span className="block truncate text-xs text-muted-foreground">{s.hint}</span>
                     </span>
                     <span className="shrink-0 rounded-full bg-primary-soft px-3 py-1.5 text-xs font-extrabold text-primary">
-                      {sampleBusy ? "Loading…" : "Load now"}
+                      {sampleBusy ? t("common.loading") : t("dashboard.loadNow")}
                     </span>
                   </button>
                 ) : (
@@ -232,12 +234,12 @@ export default function DashboardPage() {
               <Zap size={22} />
             </span>
             <span className="min-w-0">
-              <span className="block truncate font-extrabold">Open POS billing</span>
-              <span className="block truncate text-sm text-muted-foreground">Fast counter checkout — scan, tap, done</span>
+              <span className="block truncate font-extrabold">{t("dashboard.posTitle")}</span>
+              <span className="block truncate text-sm text-muted-foreground">{t("dashboard.posHint")}</span>
             </span>
           </span>
           <span className="btn btn-primary shrink-0 !py-2 text-sm">
-            Start <ArrowRight size={16} />
+            {t("dashboard.posStart")} <ArrowRight size={16} />
           </span>
         </Link>
       )}
@@ -256,27 +258,27 @@ export default function DashboardPage() {
       </div>
 
       <div className="stagger-rise grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <Stat label={`${bp.salesNav} today`} value={fmtMoney(k.salesToday)} icon={<TrendingUp size={20} />} tone="primary" />
-        <Stat label={`${bp.salesNav} this month`} value={fmtMoney(k.salesMonth)} icon={<ShoppingBag size={20} />} tone="primary" />
-        <Stat label={bp.receivables} value={fmtMoney(k.receivables)} sub={`From ${bp.partyMany.toLowerCase()}`} icon={<ArrowDownToLine size={20} />} tone="accent" />
-        <Stat label="To pay" value={fmtMoney(k.payables)} sub="To suppliers" icon={<ArrowUpFromLine size={20} />} tone="danger" />
-        <Stat label="Cash & bank" value={fmtMoney(k.cashAndBank)} icon={<Landmark size={20} />} tone="neutral" />
-        <Stat label="Expenses (month)" value={fmtMoney(k.expensesMonth)} icon={<ReceiptText size={20} />} tone="neutral" />
+        <Stat label={`${bp.salesNav} ${t("dashboard.today")}`} value={fmtMoney(k.salesToday)} icon={<TrendingUp size={20} />} tone="primary" />
+        <Stat label={`${bp.salesNav} ${t("dashboard.thisMonth")}`} value={fmtMoney(k.salesMonth)} icon={<ShoppingBag size={20} />} tone="primary" />
+        <Stat label={bp.receivables} value={fmtMoney(k.receivables)} sub={t("dashboard.fromParties", { parties: bp.partyMany.toLowerCase() })} icon={<ArrowDownToLine size={20} />} tone="accent" />
+        <Stat label={t("dashboard.toPay")} value={fmtMoney(k.payables)} sub={t("dashboard.toSuppliers")} icon={<ArrowUpFromLine size={20} />} tone="danger" />
+        <Stat label={t("dashboard.cashBank")} value={fmtMoney(k.cashAndBank)} icon={<Landmark size={20} />} tone="neutral" />
+        <Stat label={t("dashboard.expensesMonth")} value={fmtMoney(k.expensesMonth)} icon={<ReceiptText size={20} />} tone="neutral" />
         <Link href="/stock?lowStock=1" className="rise block">
-          <Stat label="Low stock items" value={String(k.lowStock)} sub="Needs reorder" icon={<TriangleAlert size={20} />} tone={k.lowStock > 0 ? "danger" : "neutral"} />
+          <Stat label={t("dashboard.lowStock")} value={String(k.lowStock)} sub={t("dashboard.needsReorder")} icon={<TriangleAlert size={20} />} tone={k.lowStock > 0 ? "danger" : "neutral"} />
         </Link>
         <Link href="/reports/profit-loss" className="rise block">
-          <Stat label="Profit & loss" value={fmtMoney(k.profitMonth)} sub="This month · view report" icon={<FileText size={20} />} tone="primary" />
+          <Stat label={t("dashboard.profitLoss")} value={fmtMoney(k.profitMonth)} sub={t("dashboard.profitSub")} icon={<FileText size={20} />} tone="primary" />
         </Link>
       </div>
 
       <div className="mt-6 grid gap-4 xl:grid-cols-5">
         <div className="card card-gloss card-edge rise p-5 sm:p-6 xl:col-span-3">
-          <h2 className="text-base font-extrabold tracking-tight">{bp.salesNav} trend</h2>
-          <p className="text-xs text-muted-foreground">Last 6 months (Rs)</p>
+          <h2 className="text-base font-extrabold tracking-tight">{t("dashboard.trend", { sales: bp.salesNav })}</h2>
+          <p className="text-xs text-muted-foreground">{t("dashboard.trendSub")}</p>
           <div className="mt-4 h-64">
             {trend.length === 0 ? (
-              <p className="py-16 text-center text-sm text-muted-foreground">No sales yet — create your first bill.</p>
+              <p className="py-16 text-center text-sm text-muted-foreground">{t("dashboard.noSales")}</p>
             ) : (
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart data={trend} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
@@ -292,7 +294,7 @@ export default function DashboardPage() {
                     tickFormatter={(v: number) => (v >= 1000 ? `${Math.round(v / 1000)}k` : `${v}`)} />
                   <Tooltip
                     contentStyle={{ background: "var(--card)", border: "1px solid var(--border)", borderRadius: 12, fontSize: 13 }}
-                    formatter={(v) => [`Rs ${Number(v).toLocaleString()}`, "Sales"]}
+                    formatter={(v) => [`Rs ${Number(v).toLocaleString()}`, t("dashboard.salesTooltip")]}
                   />
                   <Bar dataKey="total" fill="url(#salesBar)" radius={[8, 8, 2, 2]} />
                 </BarChart>
@@ -303,11 +305,11 @@ export default function DashboardPage() {
 
         <div className="card card-gloss rise rise-1 p-5 sm:p-6 xl:col-span-2">
           <div className="flex items-center justify-between">
-            <h2 className="text-base font-extrabold tracking-tight">Recent {bp.salesNav.toLowerCase()}</h2>
-            <Link href="/sales" className="text-sm font-bold text-primary hover:underline">View all</Link>
+            <h2 className="text-base font-extrabold tracking-tight">{t("dashboard.recent", { sales: bp.salesNav.toLowerCase() })}</h2>
+            <Link href="/sales" className="text-sm font-bold text-primary hover:underline">{t("common.viewAll")}</Link>
           </div>
           {data.recentSales.length === 0 ? (
-            <EmptyState title={`No ${bp.salesNav.toLowerCase()} yet`} hint={`Your recent ${bp.salesNav.toLowerCase()} will appear here.`} />
+            <EmptyState title={t("dashboard.noRecent", { sales: bp.salesNav.toLowerCase() })} hint={t("dashboard.noRecentHint", { sales: bp.salesNav.toLowerCase() })} />
           ) : (
             <ul className="mt-3 divide-y divide-border">
               {data.recentSales.map((s) => (

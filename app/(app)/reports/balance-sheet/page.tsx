@@ -2,8 +2,10 @@
 
 import { useEffect, useState } from "react";
 import { CheckCircle2, TriangleAlert } from "lucide-react";
-import { PageHeader } from "@/components/ui";
+import { PageHeader, ExportCsv } from "@/components/ui";
+import { csvMoney } from "@/lib/csv";
 import { api, fmtMoney } from "@/lib/format";
+import { useLang } from "@/components/lang-provider";
 
 type Line = { label: string; amount: string; bold?: boolean; total?: boolean };
 
@@ -24,6 +26,7 @@ function Section({ title, lines }: { title: string; lines: Line[] }) {
 }
 
 export default function BalanceSheetPage() {
+  const { t } = useLang();
   const [data, setData] = useState<{ assets: Line[]; liabilities: Line[]; equity: Line[]; balanced: boolean } | null>(null);
 
   useEffect(() => {
@@ -32,23 +35,29 @@ export default function BalanceSheetPage() {
       .catch(() => {});
   }, []);
 
-  if (!data) return <div><PageHeader title="Balance sheet" subtitle="Loading…" /><div className="card h-64 animate-pulse" /></div>;
+  if (!data) return <div><PageHeader title={t("balancesheet.title")} subtitle={t("common.loading")} /><div className="card h-64 animate-pulse" /></div>;
 
   return (
     <div>
       <PageHeader
-        title="Balance sheet"
-        subtitle="What your business owns and owes"
-        actions={
-          data.balanced
-            ? <span className="badge bg-primary-soft text-primary !text-xs !py-1.5 !px-3"><CheckCircle2 size={13} /> Balanced</span>
-            : <span className="badge bg-danger-soft text-danger !text-xs !py-1.5 !px-3"><TriangleAlert size={13} /> Out of balance</span>
-        }
+        title={t("balancesheet.title")}
+        subtitle={t("balancesheet.subtitle")}
+        actions={<>
+          {data.balanced
+            ? <span className="badge bg-primary-soft text-primary !text-xs !py-1.5 !px-3"><CheckCircle2 size={13} /> {t("balancesheet.balanced")}</span>
+            : <span className="badge bg-danger-soft text-danger !text-xs !py-1.5 !px-3"><TriangleAlert size={13} /> {t("balancesheet.outOfBalance")}</span>}
+          <ExportCsv filename="balance-sheet" rows={() => [
+            [t("balancesheet.csvSection"), t("balancesheet.csvAccount"), t("balancesheet.csvAmount")],
+            ...data.assets.map((l) => [t("balancesheet.assets"), l.label, csvMoney(l.amount)]),
+            ...data.liabilities.map((l) => [t("balancesheet.liabilities"), l.label, csvMoney(l.amount)]),
+            ...data.equity.map((l) => [t("balancesheet.equity"), l.label, csvMoney(l.amount)]),
+          ]} />
+        </>}
       />
       <div className="grid gap-4 lg:grid-cols-3">
-        <Section title="Assets" lines={data.assets} />
-        <Section title="Liabilities" lines={data.liabilities} />
-        <Section title="Equity" lines={data.equity} />
+        <Section title={t("balancesheet.assets")} lines={data.assets} />
+        <Section title={t("balancesheet.liabilities")} lines={data.liabilities} />
+        <Section title={t("balancesheet.equity")} lines={data.equity} />
       </div>
     </div>
   );

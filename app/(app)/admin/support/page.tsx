@@ -4,13 +4,21 @@ import { useEffect, useState } from "react";
 import { Inbox, Check, RotateCcw } from "lucide-react";
 import { PageHeader, ErrorNote, EmptyState } from "@/components/ui";
 import { api } from "@/lib/format";
+import { useLang } from "@/components/lang-provider";
 
 type Request = {
   id: string; name: string; email: string; subject: string;
   message: string; status: string; createdAt: string;
 };
 
+const FILTER_KEYS: Record<string, string> = {
+  OPEN: "adminsupport.open",
+  RESOLVED: "adminsupport.resolved",
+  ALL: "adminsupport.all",
+};
+
 export default function AdminSupportPage() {
+  const { t } = useLang();
   const [rows, setRows] = useState<Request[]>([]);
   const [loading, setLoading] = useState(true);
   const [forbidden, setForbidden] = useState(false);
@@ -26,7 +34,7 @@ export default function AdminSupportPage() {
       setForbidden(false);
     } catch (e) {
       if (e instanceof Error && /not authorized/i.test(e.message)) setForbidden(true);
-      else setError(e instanceof Error ? e.message : "Could not load requests.");
+      else setError(e instanceof Error ? e.message : t("adminsupport.loadError"));
     }
   }
 
@@ -39,12 +47,14 @@ export default function AdminSupportPage() {
       }
     })();
     return () => { alive = false; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {
     let alive = true;
     (async () => { if (alive) await load(filter); })();
     return () => { alive = false; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [filter]);
 
   async function setStatus(id: string, status: "OPEN" | "RESOLVED") {
@@ -53,27 +63,27 @@ export default function AdminSupportPage() {
       await api(`/api/admin/support/${id}`, { method: "PATCH", body: JSON.stringify({ status }) });
       await load(filter);
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Could not update.");
+      setError(e instanceof Error ? e.message : t("adminsupport.updateError"));
     } finally {
       setBusy(null);
     }
   }
 
-  if (loading) return <PageHeader title="Support requests" subtitle="Inbox" icon={<Inbox size={22} />} />;
+  if (loading) return <PageHeader title={t("adminsupport.title")} subtitle={t("adminsupport.inboxSub")} icon={<Inbox size={22} />} />;
   if (forbidden) return (
     <div className="space-y-4">
-      <PageHeader title="Support requests" subtitle="Inbox" icon={<Inbox size={22} />} />
-      <EmptyState title="Not authorized" hint="This area is only for the platform admin." />
+      <PageHeader title={t("adminsupport.title")} subtitle={t("adminsupport.inboxSub")} icon={<Inbox size={22} />} />
+      <EmptyState title={t("adminsupport.notAuth")} hint={t("adminsupport.notAuthHint")} />
     </div>
   );
 
   return (
     <div className="space-y-6">
-      <PageHeader title="Support requests" subtitle="Messages from the public support form" icon={<Inbox size={22} />} />
+      <PageHeader title={t("adminsupport.title")} subtitle={t("adminsupport.subtitle")} icon={<Inbox size={22} />} />
       <ErrorNote message={error} />
       <div className="card p-5">
         <div className="flex flex-wrap items-center justify-between gap-3">
-          <p className="font-bold">Inbox</p>
+          <p className="font-bold">{t("adminsupport.inbox")}</p>
           <div className="flex gap-2">
             {(["OPEN", "RESOLVED", "ALL"] as const).map((s) => (
               <button
@@ -81,13 +91,13 @@ export default function AdminSupportPage() {
                 onClick={() => setFilter(s)}
                 className={`rounded-full px-3.5 py-1.5 text-sm font-bold transition ${filter === s ? "btn-primary !min-h-0 !py-1.5 text-sm" : "bg-muted text-muted-foreground hover:bg-muted/70"}`}
               >
-                {s.charAt(0) + s.slice(1).toLowerCase()}
+                {t(FILTER_KEYS[s])}
               </button>
             ))}
           </div>
         </div>
         {rows.length === 0 ? (
-          <div className="mt-3"><EmptyState title={`No ${filter.toLowerCase()} requests`} /></div>
+          <div className="mt-3"><EmptyState title={t("adminsupport.noRequests", { filter: t(FILTER_KEYS[filter]) })} /></div>
         ) : (
           <div className="mt-4 space-y-3">
             {rows.map((r) => (
@@ -105,7 +115,7 @@ export default function AdminSupportPage() {
                     disabled={busy === r.id}
                     className="btn btn-ghost !py-2 text-sm"
                   >
-                    {r.status === "OPEN" ? <><Check size={15} /> Mark resolved</> : <><RotateCcw size={15} /> Reopen</>}
+                    {r.status === "OPEN" ? <><Check size={15} /> {t("adminsupport.markResolved")}</> : <><RotateCcw size={15} /> {t("adminsupport.reopen")}</>}
                   </button>
                 </div>
                 <p className="mt-3 whitespace-pre-wrap rounded-xl bg-muted/60 px-4 py-3 text-sm leading-relaxed">{r.message}</p>

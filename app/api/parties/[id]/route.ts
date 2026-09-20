@@ -6,6 +6,7 @@ import { parseMoney } from "@/lib/money";
 import { json, err } from "@/lib/api";
 import { requireCompany, db } from "@/lib/route-helpers";
 import { logAudit } from "@/lib/audit";
+import { validPriceListId } from "@/lib/price-lists";
 
 async function find(companyId: string, id: string) {
   const rows = await db
@@ -49,6 +50,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
       ...(p.ntn !== undefined ? { ntn: p.ntn || null } : {}),
       ...(p.filerStatus !== undefined ? { filerStatus: p.filerStatus } : {}),
       ...(p.creditLimit !== undefined ? { creditLimit: parseMoney(p.creditLimit || "0") } : {}),
+      ...(p.priceListId !== undefined ? { priceListId: await validPriceListId(db, companyId, p.priceListId) } : {}),
       ...(p.notes !== undefined ? { notes: p.notes || null } : {}),
       updatedAt: new Date(),
     })

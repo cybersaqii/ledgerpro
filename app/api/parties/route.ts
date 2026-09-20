@@ -1,6 +1,7 @@
 import { NextRequest } from "next/server";
 import { eq, and, like, desc, sql } from "drizzle-orm";
 import { parties } from "@/db/schema";
+import { validPriceListId } from "@/lib/price-lists";
 import { partySchema } from "@/lib/validators";
 import { parseMoney } from "@/lib/money";
 import { json, err } from "@/lib/api";
@@ -66,6 +67,7 @@ export async function POST(req: NextRequest) {
     ntn: p.ntn || null,
     filerStatus: p.filerStatus,
     creditLimit: parseMoney(p.creditLimit || "0"),
+    priceListId: await validPriceListId(db, companyId, p.priceListId),
     notes: p.notes || null,
   });
   await logAudit(db, {

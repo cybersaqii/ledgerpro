@@ -2,9 +2,11 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { Search, TriangleAlert, Boxes } from "lucide-react";
-import { PageHeader, EmptyState } from "@/components/ui";
+import { PageHeader, EmptyState, ExportCsv } from "@/components/ui";
+import { csvMoney } from "@/lib/csv";
 import { api, fmtMoney, fmtQty } from "@/lib/format";
 import { useBusinessProfile } from "@/components/business-type";
+import { useLang } from "@/components/lang-provider";
 
 type Row = {
   productId: string; sku: string; name: string; unit: string; category: string | null;
@@ -14,6 +16,7 @@ type Row = {
 
 export default function StockPage() {
   const bp = useBusinessProfile();
+  const { t } = useLang();
   const [rows, setRows] = useState<Row[]>([]);
   const [totalValue, setTotalValue] = useState("0");
   const [q, setQ] = useState("");
@@ -41,17 +44,22 @@ export default function StockPage() {
       <PageHeader
         title={bp.stock}
         icon={<Boxes size={20} />}
-        subtitle={<>{`Total ${bp.stock.toLowerCase()} value`}:  <span className="font-extrabold text-primary">{fmtMoney(totalValue)}</span></>}
+        subtitle={<>{t("stockpage.subtitle", { stock: bp.stock.toLowerCase() })}:  <span className="font-extrabold text-primary">{fmtMoney(totalValue)}</span></>}
+        actions={<ExportCsv filename={lowOnly ? "stock-low" : "stock"} disabled={loading || rows.length === 0} rows={() => [
+          ["SKU", t("stockpage.csvProduct"), t("stockpage.csvUnit"), t("stockpage.csvCategory"), t("stockpage.csvBranch"), t("stockpage.csvQty"), t("stockpage.csvAvgCost"), t("stockpage.csvValue"), t("stockpage.csvReorder"), t("stockpage.csvLow")],
+          ...rows.map((r) => [r.sku, r.name, r.unit, r.category ?? "", r.branchName ?? "", r.qty, csvMoney(r.avgCost), csvMoney(r.value), r.reorderLevel, r.low ? t("stockpage.csvYes") : ""]),
+          ["", "", "", "", t("stockpage.csvTotal"), "", "", csvMoney(totalValue), "", ""],
+        ]} />}
       />
 
       <div className="mb-4 flex flex-wrap items-center gap-3">
         <div className="relative min-w-52 flex-1 sm:max-w-xs">
           <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
-          <input className="field !pl-9" placeholder="Search product…" value={q} onChange={(e) => setQ(e.target.value)} />
+          <input className="field !pl-9" placeholder={t("stockpage.searchProduct")} value={q} onChange={(e) => setQ(e.target.value)} />
         </div>
         <label className="flex cursor-pointer items-center gap-2 rounded-xl border border-border bg-card px-4 py-2.5 text-sm font-semibold">
           <input type="checkbox" checked={lowOnly} onChange={(e) => setLowOnly(e.target.checked)} className="h-4 w-4 accent-[var(--primary)]" />
-          <TriangleAlert size={15} className="text-accent" /> Low stock only
+          <TriangleAlert size={15} className="text-accent" /> {t("stockpage.lowStockOnly")}
         </label>
       </div>
 
@@ -59,11 +67,11 @@ export default function StockPage() {
         {loading ? (
           <div className="space-y-3 p-5">{[1, 2, 3].map((i) => <div key={i} className="skeleton h-12 rounded-xl" />)}</div>
         ) : rows.length === 0 ? (
-          <EmptyState title="No stock found" hint="Stock appears here after purchase bills." />
+          <EmptyState title={t("stockpage.emptyTitle")} hint={t("stockpage.emptyHint")} />
         ) : (
           <div className="overflow-x-auto">
             <table className="tbl">
-              <thead><tr><th>Product</th><th className="num">Qty</th><th className="num">Avg cost</th><th className="num">Value</th><th>Status</th></tr></thead>
+              <thead><tr><th>{t("stockpage.colProduct")}</th><th className="num">{t("stockpage.colQty")}</th><th className="num">{t("stockpage.colAvgCost")}</th><th className="num">{t("stockpage.colValue")}</th><th>{t("stockpage.colStatus")}</th></tr></thead>
               <tbody>
                 {rows.map((r) => (
                   <tr key={r.productId + (r.branchName ?? "")}>
@@ -74,7 +82,7 @@ export default function StockPage() {
                     <td className="num font-bold">{fmtQty(r.qty, r.unit)}</td>
                     <td className="num">{fmtMoney(r.avgCost)}</td>
                     <td className="num font-extrabold">{fmtMoney(r.value)}</td>
-                    <td>{r.low ? <span className="badge bg-danger-soft text-danger"><TriangleAlert size={11} /> Low</span> : <span className="badge bg-primary-soft text-primary">OK</span>}</td>
+                    <td>{r.low ? <span className="badge bg-danger-soft text-danger"><TriangleAlert size={11} /> {t("stockpage.lowBadge")}</span> : <span className="badge bg-primary-soft text-primary">{t("stockpage.okBadge")}</span>}</td>
                   </tr>
                 ))}
               </tbody>

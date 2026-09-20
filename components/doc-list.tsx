@@ -6,6 +6,7 @@ import { Plus, Search, CalendarDays, ShoppingCart, Truck, Zap } from "lucide-rea
 import { PageHeader, EmptyState, FilterBar, SummaryChips, Pagination, StatusPill } from "@/components/ui";
 import { api, fmtMoney, fmtDate, toBig } from "@/lib/format";
 import { useBusinessProfile } from "@/components/business-type";
+import { useLang } from "@/components/lang-provider";
 
 type Doc = {
   id: string; docNo: string; docType: string; date: number; status: string;
@@ -26,6 +27,7 @@ const PER_PAGE = 20;
 
 export function DocList({ mode }: { mode: "SALES" | "PURCHASE" }) {
   const bp = useBusinessProfile();
+  const { t } = useLang();
   const isSales = mode === "SALES";
   const [rows, setRows] = useState<Doc[]>([]);
   const [total, setTotal] = useState(0);
@@ -67,16 +69,16 @@ export function DocList({ mode }: { mode: "SALES" | "PURCHASE" }) {
   useEffect(() => { setPage(1); }, [q, docType, from, to]);
 
   const types = isSales
-    ? [["", "All"], ["INVOICE", "Invoices"], ["RETURN", "Returns"], ["QUOTATION", "Quotations"], ["ORDER", "Orders"], ["CHALLAN", "Challans"]]
-    : [["", "All"], ["BILL", "Bills"], ["RETURN", "Returns"], ["ORDER", "Orders"], ["GRN", "GRNs"]];
+    ? [["", t("docs.typeAll")], ["INVOICE", t("docs.typeInvoices")], ["RETURN", t("docs.typeReturns")], ["QUOTATION", t("docs.typeQuotations")], ["ORDER", t("docs.typeOrders")], ["CHALLAN", t("docs.typeChallans")]]
+    : [["", t("docs.typeAll")], ["BILL", t("docs.typeBills")], ["RETURN", t("docs.typeReturns")], ["ORDER", t("docs.typeOrders")], ["GRN", t("docs.typeGrns")]];
 
   const hasFilter = q !== "" || docType !== "" || from !== "" || to !== "";
 
   return (
     <div>
       <PageHeader
-        title={isSales ? bp.salesNav : "Purchases"}
-        subtitle={isSales ? "Invoices, orders, challans and returns" : "Bills, orders, GRNs and returns"}
+        title={isSales ? bp.salesNav : t("docs.purchasesTitle")}
+        subtitle={isSales ? t("docs.salesSubtitle") : t("docs.purchasesSubtitle")}
         icon={isSales ? <ShoppingCart size={20} /> : <Truck size={20} />}
         actions={
           <div className="flex gap-2">
@@ -86,7 +88,7 @@ export function DocList({ mode }: { mode: "SALES" | "PURCHASE" }) {
               </Link>
             )}
             <Link href={isSales ? "/sales/new" : "/purchases/new"} className="btn btn-primary text-sm">
-              <Plus size={16} /> {isSales ? bp.newSale : "New purchase"}
+              <Plus size={16} /> {isSales ? bp.newSale : t("docs.newPurchase")}
             </Link>
           </div>
         }
@@ -103,26 +105,26 @@ export function DocList({ mode }: { mode: "SALES" | "PURCHASE" }) {
         </div>
         <div className="relative min-w-44 flex-1 sm:max-w-xs">
           <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
-          <input className="field !pl-9" placeholder="Search bill no…" value={q} onChange={(e) => setQ(e.target.value)} />
+          <input className="field !pl-9" placeholder={t("docs.searchPlaceholder")} value={q} onChange={(e) => setQ(e.target.value)} />
         </div>
         <div className="flex items-center gap-2">
           <CalendarDays size={15} className="shrink-0 text-muted-foreground" />
-          <input type="date" className="field !w-auto !py-2 text-xs" value={from} onChange={(e) => setFrom(e.target.value)} aria-label="From date" />
-          <span className="text-xs text-muted-foreground">to</span>
-          <input type="date" className="field !w-auto !py-2 text-xs" value={to} onChange={(e) => setTo(e.target.value)} aria-label="To date" />
+          <input type="date" className="field !w-auto !py-2 text-xs" value={from} onChange={(e) => setFrom(e.target.value)} aria-label={t("docs.fromDate")} />
+          <span className="text-xs text-muted-foreground">{t("docs.toWord")}</span>
+          <input type="date" className="field !w-auto !py-2 text-xs" value={to} onChange={(e) => setTo(e.target.value)} aria-label={t("docs.toDate")} />
         </div>
         {hasFilter && (
           <button className="text-xs font-bold text-danger hover:underline"
             onClick={() => { setQ(""); setDocType(""); setFrom(""); setTo(""); }}>
-            Clear filters
+            {t("docs.clearFilters")}
           </button>
         )}
       </FilterBar>
 
       {!loading && (
         <SummaryChips items={[
-          { label: "Documents", value: total.toLocaleString() },
-          { label: "Total value", value: fmtMoney(toBig(sum)), tone: "primary" },
+          { label: t("docs.summaryDocs"), value: total.toLocaleString() },
+          { label: t("docs.summaryTotal"), value: fmtMoney(toBig(sum)), tone: "primary" },
         ]} />
       )}
 
@@ -130,13 +132,13 @@ export function DocList({ mode }: { mode: "SALES" | "PURCHASE" }) {
         {loading ? (
           <div className="space-y-3 p-5">{[1, 2, 3, 4, 5].map((i) => <div key={i} className="skeleton h-12 rounded-xl" />)}</div>
         ) : rows.length === 0 ? (
-          <EmptyState title={isSales ? `No ${bp.salesNav.toLowerCase()} found` : "No purchases found"}
-            hint={hasFilter ? "Try widening the date range or clearing filters." : isSales ? `Create your first ${bp.newSale.replace(/^New /, "").toLowerCase()}.` : "Record your first purchase bill."}
-            action={!hasFilter ? <Link href={isSales ? "/sales/new" : "/purchases/new"} className="btn btn-primary text-sm"><Plus size={16} /> Create now</Link> : undefined} />
+          <EmptyState title={isSales ? t("docs.noSales", { sales: bp.salesNav.toLowerCase() }) : t("docs.noPurchases")}
+            hint={hasFilter ? t("docs.filterHint") : isSales ? t("docs.createFirstSale", { thing: bp.salesNav.toLowerCase() }) : t("docs.createFirstPurchase")}
+            action={!hasFilter ? <Link href={isSales ? "/sales/new" : "/purchases/new"} className="btn btn-primary text-sm"><Plus size={16} /> {t("docs.createNow")}</Link> : undefined} />
         ) : (
           <div className="overflow-x-auto">
             <table className="tbl">
-              <thead><tr><th>Bill no</th><th>Type</th><th>{isSales ? bp.partyOne : "Supplier"}</th><th>Date</th><th>Status</th><th className="num">Total</th></tr></thead>
+              <thead><tr><th>{t("docs.colBillNo")}</th><th>{t("docs.colType")}</th><th>{isSales ? bp.partyOne : t("docs.supplier")}</th><th>{t("docs.colDate")}</th><th>{t("docs.colStatus")}</th><th className="num">{t("docs.colTotal")}</th></tr></thead>
               <tbody>
                 {rows.map((d) => (
                   <tr key={d.id}>

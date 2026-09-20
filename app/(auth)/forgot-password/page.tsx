@@ -6,8 +6,10 @@ import { KeyRound, Copy, Check } from "lucide-react";
 import { AuthLayout } from "@/components/auth-layout";
 import { Field, ErrorNote } from "@/components/ui";
 import { api } from "@/lib/format";
+import { useLang } from "@/components/lang-provider";
 
 export default function ForgotPasswordPage() {
+  const { t } = useLang();
   const [email, setEmail] = useState("");
   const [code, setCode] = useState("");
   const [pw1, setPw1] = useState("");
@@ -21,8 +23,8 @@ export default function ForgotPasswordPage() {
   async function submit(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
-    if (pw1 !== pw2) { setError("The two passwords do not match."); return; }
-    if (pw1.length < 8) { setError("New password must be at least 8 characters."); return; }
+    if (pw1 !== pw2) { setError(t("auth.pwMismatch")); return; }
+    if (pw1.length < 8) { setError(t("auth.pwShort")); return; }
     setBusy(true);
     try {
       const d = await api<{ recoveryCode: string }>("/api/auth/forgot", {
@@ -31,7 +33,7 @@ export default function ForgotPasswordPage() {
       });
       setNewCode(d.recoveryCode);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Could not reset password.");
+      setError(err instanceof Error ? err.message : t("auth.forgotError"));
     } finally {
       setBusy(false);
     }
@@ -53,61 +55,59 @@ export default function ForgotPasswordPage() {
             <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-primary-soft text-primary">
               <KeyRound size={22} />
             </div>
-            <h1 className="mt-4 text-2xl font-extrabold tracking-tight">Password reset</h1>
+            <h1 className="mt-4 text-2xl font-extrabold tracking-tight">{t("auth.resetTitle")}</h1>
             <p className="mt-2 text-sm text-muted-foreground">
-              Your old recovery code has been used up. Save this <span className="font-bold text-foreground">new</span> one —
-              you will need it the next time you forget your password.
+              {t("auth.resetDoneHint")}
             </p>
             <button
               type="button"
               onClick={copy}
               className="mt-5 flex w-full items-center justify-between gap-3 rounded-2xl border-2 border-dashed border-primary/40 bg-primary-soft/50 px-5 py-4 font-mono text-base font-extrabold tracking-[0.2em] text-primary sm:text-lg"
-              title="Copy recovery code"
+              title={t("auth.copyCode")}
             >
               <span>{newCode}</span>
               {copied ? <Check size={18} /> : <Copy size={18} />}
             </button>
             <label className="mt-4 flex cursor-pointer items-start gap-3 rounded-2xl bg-muted/60 p-4 text-left text-sm">
               <input type="checkbox" className="mt-1 h-4 w-4 accent-primary" checked={savedAck} onChange={(e) => setSavedAck(e.target.checked)} />
-              <span>I have saved my new recovery code somewhere safe.</span>
+              <span>{t("auth.savedNewAck")}</span>
             </label>
             <Link href="/login" className={`btn btn-primary mt-4 w-full !py-3 ${!savedAck ? "pointer-events-none opacity-50" : ""}`}>
-              Back to log in
+              {t("auth.backToLogin")}
             </Link>
           </div>
         ) : (
           <>
-            <h1 className="text-2xl font-extrabold tracking-tight">Forgot password?</h1>
+            <h1 className="text-2xl font-extrabold tracking-tight">{t("auth.forgotTitle")}</h1>
             <p className="mt-1 text-sm text-muted-foreground">
-              Enter your email, the 16-character recovery code from signup, and a new password.
+              {t("auth.forgotSub")}
             </p>
             <form onSubmit={submit} className="mt-6 space-y-4">
               <ErrorNote message={error} />
-              <Field label="Email">
+              <Field label={t("auth.email")}>
                 <input className="field" type="email" required autoComplete="email" autoFocus
                   placeholder="you@business.com" value={email} onChange={(e) => setEmail(e.target.value)} />
               </Field>
-              <Field label="Recovery code" hint="XXXX-XXXX-XXXX-XXXX — shown once at signup">
+              <Field label={t("auth.recoveryCode")} hint={t("auth.recoveryHint")}>
                 <input className="field font-mono tracking-widest" required
                   placeholder="XXXX-XXXX-XXXX-XXXX" value={code} onChange={(e) => setCode(e.target.value)} />
               </Field>
               <div className="grid gap-4 sm:grid-cols-2">
-                <Field label="New password">
+                <Field label={t("auth.newPw")}>
                   <input className="field" type="password" required minLength={8} autoComplete="new-password"
                     placeholder="••••••••" value={pw1} onChange={(e) => setPw1(e.target.value)} />
                 </Field>
-                <Field label="Repeat new password">
+                <Field label={t("auth.repeatPw")}>
                   <input className="field" type="password" required minLength={8} autoComplete="new-password"
                     placeholder="••••••••" value={pw2} onChange={(e) => setPw2(e.target.value)} />
                 </Field>
               </div>
               <button className="btn btn-primary w-full !py-3" disabled={busy}>
-                <KeyRound size={17} /> {busy ? "Resetting…" : "Reset password"}
+                <KeyRound size={17} /> {busy ? t("auth.resetting") : t("auth.resetBtn")}
               </button>
             </form>
             <p className="mt-6 text-center text-sm text-muted-foreground">
-              Lost your recovery code too? Ask your company owner to reset your password from Settings → Team, or{" "}
-              <Link href="/login" className="font-bold text-primary hover:underline">back to log in</Link>.
+              {t("auth.lostCode")}
             </p>
           </>
         )}

@@ -6,16 +6,17 @@ import { useEffect, useRef, useState, type ReactNode } from "react";
 import {
   LayoutDashboard, ShoppingCart, Truck, Wallet, ReceiptText, Users, Package,
   BarChart3, Menu, X, LogOut, Boxes, Plus, Settings, Crown, ShieldCheck,
-  LifeBuoy, ArrowRight, Sparkles,
+  LifeBuoy, ArrowRight, Sparkles, Tags,
 } from "lucide-react";
-import { Logo, ThemeToggle } from "./ui";
+import { Logo, ThemeToggle, LangToggle } from "./ui";
 import { api } from "@/lib/format";
-import { BusinessTypeProvider } from "./business-type";
-import { getBusinessProfile } from "@/lib/business-types";
+import { BusinessTypeProvider, getTranslatedProfile } from "./business-type";
+import { useLang } from "./lang-provider";
 
 export function AppShell({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
+  const { t, lang } = useLang();
   const [open, setOpen] = useState(false);
   const [user, setUser] = useState<{ name: string; email: string } | null>(null);
   const [businessType, setBusinessType] = useState<string | null>(null);
@@ -28,7 +29,7 @@ export function AppShell({ children }: { children: ReactNode }) {
   } | null>(null);
   const [quickOpen, setQuickOpen] = useState(false);
   const quickRef = useRef<HTMLDivElement>(null);
-  const [hello, setHello] = useState({ greet: "Welcome back", today: "" });
+  const [hello, setHello] = useState({ greet: "shell.morning", today: "" });
 
   useEffect(() => {
     const now = new Date();
@@ -36,7 +37,7 @@ export function AppShell({ children }: { children: ReactNode }) {
     // Mount-once sync with the client clock (avoids SSR hydration mismatch on date/time).
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setHello({
-      greet: h < 12 ? "Good morning" : h < 17 ? "Good afternoon" : "Good evening",
+      greet: h < 12 ? "shell.morning" : h < 17 ? "shell.afternoon" : "shell.evening",
       today: now.toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long" }),
     });
   }, []);
@@ -62,30 +63,31 @@ export function AppShell({ children }: { children: ReactNode }) {
     return () => window.removeEventListener("ledgerpro:upgrade-required", fn);
   }, [router, pathname]);
 
-  const bp = getBusinessProfile(businessType);
+  const bp = getTranslatedProfile(businessType, lang);
 
   const nav = [
-    { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
+    { href: "/dashboard", label: t("nav.dashboard"), icon: LayoutDashboard },
     { href: "/sales", label: bp.salesNav, icon: ShoppingCart },
-    { href: "/purchases", label: "Purchases", icon: Truck },
-    { href: "/payments", label: "Payments", icon: Wallet },
-    { href: "/expenses", label: "Expenses", icon: ReceiptText },
+    { href: "/purchases", label: t("nav.purchases"), icon: Truck },
+    { href: "/payments", label: t("nav.payments"), icon: Wallet },
+    { href: "/expenses", label: t("nav.expenses"), icon: ReceiptText },
     { href: "/parties", label: bp.partyMany, icon: Users },
     { href: "/products", label: bp.productMany, icon: Package },
+    { href: "/price-lists", label: t("nav.priceLists"), icon: Tags },
     { href: "/stock", label: bp.stock, icon: Boxes },
-    { href: "/reports", label: "Reports", icon: BarChart3 },
-    { href: "/settings", label: "Settings", icon: Settings },
-    ...(billing?.isOwner ? [{ href: "/billing", label: "Billing", icon: Crown }] : []),
-    ...(billing?.isPlatformAdmin ? [{ href: "/admin/billing", label: "Admin", icon: ShieldCheck }] : []),
-    ...(billing?.isPlatformAdmin ? [{ href: "/admin/support", label: "Support inbox", icon: LifeBuoy }] : []),
+    { href: "/reports", label: t("nav.reports"), icon: BarChart3 },
+    { href: "/settings", label: t("nav.settings"), icon: Settings },
+    ...(billing?.isOwner ? [{ href: "/billing", label: t("nav.billing"), icon: Crown }] : []),
+    ...(billing?.isPlatformAdmin ? [{ href: "/admin/billing", label: t("nav.admin"), icon: ShieldCheck }] : []),
+    ...(billing?.isPlatformAdmin ? [{ href: "/admin/support", label: t("nav.supportInbox"), icon: LifeBuoy }] : []),
   ];
 
   const quickCreate = [
     { href: "/sales/new", label: bp.newSale, icon: ShoppingCart },
-    { href: "/purchases/new", label: "New purchase bill", icon: Truck },
-    { href: "/payments/new?kind=RECEIPT", label: "Receive payment", icon: Wallet },
-    { href: "/payments/new?kind=PAYMENT", label: "Pay supplier", icon: Wallet },
-    { href: "/expenses", label: "Add expense", icon: ReceiptText },
+    { href: "/purchases/new", label: t("header.newPurchase"), icon: Truck },
+    { href: "/payments/new?kind=RECEIPT", label: t("header.receivePayment"), icon: Wallet },
+    { href: "/payments/new?kind=PAYMENT", label: t("header.paySupplier"), icon: Wallet },
+    { href: "/expenses", label: t("header.addExpense"), icon: ReceiptText },
   ];
 
   // eslint-disable-next-line react-hooks/set-state-in-effect -- close drawer on navigation
@@ -164,7 +166,7 @@ export function AppShell({ children }: { children: ReactNode }) {
             className="absolute left-0 top-0 flex h-full w-72 flex-col bg-sidebar shadow-2xl">
             <div className="flex h-16 items-center justify-between px-5 text-white">
               <Logo />
-              <button onClick={() => setOpen(false)} className="grid h-11 w-11 place-items-center rounded-lg p-2 text-sidebar-foreground hover:bg-white/10" aria-label="Close menu">
+              <button onClick={() => setOpen(false)} className="grid h-11 w-11 place-items-center rounded-lg p-2 text-sidebar-foreground hover:bg-white/10" aria-label={t("shell.closeMenu")}>
                 <X size={20} />
               </button>
             </div>
@@ -177,7 +179,7 @@ export function AppShell({ children }: { children: ReactNode }) {
         {/* Topbar */}
         <header className="sticky top-0 z-30 flex h-16 items-center justify-between gap-3 border-b border-border bg-background/85 px-4 shadow-[0_1px_12px_-6px_rgb(15_30_26/0.15)] backdrop-blur-xl sm:px-6">
           <div className="flex items-center gap-3">
-            <button onClick={() => setOpen(true)} className="grid h-11 w-11 place-items-center rounded-xl border border-border bg-card transition hover:-translate-y-0.5 hover:shadow-md lg:hidden" aria-label="Open menu">
+            <button onClick={() => setOpen(true)} className="grid h-11 w-11 place-items-center rounded-xl border border-border bg-card transition hover:-translate-y-0.5 hover:shadow-md lg:hidden" aria-label={t("header.openMenu")}>
               <Menu size={19} />
             </button>
             <div className="lg:hidden"><Logo compact /></div>
@@ -185,7 +187,7 @@ export function AppShell({ children }: { children: ReactNode }) {
               {user ? (
                 <>
                   <p className="flex items-center gap-1.5 truncate text-[15px] font-extrabold tracking-tight">
-                    {hello.greet}, <span className="text-gradient">{user.name}</span>
+                    {t(hello.greet)}, <span className="text-gradient">{user.name}</span>
                     <Sparkles size={14} className="shrink-0 text-amber-500" />
                   </p>
                   {hello.today && <p className="truncate text-xs text-muted-foreground">{hello.today}</p>}
@@ -197,7 +199,7 @@ export function AppShell({ children }: { children: ReactNode }) {
             <div className="relative" ref={quickRef}>
               <button onClick={() => setQuickOpen((o) => !o)}
                 className="btn-primary grid h-11 w-11 place-items-center !rounded-xl !p-0"
-                aria-label="Quick create" aria-expanded={quickOpen} aria-haspopup="menu" title="Quick create">
+                aria-label={t("header.quickCreate")} aria-expanded={quickOpen} aria-haspopup="menu" title={t("header.quickCreate")}>
                 <Plus size={19} strokeWidth={2.5} />
               </button>
               {quickOpen && (
@@ -213,7 +215,8 @@ export function AppShell({ children }: { children: ReactNode }) {
               )}
             </div>
             <ThemeToggle />
-            <button onClick={logout} className="grid h-11 w-11 place-items-center rounded-xl border border-border bg-card transition hover:-translate-y-0.5 hover:shadow-md hover:text-danger" title="Log out" aria-label="Log out">
+            <LangToggle />
+            <button onClick={logout} className="grid h-11 w-11 place-items-center rounded-xl border border-border bg-card transition hover:-translate-y-0.5 hover:shadow-md hover:text-danger" title={t("header.logout")} aria-label={t("header.logout")}>
               <LogOut size={17} />
             </button>
           </div>
@@ -229,10 +232,10 @@ export function AppShell({ children }: { children: ReactNode }) {
               <span className="banner-shine pointer-events-none absolute inset-0" aria-hidden />
               <Crown size={16} className="relative shrink-0 transition group-hover:scale-125 group-hover:rotate-12" />
               <span className="relative">
-                {billing.trialDaysLeft} day{billing.trialDaysLeft === 1 ? "" : "s"} left in your free trial — enjoy full PRO access.
+                {billing.trialDaysLeft === 1 ? t("shell.trialOneDay") : t("shell.trialDays", { days: billing.trialDaysLeft })}
               </span>
               <span className="relative inline-flex shrink-0 items-center gap-1 rounded-full bg-amber-950 px-3.5 py-1 text-xs font-extrabold text-amber-100 transition group-hover:gap-2">
-                View plans <ArrowRight size={13} />
+                {t("shell.viewPlans")} <ArrowRight size={13} />
               </span>
             </Link>
           </div>
@@ -246,10 +249,10 @@ export function AppShell({ children }: { children: ReactNode }) {
               <span className="banner-shine pointer-events-none absolute inset-0" aria-hidden />
               <Crown size={16} className="relative shrink-0 transition group-hover:scale-125 group-hover:rotate-12" />
               <span className="relative">
-                Your free trial has ended — upgrade to PRO to unlock POS, team, advanced reports &amp; more.
+                {t("shell.trialEnded")}
               </span>
               <span className="relative inline-flex shrink-0 items-center gap-1 rounded-full bg-white/95 px-3.5 py-1 text-xs font-extrabold text-rose-700 transition group-hover:gap-2">
-                Upgrade now <ArrowRight size={13} />
+                {t("shell.upgradeNow")} <ArrowRight size={13} />
               </span>
             </Link>
           </div>

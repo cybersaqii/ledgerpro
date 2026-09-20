@@ -4,8 +4,10 @@ import { Suspense, useCallback, useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { Users, TriangleAlert, RotateCcw } from "lucide-react";
-import { PageHeader, Field } from "@/components/ui";
+import { PageHeader, Field, ExportCsv } from "@/components/ui";
+import { csvMoney } from "@/lib/csv";
 import { useBusinessProfile } from "@/components/business-type";
+import { useLang } from "@/components/lang-provider";
 import { api, fmtMoney, fmtDate, fmtDateInput } from "@/lib/format";
 
 type Party = { id: string; name: string; kind: string };
@@ -22,6 +24,7 @@ export default function PartyLedgerPage() {
 function PartyLedgerInner() {
   const searchParams = useSearchParams();
   const bp = useBusinessProfile();
+  const { t } = useLang();
   const [parties, setParties] = useState<Party[]>([]);
   const [partyQ, setPartyQ] = useState("");
   const [partyId, setPartyId] = useState(() => searchParams.get("party") ?? "");
@@ -62,9 +65,9 @@ function PartyLedgerInner() {
       setPartyName(d.party.name);
     } catch (err) {
       setEntries([]);
-      setLedgerError(err instanceof Error ? err.message : "Could not load the ledger.");
+      setLedgerError(err instanceof Error ? err.message : t("partyledger.errLoad"));
     } finally { setLoading(false); }
-  }, [partyId, from, to]);
+  }, [partyId, from, to, t]);
 
   // eslint-disable-next-line react-hooks/set-state-in-effect -- data fetch on filter/mount change
   useEffect(() => { load(); }, [load]);
@@ -88,18 +91,23 @@ function PartyLedgerInner() {
 
   return (
     <div>
-      <PageHeader title={`${bp.partyOne} ledger`} subtitle={`Complete history of one ${bp.partyOne.toLowerCase()} or supplier`} />
+      <PageHeader title={t("partyledger.title", { party: bp.partyOne })} subtitle={t("partyledger.subtitle", { party: bp.partyOne.toLowerCase() })}
+        actions={<ExportCsv filename={selected ? `ledger-${selected.name}` : "party-ledger"} disabled={!selected || loading || entries.length === 0} rows={() => [
+          [t("partyledger.csvDate"), t("partyledger.csvMemo"), t("partyledger.csvReference"), t("partyledger.csvSource"), t("partyledger.csvDebit"), t("partyledger.csvCredit"), t("partyledger.csvBalance")],
+          ...entries.map((e) => [fmtDate(e.date), e.memo, e.reference ?? "", e.source, csvMoney(e.debit), csvMoney(e.credit), csvMoney(e.balance)]),
+        ]} />}
+      />
       <div className="card mb-4 flex flex-wrap items-end gap-3 p-4">
         <div className="min-w-52 flex-1">
-          <Field label="Party">
+          <Field label={t("partyledger.party")}>
             <div className="relative">
               <button type="button" onClick={() => setShowList((s) => !s)} className="field text-left">
-                <span className={selected ? "" : "text-muted-foreground"}>{selected ? selected.name : "Select party…"}</span>
+                <span className={selected ? "" : "text-muted-foreground"}>{selected ? selected.name : t("partyledger.selectParty")}</span>
               </button>
               {showList && (
                 <div className="absolute z-20 mt-1 w-full overflow-hidden rounded-xl border border-border bg-card shadow-xl">
                   <div className="border-b border-border p-2">
-                    <input autoFocus className="field !py-2" placeholder="Search…" value={partyQ} onChange={(e) => setPartyQ(e.target.value)} />
+                    <input autoFocus className="field !py-2" placeholder={t("payform.searchPlaceholder")} value={partyQ} onChange={(e) => setPartyQ(e.target.value)} />
                   </div>
                   <ul className="max-h-56 overflow-y-auto py-1">
                     {parties.map((p) => (
@@ -111,30 +119,30 @@ function PartyLedgerInner() {
                         </button>
                       </li>
                     ))}
-                    {parties.length === 0 && <li className="px-4 py-3 text-sm text-muted-foreground">No matches.</li>}
+                    {parties.length === 0 && <li className="px-4 py-3 text-sm text-muted-foreground">{t("partyledger.noMatches")}</li>}
                   </ul>
                 </div>
               )}
             </div>
           </Field>
         </div>
-        <Field label="From"><input type="date" className="field" value={from} onChange={(e) => setFrom(e.target.value)} /></Field>
-        <Field label="To"><input type="date" className="field" value={to} onChange={(e) => setTo(e.target.value)} /></Field>
+        <Field label={t("partyledger.from")}><input type="date" className="field" value={from} onChange={(e) => setFrom(e.target.value)} /></Field>
+        <Field label={t("partyledger.to")}><input type="date" className="field" value={to} onChange={(e) => setTo(e.target.value)} /></Field>
       </div>
 
       {!partyId ? (
         <div className="card px-6 py-14 text-center">
-          <p className="text-sm text-muted-foreground">Select a party above to view their ledger.</p>
-          <Link href="/parties" className="btn btn-ghost mt-4 text-sm"><Users size={15} /> Manage parties</Link>
+          <p className="text-sm text-muted-foreground">{t("partyledger.selectHint")}</p>
+          <Link href="/parties" className="btn btn-ghost mt-4 text-sm"><Users size={15} /> {t("partyledger.manageParties")}</Link>
         </div>
       ) : ledgerError ? (
         <div className="card flex flex-wrap items-center gap-3 border-danger/40 bg-danger-soft p-4">
           <TriangleAlert size={20} className="shrink-0 text-danger" />
           <p className="min-w-0 flex-1 text-sm font-semibold text-danger">
-            Could not load the ledger — {ledgerError}
+            {t("partyledger.errLoadWith", { error: ledgerError })}
           </p>
           <button className="btn btn-danger text-sm" onClick={load}>
-            <RotateCcw size={15} /> Try again
+            <RotateCcw size={15} /> {t("partyledger.tryAgain")}
           </button>
         </div>
       ) : (
@@ -144,17 +152,17 @@ function PartyLedgerInner() {
           <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border bg-muted/50 px-5 py-3">
             <p className="font-extrabold">{partyName}</p>
             <div className="flex items-center gap-3">
-              <p className="text-sm">Closing balance: <span className="font-extrabold text-primary">{fmtMoney(closing)}</span></p>
+              <p className="text-sm">{t("partyledger.closingBalance")} <span className="font-extrabold text-primary">{fmtMoney(closing)}</span></p>
               {selected && <SetOffDialog partyId={partyId} kind={selected.kind} name={partyName} balance={closing} onDone={load} />}
             </div>
           </div>
           {loading ? <div className="space-y-3 p-5">{[1, 2, 3].map((i) => <div key={i} className="skeleton h-10 rounded-xl" />)}</div> : (
             <div className="overflow-x-auto">
               <table className="tbl">
-                <thead><tr><th>Date</th><th>Details</th><th>Ref</th><th className="num">Debit</th><th className="num">Credit</th><th className="num">Balance</th></tr></thead>
+                <thead><tr><th>{t("partyledger.colDate")}</th><th>{t("partyledger.colDetails")}</th><th>{t("partyledger.colRef")}</th><th className="num">{t("partyledger.colDebit")}</th><th className="num">{t("partyledger.colCredit")}</th><th className="num">{t("partyledger.colBalance")}</th></tr></thead>
                 <tbody>
                   <tr className="bg-muted/40">
-                    <td colSpan={5} className="font-bold text-muted-foreground">Opening balance</td>
+                    <td colSpan={5} className="font-bold text-muted-foreground">{t("partyledger.openingBalance")}</td>
                     <td className="num font-bold">{fmtMoney(opening)}</td>
                   </tr>
                   {entries.map((e, i) => (
@@ -168,7 +176,7 @@ function PartyLedgerInner() {
                     </tr>
                   ))}
                   {entries.length === 0 && (
-                    <tr><td colSpan={6} className="!py-10 text-center text-sm text-muted-foreground">No transactions in this period.</td></tr>
+                    <tr><td colSpan={6} className="!py-10 text-center text-sm text-muted-foreground">{t("partyledger.noTx")}</td></tr>
                   )}
                 </tbody>
               </table>
@@ -191,6 +199,7 @@ type Stats = {
 function SetOffDialog({ partyId, kind, name, balance, onDone }: {
   partyId: string; kind: string; name: string; balance: string; onDone: () => void;
 }) {
+  const { t } = useLang();
   const [open, setOpen] = useState(false);
   const [q, setQ] = useState("");
   const [options, setOptions] = useState<{ id: string; name: string; balance: string }[]>([]);
@@ -226,9 +235,10 @@ function SetOffDialog({ partyId, kind, name, balance, onDone }: {
   async function submit(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
-    if (!counterId) { setError(`Select a ${opposite === "CUSTOMER" ? "customer" : "supplier"}.`); return; }
+    const counterWord = (opposite === "CUSTOMER" ? t("payform.customer") : t("payform.supplier")).toLowerCase();
+    if (!counterId) { setError(t("partyledger.errCounter", { counter: counterWord })); return; }
     const amt = amount.trim() || (Number(maxSetoff) / 100).toString();
-    if (!(parseFloat(amt) > 0)) { setError("Enter a positive amount."); return; }
+    if (!(parseFloat(amt) > 0)) { setError(t("partyledger.errAmount")); return; }
     setBusy(true);
     try {
       await api("/api/parties/setoff", {
@@ -243,26 +253,28 @@ function SetOffDialog({ partyId, kind, name, balance, onDone }: {
       setCounterId(""); setAmount("");
       onDone();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Could not post the set-off.");
+      setError(err instanceof Error ? err.message : t("partyledger.errPost"));
     } finally { setBusy(false); }
   }
+
+  const counterLabel = opposite === "CUSTOMER" ? t("payform.customer") : t("payform.supplier");
 
   return (
     <>
       <button type="button" className="btn btn-ghost !px-3 !py-1.5 text-xs" onClick={() => setOpen(true)}>
-        Set off
+        {t("partyledger.setOff")}
       </button>
       {open && (
         <div className="fixed inset-0 z-50 grid place-items-center bg-black/50 p-4" onClick={() => setOpen(false)}>
           <form onSubmit={submit} onClick={(e) => e.stopPropagation()}
-            role="dialog" aria-modal="true" aria-label="Set off balances"
+            role="dialog" aria-modal="true" aria-label={t("partyledger.setOffTitle")}
             className="card w-full max-w-md p-5">
-            <h3 className="text-base font-extrabold">Set off balances</h3>
+            <h3 className="text-base font-extrabold">{t("partyledger.setOffTitle")}</h3>
             <p className="mt-1 text-xs text-muted-foreground">
-              Net {name}&rsquo;s balance against a {opposite === "CUSTOMER" ? "customer" : "supplier"} you also owe — a balanced contra entry, no cash moves.
+              {t("partyledger.setOffHint", { name, counter: counterLabel.toLowerCase() })}
             </p>
-            <Field label={`${opposite === "CUSTOMER" ? "Customer" : "Supplier"} to set off against`}>
-              <input className="field" placeholder="Search…" value={q} onChange={(e) => setQ(e.target.value)} />
+            <Field label={t("partyledger.setOffAgainst", { counter: counterLabel })}>
+              <input className="field" placeholder={t("payform.searchPlaceholder")} value={q} onChange={(e) => setQ(e.target.value)} />
             </Field>
             <div className="mt-2 max-h-40 overflow-y-auto rounded-xl border border-border">
               {options.map((p) => (
@@ -273,23 +285,23 @@ function SetOffDialog({ partyId, kind, name, balance, onDone }: {
                   <span className="text-xs text-muted-foreground">{fmtMoney(p.balance)}</span>
                 </button>
               ))}
-              {options.length === 0 && <p className="px-3 py-4 text-center text-xs text-muted-foreground">No matches.</p>}
+              {options.length === 0 && <p className="px-3 py-4 text-center text-xs text-muted-foreground">{t("partyledger.noMatches")}</p>}
             </div>
             {counter && maxSetoff > 0n && (
               <p className="mt-2 text-xs text-muted-foreground">
-                Max set-off: <span className="font-bold text-foreground">{fmtMoney(maxSetoff.toString())}</span>
+                {t("partyledger.maxSetOff")} <span className="font-bold text-foreground">{fmtMoney(maxSetoff.toString())}</span>
               </p>
             )}
-            <Field label="Amount (Rs)">
+            <Field label={t("partyledger.amount")}>
               <input className="field" inputMode="decimal" value={amount}
                 onChange={(e) => setAmount(e.target.value)}
                 placeholder={maxSetoff > 0n ? (Number(maxSetoff) / 100).toString() : "0"} />
             </Field>
             {error && <p className="mt-2 text-xs font-semibold text-danger">{error}</p>}
             <div className="mt-4 flex gap-2">
-              <button type="button" className="btn flex-1" onClick={() => setOpen(false)}>Cancel</button>
+              <button type="button" className="btn flex-1" onClick={() => setOpen(false)}>{t("common.cancel")}</button>
               <button type="submit" className="btn btn-primary flex-1" disabled={busy}>
-                {busy ? "Posting…" : "Post set-off"}
+                {busy ? t("partyledger.posting") : t("partyledger.postSetOff")}
               </button>
             </div>
           </form>
@@ -300,6 +312,7 @@ function SetOffDialog({ partyId, kind, name, balance, onDone }: {
 }
 
 function PartyStats({ partyId }: { partyId: string }) {
+  const { t } = useLang();
   const [s, setS] = useState<Stats | null>(null);
   useEffect(() => {
     let alive = true;
@@ -310,11 +323,11 @@ function PartyStats({ partyId }: { partyId: string }) {
   }, [partyId]);
   if (!s) return <div className="mb-4 grid animate-pulse grid-cols-2 gap-3 sm:grid-cols-5">{[1, 2, 3, 4, 5].map((i) => <div key={i} className="h-20 rounded-2xl bg-muted" />)}</div>;
   const tiles: [string, string, string][] = [
-    ["Lifetime value", fmtMoney(s.lifetime), "text-primary"],
-    ["Bills", String(s.billCount), ""],
-    ["Avg bill", fmtMoney(s.avgBill), ""],
-    [s.party.kind === "CUSTOMER" ? "Received" : "Paid", fmtMoney(s.paymentsTotal), ""],
-    ["Outstanding", fmtMoney(s.outstanding), "text-danger"],
+    [t("partyledger.statLifetime"), fmtMoney(s.lifetime), "text-primary"],
+    [t("partyledger.statBills"), String(s.billCount), ""],
+    [t("partyledger.statAvgBill"), fmtMoney(s.avgBill), ""],
+    [s.party.kind === "CUSTOMER" ? t("partyledger.statReceived") : t("partyledger.statPaid"), fmtMoney(s.paymentsTotal), ""],
+    [t("partyledger.statOutstanding"), fmtMoney(s.outstanding), "text-danger"],
   ];
   return (
     <div className="mb-4 grid grid-cols-2 gap-3 sm:grid-cols-5">

@@ -5,6 +5,7 @@ import { useCallback, useEffect, useState } from "react";
 import { Plus, CalendarDays, Wallet } from "lucide-react";
 import { PageHeader, EmptyState, FilterBar, SummaryChips, Pagination } from "@/components/ui";
 import { api, fmtMoney, fmtDate, toBig } from "@/lib/format";
+import { useLang } from "@/components/lang-provider";
 
 type Pay = {
   id: string; kind: string; date: number; amount: string; method: string;
@@ -14,6 +15,7 @@ type Pay = {
 const PER_PAGE = 20;
 
 export default function PaymentsPage() {
+  const { t } = useLang();
   const [kind, setKind] = useState("");
   const [from, setFrom] = useState("");
   const [to, setTo] = useState("");
@@ -51,20 +53,20 @@ export default function PaymentsPage() {
   return (
     <div>
       <PageHeader
-        title="Payments"
-        subtitle="Money received from customers & paid to suppliers"
+        title={t("payments.title")}
+        subtitle={t("payments.subtitle")}
         icon={<Wallet size={20} />}
         actions={
           <>
-            <Link href="/payments/new?kind=PAYMENT" className="btn btn-ghost text-sm"><Plus size={16} /> Pay supplier</Link>
-            <Link href="/payments/new?kind=RECEIPT" className="btn btn-primary text-sm"><Plus size={16} /> Receive payment</Link>
+            <Link href="/payments/new?kind=PAYMENT" className="btn btn-ghost text-sm"><Plus size={16} /> {t("payments.paySupplier")}</Link>
+            <Link href="/payments/new?kind=RECEIPT" className="btn btn-primary text-sm"><Plus size={16} /> {t("payments.receivePayment")}</Link>
           </>
         }
       />
 
       <FilterBar>
         <div className="flex gap-1 rounded-xl bg-muted p-1">
-          {[["", "All"], ["RECEIPT", "Receipts"], ["PAYMENT", "Payments"]].map(([v, l]) => (
+          {[["", t("payments.tabAll")], ["RECEIPT", t("payments.tabReceipts")], ["PAYMENT", t("payments.tabPayments")]].map(([v, l]) => (
             <button key={v} onClick={() => setKind(v)}
               className={`rounded-lg px-4 py-1.5 text-xs font-bold transition ${kind === v ? "bg-card text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}`}>
               {l}
@@ -73,23 +75,23 @@ export default function PaymentsPage() {
         </div>
         <div className="flex items-center gap-2">
           <CalendarDays size={15} className="shrink-0 text-muted-foreground" />
-          <input type="date" className="field !w-auto !py-2 text-xs" value={from} onChange={(e) => setFrom(e.target.value)} aria-label="From date" />
-          <span className="text-xs text-muted-foreground">to</span>
-          <input type="date" className="field !w-auto !py-2 text-xs" value={to} onChange={(e) => setTo(e.target.value)} aria-label="To date" />
+          <input type="date" className="field !w-auto !py-2 text-xs" value={from} onChange={(e) => setFrom(e.target.value)} aria-label={t("payments.fromDate")} />
+          <span className="text-xs text-muted-foreground">{t("payments.toWord")}</span>
+          <input type="date" className="field !w-auto !py-2 text-xs" value={to} onChange={(e) => setTo(e.target.value)} aria-label={t("payments.toDate")} />
         </div>
         {hasFilter && (
           <button className="text-xs font-bold text-danger hover:underline"
             onClick={() => { setKind(""); setFrom(""); setTo(""); }}>
-            Clear filters
+            {t("payments.clearFilters")}
           </button>
         )}
       </FilterBar>
 
       {!loading && (
         <SummaryChips items={[
-          { label: "Received", value: fmtMoney(toBig(sumR)), tone: "primary" },
-          { label: "Paid", value: fmtMoney(toBig(sumP)), tone: "accent" },
-          { label: "Net in hand", value: fmtMoney(toBig(sumR) - toBig(sumP)), tone: "neutral" },
+          { label: t("payments.sumReceived"), value: fmtMoney(toBig(sumR)), tone: "primary" },
+          { label: t("payments.sumPaid"), value: fmtMoney(toBig(sumP)), tone: "accent" },
+          { label: t("payments.sumNet"), value: fmtMoney(toBig(sumR) - toBig(sumP)), tone: "neutral" },
         ]} />
       )}
 
@@ -97,19 +99,19 @@ export default function PaymentsPage() {
         {loading ? (
           <div className="space-y-3 p-5">{[1, 2, 3, 4, 5].map((i) => <div key={i} className="skeleton h-12 rounded-xl" />)}</div>
         ) : rows.length === 0 ? (
-          <EmptyState title="No payments found"
-            hint={hasFilter ? "Try widening the date range or clearing filters." : "Record money received from customers or paid to suppliers."}
-            action={!hasFilter ? <Link href="/payments/new?kind=RECEIPT" className="btn btn-primary text-sm"><Plus size={16} /> Record now</Link> : undefined} />
+          <EmptyState title={t("payments.emptyTitle")}
+            hint={hasFilter ? t("payments.emptyHintFilter") : t("payments.emptyHint")}
+            action={!hasFilter ? <Link href="/payments/new?kind=RECEIPT" className="btn btn-primary text-sm"><Plus size={16} /> {t("payments.recordNow")}</Link> : undefined} />
         ) : (
           <div className="overflow-x-auto">
             <table className="tbl">
-              <thead><tr><th>Type</th><th>Party</th><th>Account</th><th>Date</th><th>Method</th><th className="num">Amount</th></tr></thead>
+              <thead><tr><th>{t("payments.colType")}</th><th>{t("payments.colParty")}</th><th>{t("payments.colAccount")}</th><th>{t("payments.colDate")}</th><th>{t("payments.colMethod")}</th><th className="num">{t("payments.colAmount")}</th></tr></thead>
               <tbody>
                 {rows.map((p) => (
                   <tr key={p.id}>
                     <td>
                       <span className={`badge ${p.kind === "RECEIPT" ? "bg-primary-soft text-primary" : "bg-accent-soft text-accent"}`}>
-                        {p.kind === "RECEIPT" ? "Received" : "Paid"}
+                        {p.kind === "RECEIPT" ? t("payments.typeReceived") : t("payments.typePaid")}
                       </span>
                     </td>
                     <td className="font-bold">{p.partyName ?? "—"}</td>

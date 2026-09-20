@@ -2,15 +2,17 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { Scale, TrendingUp, Landmark, BookOpen, ArrowDownToLine, ArrowUpFromLine, Boxes, BarChart3, ScrollText, Crown } from "lucide-react";
+import { Scale, TrendingUp, Landmark, BookOpen, ArrowDownToLine, ArrowUpFromLine, Boxes, BarChart3, ScrollText, Crown, Sunrise } from "lucide-react";
 import { PageHeader } from "@/components/ui";
 import { useBusinessProfile } from "@/components/business-type";
+import { useLang } from "@/components/lang-provider";
 import { api } from "@/lib/format";
 
 const PRO_HREFS = new Set(["/reports/profit-loss", "/reports/balance-sheet", "/reports/journal"]);
 
 export default function ReportsHub() {
   const bp = useBusinessProfile();
+  const { t } = useLang();
   const [isFree, setIsFree] = useState(false);
   useEffect(() => {
     api<{ data: { level: string } }>("/api/billing/status")
@@ -18,18 +20,19 @@ export default function ReportsHub() {
       .catch(() => {});
   }, []);
   const reports = [
-    { href: "/reports/trial-balance", icon: Scale, title: "Trial balance", text: "Every account's debits & credits. Always balanced." },
-    { href: "/reports/profit-loss", icon: TrendingUp, title: "Profit & loss", text: `${bp.salesNav}, costs, expenses and net profit for any period.` },
-    { href: "/reports/balance-sheet", icon: Landmark, title: "Balance sheet", text: "Assets, liabilities and equity — your business net worth." },
-    { href: "/reports/party-ledger", icon: BookOpen, title: `${bp.partyOne} ledger`, text: `Full transaction history of any ${bp.partyOne.toLowerCase()} or supplier.` },
-    { href: "/reports/receivables", icon: ArrowDownToLine, title: bp.receivables, text: `Who owes you money, and how much.` },
-    { href: "/reports/payables", icon: ArrowUpFromLine, title: "Payables", text: "Who you owe money to, and how much." },
-    { href: "/reports/journal", icon: ScrollText, title: "Journal", text: "The audit trail — every balanced entry behind your books." },
-    { href: "/stock", icon: Boxes, title: `${bp.stock} report`, text: `Quantities, average cost and value of every ${bp.productOne.toLowerCase()}.` },
+    { href: "/reports/day-close", icon: Sunrise, title: t("reportsindex.dayClose"), text: t("reportsindex.dayCloseText") },
+    { href: "/reports/trial-balance", icon: Scale, title: t("reportsindex.trialBalance"), text: t("reportsindex.trialBalanceText") },
+    { href: "/reports/profit-loss", icon: TrendingUp, title: t("reportsindex.profitLoss"), text: t("reportsindex.profitLossText", { sales: bp.salesNav }) },
+    { href: "/reports/balance-sheet", icon: Landmark, title: t("reportsindex.balanceSheet"), text: t("reportsindex.balanceSheetText") },
+    { href: "/reports/party-ledger", icon: BookOpen, title: t("reportsindex.partyLedgerTitle", { party: bp.partyOne }), text: t("reportsindex.partyLedgerText", { party: bp.partyOne.toLowerCase() }) },
+    { href: "/reports/receivables", icon: ArrowDownToLine, title: bp.receivables, text: t("reportsindex.receivablesText") },
+    { href: "/reports/payables", icon: ArrowUpFromLine, title: t("reportsindex.payables"), text: t("reportsindex.payablesText") },
+    { href: "/reports/journal", icon: ScrollText, title: t("reportsindex.journal"), text: t("reportsindex.journalText") },
+    { href: "/stock", icon: Boxes, title: t("reportsindex.stockTitle", { stock: bp.stock }), text: t("reportsindex.stockText", { product: bp.productOne.toLowerCase() }) },
   ];
   return (
     <div>
-      <PageHeader title="Reports" subtitle="Every number in your business, explained" icon={<BarChart3 size={20} />} />
+      <PageHeader title={t("reportsindex.title")} subtitle={t("reportsindex.subtitle")} icon={<BarChart3 size={20} />} />
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         {reports.map((r, i) => {
           const locked = isFree && PRO_HREFS.has(r.href);

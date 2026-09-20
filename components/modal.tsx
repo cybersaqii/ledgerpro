@@ -2,6 +2,7 @@
 
 import { X } from "lucide-react";
 import { useEffect, useId, useRef, type ReactNode } from "react";
+import { useLang } from "./lang-provider";
 
 /**
  * Shared modal dialog: bottom-sheet on phones, centered dialog on desktop.
@@ -11,6 +12,7 @@ import { useEffect, useId, useRef, type ReactNode } from "react";
 export function Modal({ title, onClose, children, wide = false }: {
   title: string; onClose: () => void; children: ReactNode; wide?: boolean;
 }) {
+  const { t } = useLang();
   const titleId = useId();
   const panelRef = useRef<HTMLDivElement>(null);
 
@@ -57,7 +59,7 @@ export function Modal({ title, onClose, children, wide = false }: {
           <button
             onClick={onClose}
             className="grid h-11 w-11 place-items-center rounded-xl bg-muted text-muted-foreground transition hover:text-foreground"
-            aria-label="Close dialog"
+            aria-label={t("common.closeDialog")}
           >
             <X size={18} />
           </button>
