@@ -33,7 +33,7 @@ export function DocForm({ mode }: { mode: "SALES" | "PURCHASE" }) {
   const [showPartyList, setShowPartyList] = useState(false);
   const [date, setDate] = useState(fmtDateInput());
   const [dueDate, setDueDate] = useState("");
-  const [discountTotal, setDiscountTotal] = useState("0");
+  const [discountTotal, setDiscountTotal] = useState("");
   const [notes, setNotes] = useState("");
   const [refNo, setRefNo] = useState("");
   const [docType, setDocType] = useState(isSales ? "INVOICE" : "BILL");
@@ -116,7 +116,7 @@ export function DocForm({ mode }: { mode: "SALES" | "PURCHASE" }) {
       unit: p.unit,
       qty: "1",
       rate: (Number(BigInt(price)) / 100).toString(),
-      discount: "0",
+      discount: "",
       availQty: p.totalQty,
     }]);
     setProdQ("");
@@ -125,7 +125,7 @@ export function DocForm({ mode }: { mode: "SALES" | "PURCHASE" }) {
 
   function addCustomLine() {
     keyRef.current += 1;
-    setLines((ls) => [...ls, { key: keyRef.current, productId: "", description: "", unit: "", qty: "1", rate: "0", discount: "0", availQty: null }]);
+    setLines((ls) => [...ls, { key: keyRef.current, productId: "", description: "", unit: "", qty: "1", rate: "", discount: "", availQty: null }]);
   }
 
   function updateLine(key: number, patch: Partial<Line>) {
@@ -345,7 +345,7 @@ export function DocForm({ mode }: { mode: "SALES" | "PURCHASE" }) {
                       <button type="button" className="flex w-full items-center gap-2 px-4 py-2.5 text-left text-sm hover:bg-muted"
                         onClick={() => {
                           keyRef.current += 1;
-                          setLines((ls) => [...ls, { key: keyRef.current, productId: "", description: prodQ.trim(), unit: "", qty: "1", rate: "0", discount: "0", availQty: null }]);
+                          setLines((ls) => [...ls, { key: keyRef.current, productId: "", description: prodQ.trim(), unit: "", qty: "1", rate: "", discount: "", availQty: null }]);
                           setProdQ("");
                           setShowProdList(false);
                         }}>
@@ -388,9 +388,9 @@ export function DocForm({ mode }: { mode: "SALES" | "PURCHASE" }) {
                         <td><input className="field num !px-2 !py-1.5" type="number" min="0" step="0.001" value={l.qty}
                           onChange={(e) => updateLine(l.key, { qty: e.target.value })} /></td>
                         <td className="text-sm text-muted-foreground">{l.unit || "—"}</td>
-                        <td><input className="field num !px-2 !py-1.5" type="number" min="0" step="0.01" value={l.rate}
+                        <td><input className="field num !px-2 !py-1.5" type="number" min="0" step="0.01" placeholder="0.00" value={l.rate}
                           onChange={(e) => updateLine(l.key, { rate: e.target.value })} /></td>
-                        <td><input className="field num !px-2 !py-1.5" type="number" min="0" step="0.01" value={l.discount}
+                        <td><input className="field num !px-2 !py-1.5" type="number" min="0" step="0.01" placeholder="0.00" value={l.discount}
                           onChange={(e) => updateLine(l.key, { discount: e.target.value })} /></td>
                         <td className="num whitespace-nowrap text-sm font-extrabold">Rs {(lineTotals[idx] / 100).toLocaleString()}</td>
                         <td>
@@ -504,7 +504,7 @@ export function DocForm({ mode }: { mode: "SALES" | "PURCHASE" }) {
               <div className="flex justify-between"><span className="text-muted-foreground">Subtotal</span><span className="font-bold">Rs {(subtotal / 100).toLocaleString()}</span></div>
               <div className="flex items-center justify-between gap-4">
                 <span className="text-muted-foreground">Bill discount (Rs)</span>
-                <input className="field num !w-32 !py-1.5" type="number" min="0" step="0.01" value={discountTotal}
+                <input className="field num !w-32 !py-1.5" type="number" min="0" step="0.01" placeholder="0.00" value={discountTotal}
                   onChange={(e) => setDiscountTotal(e.target.value)} />
               </div>
               <div className="flex justify-between border-t border-border pt-3 text-base">

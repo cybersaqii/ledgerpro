@@ -48,7 +48,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
       ...(p.city !== undefined ? { city: p.city || null } : {}),
       ...(p.ntn !== undefined ? { ntn: p.ntn || null } : {}),
       ...(p.filerStatus !== undefined ? { filerStatus: p.filerStatus } : {}),
-      ...(p.creditLimit !== undefined ? { creditLimit: parseMoney(p.creditLimit) } : {}),
+      ...(p.creditLimit !== undefined ? { creditLimit: parseMoney(p.creditLimit || "0") } : {}),
       ...(p.notes !== undefined ? { notes: p.notes || null } : {}),
       updatedAt: new Date(),
     })

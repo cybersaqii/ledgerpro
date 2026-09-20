@@ -59,12 +59,12 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
       ...(p.barcode !== undefined ? { barcode: p.barcode || null } : {}),
       ...(p.category !== undefined ? { category: p.category || null } : {}),
       ...(p.unit !== undefined ? { unit: p.unit } : {}),
-      ...(p.purchasePrice !== undefined ? { purchasePrice: parseMoney(p.purchasePrice) } : {}),
-      ...(p.salePrice !== undefined ? { salePrice: parseMoney(p.salePrice) } : {}),
+      ...(p.purchasePrice !== undefined ? { purchasePrice: parseMoney(p.purchasePrice || "0") } : {}),
+      ...(p.salePrice !== undefined ? { salePrice: parseMoney(p.salePrice || "0") } : {}),
       ...(p.taxBps !== undefined ? { taxBps: p.taxBps } : {}),
       ...(p.trackStock !== undefined ? { trackStock: p.trackStock } : {}),
       ...(p.reorderLevel !== undefined ? { reorderLevel: parseQty(p.reorderLevel) } : {}),
-      ...(p.minSalePrice !== undefined ? { minSalePrice: parseMoney(p.minSalePrice) } : {}),
+      ...(p.minSalePrice !== undefined ? { minSalePrice: parseMoney(p.minSalePrice || "0") } : {}),
       updatedAt: new Date(),
     })
     .where(eq(products.id, id));

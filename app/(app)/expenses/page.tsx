@@ -27,7 +27,7 @@ export default function ExpensesPage() {
   const [banks, setBanks] = useState<Bank[]>([]);
   const [loading, setLoading] = useState(true);
   const [modal, setModal] = useState(false);
-  const [form, setForm] = useState({ accountId: "", bankAccountId: "", date: fmtDateInput(), amount: "", taxAmount: "0", notes: "" });
+  const [form, setForm] = useState({ accountId: "", bankAccountId: "", date: fmtDateInput(), amount: "", taxAmount: "", notes: "" });
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -58,7 +58,7 @@ export default function ExpensesPage() {
 
   async function openModal() {
     setError(null);
-    setForm({ accountId: "", bankAccountId: "", date: fmtDateInput(), amount: "", taxAmount: "0", notes: "" });
+    setForm({ accountId: "", bankAccountId: "", date: fmtDateInput(), amount: "", taxAmount: "", notes: "" });
     try {
       const [a, b] = await Promise.all([
         api<{ data: Account[] }>("/api/accounts?type=EXPENSE"),

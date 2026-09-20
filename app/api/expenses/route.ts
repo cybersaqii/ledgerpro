@@ -87,7 +87,7 @@ export async function POST(req: NextRequest) {
         bankAccountId: b.bankAccountId,
         date,
         amount: parseMoney(b.amount),
-        taxAmount: parseMoney(b.taxAmount),
+        taxAmount: parseMoney(b.taxAmount || "0"),
         notes: b.notes || undefined,
         createdById: session.uid,
       });

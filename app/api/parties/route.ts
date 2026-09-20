@@ -65,7 +65,7 @@ export async function POST(req: NextRequest) {
     city: p.city || null,
     ntn: p.ntn || null,
     filerStatus: p.filerStatus,
-    creditLimit: parseMoney(p.creditLimit),
+    creditLimit: parseMoney(p.creditLimit || "0"),
     notes: p.notes || null,
   });
   await logAudit(db, {

@@ -83,12 +83,12 @@ export async function POST(req: NextRequest) {
     barcode: p.barcode || null,
     category: p.category || null,
     unit: p.unit,
-    purchasePrice: parseMoney(p.purchasePrice),
-    salePrice: parseMoney(p.salePrice),
+    purchasePrice: parseMoney(p.purchasePrice || "0"),
+    salePrice: parseMoney(p.salePrice || "0"),
     taxBps: p.taxBps,
     trackStock: p.trackStock,
     reorderLevel: parseQty(p.reorderLevel),
-    minSalePrice: parseMoney(p.minSalePrice),
+    minSalePrice: parseMoney(p.minSalePrice || "0"),
   });
   await logAudit(db, {
     companyId, userId: session.uid, userName: session.name,

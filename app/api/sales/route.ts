@@ -113,14 +113,14 @@ export async function POST(req: NextRequest) {
     productId: i.productId || null,
     description: i.description,
     qtyMilli: parseQty(i.qty),
-    ratePaisa: parseMoney(i.rate),
-    discountPaisa: parseMoney(i.discount),
+    ratePaisa: parseMoney(i.rate || "0"),
+    discountPaisa: parseMoney(i.discount || "0"),
     taxBps: i.taxBps,
   }));
 
   let totals;
   try {
-    totals = computeTotals(docItems, parseMoney(b.discountTotal));
+    totals = computeTotals(docItems, parseMoney(b.discountTotal || "0"));
   } catch (e) {
     return toApiError(e, { route: "/api/sales", companyId });
   }
@@ -150,7 +150,7 @@ export async function POST(req: NextRequest) {
         dueDate,
         status: isPosted ? "POSTED" : "DRAFT",
         subtotal: totals.subtotal,
-        discountTotal: parseMoney(b.discountTotal),
+        discountTotal: parseMoney(b.discountTotal || "0"),
         taxTotal: totals.taxTotal,
         grandTotal: totals.grandTotal,
         notes: b.notes || null,
@@ -186,7 +186,7 @@ export async function POST(req: NextRequest) {
             ...i,
             trackStock: i.productId ? prodMap.get(i.productId)?.trackStock ?? false : false,
           })),
-          discountTotal: parseMoney(b.discountTotal),
+          discountTotal: parseMoney(b.discountTotal || "0"),
           taxTotal: totals.taxTotal,
           grandTotal: totals.grandTotal,
           createdById: session.uid,

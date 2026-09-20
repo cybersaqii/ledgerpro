@@ -13,7 +13,7 @@ type Party = {
   balance: string; creditLimit: string; filerStatus: string;
 };
 
-const emptyForm = { name: "", phone: "", email: "", address: "", city: "", ntn: "", filerStatus: "NA", creditLimit: "0", notes: "" };
+const emptyForm = { name: "", phone: "", email: "", address: "", city: "", ntn: "", filerStatus: "NA", creditLimit: "", notes: "" };
 
 export default function PartiesPage() {
   const bp = useBusinessProfile();
@@ -140,7 +140,7 @@ export default function PartiesPage() {
             <Field label="Address"><input className="field" value={form.address} onChange={set("address")} placeholder="Shop address" /></Field>
             <div className="grid gap-4 sm:grid-cols-2">
               <Field label="Credit limit (Rs)">
-                <input className="field" type="number" min="0" step="0.01" value={form.creditLimit} onChange={set("creditLimit")} />
+                <input className="field" type="number" min="0" step="0.01" placeholder="0.00" value={form.creditLimit} onChange={set("creditLimit")} />
               </Field>
               <Field label="Filer status">
                 <select className="field" value={form.filerStatus} onChange={set("filerStatus")}>

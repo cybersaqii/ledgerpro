@@ -170,7 +170,7 @@ export default function PosPage() {
     if (s === "split" && tenders.length === 0) {
       const cash = banks.find((b) => b.kind === "CASH") ?? banks[0];
       tenderKeyRef.current += 1;
-      setTenders([{ key: tenderKeyRef.current, bankId: cash?.id ?? "", amount: (totals.grand / 100).toFixed(2) }]);
+      setTenders([{ key: tenderKeyRef.current, bankId: cash?.id ?? "", amount: "" }]);
     }
     setStage(s);
   }
@@ -759,6 +759,7 @@ export default function PosPage() {
                     <input
                       className="field !w-28 !py-2.5 text-right text-sm font-bold"
                       inputMode="decimal"
+                      placeholder="0.00"
                       value={t.amount}
                       onChange={(e) => setTenders((ts) => ts.map((x) => x.key === t.key ? { ...x, amount: e.target.value.replace(/[^0-9.]/g, "") } : x))}
                       aria-label="Tender amount"

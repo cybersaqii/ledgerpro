@@ -15,7 +15,7 @@ type Product = {
 
 const emptyForm = {
   sku: "", name: "", barcode: "", category: "", unit: "PCS",
-  purchasePrice: "0", salePrice: "0", trackStock: true, reorderLevel: "0", minSalePrice: "0",
+  purchasePrice: "", salePrice: "", trackStock: true, reorderLevel: "", minSalePrice: "",
 };
 
 const UNITS = ["PCS", "KG", "G", "LTR", "ML", "MTR", "BOX", "CTN", "DOZ", "BAG"];
@@ -153,12 +153,12 @@ export default function ProductsPage() {
               </Field>
             </div>
             <div className="grid gap-4 sm:grid-cols-3">
-              <Field label="Buy price (Rs)"><input className="field" type="number" min="0" step="0.01" value={form.purchasePrice} onChange={set("purchasePrice")} /></Field>
-              <Field label="Sale price (Rs)"><input className="field" type="number" min="0" step="0.01" value={form.salePrice} onChange={set("salePrice")} /></Field>
-              <Field label="Min. sale price (Rs)" hint="Selling below this needs an override"><input className="field" type="number" min="0" step="0.01" value={form.minSalePrice} onChange={set("minSalePrice")} /></Field>
+              <Field label="Buy price (Rs)"><input className="field" type="number" min="0" step="0.01" placeholder="0.00" value={form.purchasePrice} onChange={set("purchasePrice")} /></Field>
+              <Field label="Sale price (Rs)"><input className="field" type="number" min="0" step="0.01" placeholder="0.00" value={form.salePrice} onChange={set("salePrice")} /></Field>
+              <Field label="Min. sale price (Rs)" hint="Selling below this needs an override"><input className="field" type="number" min="0" step="0.01" placeholder="0.00" value={form.minSalePrice} onChange={set("minSalePrice")} /></Field>
             </div>
             <div className="grid gap-4 sm:grid-cols-3">
-              <Field label="Reorder level"><input className="field" type="number" min="0" step="0.001" value={form.reorderLevel} onChange={set("reorderLevel")} /></Field>
+              <Field label="Reorder level"><input className="field" type="number" min="0" step="0.001" placeholder="0" value={form.reorderLevel} onChange={set("reorderLevel")} /></Field>
             </div>
             <label className="flex cursor-pointer items-center gap-2 text-sm font-semibold">
               <input type="checkbox" checked={form.trackStock} onChange={set("trackStock")} className="h-4 w-4 accent-[var(--primary)]" />
