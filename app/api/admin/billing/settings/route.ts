@@ -34,6 +34,11 @@ export async function PUT(req: NextRequest) {
         const n = parseInt(v, 10);
         if (!Number.isFinite(n) || n <= 0) return err("Prices must be positive numbers (in paisa).", 422);
         await setPlatformSetting(key, String(n));
+      } else if (key === "security.idle_timeout_hours") {
+        const n = parseInt(v, 10);
+        if (!Number.isFinite(n) || n < 1 || n > 720)
+          return err("Idle timeout must be between 1 and 720 hours.", 422);
+        await setPlatformSetting(key, String(n));
       } else {
         if (v.length > 500) return err("Text is too long.", 422);
         await setPlatformSetting(key, v);

@@ -8,6 +8,7 @@ import { setupCompany, SYS } from "@/lib/setup";
 import { json, err } from "@/lib/api";
 import { rateLimitDb, clientIp } from "@/lib/rate-limit-db";
 import { logAudit } from "@/lib/audit";
+import { recordLoginEvent } from "@/lib/security";
 
 export async function POST(req: NextRequest) {
   const rl = await rateLimitDb(`login:${clientIp(req)}`, 10, 60_000);
@@ -57,7 +58,13 @@ export async function POST(req: NextRequest) {
     role: user.role,
     v: user.tokenVersion,
   });
-  await db.update(users).set({ lastLoginAt: new Date() }).where(eq(users.id, user.id));
+  await db.update(users).set({ lastLoginAt: new Date(), lastActivityAt: new Date() }).where(eq(users.id, user.id));
+  await recordLoginEvent(db, {
+    userId: user.id,
+    companyId: user.companyId,
+    ip: clientIp(req),
+    userAgent: req.headers.get("user-agent"),
+  });
   await logAudit(db, {
     companyId: user.companyId, userId: user.id, userName: user.name,
     action: "auth.login", entity: "user", entityId: user.id,

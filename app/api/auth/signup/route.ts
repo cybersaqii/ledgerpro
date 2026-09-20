@@ -10,6 +10,7 @@ import { signupSchema } from "@/lib/validators";
 import { json, err } from "@/lib/api";
 import { rateLimitDb, clientIp } from "@/lib/rate-limit-db";
 import { logAudit } from "@/lib/audit";
+import { recordLoginEvent } from "@/lib/security";
 
 export async function POST(req: NextRequest) {
   const rl = await rateLimitDb(`signup:${clientIp(req)}`, 5, 300_000);
@@ -63,6 +64,13 @@ export async function POST(req: NextRequest) {
   }
 
   await createSession({ uid: userId, cid: companyId, name, email: email.toLowerCase(), role: "OWNER", v: 0 });
+  await db.update(users).set({ lastActivityAt: new Date() }).where(eq(users.id, userId));
+  await recordLoginEvent(db, {
+    userId,
+    companyId,
+    ip: clientIp(req),
+    userAgent: req.headers.get("user-agent"),
+  });
   await logAudit(db, {
     companyId, userId, userName: name,
     action: "auth.signup", entity: "user", entityId: userId,

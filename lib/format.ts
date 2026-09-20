@@ -63,6 +63,17 @@ export async function api<T>(url: string, init?: RequestInit): Promise<T> {
       // A PRO-only API blocked us (trial ended, no paid plan) — send the user to Billing.
       window.dispatchEvent(new CustomEvent("ledgerpro:upgrade-required"));
     }
+    if (res.status === 401 && typeof window !== "undefined") {
+      // Session is gone (logged out, or idle timeout) — fail closed to /login.
+      // Skip on the auth pages themselves so bad-credential errors still show.
+      const p = window.location.pathname;
+      if (!p.startsWith("/login") && !p.startsWith("/signup") && !p.startsWith("/forgot-password")) {
+        // Intentional full reload: clears all client state on session expiry.
+        // api() is a plain helper, not a component, so useRouter() isn't available here.
+        // eslint-disable-next-line @next/next/no-location-assign-relative-destination
+        window.location.href = "/login";
+      }
+    }
     throw new ApiError((data as { error?: string }).error || "Something went wrong.", code);
   }
   return data as T;

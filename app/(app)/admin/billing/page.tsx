@@ -30,6 +30,10 @@ const SUPPORT_LABELS: Record<string, string> = {
   "support.hours": "Support hours",
 };
 
+const SECURITY_LABELS: Record<string, string> = {
+  "security.idle_timeout_hours": "Idle session timeout (hours, 1–720)",
+};
+
 export default function AdminBillingPage() {
   const [payments, setPayments] = useState<Payment[]>([]);
   const [settings, setSettings] = useState<Settings>({});
@@ -219,6 +223,20 @@ export default function AdminBillingPage() {
                 value={settings[key] || ""}
                 onChange={(e) => setSettings((s) => ({ ...s, [key]: e.target.value }))}
                 maxLength={500}
+              />
+            </Field>
+          ))}
+        </div>
+        <p className="font-bold pt-2">Security <span className="font-normal text-sm text-muted-foreground">(applies to every company)</span></p>
+        <div className="grid gap-4 sm:grid-cols-2">
+          {Object.entries(SECURITY_LABELS).map(([key, label]) => (
+            <Field key={key} label={label}>
+              <input
+                className="input"
+                inputMode="numeric"
+                value={settings[key] || ""}
+                onChange={(e) => setSettings((s) => ({ ...s, [key]: e.target.value.replace(/[^0-9]/g, "") }))}
+                maxLength={3}
               />
             </Field>
           ))}

@@ -5,6 +5,7 @@ import { eq } from "drizzle-orm";
 import { db } from "./db";
 import { users } from "@/db/schema";
 import { SESSION_COOKIE, verifySessionToken as verifyTokenEdge } from "./edge-auth";
+import { getIdleTimeoutMs, isIdleExpired, shouldTouchActivity } from "./security";
 
 export { SESSION_COOKIE };
 
@@ -54,7 +55,12 @@ export async function getSession(): Promise<Session | null> {
     const s = payload as unknown as Session;
     if (!s.uid || !s.cid) return null;
     const rows = await db
-      .select({ tokenVersion: users.tokenVersion, isActive: users.isActive, companyId: users.companyId })
+      .select({
+        tokenVersion: users.tokenVersion,
+        isActive: users.isActive,
+        companyId: users.companyId,
+        lastActivityAt: users.lastActivityAt,
+      })
       .from(users)
       .where(eq(users.id, s.uid))
       .limit(1);
@@ -62,6 +68,19 @@ export async function getSession(): Promise<Session | null> {
     if (!user || !user.isActive) return null;
     if (user.tokenVersion !== s.v) return null; // logged out everywhere
     if (user.companyId !== s.cid) return null;
+    // Idle timeout — a session idle longer than the limit is treated as logged
+    // out (fail closed). A missing timestamp never expires: pre-migration users
+    // keep their session and tracking simply starts now.
+    const idleMs = await getIdleTimeoutMs(db);
+    if (isIdleExpired(user.lastActivityAt, idleMs)) return null;
+    // Throttled activity touch — at most one write per 15 minutes per user.
+    if (shouldTouchActivity(user.lastActivityAt)) {
+      try {
+        await db.update(users).set({ lastActivityAt: new Date() }).where(eq(users.id, s.uid));
+      } catch {
+        /* activity tracking must never break a request */
+      }
+    }
     return s;
   } catch {
     return null;

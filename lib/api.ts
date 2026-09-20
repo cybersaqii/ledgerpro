@@ -21,22 +21,3 @@ export async function requireAuth(): Promise<{ session: Session; response: null 
   if (!session) return { session: null, response: err("Please log in.", 401) };
   return { session, response: null };
 }
-
-const ROLE_RANK: Record<string, number> = {
-  VIEWER: 1,
-  CASHIER: 2,
-  ACCOUNTANT: 3,
-  ADMIN: 4,
-  OWNER: 5,
-};
-
-export function hasRole(session: Session, minRole: keyof typeof ROLE_RANK): boolean {
-  return (ROLE_RANK[session.role] || 0) >= ROLE_RANK[minRole];
-}
-
-export async function requireRole(minRole: keyof typeof ROLE_RANK) {
-  const { session, response } = await requireAuth();
-  if (!session) return { session: null, response };
-  if (!hasRole(session, minRole)) return { session: null, response: err("You don't have permission for this action.", 403) };
-  return { session, response: null };
-}

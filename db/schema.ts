@@ -69,10 +69,26 @@ export const users = sqliteTable(
     tokenVersion: integer("token_version").notNull().default(0),
     recoveryCodeHash: text("recovery_code_hash"), // bcrypt hash of the account recovery code
     lastLoginAt: ts("last_login_at"),
+    lastActivityAt: ts("last_activity_at"), // idle-timeout tracking; null = pre-migration, start tracking on next request
     createdAt: createdAt(),
     updatedAt: updatedAt(),
   },
   (t) => [index("users_company").on(t.companyId)]
+);
+
+// ─── Login history (security) ──────────────────────────────────
+
+export const loginEvents = sqliteTable(
+  "login_events",
+  {
+    id: id(),
+    userId: text("user_id").notNull(),
+    companyId: text("company_id").notNull(),
+    ip: text("ip"),
+    userAgent: text("user_agent"),
+    createdAt: createdAt(),
+  },
+  (t) => [index("login_events_user").on(t.userId, t.createdAt)]
 );
 
 // ─── Chart of accounts ─────────────────────────────────────────

@@ -148,8 +148,12 @@ export const SUPPORT_SETTING_KEYS = [
   "support.hours",
 ] as const;
 
+export const SECURITY_SETTING_KEYS = [
+  "security.idle_timeout_hours",
+] as const;
+
 /** Every platform_settings key the admin console may read/write. */
-export const PLATFORM_SETTING_KEYS = [...BILLING_SETTING_KEYS, ...SUPPORT_SETTING_KEYS] as const;
+export const PLATFORM_SETTING_KEYS = [...BILLING_SETTING_KEYS, ...SUPPORT_SETTING_KEYS, ...SECURITY_SETTING_KEYS] as const;
 
 export function priceForPlan(settings: Record<string, string>, months: number): number {
   const monthly = parseInt(settings["billing.monthly_price_paisa"] || "150000", 10);

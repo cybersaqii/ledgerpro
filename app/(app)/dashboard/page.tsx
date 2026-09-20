@@ -5,7 +5,7 @@ import { useEffect, useState } from "react";
 import {
   TrendingUp, ShoppingBag, ReceiptText, ArrowDownToLine, ArrowUpFromLine,
   Landmark, TriangleAlert, FileText, LayoutDashboard, Zap, ArrowRight,
-  ShoppingCart, Truck, Users, Package, BarChart3, KeyRound, X,
+  ShoppingCart, Truck, Users, Package, BarChart3, KeyRound, X, CircleCheck, Circle, ListChecks, Crown,
 } from "lucide-react";
 import { PageHeader, Stat, EmptyState } from "@/components/ui";
 import { api, fmtMoney, fmtDate } from "@/lib/format";
@@ -23,11 +23,16 @@ type DashboardData = {
   salesTrend: Array<{ month: string; total: string }>;
 };
 
+type OnboardingStep = {
+  key: string; label: string; hint: string; href: string; done: boolean; locked?: boolean;
+};
+
 export default function DashboardPage() {
   const bp = useBusinessProfile();
   const [data, setData] = useState<DashboardData | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [showRecoveryNudge, setShowRecoveryNudge] = useState(false);
+  const [steps, setSteps] = useState<OnboardingStep[] | null>(null);
 
   const quickActions = [
     { href: "/sales/new", label: bp.newSale, icon: ShoppingCart, cls: "bg-primary-soft text-primary" },
@@ -48,6 +53,12 @@ export default function DashboardPage() {
     if (typeof window !== "undefined" && !localStorage.getItem("lp-recovery-nudge-dismissed")) {
       api<{ hasCode: boolean }>("/api/auth/recovery-status")
         .then((d) => { if (!d.hasCode) setShowRecoveryNudge(true); })
+        .catch(() => {});
+    }
+    // First-run onboarding checklist (dismissible, once — hides when complete).
+    if (typeof window !== "undefined" && !localStorage.getItem("lp-onboarding-dismissed")) {
+      api<{ data: OnboardingStep[] }>("/api/onboarding")
+        .then((d) => { if (d.data.some((s) => !s.done)) setSteps(d.data); })
         .catch(() => {});
     }
   }, []);
@@ -97,6 +108,56 @@ export default function DashboardPage() {
           >
             <X size={16} />
           </button>
+        </div>
+      )}
+
+      {/* First-run onboarding checklist */}
+      {steps && steps.length > 0 && (
+        <div className="card mb-5 p-4 sm:p-5">
+          <div className="flex items-start justify-between gap-3">
+            <div className="flex items-center gap-3">
+              <span className="grid h-10 w-10 shrink-0 place-items-center rounded-2xl bg-primary-soft text-primary">
+                <ListChecks size={19} />
+              </span>
+              <div>
+                <p className="font-extrabold">Get set up</p>
+                <p className="text-sm text-muted-foreground">
+                  {steps.filter((s) => s.done).length} of {steps.length} done — a few steps and you&apos;re running.
+                </p>
+              </div>
+            </div>
+            <button
+              aria-label="Dismiss"
+              onClick={() => { setSteps(null); try { localStorage.setItem("lp-onboarding-dismissed", "1"); } catch {} }}
+              className="grid h-8 w-8 shrink-0 place-items-center rounded-lg text-muted-foreground transition hover:bg-muted"
+            >
+              <X size={16} />
+            </button>
+          </div>
+          <ul className="mt-4 space-y-1.5">
+            {steps.map((s) => (
+              <li key={s.key}>
+                <Link
+                  href={s.href}
+                  className={`flex items-center gap-3 rounded-xl px-3 py-2.5 transition hover:bg-muted/70 ${s.done ? "opacity-60" : ""}`}
+                >
+                  {s.done
+                    ? <CircleCheck size={19} className="shrink-0 text-emerald-500" />
+                    : <Circle size={19} className="shrink-0 text-muted-foreground" />}
+                  <span className="min-w-0 flex-1">
+                    <span className={`block truncate text-sm font-bold ${s.done ? "line-through" : ""}`}>{s.label}</span>
+                    <span className="block truncate text-xs text-muted-foreground">{s.hint}</span>
+                  </span>
+                  {s.locked && (
+                    <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-amber-500/15 px-2.5 py-1 text-[0.7rem] font-extrabold text-amber-700 dark:text-amber-300">
+                      <Crown size={12} /> PRO
+                    </span>
+                  )}
+                  {!s.done && <ArrowRight size={16} className="shrink-0 text-muted-foreground" />}
+                </Link>
+              </li>
+            ))}
+          </ul>
         </div>
       )}
 

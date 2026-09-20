@@ -3,11 +3,12 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Building2, Database, Download, Save, Upload, Users, UserPlus, ScrollText, KeyRound, Copy, Check, Lock, Activity, TriangleAlert } from "lucide-react";
+import { Building2, Database, Download, Save, Upload, Users, UserPlus, ScrollText, KeyRound, Copy, Check, Lock, Activity, TriangleAlert, MonitorSmartphone, LogOut, CircleCheck } from "lucide-react";
 import { PageHeader, Field, ErrorNote } from "@/components/ui";
-import { api } from "@/lib/format";
+import { api, fmtDate } from "@/lib/format";
 import { BUSINESS_TYPES } from "@/lib/business-types";
 import { PERIOD_LOCK_GUIDANCE } from "@/lib/period-guidance";
+import { AUDIT_LOG_RETENTION_YEARS } from "@/lib/audit";
 
 type Company = {
   name: string; email: string | null; phone: string | null; address: string | null;
@@ -150,6 +151,7 @@ export default function SettingsPage() {
       <ImportCard />
       <TeamCard />
       <SecurityCard />
+      <SessionsCard />
       <PeriodLockCard />
       <SystemHealthCard isOwner={isOwner} />
       <DangerZoneCard isOwner={isOwner} />
@@ -163,6 +165,9 @@ export default function SettingsPage() {
             <ScrollText size={15} /> View log
           </Link>
         </div>
+        <p className="mt-3 text-xs text-muted-foreground">
+          Audit entries are kept for {AUDIT_LOG_RETENTION_YEARS} years and are never auto-deleted.
+        </p>
       </div>
     </div>
   );
@@ -500,6 +505,74 @@ function SecurityCard() {
           </button>
         )}
       </div>
+    </div>
+  );
+}
+
+type LoginEvent = { id: string; device: string; ip: string | null; createdAt: string };
+
+function SessionsCard() {
+  const router = useRouter();
+  const [events, setEvents] = useState<LoginEvent[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+
+  useEffect(() => {
+    let alive = true;
+    api<{ data: LoginEvent[] }>("/api/auth/login-events")
+      .then((d) => { if (alive) setEvents(d.data); })
+      .catch((e) => { if (alive) setError(e instanceof Error ? e.message : "Could not load sessions."); })
+      .finally(() => { if (alive) setLoading(false); });
+    return () => { alive = false; };
+  }, []);
+
+  async function logoutEverywhere() {
+    if (!window.confirm("Log out on all devices, including this one? You will need to sign in again.")) return;
+    setBusy(true); setError(null);
+    try {
+      await api("/api/auth/logout-everywhere", { method: "POST" });
+      router.push("/login");
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Could not log out everywhere.");
+      setBusy(false);
+    }
+  }
+
+  return (
+    <div className="card mt-6 max-w-2xl p-6 sm:p-8">
+      <h2 className="inline-flex items-center gap-2 text-lg font-extrabold"><MonitorSmartphone size={19} /> Sessions &amp; devices</h2>
+      <p className="mt-1 text-sm text-muted-foreground">
+        Where your account is signed in. For your security, a session ends automatically after a day without activity.
+      </p>
+      <ErrorNote message={error} />
+      <div className="mt-4">
+        {loading ? (
+          <div className="space-y-2">{[1, 2, 3].map((i) => <div key={i} className="h-12 animate-pulse rounded-xl bg-muted" />)}</div>
+        ) : events.length === 0 ? (
+          <p className="text-sm text-muted-foreground">No recent sign-ins recorded yet.</p>
+        ) : (
+          <ul className="divide-y divide-border rounded-2xl border border-border">
+            {events.map((ev) => (
+              <li key={ev.id} className="flex items-center gap-3 px-4 py-3">
+                <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-muted text-muted-foreground">
+                  <MonitorSmartphone size={17} />
+                </span>
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-sm font-bold">{ev.device}</p>
+                  <p className="truncate text-xs text-muted-foreground">
+                    {fmtDate(ev.createdAt)}{ev.ip ? ` · ${ev.ip}` : ""}
+                  </p>
+                </div>
+                <CircleCheck size={16} className="shrink-0 text-emerald-500" />
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
+      <button onClick={logoutEverywhere} disabled={busy || loading} className="btn btn-ghost mt-4 text-sm text-rose-600 dark:text-rose-400">
+        <LogOut size={15} /> {busy ? "Logging out…" : "Log out all devices"}
+      </button>
     </div>
   );
 }
