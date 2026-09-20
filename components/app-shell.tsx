@@ -163,9 +163,9 @@ export function AppShell({ children }: { children: ReactNode }) {
 
       <div className="flex min-w-0 flex-1 flex-col">
         {/* Topbar */}
-        <header className="sticky top-0 z-30 flex h-16 items-center justify-between gap-3 border-b border-border bg-background/85 px-4 backdrop-blur-xl sm:px-6">
+        <header className="sticky top-0 z-30 flex h-16 items-center justify-between gap-3 border-b border-border bg-background/85 px-4 shadow-[0_1px_12px_-6px_rgb(15_30_26/0.15)] backdrop-blur-xl sm:px-6">
           <div className="flex items-center gap-3">
-            <button onClick={() => setOpen(true)} className="grid h-11 w-11 place-items-center rounded-xl border border-border bg-card lg:hidden" aria-label="Open menu">
+            <button onClick={() => setOpen(true)} className="grid h-11 w-11 place-items-center rounded-xl border border-border bg-card transition hover:-translate-y-0.5 hover:shadow-md lg:hidden" aria-label="Open menu">
               <Menu size={19} />
             </button>
             <div className="lg:hidden"><Logo compact /></div>
@@ -176,16 +176,16 @@ export function AppShell({ children }: { children: ReactNode }) {
           <div className="flex items-center gap-2">
             <div className="relative" ref={quickRef}>
               <button onClick={() => setQuickOpen((o) => !o)}
-                className="grid h-11 w-11 place-items-center rounded-xl bg-primary text-primary-foreground shadow-md shadow-primary/25 transition hover:brightness-110 active:scale-95"
+                className="btn-primary grid h-11 w-11 place-items-center !rounded-xl !p-0"
                 aria-label="Quick create" aria-expanded={quickOpen} aria-haspopup="menu" title="Quick create">
                 <Plus size={19} strokeWidth={2.5} />
               </button>
               {quickOpen && (
-                <div role="menu" className="absolute right-0 z-40 mt-2 w-56 overflow-hidden rounded-2xl border border-border bg-card p-1.5 shadow-xl">
+                <div role="menu" className="modal-pop absolute right-0 z-40 mt-2 w-56 overflow-hidden rounded-2xl border border-border bg-card p-1.5 shadow-xl">
                   {quickCreate.map((q) => (
                     <Link key={q.href + q.label} href={q.href}
-                      className="flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-semibold hover:bg-muted">
-                      <q.icon size={16} className="text-primary" />
+                      className="flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-semibold transition hover:bg-muted">
+                      <span className="tile tile-primary h-8 w-8 !rounded-lg"><q.icon size={15} /></span>
                       {q.label}
                     </Link>
                   ))}
@@ -193,7 +193,7 @@ export function AppShell({ children }: { children: ReactNode }) {
               )}
             </div>
             <ThemeToggle />
-            <button onClick={logout} className="grid h-11 w-11 place-items-center rounded-xl border border-border bg-card transition hover:scale-105" title="Log out" aria-label="Log out">
+            <button onClick={logout} className="grid h-11 w-11 place-items-center rounded-xl border border-border bg-card transition hover:-translate-y-0.5 hover:shadow-md hover:text-danger" title="Log out" aria-label="Log out">
               <LogOut size={17} />
             </button>
           </div>
@@ -201,7 +201,7 @@ export function AppShell({ children }: { children: ReactNode }) {
 
         {/* Trial / subscription banner */}
         {billing?.level === "TRIAL" && (
-          <div className="border-b border-amber-200/60 bg-gradient-to-r from-amber-50 to-orange-50 px-4 py-2.5 sm:px-6 dark:border-amber-900/40 dark:from-amber-950/40 dark:to-orange-950/40">
+          <div className="banner-shine border-b border-amber-200/60 bg-gradient-to-r from-amber-50 via-amber-100/60 to-orange-50 px-4 py-2.5 sm:px-6 dark:border-amber-900/40 dark:from-amber-950/40 dark:via-amber-900/30 dark:to-orange-950/40">
             <div className="mx-auto flex max-w-7xl flex-wrap items-center gap-x-3 gap-y-1 text-sm">
               <span className="inline-flex items-center gap-1.5 font-semibold text-amber-800 dark:text-amber-200">
                 <Clock size={15} />
@@ -217,7 +217,7 @@ export function AppShell({ children }: { children: ReactNode }) {
           </div>
         )}
         {billing?.level === "FREE" && (
-          <div className="border-b border-rose-200/60 bg-gradient-to-r from-rose-50 to-pink-50 px-4 py-2.5 sm:px-6 dark:border-rose-900/40 dark:from-rose-950/40 dark:to-pink-950/40">
+          <div className="banner-shine border-b border-rose-200/60 bg-gradient-to-r from-rose-50 via-rose-100/60 to-pink-50 px-4 py-2.5 sm:px-6 dark:border-rose-900/40 dark:from-rose-950/40 dark:via-rose-900/30 dark:to-pink-950/40">
             <div className="mx-auto flex max-w-7xl flex-wrap items-center gap-x-3 gap-y-1 text-sm">
               <span className="inline-flex items-center gap-1.5 font-semibold text-rose-800 dark:text-rose-200">
                 <Crown size={15} />

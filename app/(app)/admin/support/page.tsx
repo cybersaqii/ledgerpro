@@ -79,7 +79,7 @@ export default function AdminSupportPage() {
               <button
                 key={s}
                 onClick={() => setFilter(s)}
-                className={`rounded-full px-3.5 py-1.5 text-sm font-bold ${filter === s ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground hover:bg-muted/70"}`}
+                className={`rounded-full px-3.5 py-1.5 text-sm font-bold transition ${filter === s ? "btn-primary !min-h-0 !py-1.5 text-sm" : "bg-muted text-muted-foreground hover:bg-muted/70"}`}
               >
                 {s.charAt(0) + s.slice(1).toLowerCase()}
               </button>

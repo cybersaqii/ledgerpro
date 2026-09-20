@@ -50,7 +50,7 @@ export default function ProfitLossPage() {
       </div>
       <div className="card mx-auto max-w-2xl p-6 sm:p-8">
         {loading ? (
-          <div className="space-y-3">{[1, 2, 3, 4, 5].map((i) => <div key={i} className="h-10 animate-pulse rounded-xl bg-muted" />)}</div>
+          <div className="space-y-3">{[1, 2, 3, 4, 5].map((i) => <div key={i} className="skeleton h-10 rounded-xl" />)}</div>
         ) : error ? (
           <div className="flex flex-col items-center gap-3 py-8 text-center">
             <span className="grid h-12 w-12 place-items-center rounded-2xl bg-danger-soft text-danger">

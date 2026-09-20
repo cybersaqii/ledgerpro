@@ -148,17 +148,72 @@ body {
   outline-offset: 2px;
   border-radius: 6px;
 }
-/* Respect users who ask for less motion */
-@media (prefers-reduced-motion: reduce) {
-  .rise, .rise-1, .rise-2, .rise-3, .rise-4, .float-slow, .marquee-track, .pos-scroll { animation: none !important; }
-  .btn, a, button, input, select, textarea { transition: none !important; }
-}
+/* (Reduced-motion rules live with the Premium layer at the end of this file) */
 .btn-primary {
-  background: linear-gradient(180deg, color-mix(in srgb, var(--primary) 88%, white 12%), var(--primary));
+  position: relative;
+  overflow: hidden;
+  isolation: isolate;
+  background: linear-gradient(180deg,
+    color-mix(in srgb, var(--primary) 74%, white 26%) 0%,
+    var(--primary) 52%,
+    color-mix(in srgb, var(--primary) 86%, black 14%) 100%);
   color: var(--primary-foreground);
-  box-shadow: 0 6px 18px -8px color-mix(in srgb, var(--primary) 70%, transparent), inset 0 1px 0 rgb(255 255 255 / 0.25);
+  box-shadow:
+    0 10px 22px -10px color-mix(in srgb, var(--primary) 70%, transparent),
+    inset 0 1px 0 rgb(255 255 255 / 0.35),
+    inset 0 -1px 0 rgb(0 0 0 / 0.10);
+  transition: transform 0.12s ease, box-shadow 0.2s ease, filter 0.2s ease;
 }
-.btn-primary:hover { filter: brightness(1.06); }
+.btn-primary:hover { transform: translateY(-1px); filter: brightness(1.06); box-shadow:
+    0 14px 28px -10px color-mix(in srgb, var(--primary) 75%, transparent),
+    inset 0 1px 0 rgb(255 255 255 / 0.35),
+    inset 0 -1px 0 rgb(0 0 0 / 0.10); }
+.btn-primary:active { transform: translateY(0) scale(0.98); }
+/* light sweep across primary buttons on hover */
+.btn-primary::after {
+  content: "";
+  position: absolute;
+  top: -10%;
+  bottom: -10%;
+  left: 0;
+  width: 45%;
+  background: linear-gradient(105deg, transparent, rgb(255 255 255 / 0.5), transparent);
+  transform: translateX(-160%) skewX(-18deg);
+  pointer-events: none;
+}
+.btn-primary:hover::after { animation: shine 0.7s ease; }
+
+/* Amber gradient CTA (plan upgrades, PRO upsells) */
+.btn-accent {
+  position: relative;
+  overflow: hidden;
+  isolation: isolate;
+  background: linear-gradient(180deg,
+    color-mix(in srgb, var(--accent) 74%, white 26%) 0%,
+    var(--accent) 52%,
+    color-mix(in srgb, var(--accent) 86%, black 14%) 100%);
+  color: #fff;
+  text-shadow: 0 1px 2px rgb(0 0 0 / 0.18);
+  box-shadow:
+    0 10px 22px -10px color-mix(in srgb, var(--accent) 70%, transparent),
+    inset 0 1px 0 rgb(255 255 255 / 0.35),
+    inset 0 -1px 0 rgb(0 0 0 / 0.10);
+  transition: transform 0.12s ease, box-shadow 0.2s ease, filter 0.2s ease;
+}
+.btn-accent:hover { transform: translateY(-1px); filter: brightness(1.06); }
+.btn-accent:active { transform: translateY(0) scale(0.98); }
+.btn-accent::after {
+  content: "";
+  position: absolute;
+  top: -10%;
+  bottom: -10%;
+  left: 0;
+  width: 45%;
+  background: linear-gradient(105deg, transparent, rgb(255 255 255 / 0.5), transparent);
+  transform: translateX(-160%) skewX(-18deg);
+  pointer-events: none;
+}
+.btn-accent:hover::after { animation: shine 0.7s ease; }
 .btn-ghost {
   background: var(--muted);
   color: var(--foreground);
@@ -239,3 +294,160 @@ body {
 ::-webkit-scrollbar { width: 10px; height: 10px; }
 ::-webkit-scrollbar-thumb { background: color-mix(in srgb, var(--muted-foreground) 35%, transparent); border-radius: 8px; border: 2px solid var(--background); }
 ::-webkit-scrollbar-track { background: transparent; }
+
+/* ================= Premium layer ================= */
+
+/* Ambient background wash — faint brand glow behind the workspace */
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background:
+    radial-gradient(56rem 22rem at 50% -9rem, color-mix(in srgb, var(--primary) 10%, transparent), transparent 70%),
+    radial-gradient(40rem 20rem at 95% 110%, color-mix(in srgb, var(--accent) 5%, transparent), transparent 70%);
+}
+.dark body::before {
+  background:
+    radial-gradient(56rem 22rem at 50% -9rem, color-mix(in srgb, var(--primary) 16%, transparent), transparent 70%),
+    radial-gradient(40rem 20rem at 95% 110%, color-mix(in srgb, var(--accent) 8%, transparent), transparent 70%);
+}
+
+/* Ghost buttons lift slightly on hover */
+.btn-ghost { transition: transform 0.12s ease, box-shadow 0.2s ease, filter 0.15s ease; }
+.btn-ghost:hover { transform: translateY(-1px); box-shadow: 0 6px 14px -8px rgb(15 30 26 / 0.25); }
+
+/* Cards that lift on hover (stat tiles, plan cards, list rows-as-cards) */
+.card-lift { transition: transform 0.2s ease, box-shadow 0.25s ease; }
+.card-lift:hover { transform: translateY(-3px); box-shadow: var(--shadow-pop); }
+
+/* Gradient hairline along the top edge of a card */
+.card-edge { position: relative; overflow: hidden; }
+.card-edge::after {
+  content: "";
+  position: absolute;
+  inset: 0 0 auto 0;
+  height: 3px;
+  background: linear-gradient(90deg, var(--primary), color-mix(in srgb, var(--primary) 45%, var(--accent)));
+  pointer-events: none;
+}
+
+/* Gradient icon tiles (stats, empty states, headers) */
+.tile {
+  display: grid;
+  place-items: center;
+  border-radius: 1rem;
+  color: #fff;
+  text-shadow: 0 1px 2px rgb(0 0 0 / 0.15);
+  box-shadow:
+    0 8px 18px -8px rgb(15 30 26 / 0.4),
+    inset 0 1px 0 rgb(255 255 255 / 0.35),
+    inset 0 -1px 0 rgb(0 0 0 / 0.12);
+}
+.tile-primary { background: linear-gradient(135deg, color-mix(in srgb, var(--primary) 80%, white 20%), color-mix(in srgb, var(--primary) 78%, black 22%)); }
+.tile-accent { background: linear-gradient(135deg, color-mix(in srgb, var(--accent) 80%, white 20%), color-mix(in srgb, var(--accent) 78%, black 22%)); }
+.tile-danger { background: linear-gradient(135deg, color-mix(in srgb, var(--danger) 80%, white 20%), color-mix(in srgb, var(--danger) 78%, black 22%)); }
+.tile-neutral { background: linear-gradient(135deg, color-mix(in srgb, var(--muted-foreground) 70%, white 30%), color-mix(in srgb, var(--muted-foreground) 80%, black 20%)); }
+
+/* Extra gradient tile hues for quick actions & accents */
+.tile-emerald { background: linear-gradient(135deg, #34d399, #059669); }
+.tile-sky { background: linear-gradient(135deg, #38bdf8, #0284c7); }
+.tile-violet { background: linear-gradient(135deg, #a78bfa, #7c3aed); }
+.tile-amber { background: linear-gradient(135deg, #fbbf24, #d97706); }
+.tile-rose { background: linear-gradient(135deg, #fb7185, #e11d48); }
+.tile-cyan { background: linear-gradient(135deg, #22d3ee, #0891b2); }
+
+/* Staggered entrance for grids of cards (composes with .rise on children) */
+.stagger-rise > *:nth-child(1) { animation-delay: 0s; }
+.stagger-rise > *:nth-child(2) { animation-delay: 0.06s; }
+.stagger-rise > *:nth-child(3) { animation-delay: 0.12s; }
+.stagger-rise > *:nth-child(4) { animation-delay: 0.18s; }
+.stagger-rise > *:nth-child(5) { animation-delay: 0.24s; }
+.stagger-rise > *:nth-child(6) { animation-delay: 0.3s; }
+.stagger-rise > *:nth-child(7) { animation-delay: 0.36s; }
+.stagger-rise > *:nth-child(8) { animation-delay: 0.42s; }
+
+/* Selected plan / highlighted card: gradient border + glow */
+.card-selected {
+  position: relative;
+  border: 1.5px solid transparent;
+  background:
+    linear-gradient(var(--card), var(--card)) padding-box,
+    linear-gradient(135deg, var(--primary), color-mix(in srgb, var(--primary) 40%, var(--accent))) border-box;
+  box-shadow: 0 14px 34px -14px color-mix(in srgb, var(--primary) 55%, transparent);
+}
+
+/* Tables: sticky tinted header, buttery row hover */
+.tbl thead th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background: color-mix(in srgb, var(--muted) 72%, var(--card));
+  backdrop-filter: blur(6px);
+}
+.tbl tbody tr { transition: background 0.15s ease, transform 0.15s ease; }
+.tbl tbody tr:hover { background: color-mix(in srgb, var(--primary) 6%, transparent); }
+
+/* Shimmer skeleton for loading states */
+.skeleton { position: relative; overflow: hidden; background: var(--muted); }
+.skeleton::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(90deg, transparent, rgb(255 255 255 / 0.55), transparent);
+  transform: translateX(-100%);
+  animation: shimmer 1.5s infinite;
+}
+.dark .skeleton::after { background: linear-gradient(90deg, transparent, rgb(255 255 255 / 0.09), transparent); }
+@keyframes shimmer { to { transform: translateX(100%); } }
+
+/* Modal entrance */
+@keyframes pop-in {
+  from { opacity: 0; transform: translateY(18px) scale(0.98); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+.modal-pop { animation: pop-in 0.3s cubic-bezier(0.22, 1, 0.36, 1) both; }
+
+/* Gentle pulse for live/attention dots */
+@keyframes pulse-dot {
+  0%, 100% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--primary) 45%, transparent); }
+  50% { box-shadow: 0 0 0 6px transparent; }
+}
+.pulse-dot { animation: pulse-dot 2s ease-in-out infinite; }
+
+/* Trial/upgrade banner sweep */
+.banner-shine { position: relative; overflow: hidden; }
+.banner-shine::after {
+  content: "";
+  position: absolute;
+  top: 0; bottom: 0; left: 0;
+  width: 30%;
+  background: linear-gradient(100deg, transparent, rgb(255 255 255 / 0.35), transparent);
+  transform: translateX(-150%) skewX(-15deg);
+  animation: banner-sweep 5s ease-in-out infinite;
+  pointer-events: none;
+}
+.dark .banner-shine::after { background: linear-gradient(100deg, transparent, rgb(255 255 255 / 0.08), transparent); }
+@keyframes banner-sweep {
+  0%, 60% { transform: translateX(-150%) skewX(-15deg); }
+  100% { transform: translateX(420%) skewX(-15deg); }
+}
+
+/* Gradient display numbers (hero stats) */
+.text-gradient {
+  background: linear-gradient(120deg, var(--primary), color-mix(in srgb, var(--primary) 55%, var(--accent)));
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+/* Respect users who ask for less motion */
+@media (prefers-reduced-motion: reduce) {
+  .rise, .rise-1, .rise-2, .rise-3, .rise-4, .float-slow, .marquee-track, .pos-scroll,
+  .skeleton::after, .modal-pop, .pulse-dot, .banner-shine::after,
+  .btn-primary::after, .btn-accent::after { animation: none !important; }
+  .btn, .btn-primary, .btn-accent, .btn-ghost, a, button, input, select, textarea,
+  .card-lift, .tbl tbody tr { transition: none !important; }
+  .btn-primary:hover, .btn-accent:hover, .btn-ghost:hover, .card-lift:hover { transform: none !important; }
+}

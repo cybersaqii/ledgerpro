@@ -605,7 +605,7 @@ export default function PosPage() {
             </p>
           </div>
 
-          <div className="card overflow-hidden">
+          <div className="card rise rise-1 overflow-hidden">
             {lines.length === 0 ? (
               <div className="flex flex-col items-center px-6 py-14 text-center">
                 <span className="grid h-16 w-16 place-items-center rounded-3xl bg-primary/10 text-primary">
@@ -665,10 +665,10 @@ export default function PosPage() {
 
         {/* right: totals + payment */}
         <div className="space-y-4">
-          <div className="card card-gloss p-5">
+          <div className="card card-gloss card-edge p-5">
             <div className="flex items-center justify-between text-sm">
               <span className="text-muted-foreground">Subtotal ({totals.itemCount} items)</span>
-              <span className="font-bold">{fmtMoney(totals.subtotal)}</span>
+              <span className="font-bold tabular-nums">{fmtMoney(totals.subtotal)}</span>
             </div>
             <div className="mt-3 flex items-center justify-between gap-3">
               <label className="text-sm text-muted-foreground" htmlFor="pos-discount">Bill discount</label>
@@ -678,27 +678,27 @@ export default function PosPage() {
             </div>
             <div className="mt-4 flex items-end justify-between border-t border-border pt-4">
               <span className="text-sm font-bold uppercase tracking-wide text-muted-foreground">Total</span>
-              <span className="text-3xl font-extrabold tracking-tight text-primary">{fmtMoney(totals.grand)}</span>
+              <span className="text-gradient text-3xl font-extrabold tabular-nums tracking-tight">{fmtMoney(totals.grand)}</span>
             </div>
           </div>
 
-          <div className="card p-4 sm:p-5">
+          <div className="card card-gloss p-4 sm:p-5">
             <p className="mb-3 text-xs font-extrabold uppercase tracking-wider text-muted-foreground">Payment</p>
             <div className="grid grid-cols-4 gap-2">
               {([
-                { s: "cash" as Stage, label: "Cash", icon: Banknote, cls: "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400" },
-                { s: "bank" as Stage, label: "Card", icon: CreditCard, cls: "bg-sky-500/15 text-sky-600 dark:text-sky-400" },
-                { s: "split" as Stage, label: "Split", icon: SplitSquareHorizontal, cls: "bg-violet-500/15 text-violet-600 dark:text-violet-400" },
-                { s: "khata" as Stage, label: "Khata", icon: Users, cls: "bg-amber-500/15 text-amber-600 dark:text-amber-400" },
+                { s: "cash" as Stage, label: "Cash", icon: Banknote, cls: "tile-emerald" },
+                { s: "bank" as Stage, label: "Card", icon: CreditCard, cls: "tile-sky" },
+                { s: "split" as Stage, label: "Split", icon: SplitSquareHorizontal, cls: "tile-violet" },
+                { s: "khata" as Stage, label: "Khata", icon: Users, cls: "tile-amber" },
               ]).map((m) => (
                 <button
                   key={m.s}
                   onClick={() => pickMethod(m.s)}
-                  className={`flex flex-col items-center gap-1.5 rounded-2xl border-2 py-3 font-bold transition ${
-                    stage === m.s ? "border-primary bg-primary/10 text-primary" : "border-border hover:border-primary/40"
+                  className={`card-lift flex flex-col items-center gap-1.5 rounded-2xl border-2 py-3 font-bold transition ${
+                    stage === m.s ? "border-primary bg-primary/10 shadow-[0_8px_20px_-10px_var(--primary)]" : "border-border hover:border-primary/40"
                   }`}
                 >
-                  <span className={`grid h-9 w-9 place-items-center rounded-2xl ${m.cls}`}><m.icon size={18} /></span>
+                  <span className={`tile ${m.cls} h-9 w-9 !rounded-xl`}><m.icon size={18} /></span>
                   <span className="text-[11px]">{m.label}</span>
                 </button>
               ))}

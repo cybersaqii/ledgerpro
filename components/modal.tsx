@@ -50,7 +50,7 @@ export function Modal({ title, onClose, children, wide = false }: {
         aria-modal="true"
         aria-labelledby={titleId}
         tabIndex={-1}
-        className={`rise relative w-full ${wide ? "max-w-3xl" : "max-w-lg"} max-h-[92vh] overflow-y-auto rounded-t-3xl bg-card p-6 shadow-2xl outline-none sm:rounded-3xl sm:p-7`}
+        className={`modal-pop card-edge relative w-full ${wide ? "max-w-3xl" : "max-w-lg"} max-h-[92vh] overflow-y-auto rounded-t-3xl bg-card p-6 shadow-2xl outline-none sm:rounded-3xl sm:p-7`}
       >
         <div className="mb-5 flex items-center justify-between">
           <h2 id={titleId} className="text-lg font-extrabold tracking-tight">{title}</h2>

@@ -34,13 +34,13 @@ export default function ReportsHub() {
         {reports.map((r, i) => {
           const locked = isFree && PRO_HREFS.has(r.href);
           return (
-            <Link key={r.href} href={r.href} className={`card card-gloss rise rise-${(i % 4) + 1} group relative p-6 transition hover:-translate-y-0.5`}>
+            <Link key={r.href} href={r.href} className={`card card-gloss card-lift rise rise-${(i % 4) + 1} group relative p-6`}>
               {locked && (
-                <span className="absolute right-4 top-4 inline-flex items-center gap-1 rounded-full bg-amber-100 px-2.5 py-1 text-xs font-bold text-amber-800 dark:bg-amber-900/40 dark:text-amber-200">
+                <span className="absolute right-4 top-4 inline-flex items-center gap-1 rounded-full bg-gradient-to-r from-amber-100 to-orange-100 px-2.5 py-1 text-xs font-bold text-amber-800 shadow-sm dark:from-amber-900/50 dark:to-orange-900/50 dark:text-amber-200">
                   <Crown size={12} /> PRO
                 </span>
               )}
-              <span className="grid h-12 w-12 place-items-center rounded-2xl bg-primary-soft text-primary transition group-hover:scale-110">
+              <span className="tile tile-primary h-12 w-12 transition group-hover:scale-110">
                 <r.icon size={22} />
               </span>
               <h3 className="mt-4 text-base font-bold">{r.title}</h3>

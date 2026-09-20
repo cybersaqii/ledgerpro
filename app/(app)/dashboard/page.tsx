@@ -52,14 +52,14 @@ export default function DashboardPage() {
   }
 
   const quickActions = [
-    { href: "/sales/new", label: bp.newSale, icon: ShoppingCart, cls: "bg-primary-soft text-primary" },
-    { href: "/purchases/new", label: "New purchase", icon: Truck, cls: "bg-accent-soft text-accent" },
-    { href: "/payments/new?kind=RECEIPT", label: "Receive", icon: ArrowDownToLine, cls: "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400" },
-    { href: "/payments/new?kind=PAYMENT", label: "Pay", icon: ArrowUpFromLine, cls: "bg-sky-500/15 text-sky-600 dark:text-sky-400" },
-    { href: "/expenses", label: "Expense", icon: ReceiptText, cls: "bg-violet-500/15 text-violet-600 dark:text-violet-400" },
-    { href: "/parties", label: bp.partyMany, icon: Users, cls: "bg-amber-500/15 text-amber-600 dark:text-amber-400" },
-    { href: "/products", label: bp.productMany, icon: Package, cls: "bg-rose-500/15 text-rose-600 dark:text-rose-400" },
-    { href: "/reports", label: "Reports", icon: BarChart3, cls: "bg-cyan-500/15 text-cyan-600 dark:text-cyan-400" },
+    { href: "/sales/new", label: bp.newSale, icon: ShoppingCart, cls: "tile-primary" },
+    { href: "/purchases/new", label: "New purchase", icon: Truck, cls: "tile-accent" },
+    { href: "/payments/new?kind=RECEIPT", label: "Receive", icon: ArrowDownToLine, cls: "tile-emerald" },
+    { href: "/payments/new?kind=PAYMENT", label: "Pay", icon: ArrowUpFromLine, cls: "tile-sky" },
+    { href: "/expenses", label: "Expense", icon: ReceiptText, cls: "tile-violet" },
+    { href: "/parties", label: bp.partyMany, icon: Users, cls: "tile-amber" },
+    { href: "/products", label: bp.productMany, icon: Package, cls: "tile-rose" },
+    { href: "/reports", label: "Reports", icon: BarChart3, cls: "tile-cyan" },
   ];
 
   useEffect(() => {
@@ -83,8 +83,8 @@ export default function DashboardPage() {
   if (error) return (
     <div>
       <PageHeader title="Dashboard" icon={<LayoutDashboard size={20} />} />
-      <div className="card mx-auto flex max-w-lg flex-col items-center gap-3 p-8 text-center">
-        <span className="grid h-14 w-14 place-items-center rounded-2xl bg-danger-soft text-danger">
+      <div className="card card-gloss mx-auto flex max-w-lg flex-col items-center gap-3 p-8 text-center">
+        <span className="tile tile-danger h-14 w-14">
           <TriangleAlert size={26} />
         </span>
         <h2 className="text-lg font-extrabold">Could not load the dashboard</h2>
@@ -100,7 +100,7 @@ export default function DashboardPage() {
       <div>
         <PageHeader title="Dashboard" subtitle="Loading your numbers…" />
         <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-          {[1, 2, 3, 4].map((i) => <div key={i} className="card h-28 animate-pulse" />)}
+          {[1, 2, 3, 4].map((i) => <div key={i} className="card h-28"><div className="skeleton h-full rounded-[var(--radius)]" /></div>)}
         </div>
       </div>
     );
@@ -119,8 +119,8 @@ export default function DashboardPage() {
 
       {/* Recovery-code nudge for accounts created before the feature shipped */}
       {showRecoveryNudge && (
-        <div className="card mb-5 flex items-start gap-3 border-amber-500/30 bg-gradient-to-r from-amber-50 to-orange-50 p-4 dark:from-amber-950/40 dark:to-orange-950/40 sm:p-5">
-          <span className="grid h-10 w-10 shrink-0 place-items-center rounded-2xl bg-amber-500/15 text-amber-600 dark:text-amber-400">
+        <div className="card card-edge rise mb-5 flex items-start gap-3 border-amber-500/30 bg-gradient-to-r from-amber-50 to-orange-50 p-4 dark:from-amber-950/40 dark:to-orange-950/40 sm:p-5">
+          <span className="tile tile-amber h-10 w-10 shrink-0 !rounded-xl">
             <KeyRound size={19} />
           </span>
           <div className="min-w-0 flex-1">
@@ -144,10 +144,10 @@ export default function DashboardPage() {
 
       {/* First-run onboarding checklist */}
       {steps && steps.length > 0 && (
-        <div className="card mb-5 p-4 sm:p-5">
+        <div className="card card-gloss rise mb-5 p-4 sm:p-5">
           <div className="flex items-start justify-between gap-3">
             <div className="flex items-center gap-3">
-              <span className="grid h-10 w-10 shrink-0 place-items-center rounded-2xl bg-primary-soft text-primary">
+              <span className="tile tile-primary h-10 w-10 shrink-0 !rounded-xl">
                 <ListChecks size={19} />
               </span>
               <div>
@@ -226,10 +226,9 @@ export default function DashboardPage() {
       {/* POS banner for counter businesses */}
       {(bp.type === "RETAIL" || bp.type === "PHARMACY" || bp.type === "RESTAURANT") && (
         <Link href="/sales/pos"
-          className="card group mb-5 flex items-center justify-between gap-4 overflow-hidden p-4 transition hover:-translate-y-0.5 sm:p-5">
-          <span className="pointer-events-none absolute inset-y-0 left-0 w-1.5 bg-gradient-to-b from-emerald-400 to-teal-600" />
+          className="card card-lift card-edge group mb-5 flex items-center justify-between gap-4 p-4 sm:p-5">
           <span className="flex min-w-0 items-center gap-4 pl-2">
-            <span className="grid h-12 w-12 shrink-0 place-items-center rounded-2xl bg-gradient-to-br from-emerald-500 to-teal-600 text-white shadow-md transition group-hover:scale-110">
+            <span className="tile tile-emerald h-12 w-12 shrink-0 transition group-hover:scale-110">
               <Zap size={22} />
             </span>
             <span className="min-w-0">
@@ -247,8 +246,8 @@ export default function DashboardPage() {
       <div className="mb-5 flex gap-2.5 overflow-x-auto pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden sm:grid sm:grid-cols-4 sm:overflow-visible lg:grid-cols-8">
         {quickActions.map((q) => (
           <Link key={q.label} href={q.href}
-            className="card group flex w-[78px] shrink-0 snap-start flex-col items-center gap-1.5 py-3.5 transition hover:-translate-y-0.5 sm:w-auto">
-            <span className={`grid h-10 w-10 place-items-center rounded-2xl ${q.cls} transition group-hover:scale-110`}>
+            className="card card-lift group flex w-[78px] shrink-0 snap-start flex-col items-center gap-1.5 py-3.5 sm:w-auto">
+            <span className={`tile ${q.cls} h-10 w-10 !rounded-xl transition group-hover:scale-110`}>
               <q.icon size={19} />
             </span>
             <span className="flex min-h-[2.2em] items-center px-0.5 text-center text-[0.7rem] font-bold leading-tight">{q.label}</span>
@@ -256,24 +255,24 @@ export default function DashboardPage() {
         ))}
       </div>
 
-      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+      <div className="stagger-rise grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <Stat label={`${bp.salesNav} today`} value={fmtMoney(k.salesToday)} icon={<TrendingUp size={20} />} tone="primary" />
         <Stat label={`${bp.salesNav} this month`} value={fmtMoney(k.salesMonth)} icon={<ShoppingBag size={20} />} tone="primary" />
         <Stat label={bp.receivables} value={fmtMoney(k.receivables)} sub={`From ${bp.partyMany.toLowerCase()}`} icon={<ArrowDownToLine size={20} />} tone="accent" />
         <Stat label="To pay" value={fmtMoney(k.payables)} sub="To suppliers" icon={<ArrowUpFromLine size={20} />} tone="danger" />
         <Stat label="Cash & bank" value={fmtMoney(k.cashAndBank)} icon={<Landmark size={20} />} tone="neutral" />
         <Stat label="Expenses (month)" value={fmtMoney(k.expensesMonth)} icon={<ReceiptText size={20} />} tone="neutral" />
-        <Link href="/stock?lowStock=1" className="block">
+        <Link href="/stock?lowStock=1" className="rise block">
           <Stat label="Low stock items" value={String(k.lowStock)} sub="Needs reorder" icon={<TriangleAlert size={20} />} tone={k.lowStock > 0 ? "danger" : "neutral"} />
         </Link>
-        <Link href="/reports/profit-loss" className="block">
+        <Link href="/reports/profit-loss" className="rise block">
           <Stat label="Profit & loss" value={fmtMoney(k.profitMonth)} sub="This month · view report" icon={<FileText size={20} />} tone="primary" />
         </Link>
       </div>
 
       <div className="mt-6 grid gap-4 xl:grid-cols-5">
-        <div className="card card-gloss rise p-5 sm:p-6 xl:col-span-3">
-          <h2 className="text-base font-bold">{bp.salesNav} trend</h2>
+        <div className="card card-gloss card-edge rise p-5 sm:p-6 xl:col-span-3">
+          <h2 className="text-base font-extrabold tracking-tight">{bp.salesNav} trend</h2>
           <p className="text-xs text-muted-foreground">Last 6 months (Rs)</p>
           <div className="mt-4 h-64">
             {trend.length === 0 ? (
@@ -281,6 +280,12 @@ export default function DashboardPage() {
             ) : (
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart data={trend} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
+                  <defs>
+                    <linearGradient id="salesBar" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stopColor="var(--primary)" stopOpacity={1} />
+                      <stop offset="100%" stopColor="var(--primary)" stopOpacity={0.55} />
+                    </linearGradient>
+                  </defs>
                   <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" vertical={false} />
                   <XAxis dataKey="month" tick={{ fontSize: 12, fill: "var(--muted-foreground)" }} axisLine={false} tickLine={false} />
                   <YAxis tick={{ fontSize: 12, fill: "var(--muted-foreground)" }} axisLine={false} tickLine={false} width={70}
@@ -289,16 +294,16 @@ export default function DashboardPage() {
                     contentStyle={{ background: "var(--card)", border: "1px solid var(--border)", borderRadius: 12, fontSize: 13 }}
                     formatter={(v) => [`Rs ${Number(v).toLocaleString()}`, "Sales"]}
                   />
-                  <Bar dataKey="total" fill="var(--primary)" radius={[8, 8, 2, 2]} />
+                  <Bar dataKey="total" fill="url(#salesBar)" radius={[8, 8, 2, 2]} />
                 </BarChart>
               </ResponsiveContainer>
             )}
           </div>
         </div>
 
-        <div className="card rise rise-1 p-5 sm:p-6 xl:col-span-2">
+        <div className="card card-gloss rise rise-1 p-5 sm:p-6 xl:col-span-2">
           <div className="flex items-center justify-between">
-            <h2 className="text-base font-bold">Recent {bp.salesNav.toLowerCase()}</h2>
+            <h2 className="text-base font-extrabold tracking-tight">Recent {bp.salesNav.toLowerCase()}</h2>
             <Link href="/sales" className="text-sm font-bold text-primary hover:underline">View all</Link>
           </div>
           {data.recentSales.length === 0 ? (
@@ -307,12 +312,12 @@ export default function DashboardPage() {
             <ul className="mt-3 divide-y divide-border">
               {data.recentSales.map((s) => (
                 <li key={s.id}>
-                  <Link href={`/sales/${s.id}`} className="flex items-center justify-between gap-3 py-3">
+                  <Link href={`/sales/${s.id}`} className="-mx-2 flex items-center justify-between gap-3 rounded-xl px-2 py-3 transition hover:bg-muted/60">
                     <div className="min-w-0">
                       <p className="truncate text-sm font-bold">{s.docNo}</p>
                       <p className="truncate text-xs text-muted-foreground">{s.partyName ?? "—"} · {fmtDate(s.date)}</p>
                     </div>
-                    <p className="shrink-0 text-sm font-extrabold">{fmtMoney(s.grandTotal)}</p>
+                    <p className="shrink-0 text-sm font-extrabold tabular-nums">{fmtMoney(s.grandTotal)}</p>
                   </Link>
                 </li>
               ))}

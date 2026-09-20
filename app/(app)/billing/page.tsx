@@ -87,24 +87,27 @@ export default function BillingPage() {
       <PageHeader title="Billing" subtitle="Plans & subscription" icon={<Crown size={22} />} />
 
       {/* Current status */}
-      <div className="card p-5">
+      <div className="card card-gloss card-edge rise rise-1 p-5 sm:p-6">
         <div className="flex flex-wrap items-center justify-between gap-3">
-          <div>
-            <p className="text-sm text-muted-foreground">Current plan</p>
-            <p className="text-2xl font-extrabold">{planName}</p>
+          <div className="flex items-center gap-4">
+            <span className="tile tile-primary h-14 w-14"><Crown size={24} /></span>
+            <div>
+              <p className="text-[0.72rem] font-semibold uppercase tracking-wider text-muted-foreground">Current plan</p>
+              <p className="text-2xl font-extrabold tracking-tight">{planName}</p>
+            </div>
           </div>
           {status.level === "TRIAL" && (
-            <span className="inline-flex items-center gap-1.5 rounded-full bg-amber-100 px-3 py-1.5 text-sm font-bold text-amber-800 dark:bg-amber-900/40 dark:text-amber-200">
+            <span className="inline-flex items-center gap-1.5 rounded-full bg-gradient-to-r from-amber-100 to-orange-100 px-3.5 py-1.5 text-sm font-bold text-amber-800 shadow-sm dark:from-amber-900/50 dark:to-orange-900/50 dark:text-amber-200">
               <Clock size={15} /> {status.trialDaysLeft} day{status.trialDaysLeft === 1 ? "" : "s"} left
             </span>
           )}
           {status.level === "PRO" && status.proExpiresAt && (
-            <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-100 px-3 py-1.5 text-sm font-bold text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-200">
+            <span className="inline-flex items-center gap-1.5 rounded-full bg-gradient-to-r from-emerald-100 to-teal-100 px-3.5 py-1.5 text-sm font-bold text-emerald-800 shadow-sm dark:from-emerald-900/50 dark:to-teal-900/50 dark:text-emerald-200">
               <BadgeCheck size={15} /> Active until {status.proExpiresAt.slice(0, 10)}
             </span>
           )}
           {status.level === "FREE" && (
-            <span className="inline-flex items-center gap-1.5 rounded-full bg-rose-100 px-3 py-1.5 text-sm font-bold text-rose-800 dark:bg-rose-900/40 dark:text-rose-200">
+            <span className="inline-flex items-center gap-1.5 rounded-full bg-gradient-to-r from-rose-100 to-pink-100 px-3.5 py-1.5 text-sm font-bold text-rose-800 shadow-sm dark:from-rose-900/50 dark:to-pink-900/50 dark:text-rose-200">
               <Crown size={15} /> Trial ended
             </span>
           )}
@@ -120,41 +123,48 @@ export default function BillingPage() {
       {status.isOwner && (
         <>
           {/* Plans */}
-          <div className="grid gap-4 sm:grid-cols-2">
+          <div className="rise rise-2 grid gap-4 sm:grid-cols-2">
             {([
-              { m: 1 as const, name: "Monthly", paisa: status.prices.monthlyPaisa, hint: "billed every month" },
-              { m: 12 as const, name: "Yearly", paisa: status.prices.yearlyPaisa, hint: "billed once a year" },
+              { m: 1 as const, name: "Monthly", paisa: status.prices.monthlyPaisa, hint: "billed every month", tag: null as string | null },
+              { m: 12 as const, name: "Yearly", paisa: status.prices.yearlyPaisa, hint: "billed once a year", tag: "Save 17%" },
             ]).map((p) => (
               <button
                 key={p.m}
                 onClick={() => setMonths(p.m)}
-                className={`card p-5 text-left transition ${months === p.m ? "ring-2 ring-primary" : "hover:shadow-lg"}`}
+                aria-pressed={months === p.m}
+                className={`card card-lift relative overflow-hidden p-5 text-left sm:p-6 ${months === p.m ? "card-selected" : ""}`}
               >
+                {p.tag && (
+                  <span className="absolute right-4 top-4 rounded-full bg-gradient-to-r from-amber-400 to-orange-500 px-2.5 py-1 text-[0.68rem] font-extrabold uppercase tracking-wide text-white shadow-sm">
+                    {p.tag}
+                  </span>
+                )}
                 <div className="flex items-center justify-between">
-                  <p className="text-lg font-extrabold">{p.name}</p>
-                  {months === p.m && <span className="grid h-6 w-6 place-items-center rounded-full bg-primary text-primary-foreground"><Check size={14} /></span>}
+                  <p className="text-lg font-extrabold tracking-tight">{p.name}</p>
+                  {months === p.m && <span className="tile tile-primary h-6 w-6 !rounded-full"><Check size={14} strokeWidth={3} /></span>}
                 </div>
-                <p className="mt-1 text-3xl font-extrabold">{fmtMoney(p.paisa)}</p>
-                <p className="text-sm text-muted-foreground">{p.hint}</p>
+                <p className="text-gradient mt-2 text-3xl font-extrabold tabular-nums sm:text-4xl">{fmtMoney(p.paisa)}</p>
+                <p className="mt-1 text-sm text-muted-foreground">{p.hint}</p>
               </button>
             ))}
           </div>
 
           {/* What's in PRO */}
-          <div className="card p-5">
-            <p className="font-bold">Everything in PRO</p>
-            <ul className="mt-2 grid gap-1.5 text-sm sm:grid-cols-2">
+          <div className="card card-gloss rise rise-3 p-5 sm:p-6">
+            <p className="text-base font-extrabold tracking-tight">Everything in PRO</p>
+            <ul className="mt-3 grid gap-2.5 text-sm sm:grid-cols-2">
               {PRO_POINTS.map((pt) => (
-                <li key={pt} className="flex items-center gap-2 text-muted-foreground">
-                  <Check size={15} className="shrink-0 text-emerald-600" /> {pt}
+                <li key={pt} className="flex items-center gap-2.5 text-muted-foreground">
+                  <span className="tile tile-primary h-6 w-6 shrink-0 !rounded-lg"><Check size={13} strokeWidth={3} /></span>
+                  <span className="font-medium text-foreground/80">{pt}</span>
                 </li>
               ))}
             </ul>
           </div>
 
           {/* Pay + submit */}
-          <div className="card space-y-4 p-5">
-            <p className="font-bold">Pay &amp; activate</p>
+          <div className="card card-gloss rise rise-4 space-y-4 p-5 sm:p-6">
+            <p className="text-base font-extrabold tracking-tight">Pay &amp; activate</p>
             <ol className="list-decimal space-y-1 pl-5 text-sm text-muted-foreground">
               <li>Transfer <strong className="text-foreground">{fmtMoney(price)}</strong> to any account below.</li>
               <li>Submit the transaction reference here — PRO activates after verification.</li>
@@ -164,9 +174,9 @@ export default function BillingPage() {
               { label: "JazzCash", value: status.paymentDetails.jazzcash, key: "jazzcash" },
               { label: "EasyPaisa", value: status.paymentDetails.easypaisa, key: "easypaisa" },
             ]).filter((r) => r.value && r.value !== "—").map((r) => (
-              <div key={r.key} className="flex items-center justify-between gap-3 rounded-xl bg-muted/60 px-3.5 py-2.5 text-sm">
+              <div key={r.key} className="card-lift flex items-center justify-between gap-3 rounded-xl border border-border bg-muted/50 px-3.5 py-2.5 text-sm">
                 <span><strong>{r.label}:</strong> {r.value}</span>
-                <button onClick={() => copy(r.value, r.key)} className="btn btn-ghost !px-2 !py-1 text-xs" aria-label={`Copy ${r.label}`}>
+                <button onClick={() => copy(r.value, r.key)} className="btn btn-ghost !min-h-0 !px-2.5 !py-1.5 text-xs" aria-label={`Copy ${r.label}`}>
                   {copied === r.key ? <Check size={14} /> : <Copy size={14} />}
                 </button>
               </div>
@@ -192,7 +202,7 @@ export default function BillingPage() {
             </div>
             <ErrorNote message={error} />
             {done && <p className="text-sm font-semibold text-emerald-600">Submitted! We&apos;ll verify and activate your PRO plan soon.</p>}
-            <button onClick={submit} disabled={submitting} className="btn btn-primary">
+            <button onClick={submit} disabled={submitting} className="btn btn-accent w-full sm:w-auto">
               {submitting ? "Submitting…" : `Submit payment — ${fmtMoney(price)}`}
             </button>
           </div>
@@ -201,14 +211,14 @@ export default function BillingPage() {
 
       {/* History */}
       {status.isOwner && (
-        <div className="card p-5">
-          <p className="font-bold">Payment history</p>
+        <div className="card card-gloss rise p-5 sm:p-6">
+          <p className="text-base font-extrabold tracking-tight">Payment history</p>
           {payments.length === 0 ? (
             <div className="mt-2"><EmptyState title="No payments yet" hint="Your submitted payments will appear here." /></div>
           ) : (
             <div className="mt-3 space-y-2">
               {payments.map((p) => (
-                <div key={p.id} className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-border px-3.5 py-2.5 text-sm">
+                <div key={p.id} className="card-lift flex flex-wrap items-center justify-between gap-2 rounded-xl border border-border px-3.5 py-2.5 text-sm">
                   <span>
                     <strong>{p.months === 12 ? "Yearly" : "Monthly"}</strong> · {fmtMoney(p.amountPaisa)} · {p.method} · <span className="text-muted-foreground">ref {p.reference}</span>
                     <span className="block text-xs text-muted-foreground">{p.createdAt.slice(0, 10)}{p.note ? ` — ${p.note}` : ""}</span>

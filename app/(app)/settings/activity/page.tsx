@@ -82,9 +82,9 @@ export default function ActivityPage() {
     <div>
       <PageHeader title="Activity log" subtitle="Who did what, and when — the audit trail" icon={<ScrollText size={20} />} />
       <ErrorNote message={error} />
-      <div className="card overflow-hidden">
+      <div className="card rise rise-1 overflow-hidden">
         {loading ? (
-          <div className="space-y-3 p-5">{[1, 2, 3].map((i) => <div key={i} className="h-14 animate-pulse rounded-xl bg-muted" />)}</div>
+          <div className="space-y-3 p-5">{[1, 2, 3].map((i) => <div key={i} className="skeleton h-14 rounded-xl" />)}</div>
         ) : rows.length === 0 ? (
           <div className="px-6 py-14 text-center">
             <p className="font-bold">No activity yet</p>

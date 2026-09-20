@@ -140,7 +140,7 @@ function PartyLedgerInner() {
       ) : (
         <>
           <PartyStats key={partyId} partyId={partyId} />
-          <div className="card overflow-hidden">
+          <div className="card rise rise-1 overflow-hidden">
           <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border bg-muted/50 px-5 py-3">
             <p className="font-extrabold">{partyName}</p>
             <div className="flex items-center gap-3">
@@ -148,7 +148,7 @@ function PartyLedgerInner() {
               {selected && <SetOffDialog partyId={partyId} kind={selected.kind} name={partyName} balance={closing} onDone={load} />}
             </div>
           </div>
-          {loading ? <div className="space-y-3 p-5">{[1, 2, 3].map((i) => <div key={i} className="h-10 animate-pulse rounded-xl bg-muted" />)}</div> : (
+          {loading ? <div className="space-y-3 p-5">{[1, 2, 3].map((i) => <div key={i} className="skeleton h-10 rounded-xl" />)}</div> : (
             <div className="overflow-x-auto">
               <table className="tbl">
                 <thead><tr><th>Date</th><th>Details</th><th>Ref</th><th className="num">Debit</th><th className="num">Credit</th><th className="num">Balance</th></tr></thead>

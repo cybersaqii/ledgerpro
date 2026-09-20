@@ -37,8 +37,8 @@ export default function TrialBalancePage() {
             : <span className="badge bg-danger-soft text-danger !text-xs !py-1.5 !px-3"><TriangleAlert size={13} /> Out of balance</span>
         }
       />
-      <div className="card overflow-hidden">
-        {loading ? <div className="space-y-3 p-5">{[1, 2, 3].map((i) => <div key={i} className="h-12 animate-pulse rounded-xl bg-muted" />)}</div> : (
+      <div className="card rise rise-1 overflow-hidden">
+        {loading ? <div className="space-y-3 p-5">{[1, 2, 3].map((i) => <div key={i} className="skeleton h-12 rounded-xl" />)}</div> : (
           <div className="overflow-x-auto">
             <table className="tbl">
               <thead><tr><th>Code</th><th>Account</th><th>Type</th><th className="num">Debit</th><th className="num">Credit</th></tr></thead>

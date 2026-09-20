@@ -236,7 +236,7 @@ export function DocForm({ mode }: { mode: "SALES" | "PURCHASE" }) {
       <form onSubmit={submit} className="space-y-5">
         <ErrorNote message={error} />
 
-        <div className="card p-5 sm:p-6">
+        <div className="card card-gloss rise p-5 sm:p-6">
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
             <Field label={isSales ? bp.partyOne : "Supplier"}>
               <div className="relative">
@@ -316,7 +316,7 @@ export function DocForm({ mode }: { mode: "SALES" | "PURCHASE" }) {
           )}
         </div>
 
-        <div className="card p-5 sm:p-6">
+        <div className="card card-gloss rise p-5 sm:p-6">
           <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
             <h2 className="text-base font-bold">Items</h2>
             <div className="relative" ref={prodBoxRef}>
@@ -447,7 +447,7 @@ export function DocForm({ mode }: { mode: "SALES" | "PURCHASE" }) {
         </div>
 
         {!isSales && docType === "BILL" && (
-          <div className="card p-5 sm:p-6">
+          <div className="card card-gloss rise p-5 sm:p-6">
             <div className="flex items-center justify-between">
               <div>
                 <h3 className="font-extrabold">Extra costs (freight, labour)</h3>
@@ -494,7 +494,7 @@ export function DocForm({ mode }: { mode: "SALES" | "PURCHASE" }) {
         )}
 
         <div className="grid gap-5 lg:grid-cols-2">
-          <div className="card h-fit p-5 sm:p-6">
+          <div className="card card-gloss rise rise-1 h-fit p-5 sm:p-6">
             <Field label="Notes (optional)">
               <textarea className="field min-h-20" value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Any notes for this bill…" />
             </Field>

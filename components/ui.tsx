@@ -42,10 +42,10 @@ export function ThemeToggle() {
 
 export function PageHeader({ title, subtitle, actions, icon }: { title: ReactNode; subtitle?: ReactNode; actions?: ReactNode; icon?: ReactNode }) {
   return (
-    <div className="mb-6 flex flex-wrap items-center justify-between gap-4">
+    <div className="rise mb-6 flex flex-wrap items-center justify-between gap-4">
       <div className="flex items-center gap-3.5">
         {icon && (
-          <span className="grid h-12 w-12 shrink-0 place-items-center rounded-2xl bg-gradient-to-br from-primary to-emerald-600 text-primary-foreground shadow-md shadow-primary/25">
+          <span className="tile tile-primary h-12 w-12 shrink-0 ring-1 ring-white/20">
             {icon}
           </span>
         )}
@@ -64,21 +64,21 @@ export function Stat({ label, value, sub, icon, tone = "primary" }: {
   tone?: "primary" | "accent" | "danger" | "neutral";
 }) {
   const tones: Record<string, string> = {
-    primary: "bg-primary-soft text-primary",
-    accent: "bg-accent-soft text-accent",
-    danger: "bg-danger-soft text-danger",
-    neutral: "bg-muted text-muted-foreground",
+    primary: "tile-primary",
+    accent: "tile-accent",
+    danger: "tile-danger",
+    neutral: "tile-neutral",
   };
   return (
-    <div className="card card-gloss rise p-5">
+    <div className="card card-gloss card-edge card-lift rise p-5">
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           <p className="text-[0.72rem] font-semibold uppercase tracking-wider text-muted-foreground">{label}</p>
-          <p className="mt-1.5 truncate text-[1.45rem] font-extrabold tracking-tight">{value}</p>
+          <p className="mt-1.5 truncate text-[1.45rem] font-extrabold tabular-nums tracking-tight">{value}</p>
           {sub && <p className="mt-1 text-xs text-muted-foreground">{sub}</p>}
         </div>
         {icon && (
-          <span className={`grid h-11 w-11 shrink-0 place-items-center rounded-2xl ${tones[tone]}`}>{icon}</span>
+          <span className={`tile ${tones[tone]} h-11 w-11 shrink-0`}>{icon}</span>
         )}
       </div>
     </div>
@@ -87,8 +87,8 @@ export function Stat({ label, value, sub, icon, tone = "primary" }: {
 
 export function EmptyState({ title, hint, action }: { title: string; hint?: string; action?: ReactNode }) {
   return (
-    <div className="card flex flex-col items-center px-6 py-14 text-center">
-      <div className="grid h-14 w-14 place-items-center rounded-2xl bg-muted text-muted-foreground">
+    <div className="card card-gloss rise flex flex-col items-center px-6 py-14 text-center">
+      <div className="tile tile-neutral h-14 w-14">
         <BookOpenCheck size={26} />
       </div>
       <h3 className="mt-4 text-base font-bold">{title}</h3>
@@ -139,7 +139,7 @@ export function SummaryChips({ items }: { items: Array<{ label: string; value: s
   return (
     <div className="mb-4 flex flex-wrap gap-3">
       {items.map((it) => (
-        <div key={it.label} className="card flex items-center gap-3 px-4 py-2.5">
+        <div key={it.label} className="card card-lift flex items-center gap-3 px-4 py-2.5">
           <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">{it.label}</span>
           <span className={`text-base font-extrabold tabular-nums ${tones[it.tone ?? "neutral"]}`}>{it.value}</span>
         </div>

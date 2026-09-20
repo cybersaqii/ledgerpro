@@ -93,7 +93,7 @@ export function DocList({ mode }: { mode: "SALES" | "PURCHASE" }) {
       />
 
       <FilterBar>
-        <div className="flex flex-wrap gap-1 rounded-xl bg-muted p-1">
+        <div className="rise rise-1 flex flex-wrap gap-1 rounded-xl bg-muted p-1">
           {types.map(([v, l]) => (
             <button key={v} onClick={() => setDocType(v)}
               className={`rounded-lg px-3 py-1.5 text-xs font-bold transition ${docType === v ? "bg-card text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}`}>
@@ -126,9 +126,9 @@ export function DocList({ mode }: { mode: "SALES" | "PURCHASE" }) {
         ]} />
       )}
 
-      <div className="card overflow-hidden">
+      <div className="card rise rise-2 overflow-hidden">
         {loading ? (
-          <div className="space-y-3 p-5">{[1, 2, 3, 4, 5].map((i) => <div key={i} className="h-12 animate-pulse rounded-xl bg-muted" />)}</div>
+          <div className="space-y-3 p-5">{[1, 2, 3, 4, 5].map((i) => <div key={i} className="skeleton h-12 rounded-xl" />)}</div>
         ) : rows.length === 0 ? (
           <EmptyState title={isSales ? `No ${bp.salesNav.toLowerCase()} found` : "No purchases found"}
             hint={hasFilter ? "Try widening the date range or clearing filters." : isSales ? `Create your first ${bp.newSale.replace(/^New /, "").toLowerCase()}.` : "Record your first purchase bill."}

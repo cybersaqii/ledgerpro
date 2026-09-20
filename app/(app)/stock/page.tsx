@@ -55,9 +55,9 @@ export default function StockPage() {
         </label>
       </div>
 
-      <div className="card overflow-hidden">
+      <div className="card rise rise-1 overflow-hidden">
         {loading ? (
-          <div className="space-y-3 p-5">{[1, 2, 3].map((i) => <div key={i} className="h-12 animate-pulse rounded-xl bg-muted" />)}</div>
+          <div className="space-y-3 p-5">{[1, 2, 3].map((i) => <div key={i} className="skeleton h-12 rounded-xl" />)}</div>
         ) : rows.length === 0 ? (
           <EmptyState title="No stock found" hint="Stock appears here after purchase bills." />
         ) : (
