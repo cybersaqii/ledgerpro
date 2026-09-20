@@ -182,7 +182,7 @@ export function DocDetail({ mode, id }: { mode: "SALES" | "PURCHASE"; id: string
           <p className="mt-10 text-center text-xs text-muted-foreground">{t("docdetail.goodsReceived", { brand: brand.name })}</p>
         </div>
       ) : format === "a4" ? (
-        <div className="card mx-auto max-w-3xl p-6 sm:p-10 print:border-0 print:shadow-none">
+        <div className="card mx-auto max-w-3xl p-4 sm:p-10 print:border-0 print:shadow-none">
           <div className="flex items-start justify-between gap-4">
             <div>
               <h1 className="text-2xl font-extrabold tracking-tight">{sellerName}</h1>
@@ -209,7 +209,8 @@ export function DocDetail({ mode, id }: { mode: "SALES" | "PURCHASE"; id: string
             </div>
           </div>
 
-          <table className="tbl mt-6">
+          <div className="mt-6 overflow-x-auto print:overflow-visible">
+          <table className="tbl min-w-[540px]">
             <thead><tr><th>{t("docdetail.colNum")}</th><th>{t("docdetail.colItem")}</th><th className="num">{t("docdetail.colQty")}</th><th className="num">{t("docdetail.colRate")}</th><th className="num">{t("docdetail.colDisc")}</th><th className="num">{t("docdetail.colAmount")}</th></tr></thead>
             <tbody>
               {doc.items.map((it, i) => (
@@ -224,6 +225,7 @@ export function DocDetail({ mode, id }: { mode: "SALES" | "PURCHASE"; id: string
               ))}
             </tbody>
           </table>
+          </div>
 
           <div className="mt-6 flex justify-end">
             <div className="w-full max-w-xs space-y-2 text-sm">
