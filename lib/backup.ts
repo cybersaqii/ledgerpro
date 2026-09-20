@@ -223,7 +223,9 @@ export function verifyCronSecret(provided: string | null, expected: string | und
 
 // ─── Restore verification (dry-run, zero writes) ─────────────────
 
-const BACKUP_ARRAY_KEYS = [
+// Every array section of the backup payload, parents before children.
+// Exported so the restore path covers exactly the payload's sections.
+export const BACKUP_ARRAY_KEYS = [
   "branches",
   "accounts",
   "parties",

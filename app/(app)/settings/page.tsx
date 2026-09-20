@@ -215,6 +215,72 @@ function BackupsCard({ isOwner }: { isOwner: boolean }) {
   const [verifying, setVerifying] = useState<string | null>(null);
   const [results, setResults] = useState<Record<string, Verify>>({});
 
+  // Upload + restore flow.
+  type VerifiedUpload = { backupId: string; token: string; exportedAt: string | null; companyName: string | null; rowCounts: Record<string, number> };
+  type UploadPhase = "pick" | "verifying" | "failed" | "verified" | "restoring" | "done";
+  const [uploadOpen, setUploadOpen] = useState(false);
+  const [phase, setPhase] = useState<UploadPhase>("pick");
+  const [file, setFile] = useState<File | null>(null);
+  const [verified, setVerified] = useState<VerifiedUpload | null>(null);
+  const [verifyErrors, setVerifyErrors] = useState<string[]>([]);
+  const [typedName, setTypedName] = useState("");
+  const [companyName, setCompanyName] = useState<string | null>(null);
+  const [uploadError, setUploadError] = useState<string | null>(null);
+
+  function openUpload() {
+    setUploadOpen(true); setPhase("pick"); setFile(null); setVerified(null);
+    setVerifyErrors([]); setTypedName(""); setUploadError(null);
+    api<{ data: { name: string } }>("/api/company").then((d) => setCompanyName(d.data.name)).catch(() => {});
+  }
+  function closeUpload() {
+    if (phase === "verifying" || phase === "restoring") return;
+    setUploadOpen(false);
+  }
+
+  async function uploadAndVerify() {
+    if (!file) { setUploadError("Choose a backup JSON file first."); return; }
+    setPhase("verifying"); setUploadError(null); setVerifyErrors([]);
+    try {
+      const form = new FormData();
+      form.append("file", file);
+      // Raw fetch: the api() helper forces a JSON content-type, which would
+      // break the multipart upload.
+      const res = await fetch("/api/backups/restore", { method: "POST", body: form, credentials: "include" });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        if (res.status === 422 && Array.isArray(data?.data?.errors)) setVerifyErrors(data.data.errors);
+        throw new Error(data.error || "Could not verify the backup file.");
+      }
+      setVerified(data.data);
+      setPhase("verified");
+    } catch (e) {
+      setUploadError(e instanceof Error ? e.message : "Could not verify the backup file.");
+      setPhase("failed");
+    }
+  }
+
+  async function doRestore(e: React.FormEvent) {
+    e.preventDefault();
+    if (!verified) return;
+    setUploadError(null);
+    setPhase("restoring");
+    try {
+      await api("/api/backups/restore", {
+        method: "POST",
+        body: JSON.stringify({ token: verified.token, typedName: typedName.trim() }),
+      });
+      setPhase("done");
+      // The verified upload is stored as a manual backup — refresh the list.
+      api<{ data: BackupItem[] }>("/api/backups").then((b) => setItems(b.data)).catch(() => {});
+    } catch (err) {
+      // The token stays valid for 10 minutes, so the user can fix the name and retry.
+      setUploadError(err instanceof Error ? err.message : "Could not restore the backup.");
+      setPhase("verified");
+    }
+  }
+
+  const verifiedTotal = (r: Record<string, number>) => Object.values(r).reduce((a, n) => a + n, 0);
+
   useEffect(() => {
     if (!isOwner) return;
     let alive = true;
@@ -276,9 +342,14 @@ function BackupsCard({ isOwner }: { isOwner: boolean }) {
         <div className="mt-4 space-y-2">{[1, 2].map((i) => <div key={i} className="h-14 animate-pulse rounded-xl bg-muted" />)}</div>
       ) : (
         <>
-          <button onClick={backupNow} disabled={busy} className="btn btn-primary mt-4 text-sm">
-            <RefreshCw size={15} /> {busy ? "Backing up…" : "Back up now"}
-          </button>
+          <div className="mt-4 flex flex-wrap gap-2">
+            <button onClick={backupNow} disabled={busy} className="btn btn-primary text-sm">
+              <RefreshCw size={15} /> {busy ? "Backing up…" : "Back up now"}
+            </button>
+            <button onClick={openUpload} className="btn btn-ghost text-sm">
+              <Upload size={15} /> Upload backup
+            </button>
+          </div>
           {items.length === 0 ? (
             <p className="mt-4 text-sm text-muted-foreground">No backups yet — press “Back up now” or wait for the next automatic run.</p>
           ) : (
@@ -334,6 +405,156 @@ function BackupsCard({ isOwner }: { isOwner: boolean }) {
             </ul>
           )}
         </>
+      )}
+      {uploadOpen && (
+        <div className="fixed inset-0 z-50 grid place-items-center bg-black/50 p-4" onClick={closeUpload}>
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-label="Upload and restore a backup"
+            className="max-h-[90vh] w-full max-w-md overflow-y-auto rounded-2xl bg-card p-6 shadow-xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h3 className="inline-flex items-center gap-2 text-lg font-extrabold">
+              <Upload size={18} /> Restore from backup
+            </h3>
+
+            {phase === "pick" && (
+              <>
+                <p className="mt-1 text-sm text-muted-foreground">
+                  Choose a LedgerPro backup JSON file. It will be verified first — nothing changes until you confirm.
+                </p>
+                <ErrorNote message={uploadError} />
+                <label className="mt-4 block cursor-pointer rounded-2xl border-2 border-dashed border-border p-6 text-center transition-colors hover:border-primary">
+                  <input
+                    type="file"
+                    accept=".json,application/json"
+                    className="sr-only"
+                    onChange={(e) => { setFile(e.target.files?.[0] ?? null); setUploadError(null); }}
+                  />
+                  <Database size={22} className="mx-auto text-muted-foreground" />
+                  <span className="mt-2 block text-sm font-bold">
+                    {file ? file.name : "Choose a backup file"}
+                  </span>
+                  <span className="mt-0.5 block text-xs text-muted-foreground">JSON only, max 8 MB</span>
+                </label>
+                <div className="mt-5 flex flex-wrap gap-2">
+                  <button onClick={uploadAndVerify} disabled={!file} className="btn btn-primary text-sm disabled:opacity-60">
+                    <ShieldCheck size={15} /> Verify backup file
+                  </button>
+                  <button onClick={closeUpload} className="btn btn-ghost text-sm">Cancel</button>
+                </div>
+              </>
+            )}
+
+            {phase === "verifying" && (
+              <div className="mt-6 flex items-center gap-3 text-sm text-muted-foreground" role="status">
+                <span className="h-5 w-5 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+                Verifying the backup — checking every section…
+              </div>
+            )}
+
+            {phase === "failed" && (
+              <>
+                <ErrorNote message={uploadError} />
+                {verifyErrors.length > 0 && (
+                  <div className="mt-3 rounded-xl bg-red-500/10 px-3 py-2 text-xs font-semibold text-red-600 dark:text-red-400">
+                    <p>This file cannot be restored:</p>
+                    <ul className="mt-1 list-disc space-y-0.5 pl-4">
+                      {verifyErrors.map((e, i) => <li key={i}>{e}</li>)}
+                    </ul>
+                  </div>
+                )}
+                <div className="mt-5 flex flex-wrap gap-2">
+                  <button onClick={() => { setPhase("pick"); setUploadError(null); setVerifyErrors([]); }} className="btn btn-primary text-sm" autoFocus>
+                    Choose a different file
+                  </button>
+                  <button onClick={closeUpload} className="btn btn-ghost text-sm">Cancel</button>
+                </div>
+              </>
+            )}
+
+            {phase === "verified" && verified && (
+              <form onSubmit={doRestore}>
+                <div className="mt-3 rounded-2xl border border-border p-4 text-sm">
+                  <p className="font-bold">Backup verified — ready to restore</p>
+                  <dl className="mt-2 space-y-1 text-muted-foreground">
+                    <div className="flex justify-between gap-3">
+                      <dt>Taken</dt>
+                      <dd className="font-semibold text-foreground">{verified.exportedAt ? fmtDate(verified.exportedAt) : "Unknown date"}</dd>
+                    </div>
+                    <div className="flex justify-between gap-3">
+                      <dt>Company in backup</dt>
+                      <dd className="font-semibold text-foreground">{verified.companyName ?? "Unknown"}</dd>
+                    </div>
+                    <div className="flex justify-between gap-3">
+                      <dt>Records</dt>
+                      <dd className="font-semibold text-foreground">
+                        {verifiedTotal(verified.rowCounts)} across {Object.keys(verified.rowCounts).length} sections
+                      </dd>
+                    </div>
+                  </dl>
+                </div>
+                <div className="mt-3 flex gap-2 rounded-2xl border border-red-500/30 bg-red-500/5 p-4">
+                  <TriangleAlert size={17} className="mt-0.5 shrink-0 text-red-600 dark:text-red-400" />
+                  <p className="text-sm font-semibold text-red-700 dark:text-red-300">
+                    This will REPLACE all current company data with this backup. Your current bills,
+                    stock, parties and payments will be gone. This cannot be undone.
+                  </p>
+                </div>
+                <ErrorNote message={uploadError} />
+                <p className="mt-4 text-sm font-semibold">
+                  To confirm, type your company name exactly:{" "}
+                  <span className="font-extrabold">{companyName ?? "…"}</span>
+                </p>
+                <Field label="Company name">
+                  <input
+                    className="field"
+                    value={typedName}
+                    onChange={(e) => setTypedName(e.target.value)}
+                    placeholder={companyName ?? ""}
+                    autoComplete="off"
+                    autoFocus
+                  />
+                </Field>
+                <div className="mt-4 flex flex-wrap gap-2">
+                  <button type="submit" className="btn bg-red-600 text-sm text-white hover:bg-red-700">
+                    Restore — replace all data
+                  </button>
+                  <button type="button" onClick={closeUpload} className="btn btn-ghost text-sm">Cancel</button>
+                </div>
+                <p className="mt-3 text-xs text-muted-foreground">
+                  Your login stays valid — restoring data never logs you out. Company settings, team logins,
+                  stored backups and billing stay exactly as they are.
+                </p>
+              </form>
+            )}
+
+            {phase === "restoring" && (
+              <div className="mt-6 flex items-center gap-3 text-sm text-muted-foreground" role="status">
+                <span className="h-5 w-5 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+                Restoring… please keep this page open.
+              </div>
+            )}
+
+            {phase === "done" && (
+              <>
+                <div className="mt-3 flex gap-2 rounded-2xl border border-emerald-500/30 bg-emerald-500/5 p-4">
+                  <CircleCheck size={17} className="mt-0.5 shrink-0 text-emerald-600 dark:text-emerald-400" />
+                  <p className="text-sm font-semibold text-emerald-700 dark:text-emerald-300">
+                    Restore complete. Your company data now matches the backup.
+                  </p>
+                </div>
+                <div className="mt-5 flex flex-wrap gap-2">
+                  <button onClick={() => window.location.reload()} className="btn btn-primary text-sm" autoFocus>
+                    Reload page
+                  </button>
+                  <button onClick={closeUpload} className="btn btn-ghost text-sm">Close</button>
+                </div>
+              </>
+            )}
+          </div>
+        </div>
       )}
     </div>
   );

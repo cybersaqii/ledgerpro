@@ -41,8 +41,18 @@ export function companyScopedTables(): SQLiteTable[] {
   return out;
 }
 
-/** Delete every row belonging to the company. Must run inside a transaction. */
-export async function deleteCompanyData(tx: DbTx, companyId: string): Promise<void> {
+/** Delete every row belonging to the company. Must run inside a transaction.
+ *
+ * `exclude` lists tables to leave untouched — restore uses it to preserve
+ * `users` (the backup payload carries no user rows, and deleting them would
+ * lock everyone out), `loginEvents` (history stays readable after a restore),
+ * and `backups` (never wipe the stored backups during a restore). */
+export async function wipeCompanyData(
+  tx: DbTx,
+  companyId: string,
+  exclude: SQLiteTable[] = []
+): Promise<void> {
+  const excluded = new Set(exclude);
   // 1. Child rows that reference the company only through a parent document.
   await tx.delete(schema.journalLines).where(
     inArray(
@@ -75,15 +85,21 @@ export async function deleteCompanyData(tx: DbTx, companyId: string): Promise<vo
     )
   );
 
-  // 2. Every company-scoped table (discovered from the schema), except the company row.
+  // 2. Every company-scoped table (discovered from the schema), except the
+  // company row itself and anything in `exclude`.
   for (const table of companyScopedTables()) {
-    if (table === schema.companies) continue;
+    if (table === schema.companies || excluded.has(table)) continue;
     const cols = getTableColumns(table);
     const companyIdCol = Object.values(cols).find((c) => c.name === "company_id");
     if (!companyIdCol) continue;
     await tx.delete(table).where(eq(companyIdCol, companyId));
   }
+}
 
+/** Delete every row belonging to the company, then the company row itself.
+ * Must run inside a transaction. */
+export async function deleteCompanyData(tx: DbTx, companyId: string): Promise<void> {
+  await wipeCompanyData(tx, companyId);
   // 3. The company row itself, last.
   await tx.delete(schema.companies).where(eq(schema.companies.id, companyId));
 }

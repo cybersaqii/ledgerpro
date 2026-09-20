@@ -96,3 +96,43 @@ export async function destroySession(): Promise<void> {
 export async function verifySessionToken(token: string): Promise<boolean> {
   return verifyTokenEdge(token);
 }
+
+// ─── Backup-restore tokens ──────────────────────────────────────
+// Step 1 of the upload flow (POST /api/backups/restore with a file) signs a
+// short-lived token; step 2 (confirm) verifies it. The token is bound to the
+// user, the company, the stored backup row, and the payload hash — a token
+// minted for one backup or company can never authorize another.
+
+export interface RestoreTokenClaims {
+  uid: string;
+  cid: string;
+  rid: string; // backups row id holding the verified upload
+  hash: string; // sha256 of the stored payload
+}
+
+export async function signRestoreToken(c: RestoreTokenClaims): Promise<string> {
+  return new SignJWT({ ...c, kind: "restore" })
+    .setProtectedHeader({ alg: "HS256" })
+    .setIssuedAt()
+    .setExpirationTime("10m")
+    .sign(secret);
+}
+
+export async function verifyRestoreToken(token: string): Promise<RestoreTokenClaims | null> {
+  try {
+    const { payload } = await jwtVerify(token, secret);
+    const p = payload as unknown as Record<string, unknown>;
+    if (
+      p.kind !== "restore" ||
+      typeof p.uid !== "string" ||
+      typeof p.cid !== "string" ||
+      typeof p.rid !== "string" ||
+      typeof p.hash !== "string"
+    ) {
+      return null;
+    }
+    return { uid: p.uid, cid: p.cid, rid: p.rid, hash: p.hash };
+  } catch {
+    return null;
+  }
+}

@@ -1,5 +1,5 @@
 import { err } from "./api";
-import { db as globalDb, type Db } from "./db";
+import { db as globalDb, type Db, type DbTx } from "./db";
 import { errorLogs } from "@/db/schema";
 
 /**
@@ -21,7 +21,7 @@ export class UserError extends Error {
  */
 export async function reportError(
   info: { route: string; message: string; stack?: string; companyId?: string | null },
-  dbInstance: Db = globalDb
+  dbInstance: Db | DbTx = globalDb
 ): Promise<void> {
   try {
     await dbInstance.insert(errorLogs).values({
@@ -43,7 +43,7 @@ export async function reportError(
 export async function toApiError(
   e: unknown,
   ctx: { route: string; companyId?: string | null },
-  dbInstance: Db = globalDb
+  dbInstance: Db | DbTx = globalDb
 ) {
   if (e instanceof UserError) return err(e.message, e.status);
   const message = e instanceof Error ? e.message : "Unknown error";
