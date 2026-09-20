@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useState } from "react";
-import { KeyRound, Copy, Check } from "lucide-react";
+import { KeyRound, Copy, Check, ArrowLeft } from "lucide-react";
 import { AuthLayout } from "@/components/auth-layout";
 import { Field, ErrorNote } from "@/components/ui";
 import { api } from "@/lib/format";
@@ -49,7 +49,11 @@ export default function ForgotPasswordPage() {
 
   return (
     <AuthLayout>
-      <div className="card card-gloss rise p-7 shadow-2xl ring-1 ring-primary/10 sm:p-9">
+      <Link href="/login" className="rise mb-5 inline-flex items-center gap-2 text-sm font-semibold text-muted-foreground transition-all hover:gap-3 hover:text-primary">
+        <ArrowLeft size={16} /> {t("auth.backToLogin")}
+      </Link>
+      <div className="card card-gloss rise rise-1 relative p-7 shadow-2xl ring-1 ring-primary/10 sm:p-9">
+        <div className="pointer-events-none absolute inset-x-10 top-0 h-[3px] rounded-full bg-gradient-to-r from-transparent via-primary/70 to-transparent" />
         {newCode ? (
           <div className="text-center">
             <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-primary-soft text-primary">
@@ -78,11 +82,11 @@ export default function ForgotPasswordPage() {
           </div>
         ) : (
           <>
-            <h1 className="text-2xl font-extrabold tracking-tight">{t("auth.forgotTitle")}</h1>
-            <p className="mt-1 text-sm text-muted-foreground">
+            <h1 className="rise rise-2 text-2xl font-extrabold tracking-tight">{t("auth.forgotTitle")}</h1>
+            <p className="rise rise-2 mt-1 text-sm text-muted-foreground">
               {t("auth.forgotSub")}
             </p>
-            <form onSubmit={submit} className="mt-6 space-y-4">
+            <form onSubmit={submit} className="rise rise-3 mt-6 space-y-4">
               <ErrorNote message={error} />
               <Field label={t("auth.email")}>
                 <input className="field" type="email" required autoComplete="email" autoFocus

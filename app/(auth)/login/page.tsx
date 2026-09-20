@@ -36,10 +36,11 @@ export default function LoginPage() {
 
   return (
     <AuthLayout>
-      <div className="card card-gloss rise p-7 shadow-2xl ring-1 ring-primary/10 sm:p-9">
-        <h1 className="text-2xl font-extrabold tracking-tight">{t("auth.loginTitle")}</h1>
-        <p className="mt-1 text-sm text-muted-foreground">{t("auth.loginSub", { brand: brand.name })}</p>
-        <form onSubmit={submit} className="mt-6 space-y-4">
+      <div className="card card-gloss rise relative p-7 shadow-2xl ring-1 ring-primary/10 sm:p-9">
+        <div className="pointer-events-none absolute inset-x-10 top-0 h-[3px] rounded-full bg-gradient-to-r from-transparent via-primary/70 to-transparent" />
+        <h1 className="rise rise-1 text-2xl font-extrabold tracking-tight">{t("auth.loginTitle")}</h1>
+        <p className="rise rise-1 mt-1 text-sm text-muted-foreground">{t("auth.loginSub", { brand: brand.name })}</p>
+        <form onSubmit={submit} className="rise rise-2 mt-6 space-y-4">
           <ErrorNote message={error} />
           <Field label={t("auth.email")}>
             <input className="field" type="email" required autoComplete="email" autoFocus
@@ -61,10 +62,10 @@ export default function LoginPage() {
             <LogIn size={17} /> {busy ? t("auth.loggingIn") : t("auth.loginBtn")}
           </button>
         </form>
-        <p className="mt-4 text-center text-sm">
+        <p className="rise rise-3 mt-4 text-center text-sm">
           <Link href="/forgot-password" className="font-semibold text-primary hover:underline">{t("auth.forgotPw")}</Link>
         </p>
-        <p className="mt-4 text-center text-sm text-muted-foreground">
+        <p className="rise rise-3 mt-4 text-center text-sm text-muted-foreground">
           {t("auth.newTo", { brand: brand.name })}{" "}
           <Link href="/signup" className="font-bold text-primary hover:underline">{t("auth.createAccount")}</Link>
         </p>

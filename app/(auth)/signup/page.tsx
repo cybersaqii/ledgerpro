@@ -66,7 +66,8 @@ export default function SignupPage() {
 
   return (
     <AuthLayout>
-      <div className="card card-gloss rise p-7 sm:p-9">
+      <div className="card card-gloss rise relative p-7 sm:p-9">
+        <div className="pointer-events-none absolute inset-x-10 top-0 h-[3px] rounded-full bg-gradient-to-r from-transparent via-primary/70 to-transparent" />
         {recoveryCode ? (
           <div className="text-center">
             <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-primary-soft text-primary">
@@ -96,9 +97,9 @@ export default function SignupPage() {
           </div>
         ) : (
         <>
-        <h1 className="text-2xl font-extrabold tracking-tight">{t("auth.signupTitle")}</h1>
-        <p className="mt-1 text-sm text-muted-foreground">{t("auth.signupSub")}</p>
-        <form onSubmit={submit} className="mt-6 space-y-4">
+        <h1 className="rise rise-1 text-2xl font-extrabold tracking-tight">{t("auth.signupTitle")}</h1>
+        <p className="rise rise-1 mt-1 text-sm text-muted-foreground">{t("auth.signupSub")}</p>
+        <form onSubmit={submit} className="rise rise-2 mt-6 space-y-4">
           <ErrorNote message={error} />
           <Field label={t("auth.businessName")}>
             <input className="field" required placeholder={t("auth.businessNamePh")}
@@ -149,7 +150,7 @@ export default function SignupPage() {
             <UserPlus size={17} /> {busy ? t("auth.creating") : t("auth.createBtn")}
           </button>
         </form>
-        <p className="mt-6 text-center text-sm text-muted-foreground">
+        <p className="rise rise-3 mt-6 text-center text-sm text-muted-foreground">
           {t("auth.haveAccount")}{" "}
           <Link href="/login" className="font-bold text-primary hover:underline">{t("auth.loginLink")}</Link>
         </p>

@@ -283,6 +283,20 @@ body {
 }
 .floaty { animation: floaty 7s ease-in-out infinite; }
 
+/* Auth screens: slow gradient pan + drifting glow orbs */
+@keyframes auth-pan {
+  0%, 100% { background-position: 0% 30%; }
+  50% { background-position: 100% 70%; }
+}
+.auth-pan { background-size: 220% 220%; animation: auth-pan 22s ease-in-out infinite; }
+
+@keyframes orb-drift {
+  0%, 100% { transform: translate3d(0, 0, 0) scale(1); }
+  50% { transform: translate3d(30px, -26px, 0) scale(1.1); }
+}
+.orb-drift { animation: orb-drift 13s ease-in-out infinite; }
+.orb-drift-rev { animation: orb-drift 18s ease-in-out infinite reverse; }
+
 @keyframes marquee {
   from { transform: translateX(0); }
   to { transform: translateX(-50%); }
@@ -465,7 +479,7 @@ body::before {
 @media (prefers-reduced-motion: reduce) {
   .rise, .rise-1, .rise-2, .rise-3, .rise-4, .float-slow, .marquee-track, .pos-scroll,
   .skeleton::after, .modal-pop, .pulse-dot, .banner-shine::after, .trial-cta,
-  .btn-primary::after, .btn-accent::after { animation: none !important; }
+  .btn-primary::after, .btn-accent::after, .auth-pan, .orb-drift, .orb-drift-rev { animation: none !important; }
   .btn, .btn-primary, .btn-accent, .btn-ghost, a, button, input, select, textarea,
   .card-lift, .tbl tbody tr, .kpi-tile-go { transition: none !important; }
   .btn-primary:hover, .btn-accent:hover, .btn-ghost:hover, .card-lift:hover { transform: none !important; }
