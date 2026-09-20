@@ -10,20 +10,26 @@ import { periodLockError } from "@/lib/period";
 import { nextDocNo } from "@/lib/setup";
 import { json, err } from "@/lib/api";
 import { toApiError } from "@/lib/errors";
-import { requireCompany, db, parseDateOnly, defaultBranchId, assertBranch } from "@/lib/route-helpers";
+import { requirePermission, db, parseDateOnly, defaultBranchId, assertBranch } from "@/lib/route-helpers";
 import { logAudit } from "@/lib/audit";
 import { belowMinPrice, floorErrorMessage } from "@/lib/min-price";
 import { applyCustomerAdvance } from "@/lib/advance";
+import type { Permission } from "@/lib/permissions";
 
 const POSTED_TYPES = ["INVOICE", "RETURN"] as const;
 
+/** Quotations are governed by the documents permission; invoices/returns by sales. */
+function permForDocType(docType: string | null): Permission {
+  return docType === "QUOTATION" ? "documents" : "sales";
+}
+
 // GET /api/sales?docType=INVOICE&partyId=&q=&from=&to=&page=
 export async function GET(req: NextRequest) {
-  const gate = await requireCompany();
-  if (!gate.ok) return gate.response;
-  const { companyId } = gate;
   const sp = req.nextUrl.searchParams;
   const docType = sp.get("docType");
+  const gate = await requirePermission(permForDocType(docType));
+  if (!gate.ok) return gate.response;
+  const { companyId } = gate;
   const partyId = sp.get("partyId");
   const q = sp.get("q")?.trim() ?? "";
   const from = sp.get("from");
@@ -72,12 +78,12 @@ export async function GET(req: NextRequest) {
 
 // POST /api/sales — create invoice/return (posts immediately) or draft doc
 export async function POST(req: NextRequest) {
-  const gate = await requireCompany();
-  if (!gate.ok) return gate.response;
-  const { session, companyId } = gate;
   const body = await req.json().catch(() => null);
   const parsed = salesDocSchema.safeParse(body);
   if (!parsed.success) return err("Please check the form and try again.", 422);
+  const gate = await requirePermission(permForDocType(parsed.data.docType));
+  if (!gate.ok) return gate.response;
+  const { session, companyId } = gate;
   const b = parsed.data;
 
   // party must belong to company

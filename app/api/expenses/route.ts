@@ -6,13 +6,13 @@ import { parseMoney } from "@/lib/money";
 import { postExpense } from "@/lib/posting";
 import { json, err } from "@/lib/api";
 import { toApiError } from "@/lib/errors";
-import { requireCompany, db, parseDateOnly, defaultBranchId, assertBranch } from "@/lib/route-helpers";
+import { requirePermission, db, parseDateOnly, defaultBranchId, assertBranch } from "@/lib/route-helpers";
 import { periodLockError } from "@/lib/period";
 import { logAudit } from "@/lib/audit";
 
 // GET /api/expenses?from=&to=&accountId=&page=
 export async function GET(req: NextRequest) {
-  const gate = await requireCompany();
+  const gate = await requirePermission("expenses");
   if (!gate.ok) return gate.response;
   const { companyId } = gate;
   const sp = req.nextUrl.searchParams;
@@ -26,10 +26,10 @@ export async function GET(req: NextRequest) {
   if (accountId) conds.push(eq(expenses.accountId, accountId));
   if (from) {
     try { conds.push(sql`${expenses.date} >= ${parseDateOnly(from).getTime()}`); } catch { /* ignore */ }
-  }
+ }
   if (to) {
     try { conds.push(sql`${expenses.date} < ${parseDateOnly(to).getTime() + 86400000}`); } catch { /* ignore */ }
-  }
+ }
 
   const rows = await db
     .select({ e: expenses, accountName: accounts.name, bankName: bankAccounts.name })
@@ -48,7 +48,7 @@ export async function GET(req: NextRequest) {
     .select({
       a: sql<string | null>`sum(${expenses.amount})`,
       t: sql<string | null>`sum(${expenses.taxAmount})`,
-    })
+ })
     .from(expenses)
     .where(and(...conds));
   const toBig = (v: unknown) => { try { return BigInt(String(v ?? "0").split(".")[0] || "0"); } catch { return 0n; } };
@@ -59,12 +59,12 @@ export async function GET(req: NextRequest) {
     sumTotal,
     page,
     perPage,
-  });
+ });
 }
 
 // POST /api/expenses
 export async function POST(req: NextRequest) {
-  const gate = await requireCompany();
+  const gate = await requirePermission("expenses");
   if (!gate.ok) return gate.response;
   const { session, companyId } = gate;
   const body = await req.json().catch(() => null);
@@ -90,15 +90,15 @@ export async function POST(req: NextRequest) {
         taxAmount: parseMoney(b.taxAmount || "0"),
         notes: b.notes || undefined,
         createdById: session.uid,
-      });
-    });
+ });
+ });
     await logAudit(db, {
       companyId, userId: session.uid, userName: session.name,
       action: "expense.created", entity: "expense", entityId: expenseId,
       detail: `Expense ${expenseId.slice(0, 8)}`,
-    });
+ });
     return json({ data: { id: expenseId } }, { status: 201 });
-  } catch (e) {
+ } catch (e) {
     return toApiError(e, { route: "/api/expenses", companyId });
-  }
+ }
 }

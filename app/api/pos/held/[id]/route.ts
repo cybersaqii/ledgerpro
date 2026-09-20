@@ -1,12 +1,12 @@
 import { NextRequest } from "next/server";
 import { deleteHeldBill } from "@/lib/held";
 import { json, err } from "@/lib/api";
-import { requireCompany, db } from "@/lib/route-helpers";
+import { requirePermission, db } from "@/lib/route-helpers";
 import { logAudit } from "@/lib/audit";
 
 // DELETE /api/pos/held/:id — remove a held bill (owner of the bill, or company owner).
 export async function DELETE(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-  const gate = await requireCompany();
+  const gate = await requirePermission("held_bills");
   if (!gate.ok) return gate.response;
   const { session, companyId } = gate;
   const { id } = await params;

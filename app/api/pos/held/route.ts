@@ -2,7 +2,7 @@ import { NextRequest } from "next/server";
 import { heldBillSchema } from "@/lib/validators";
 import { createHeldBill, listHeldBills } from "@/lib/held";
 import { json, err } from "@/lib/api";
-import { requireCompany, db } from "@/lib/route-helpers";
+import { requirePermission, db } from "@/lib/route-helpers";
 import { requirePro } from "@/lib/billing-guards";
 
 import { logAudit } from "@/lib/audit";
@@ -11,7 +11,7 @@ import { eq } from "drizzle-orm";
 
 // GET /api/pos/held — list held bills (owners see all in company, staff see own).
 export async function GET() {
-  const gate = await requireCompany();
+  const gate = await requirePermission("held_bills");
   if (!gate.ok) return gate.response;
   const { session, companyId } = gate;
   const pro = await requirePro("pos");
@@ -30,7 +30,7 @@ export async function GET() {
 
 // POST /api/pos/held — park the current cart on the server.
 export async function POST(req: NextRequest) {
-  const gate = await requireCompany();
+  const gate = await requirePermission("held_bills");
   if (!gate.ok) return gate.response;
   const { session, companyId } = gate;
   const body = await req.json().catch(() => null);

@@ -5,7 +5,7 @@ import { productSchema } from "@/lib/validators";
 import { parseMoney } from "@/lib/money";
 import { parseQty } from "@/lib/qty";
 import { json, err } from "@/lib/api";
-import { requireCompany, db } from "@/lib/route-helpers";
+import { requireCompany, db, requirePermission } from "@/lib/route-helpers";
 import { logAudit } from "@/lib/audit";
 
 async function find(companyId: string, id: string) {
@@ -31,7 +31,7 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
 }
 
 export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-  const gate = await requireCompany();
+  const gate = await requirePermission("products");
   if (!gate.ok) return gate.response;
   const { session, companyId } = gate;
   const { id } = await params;
@@ -49,7 +49,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
       .where(and(eq(products.companyId, companyId), eq(products.sku, p.sku)))
       .limit(1);
     if (dup[0]) return err("A product with this SKU already exists.", 409);
-  }
+ }
 
   await db
     .update(products)
@@ -66,18 +66,18 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
       ...(p.reorderLevel !== undefined ? { reorderLevel: parseQty(p.reorderLevel) } : {}),
       ...(p.minSalePrice !== undefined ? { minSalePrice: parseMoney(p.minSalePrice || "0") } : {}),
       updatedAt: new Date(),
-    })
+ })
     .where(eq(products.id, id));
   await logAudit(db, {
     companyId, userId: session.uid, userName: session.name,
     action: "product.updated", entity: "product", entityId: id,
     detail: `Product "${row.name}" updated`,
-  });
+ });
   return json({ data: await find(companyId, id) });
 }
 
 export async function DELETE(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-  const gate = await requireCompany();
+  const gate = await requirePermission("products");
   if (!gate.ok) return gate.response;
   const { session, companyId } = gate;
   const { id } = await params;
@@ -88,6 +88,6 @@ export async function DELETE(_req: NextRequest, { params }: { params: Promise<{ 
     companyId, userId: session.uid, userName: session.name,
     action: "product.deleted", entity: "product", entityId: id,
     detail: `Product "${row.name}" deactivated`,
-  });
+ });
   return json({ ok: true });
 }

@@ -3,6 +3,7 @@ import { db } from "@/lib/db";
 import { users, companies } from "@/db/schema";
 import { getSession, destroySession } from "@/lib/auth";
 import { json, err } from "@/lib/api";
+import { getUserPermissions, PERMISSIONS } from "@/lib/permissions";
 
 export async function GET() {
   const session = await getSession();
@@ -15,8 +16,9 @@ export async function GET() {
     .from(companies)
     .where(eq(companies.id, user.companyId))
     .limit(1);
+  const permissions = user.role === "OWNER" ? [...PERMISSIONS] : await getUserPermissions(db, user.id);
   return json({
-    user: { id: user.id, name: user.name, email: user.email, role: user.role },
+    user: { id: user.id, name: user.name, email: user.email, role: user.role, permissions },
     company: { id: user.companyId, name: co[0]?.name ?? "", businessType: co[0]?.businessType ?? "OTHER" },
   });
 }

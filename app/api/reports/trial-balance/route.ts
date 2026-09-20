@@ -1,12 +1,12 @@
 import { eq } from "drizzle-orm";
 import { accounts } from "@/db/schema";
 import { json } from "@/lib/api";
-import { requireCompany, db } from "@/lib/route-helpers";
+import { requirePermission, db } from "@/lib/route-helpers";
 import { glSums } from "@/lib/reports";
 
 // GET /api/reports/trial-balance
 export async function GET() {
-  const gate = await requireCompany();
+  const gate = await requirePermission("reports_basic");
   if (!gate.ok) return gate.response;
   const { companyId } = gate;
 

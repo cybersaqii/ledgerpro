@@ -2,11 +2,11 @@ import { NextRequest } from "next/server";
 import { eq, desc, sql } from "drizzle-orm";
 import { auditLogs } from "@/db/schema";
 import { json } from "@/lib/api";
-import { requireOwner, db } from "@/lib/route-helpers";
+import { requirePermission, db } from "@/lib/route-helpers";
 
 // GET /api/audit?page= — who did what, when (owner only)
 export async function GET(req: NextRequest) {
-  const gate = await requireOwner();
+  const gate = await requirePermission("audit");
   if (!gate.ok) return gate.response;
   const { companyId } = gate;
   const sp = req.nextUrl.searchParams;

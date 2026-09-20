@@ -1,6 +1,6 @@
 import { NextRequest } from "next/server";
 import { json } from "@/lib/api";
-import { requireCompany, db } from "@/lib/route-helpers";
+import { requirePermission, db } from "@/lib/route-helpers";
 import { requirePro } from "@/lib/billing-guards";
 
 import { glSums, netOf, sumByType } from "@/lib/reports";
@@ -8,7 +8,7 @@ import { SYS } from "@/lib/setup";
 
 // GET /api/reports/profit-loss?from=&to=
 export async function GET(req: NextRequest) {
-  const gate = await requireCompany();
+  const gate = await requirePermission("reports_accounting");
   if (!gate.ok) return gate.response;
   const { companyId } = gate;
   const sp = req.nextUrl.searchParams;

@@ -3,7 +3,7 @@ import { eq } from "drizzle-orm";
 import { z } from "zod";
 import { companies, users } from "@/db/schema";
 import { json, err } from "@/lib/api";
-import { requireCompany, requireOwner, db } from "@/lib/route-helpers";
+import { requireCompany, requireOwner, requirePermission, db } from "@/lib/route-helpers";
 import { logAudit } from "@/lib/audit";
 import { businessTypeLabel } from "@/lib/business-types";
 import { verifyPassword, destroySession } from "@/lib/auth";
@@ -38,9 +38,9 @@ export async function GET() {
   });
 }
 
-// PUT /api/company — update profile
+// PUT /api/company — update profile (owner, or staff with the settings permission)
 export async function PUT(req: NextRequest) {
-  const gate = await requireOwner();
+  const gate = await requirePermission("settings");
   if (!gate.ok) return gate.response;
   const body = await req.json().catch(() => null);
   const parsed = companySchema.safeParse(body);

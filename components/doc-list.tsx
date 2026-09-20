@@ -7,6 +7,7 @@ import { PageHeader, EmptyState, FilterBar, SummaryChips, Pagination, StatusPill
 import { api, fmtMoney, fmtDate, toBig } from "@/lib/format";
 import { useBusinessProfile } from "@/components/business-type";
 import { useLang } from "@/components/lang-provider";
+import { useCan } from "@/components/permissions";
 
 type Doc = {
   id: string; docNo: string; docType: string; date: number; status: string;
@@ -28,6 +29,7 @@ const PER_PAGE = 20;
 export function DocList({ mode }: { mode: "SALES" | "PURCHASE" }) {
   const bp = useBusinessProfile();
   const { t } = useLang();
+  const canPos = useCan("pos");
   const isSales = mode === "SALES";
   const [rows, setRows] = useState<Doc[]>([]);
   const [total, setTotal] = useState(0);
@@ -82,7 +84,7 @@ export function DocList({ mode }: { mode: "SALES" | "PURCHASE" }) {
         icon={isSales ? <ShoppingCart size={20} /> : <Truck size={20} />}
         actions={
           <div className="flex gap-2">
-            {isSales && (
+            {isSales && canPos && (
               <Link href="/sales/pos" className="btn btn-ghost text-sm">
                 <Zap size={16} /> POS
               </Link>

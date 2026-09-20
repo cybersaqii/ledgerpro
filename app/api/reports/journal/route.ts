@@ -2,14 +2,14 @@ import { NextRequest } from "next/server";
 import { eq, and, desc, sql, or, like, inArray } from "drizzle-orm";
 import { journalEntries, journalLines, accounts, parties } from "@/db/schema";
 import { json } from "@/lib/api";
-import { requireCompany, db, parseDateOnly } from "@/lib/route-helpers";
+import { requirePermission, db, parseDateOnly } from "@/lib/route-helpers";
 import { requirePro } from "@/lib/billing-guards";
 
 
 // GET /api/reports/journal?from=&to=&q=&page=
 // The audit trail: every balanced journal entry with its debit/credit lines.
 export async function GET(req: NextRequest) {
-  const gate = await requireCompany();
+  const gate = await requirePermission("reports_accounting");
   if (!gate.ok) return gate.response;
   const { companyId } = gate;
   const pro = await requirePro("advanced_reports");
@@ -25,10 +25,10 @@ export async function GET(req: NextRequest) {
   if (q) conds.push(or(like(journalEntries.memo, `%${q}%`), like(journalEntries.reference, `%${q}%`))!);
   if (from) {
     try { conds.push(sql`${journalEntries.date} >= ${parseDateOnly(from).getTime()}`); } catch { /* ignore */ }
-  }
+ }
   if (to) {
     try { conds.push(sql`${journalEntries.date} < ${parseDateOnly(to).getTime() + 86400000}`); } catch { /* ignore */ }
-  }
+ }
 
   const entries = await db
     .select()
@@ -52,7 +52,7 @@ export async function GET(req: NextRequest) {
             accountCode: accounts.code,
             accountName: accounts.name,
             partyName: parties.name,
-          })
+ })
           .from(journalLines)
           .innerJoin(accounts, eq(journalLines.accountId, accounts.id))
           .leftJoin(parties, eq(journalLines.partyId, parties.id))
@@ -64,7 +64,7 @@ export async function GET(req: NextRequest) {
     const arr = linesByEntry.get(r.l.entryId) ?? [];
     arr.push(r);
     linesByEntry.set(r.l.entryId, arr);
-  }
+ }
 
   return json({
     data: entries.map((e) => ({
@@ -79,10 +79,10 @@ export async function GET(req: NextRequest) {
         partyName: r.partyName,
         debit: r.l.debit.toString(),
         credit: r.l.credit.toString(),
-      })),
-    })),
+ })),
+ })),
     total: total[0]?.n ?? 0,
     page,
     perPage,
-  });
+ });
 }

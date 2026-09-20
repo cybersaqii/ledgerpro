@@ -5,7 +5,7 @@ import { productSchema } from "@/lib/validators";
 import { parseMoney } from "@/lib/money";
 import { parseQty } from "@/lib/qty";
 import { json, err } from "@/lib/api";
-import { requireCompany, db, defaultBranchId } from "@/lib/route-helpers";
+import { requireCompany, db, defaultBranchId, requirePermission } from "@/lib/route-helpers";
 import { logAudit } from "@/lib/audit";
 
 // GET /api/products?q=&category=&lowStock=1
@@ -43,11 +43,11 @@ export async function GET(req: NextRequest) {
           .from(stockLevels)
           .where(eq(stockLevels.productId, p.id));
         totalQty = lv.reduce((a, l) => a + l.qty, 0n);
-      }
+ }
       const out: Record<string, unknown> = { ...p, totalQty: totalQty.toString() };
       if (lowStock && !(p.trackStock && totalQty <= p.reorderLevel)) return null;
       return out;
-    })
+ })
   );
   const data = withStock.filter(Boolean);
   const total = await db
@@ -59,7 +59,7 @@ export async function GET(req: NextRequest) {
 
 // POST /api/products
 export async function POST(req: NextRequest) {
-  const gate = await requireCompany();
+  const gate = await requirePermission("products");
   if (!gate.ok) return gate.response;
   const { session, companyId } = gate;
   const body = await req.json().catch(() => null);
@@ -89,12 +89,12 @@ export async function POST(req: NextRequest) {
     trackStock: p.trackStock,
     reorderLevel: parseQty(p.reorderLevel),
     minSalePrice: parseMoney(p.minSalePrice || "0"),
-  });
+ });
   await logAudit(db, {
     companyId, userId: session.uid, userName: session.name,
     action: "product.created", entity: "product", entityId: id,
     detail: `Product "${p.name}" (${p.sku}) created`,
-  });
+ });
   const rows = await db.select().from(products).where(eq(products.id, id)).limit(1);
   return json({ data: rows[0] }, { status: 201 });
 }

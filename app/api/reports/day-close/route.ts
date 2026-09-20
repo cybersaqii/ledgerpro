@@ -2,13 +2,13 @@ import { NextRequest } from "next/server";
 import { eq, and, sql, type SQLWrapper } from "drizzle-orm";
 import { salesDocs, purchaseDocs, payments, expenses, accounts } from "@/db/schema";
 import { json, err } from "@/lib/api";
-import { requireCompany, db, parseDateOnly } from "@/lib/route-helpers";
+import { requirePermission, db, parseDateOnly } from "@/lib/route-helpers";
 
 // GET /api/reports/day-close?date=YYYY-MM-DD
 // The shopkeeper's daily ritual: one screen for the whole day's hisaab.
 // Sales, returns, purchases, cash in/out, expenses, and the net cash position.
 export async function GET(req: NextRequest) {
-  const gate = await requireCompany();
+  const gate = await requirePermission("reports_basic");
   if (!gate.ok) return gate.response;
   const { companyId } = gate;
   const sp = req.nextUrl.searchParams;
@@ -19,9 +19,9 @@ export async function GET(req: NextRequest) {
     const d = raw ? parseDateOnly(raw) : new Date();
     dayStart = new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
     dateLabel = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
-  } catch {
+ } catch {
     return err("Invalid date.");
-  }
+ }
   const dayEnd = dayStart + 86400000;
 
   const inDay = (col: SQLWrapper) => and(sql`${col} >= ${dayStart}`, sql`${col} < ${dayEnd}`);
@@ -32,11 +32,11 @@ export async function GET(req: NextRequest) {
       .select({
         n: sql<number>`count(*)`,
         t: sql<string>`COALESCE(SUM(${totalCol}),0)`,
-      })
+ })
       .from(table)
       .where(and(eq(table.companyId, companyId), inDay(dateCol), ...extra));
     return { count: r[0]?.n ?? 0, total: (BigInt(r[0]?.t ?? "0")).toString() };
-  }
+ }
 
   const [sales, salesReturns, purchases, purchaseReturns, receipts, paidOut, exp] = await Promise.all([
     sumCount(salesDocs, salesDocs.date, salesDocs.grandTotal, eq(salesDocs.docType, "INVOICE")),
@@ -53,7 +53,7 @@ export async function GET(req: NextRequest) {
     .select({
       account: accounts.name,
       t: sql<string>`COALESCE(SUM(${expenses.amount}),0)`,
-    })
+ })
     .from(expenses)
     .innerJoin(accounts, eq(expenses.accountId, accounts.id))
     .where(and(eq(expenses.companyId, companyId), inDay(expenses.date)))
@@ -75,10 +75,10 @@ export async function GET(req: NextRequest) {
     expenses: {
       ...exp,
       byAccount: expRows.map((r) => ({ account: r.account, total: BigInt(r.t).toString() })),
-    },
+ },
     cashIn: cashIn.toString(),
     cashOut: cashOut.toString(),
     netCash: (cashIn - cashOut).toString(),
     netSales: (b(sales.total) - b(salesReturns.total)).toString(),
-  });
+ });
 }

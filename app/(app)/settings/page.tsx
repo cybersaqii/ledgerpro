@@ -9,6 +9,8 @@ import { useLang } from "@/components/lang-provider";
 import { api, fmtDate } from "@/lib/format";
 import { BUSINESS_TYPES } from "@/lib/business-types";
 import { AUDIT_LOG_RETENTION_YEARS } from "@/lib/audit";
+import { PERMISSION_GROUPS } from "@/lib/permission-keys";
+import { usePermissions } from "@/components/permissions";
 
 type Company = {
   name: string; email: string | null; phone: string | null; address: string | null;
@@ -62,18 +64,17 @@ function SettingsJumpNav() {
 
 export default function SettingsPage() {
   const { t } = useLang();
+  const { permissions, role: myRole, loading: permsLoading } = usePermissions();
   const [form, setForm] = useState<Company>(empty);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
-  const [isOwner, setIsOwner] = useState(true);
-
-  useEffect(() => {
-    api<{ user: { role: string } }>("/api/auth/me")
-      .then((d) => setIsOwner(d.user.role === "OWNER"))
-      .catch(() => {});
-  }, []);
+  // Company profile needs the "settings" permission; owners always have it.
+  const canEditCompany = permsLoading || myRole === "OWNER" || permissions.includes("settings");
+  // Cards that stay owner-only (deletion, system health) — mirror the old
+  // default-true behavior while the role loads; the API enforces regardless.
+  const pageIsOwner = permsLoading || myRole === "OWNER";
 
   useEffect(() => {
     api<{ data: Company }>("/api/company")
@@ -116,7 +117,7 @@ export default function SettingsPage() {
         ) : (
           <form onSubmit={submit} className="space-y-4">
             <ErrorNote message={error} />
-            {!isOwner && (
+            {!canEditCompany && (
               <div className="rounded-xl bg-amber-500/10 px-4 py-3 text-sm font-semibold text-amber-600 dark:text-amber-400">
                 {t("settings.staffNote")}
               </div>
@@ -157,7 +158,7 @@ export default function SettingsPage() {
               </Field>
             </div>
             <div className="flex justify-end pt-2">
-              <button className="btn btn-primary" disabled={saving || !isOwner}>
+              <button className="btn btn-primary" disabled={saving || !canEditCompany}>
                 <Save size={16} /> {saving ? t("settings.saving") : t("settings.saveChanges")}
               </button>
             </div>
@@ -194,13 +195,13 @@ export default function SettingsPage() {
         </div>
       </div>
       <ImportCard />
-      <BackupsCard isOwner={isOwner} />
+      <BackupsCard isOwner={pageIsOwner} />
       <TeamCard />
       <SecurityCard />
       <SessionsCard />
       <PeriodLockCard />
-      <SystemHealthCard isOwner={isOwner} />
-      <DangerZoneCard isOwner={isOwner} />
+      <SystemHealthCard isOwner={pageIsOwner} />
+      <DangerZoneCard isOwner={pageIsOwner} />
       <div id="sec-activity" className="card card-gloss anchor-scroll mt-6 mx-auto max-w-2xl p-6 sm:p-8">
         <div className="flex items-center justify-between gap-3">
           <div>
@@ -219,7 +220,14 @@ export default function SettingsPage() {
   );
 }
 
-type TeamUser = { id: string; name: string; email: string; role: string; isActive: boolean; lastLoginAt: number | string | null };
+type TeamUser = { id: string; name: string; email: string; role: string; isActive: boolean; lastLoginAt: number | string | null; permissions: string[] | "ALL" };
+
+/** True when an API error means "you may not do this" (owner-only or permission-gated). */
+function forbiddenErr(e: unknown): boolean {
+  const code = (e as { code?: string } | null)?.code;
+  if (code === "FORBIDDEN_PERMISSION" || code === "FORBIDDEN_OWNER") return true;
+  return e instanceof Error && /owner/i.test(e.message);
+}
 
 function BackupsCard({ isOwner }: { isOwner: boolean }) {
   const { t } = useLang();
@@ -575,8 +583,77 @@ function BackupsCard({ isOwner }: { isOwner: boolean }) {
   );
 }
 
+function PermissionEditor({ user, onSaved }: { user: TeamUser; onSaved: () => void }) {
+  const { t } = useLang();
+  const initial = user.permissions === "ALL" ? [] : [...user.permissions];
+  const [sel, setSel] = useState<string[]>(initial);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [saved, setSaved] = useState(false);
+
+  function toggle(p: string) {
+    setSaved(false);
+    setSel((s) => (s.includes(p) ? s.filter((x) => x !== p) : [...s, p]));
+  }
+
+  async function save() {
+    setBusy(true); setError(null); setSaved(false);
+    try {
+      await api(`/api/users/${user.id}`, { method: "PATCH", body: JSON.stringify({ permissions: sel }) });
+      setSaved(true);
+      onSaved();
+    } catch (err) { setError(err instanceof Error ? err.message : t("settingsteam.updateError")); }
+    finally { setBusy(false); }
+  }
+
+  const groups: Record<string, string> = {
+    daily: t("perms.groupDaily"),
+    masters: t("perms.groupMasters"),
+    insights: t("perms.groupInsights"),
+    admin: t("perms.groupAdmin"),
+  };
+
+  return (
+    <div className="mt-3 rounded-2xl border border-border bg-muted/40 p-4">
+      <p className="text-xs font-semibold text-muted-foreground">{t("settingsteam.permsHint")}</p>
+      <div className="mt-3 space-y-4">
+        {PERMISSION_GROUPS.map((g) => (
+          <div key={g.key}>
+            <p className="mb-1.5 text-xs font-extrabold uppercase tracking-wide text-muted-foreground">{groups[g.key]}</p>
+            <div className="grid gap-1.5 sm:grid-cols-2">
+              {g.permissions.map((p) => (
+                <label key={p} className="flex cursor-pointer items-start gap-2.5 rounded-xl border border-border bg-card px-3 py-2 transition hover:border-primary">
+                  <input
+                    type="checkbox"
+                    className="mt-1 h-4 w-4 shrink-0 accent-primary"
+                    checked={sel.includes(p)}
+                    onChange={() => toggle(p)}
+                  />
+                  <span className="min-w-0">
+                    <span className="block text-sm font-bold">{t(`perms.${p}`)}</span>
+                    <span className="block text-xs text-muted-foreground">{t(`perms.${p}Desc`)}</span>
+                  </span>
+                </label>
+              ))}
+            </div>
+          </div>
+        ))}
+      </div>
+      {error && <p className="mt-3 text-xs font-semibold text-red-500">{error}</p>}
+      {saved && <p className="mt-3 text-xs font-bold text-primary">{t("settingsteam.permsSaved")}</p>}
+      <div className="mt-3 flex justify-end">
+        <button className="btn btn-primary !px-4 !py-2 text-xs" disabled={busy} onClick={save}>
+          {busy ? t("settingsteam.permsSaving") : t("settingsteam.permsSave")}
+        </button>
+      </div>
+    </div>
+  );
+}
+
 function TeamCard() {
   const { t } = useLang();
+  const { role: myRole } = usePermissions();
+  const isOwner = myRole === "OWNER";
   const [users, setUsers] = useState<TeamUser[]>([]);
   const [loading, setLoading] = useState(true);
   const [forbidden, setForbidden] = useState(false);
@@ -591,18 +668,19 @@ function TeamCard() {
   const [resetError, setResetError] = useState<string | null>(null);
   const [resetBusy, setResetBusy] = useState(false);
   const [resetDone, setResetDone] = useState<string | null>(null);
+  const [permsFor, setPermsFor] = useState<string | null>(null);
 
   function load() {
     api<{ data: TeamUser[] }>("/api/users")
       .then((d) => { setUsers(d.data); setForbidden(false); })
-      .catch((e) => { setForbidden(e instanceof Error && e.message.includes("owner")); setError(e instanceof Error ? e.message : t("settingsteam.loadError")); })
+      .catch((e) => { setForbidden(forbiddenErr(e)); setError(e instanceof Error ? e.message : t("settingsteam.loadError")); })
       .finally(() => setLoading(false));
   }
   useEffect(() => {
     let alive = true;
     api<{ data: TeamUser[] }>("/api/users")
       .then((d) => { if (alive) { setUsers(d.data); setForbidden(false); } })
-      .catch((e) => { if (alive) { setForbidden(e instanceof Error && e.message.includes("owner")); setError(e instanceof Error ? e.message : t("settingsteam.loadError")); } })
+      .catch((e) => { if (alive) { setForbidden(forbiddenErr(e)); setError(e instanceof Error ? e.message : t("settingsteam.loadError")); } })
       .finally(() => { if (alive) setLoading(false); });
     return () => { alive = false; };
   }, [t]);
@@ -653,6 +731,11 @@ function TeamCard() {
         )}
       </div>
       <ErrorNote message={forbidden ? null : error} />
+      {!forbidden && !isOwner && myRole && (
+        <p className="mt-3 rounded-xl bg-amber-500/10 px-4 py-2.5 text-xs font-semibold text-amber-600 dark:text-amber-400">
+          {t("settingsteam.managerNote")}
+        </p>
+      )}
       {loading ? (
         <div className="mt-4 space-y-3">{[1, 2].map((i) => <div key={i} className="skeleton h-14 rounded-xl" />)}</div>
       ) : forbidden ? (
@@ -666,40 +749,71 @@ function TeamCard() {
                 <Field label={t("settingsteam.email")}><input className="field" required type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder={t("settingsteam.emailPh")} /></Field>
               </div>
               <Field label={t("settingsteam.password")}><input className="field" required type="password" minLength={8} value={password} onChange={(e) => setPassword(e.target.value)} /></Field>
+              {isOwner && <p className="text-xs text-muted-foreground">{t("settingsteam.addDefaultsNote")}</p>}
               <button className="btn btn-primary text-sm" disabled={saving}>{saving ? t("settingsteam.adding") : t("settingsteam.addMember")}</button>
             </form>
           )}
           <ul className="mt-4 divide-y divide-border">
-            {users.map((u) => (
+            {users.map((u) => {
+              const grantCount = u.permissions === "ALL" ? -1 : u.permissions.length;
+              return (
               <li key={u.id} className="py-3">
                 <div className="flex flex-col gap-2.5 sm:flex-row sm:items-center sm:justify-between sm:gap-3">
                   <div className="min-w-0">
-                    <p className="truncate text-sm font-bold">{u.name} {!u.isActive && <span className="badge bg-muted text-xs text-muted-foreground">{t("settingsteam.inactive")}</span>}</p>
+                    <p className="truncate text-sm font-bold">
+                      {u.name}{" "}
+                      {!u.isActive && <span className="badge bg-muted text-xs text-muted-foreground">{t("settingsteam.inactive")}</span>}{" "}
+                      {grantCount === -1 ? (
+                        <span className="badge bg-primary-soft text-xs text-primary">{t("settingsteam.fullAccess")}</span>
+                      ) : grantCount === 0 ? (
+                        <span className="badge bg-muted text-xs text-muted-foreground">{t("settingsteam.noPerms")}</span>
+                      ) : (
+                        <span className="badge bg-muted text-xs text-muted-foreground">{grantCount} {t("settingsteam.permsTitle").toLowerCase()}</span>
+                      )}
+                    </p>
                     <p className="truncate text-xs text-muted-foreground">{u.email}</p>
                   </div>
                   <div className="flex flex-wrap items-center gap-2">
-                    <select
-                      className="field !w-auto !py-1.5 text-xs"
-                      value={u.role}
-                      onChange={(e) => patchUser(u.id, { role: e.target.value })}
-                      aria-label={t("settingsteam.roleFor", { name: u.name })}
-                    >
-                      <option value="OWNER">{t("settingsteam.owner")}</option>
-                      <option value="STAFF">{t("settingsteam.staff")}</option>
-                    </select>
-                    <button
-                      className="btn btn-ghost !px-3 !py-1.5 text-xs"
-                      onClick={() => patchUser(u.id, { isActive: !u.isActive })}
-                    >
-                      {u.isActive ? t("settingsteam.deactivate") : t("settingsteam.activate")}
-                    </button>
-                    <button
-                      className="btn btn-ghost !px-3 !py-1.5 text-xs"
-                      title={t("settingsteam.resetPassword")}
-                      onClick={() => { setResetFor(resetFor === u.id ? null : u.id); setResetPw(""); setResetError(null); }}
-                    >
-                      <KeyRound size={13} /> {t("settingsteam.resetPassword")}
-                    </button>
+                    {isOwner ? (
+                      <select
+                        className="field !w-auto !py-1.5 text-xs"
+                        value={u.role}
+                        onChange={(e) => patchUser(u.id, { role: e.target.value })}
+                        aria-label={t("settingsteam.roleFor", { name: u.name })}
+                      >
+                        <option value="OWNER">{t("settingsteam.owner")}</option>
+                        <option value="STAFF">{t("settingsteam.staff")}</option>
+                      </select>
+                    ) : (
+                      <span className="badge bg-muted px-2.5 py-1 text-xs font-bold text-muted-foreground">
+                        {u.role === "OWNER" ? t("settingsteam.owner") : t("settingsteam.staff")}
+                      </span>
+                    )}
+                    {u.role !== "OWNER" && (
+                      <button
+                        className="btn btn-ghost !px-3 !py-1.5 text-xs"
+                        onClick={() => patchUser(u.id, { isActive: !u.isActive })}
+                      >
+                        {u.isActive ? t("settingsteam.deactivate") : t("settingsteam.activate")}
+                      </button>
+                    )}
+                    {u.role !== "OWNER" && (
+                      <button
+                        className="btn btn-ghost !px-3 !py-1.5 text-xs"
+                        title={t("settingsteam.resetPassword")}
+                        onClick={() => { setResetFor(resetFor === u.id ? null : u.id); setResetPw(""); setResetError(null); }}
+                      >
+                        <KeyRound size={13} /> {t("settingsteam.resetPassword")}
+                      </button>
+                    )}
+                    {isOwner && u.role !== "OWNER" && (
+                      <button
+                        className="btn btn-ghost !px-3 !py-1.5 text-xs"
+                        onClick={() => setPermsFor(permsFor === u.id ? null : u.id)}
+                      >
+                        {permsFor === u.id ? t("settingsteam.permsHide") : t("settingsteam.permsEdit")}
+                      </button>
+                    )}
                   </div>
                 </div>
                 {resetFor === u.id && (
@@ -714,8 +828,12 @@ function TeamCard() {
                     {resetError && <p className="w-full text-xs font-semibold text-red-500">{resetError}</p>}
                   </form>
                 )}
+                {permsFor === u.id && isOwner && u.role !== "OWNER" && (
+                  <PermissionEditor user={u} onSaved={load} />
+                )}
               </li>
-            ))}
+              );
+            })}
           </ul>
           {resetDone && <p className="mt-3 rounded-xl bg-primary-soft px-4 py-2.5 text-sm font-semibold text-primary">{resetDone}</p>}
         </>

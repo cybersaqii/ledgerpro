@@ -11,6 +11,7 @@ import { PageHeader, Stat, EmptyState } from "@/components/ui";
 import { api, fmtMoney, fmtDate } from "@/lib/format";
 import { useBusinessProfile } from "@/components/business-type";
 import { useLang } from "@/components/lang-provider";
+import { useCan } from "@/components/permissions";
 import {
   ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, CartesianGrid,
 } from "recharts";
@@ -36,6 +37,7 @@ async function loadSampleDataNow(): Promise<void> {
 export default function DashboardPage() {
   const bp = useBusinessProfile();
   const { t } = useLang();
+  const canPos = useCan("pos");
   const [data, setData] = useState<DashboardData | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [showRecoveryNudge, setShowRecoveryNudge] = useState(false);
@@ -226,7 +228,7 @@ export default function DashboardPage() {
       )}
 
       {/* POS banner for counter businesses */}
-      {(bp.type === "RETAIL" || bp.type === "PHARMACY" || bp.type === "RESTAURANT") && (
+      {canPos && (bp.type === "RETAIL" || bp.type === "PHARMACY" || bp.type === "RESTAURANT") && (
         <Link href="/sales/pos"
           className="card card-lift card-edge group mb-5 flex items-center justify-between gap-4 p-4 sm:p-5">
           <span className="flex min-w-0 items-center gap-4 pl-2">

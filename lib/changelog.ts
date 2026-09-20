@@ -17,6 +17,17 @@ export interface ChangelogEntry {
 export const CHANGELOG: ChangelogEntry[] = [
   {
     date: "2026-09-20",
+    tag: "PENDING",
+    title: "Granular staff permissions",
+    bullets: [
+      "Staff access is now per-permission: sales, purchases, POS, payments, expenses, parties, products, stock, price lists, documents, reports, held bills, settings, team, import/export, backups, period lock and audit trail.",
+      "Owners keep full access; every staff member gets exactly the permissions the owner grants, editable from Settings → Team with changes applying immediately.",
+      "Existing staff keep everything they could already do — the upgrade is behavior-neutral.",
+      "Every check runs server-side against the live database, so deactivating a user or revoking a permission takes effect instantly.",
+    ],
+  },
+  {
+    date: "2026-09-20",
     tag: "8a85535",
     title: "Free trial + manual subscription billing",
     bullets: [

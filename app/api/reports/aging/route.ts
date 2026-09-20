@@ -2,14 +2,14 @@ import { NextRequest } from "next/server";
 import { eq, and, sql } from "drizzle-orm";
 import { salesDocs, purchaseDocs, parties } from "@/db/schema";
 import { json } from "@/lib/api";
-import { requireCompany, db } from "@/lib/route-helpers";
+import { requirePermission, db } from "@/lib/route-helpers";
 import { agingBucket, daysOverdue, type AgingBucket } from "@/lib/aging";
 
 // GET /api/reports/aging?kind=CUSTOMER
 // Udhaar aging: outstanding invoices bucketed by days overdue (due date, else bill date).
 // Buckets: notDue, d30 (1-30), d60 (31-60), d90 (61-90), d90plus (90+).
 export async function GET(req: NextRequest) {
-  const gate = await requireCompany();
+  const gate = await requirePermission("reports_basic");
   if (!gate.ok) return gate.response;
   const { companyId } = gate;
   const isSupplier = req.nextUrl.searchParams.get("kind") === "SUPPLIER";

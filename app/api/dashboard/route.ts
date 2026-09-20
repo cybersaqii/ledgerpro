@@ -9,12 +9,12 @@ import {
   expenses,
 } from "@/db/schema";
 import { json } from "@/lib/api";
-import { requireCompany, db } from "@/lib/route-helpers";
+import { requirePermission, db } from "@/lib/route-helpers";
 import { netProfit } from "@/lib/reports";
 
 // GET /api/dashboard — KPIs for the dashboard home
 export async function GET() {
-  const gate = await requireCompany();
+  const gate = await requirePermission("reports_basic");
   if (!gate.ok) return gate.response;
   const { companyId } = gate;
 

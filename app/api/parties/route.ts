@@ -5,7 +5,7 @@ import { validPriceListId } from "@/lib/price-lists";
 import { partySchema } from "@/lib/validators";
 import { parseMoney } from "@/lib/money";
 import { json, err } from "@/lib/api";
-import { requireCompany, db } from "@/lib/route-helpers";
+import { requireCompany, db, requirePermission } from "@/lib/route-helpers";
 import { logAudit } from "@/lib/audit";
 
 // GET /api/parties?kind=CUSTOMER&q=ahmad&page=1
@@ -39,7 +39,7 @@ export async function GET(req: NextRequest) {
 
 // POST /api/parties
 export async function POST(req: NextRequest) {
-  const gate = await requireCompany();
+  const gate = await requirePermission("parties");
   if (!gate.ok) return gate.response;
   const { session, companyId } = gate;
   const body = await req.json().catch(() => null);
@@ -69,12 +69,12 @@ export async function POST(req: NextRequest) {
     creditLimit: parseMoney(p.creditLimit || "0"),
     priceListId: await validPriceListId(db, companyId, p.priceListId),
     notes: p.notes || null,
-  });
+ });
   await logAudit(db, {
     companyId, userId: session.uid, userName: session.name,
     action: "party.created", entity: "party", entityId: id,
     detail: `${p.kind === "CUSTOMER" ? "Customer" : "Supplier"} "${p.name}" created`,
-  });
+ });
   const rows = await db.select().from(parties).where(eq(parties.id, id)).limit(1);
   return json({ data: rows[0] }, { status: 201 });
 }

@@ -3,7 +3,7 @@ import { eq, and, inArray } from "drizzle-orm";
 import { parties, products } from "@/db/schema";
 import { parseMoney } from "@/lib/money";
 import { json, err } from "@/lib/api";
-import { requireCompany, requireOwner, db } from "@/lib/route-helpers";
+import { requireCompany, requirePermission, db } from "@/lib/route-helpers";
 import { requirePro } from "@/lib/billing-guards";
 
 import { logAudit } from "@/lib/audit";
@@ -30,19 +30,19 @@ function parseCSV(text: string): string[][] {
       if (ch === '"') {
         if (t[i + 1] === '"') { cell += '"'; i++; }
         else inQuotes = false;
-      } else cell += ch;
-    } else if (ch === '"') {
+ } else cell += ch;
+ } else if (ch === '"') {
       inQuotes = true;
-    } else if (ch === ",") {
+ } else if (ch === ",") {
       row.push(cell); cell = "";
-    } else if (ch === "\n") {
+ } else if (ch === "\n") {
       row.push(cell); rows.push(row); row = []; cell = "";
-    } else if (ch === "\r") {
+ } else if (ch === "\r") {
       // ignore; \n handles the break
-    } else {
+ } else {
       cell += ch;
-    }
-  }
+ }
+ }
   row.push(cell);
   // drop trailing empty row
   if (!(row.length === 1 && row[0].trim() === "")) rows.push(row);
@@ -58,7 +58,7 @@ function moneyOk(v: string): boolean {
 }
 
 export async function POST(req: NextRequest) {
-  const gate = await requireOwner();
+  const gate = await requirePermission("import_export");
   if (!gate.ok) return gate.response;
   const { session, companyId } = gate;
 
@@ -83,9 +83,9 @@ export async function POST(req: NextRequest) {
     for (const n of names) {
       const i = headers.indexOf(normHeader(n));
       if (i >= 0) return i;
-    }
+ }
     return -1;
-  };
+ };
   const cell = (r: string[], i: number): string => (i >= 0 && i < r.length ? r[i].trim() : "");
 
   const errors: { row: number; message: string }[] = [];
@@ -132,8 +132,8 @@ export async function POST(req: NextRequest) {
         pp: parseMoney(ppS), sp: parseMoney(spS),
         track: trackRaw === "" ? true : ["yes", "y", "true", "1"].includes(trackRaw),
         min: parseMoney(minS),
-      });
-    });
+ });
+ });
 
     const existing = valid.length
       ? await db
@@ -145,7 +145,7 @@ export async function POST(req: NextRequest) {
     const fresh = valid.filter((v) => {
       if (existingSet.has(v.sku.toLowerCase())) { skipped++; return false; }
       return true;
-    });
+ });
 
     if (fresh.length) {
       await db.insert(products).values(
@@ -162,11 +162,11 @@ export async function POST(req: NextRequest) {
           trackStock: v.track,
           minSalePrice: v.min,
           isActive: true,
-        }))
+ }))
       );
       imported = fresh.length;
-    }
-  } else {
+ }
+ } else {
     const iName = idx(["name", "partyname", "party", "customer"]);
     const iKind = idx(["type", "kind"]);
     const iPhone = idx(["phone", "mobile"]);
@@ -190,7 +190,7 @@ export async function POST(req: NextRequest) {
       if (kindRaw && kindV === "CUSTOMER" && !kindRaw.startsWith("CUST")) {
         errors.push({ row: rowNo, message: `Type must be CUSTOMER or SUPPLIER, got "${cell(r, iKind)}".` });
         return;
-      }
+ }
       const clS = cell(r, iCL) || "0";
       if (!moneyOk(clS)) { errors.push({ row: rowNo, message: "Credit limit must be a number." }); return; }
       const key = `${kindV}:${name.toLowerCase()}`;
@@ -203,8 +203,8 @@ export async function POST(req: NextRequest) {
         address: cell(r, iAddr) || null,
         city: cell(r, iCity) || null,
         cl: parseMoney(clS),
-      });
-    });
+ });
+ });
 
     const existing = valid.length
       ? await db
@@ -216,7 +216,7 @@ export async function POST(req: NextRequest) {
     const fresh = valid.filter((v) => {
       if (existingSet.has(`${v.kind}:${v.name.toLowerCase()}`)) { skipped++; return false; }
       return true;
-    });
+ });
 
     if (fresh.length) {
       await db.insert(parties).values(
@@ -232,17 +232,17 @@ export async function POST(req: NextRequest) {
           creditLimit: v.cl,
           balance: 0n,
           isActive: true,
-        }))
+ }))
       );
       imported = fresh.length;
-    }
-  }
+ }
+ }
 
   await logAudit(db, {
     companyId, userId: session.uid, userName: session.name,
     action: "data.imported", entity: "import",
     detail: `CSV import (${kind}): ${imported} imported, ${skipped} skipped`,
-  });
+ });
   return json({ data: { imported, skipped, errors: errors.slice(0, 50), errorCount: errors.length } });
 }
 
@@ -255,13 +255,13 @@ export async function GET(req: NextRequest) {
     const csv = "SKU,Name,Barcode,Category,Unit,Purchase Price,Sale Price,Track Stock\r\nTEA-001,Test Tea,,Grocery,PCS,200,250,Yes\r\n";
     return new NextResponse("\uFEFF" + csv, {
       headers: { "content-type": "text/csv; charset=utf-8", "content-disposition": 'attachment; filename="products-template.csv"' },
-    });
-  }
+ });
+ }
   if (kind === "parties") {
     const csv = "Name,Type,Phone,Email,Address,City,Credit Limit\r\nAhmed Store,CUSTOMER,03001234567,,,Lahore,50000\r\n";
     return new NextResponse("\uFEFF" + csv, {
       headers: { "content-type": "text/csv; charset=utf-8", "content-disposition": 'attachment; filename="parties-template.csv"' },
-    });
-  }
+ });
+ }
   return NextResponse.json({ error: "Unknown template kind." }, { status: 400 });
 }

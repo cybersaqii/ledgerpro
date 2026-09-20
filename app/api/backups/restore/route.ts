@@ -4,7 +4,7 @@ import { and, eq } from "drizzle-orm";
 import { backups, companies } from "@/db/schema";
 import { json, err } from "@/lib/api";
 import { toApiError, reportError } from "@/lib/errors";
-import { requireOwner } from "@/lib/route-helpers";
+import { requirePermission } from "@/lib/route-helpers";
 import { db } from "@/lib/db";
 import { requirePro } from "@/lib/billing-guards";
 import { validateBackupPayload, MAX_BACKUP_BYTES } from "@/lib/backup";
@@ -35,7 +35,7 @@ import {
 // Owner-only, PRO-gated (import_export), rate-limited.
 
 export async function POST(req: NextRequest) {
-  const gate = await requireOwner();
+  const gate = await requirePermission("backups");
   if (!gate.ok) return gate.response;
   const pro = await requirePro("import_export");
   if (!pro.ok) return pro.response;
@@ -45,11 +45,11 @@ export async function POST(req: NextRequest) {
   try {
     if (contentType.includes("multipart/form-data")) {
       return await handleUpload(req, session, companyId);
-    }
+ }
     return await handleConfirm(req, session, companyId);
-  } catch (e) {
+ } catch (e) {
     return toApiError(e, { route: "/api/backups/restore", companyId });
-  }
+ }
 }
 
 interface RestoreSession {
@@ -71,7 +71,7 @@ async function handleUpload(req: NextRequest, session: RestoreSession, companyId
   const v = validateBackupPayload(raw);
   if (!v.ok) {
     return json({ error: "This backup file cannot be restored.", data: { errors: v.errors } }, { status: 422 });
-  }
+ }
   const doc = JSON.parse(raw) as { company?: { id?: unknown; name?: unknown } | null; exportedAt?: unknown };
   assertSameCompany(doc, companyId);
 
@@ -86,14 +86,14 @@ async function handleUpload(req: NextRequest, session: RestoreSession, companyId
     rowCounts: JSON.stringify(v.rowCounts),
     payload: raw,
     trigger: "manual",
-  });
+ });
 
   const token = await signRestoreToken({
     uid: session.uid,
     cid: companyId,
     rid: backupId,
     hash: payloadHash(raw),
-  });
+ });
 
   await logAudit(db, {
     companyId,
@@ -103,7 +103,7 @@ async function handleUpload(req: NextRequest, session: RestoreSession, companyId
     entity: "backup",
     entityId: backupId,
     detail: `Backup uploaded and verified — ready to restore (${totalRows(v.rowCounts)} records).`,
-  });
+ });
 
   return json({
     data: {
@@ -112,8 +112,8 @@ async function handleUpload(req: NextRequest, session: RestoreSession, companyId
       exportedAt: typeof doc.exportedAt === "string" ? doc.exportedAt : null,
       companyName: doc.company && typeof doc.company.name === "string" ? doc.company.name : null,
       rowCounts: v.rowCounts,
-    },
-  });
+ },
+ });
 }
 
 // ─── Step 2: confirm + restore ───────────────────────────────────
@@ -124,17 +124,17 @@ async function handleConfirm(req: NextRequest, session: RestoreSession, companyI
   const typedName = body?.typedName;
   if (typeof token !== "string" || token.length === 0) {
     return err("Your restore session expired. Upload the backup file again.", 400);
-  }
+ }
 
   const rl = await rateLimitDb(`restore:${companyId}`, 5, 3_600_000);
   if (!rl.ok) {
     return err(`Too many restore attempts. Please wait ${rl.retryAfterSec} seconds and try again.`, 429);
-  }
+ }
 
   const claims = await verifyRestoreToken(token);
   if (!claims || claims.uid !== session.uid || claims.cid !== companyId) {
     return err("This restore link is invalid or has expired. Upload the backup file again.", 401);
-  }
+ }
 
   // Load the server-side copy and prove it is byte-identical to what was verified.
   const rows = await db
@@ -148,13 +148,13 @@ async function handleConfirm(req: NextRequest, session: RestoreSession, companyI
   const expected = Buffer.from(claims.hash, "utf8");
   if (actual.length !== expected.length || !timingSafeEqual(actual, expected)) {
     return err("The backup changed after verification. Upload it again to be safe.", 409);
-  }
+ }
 
   // Re-validate from the stored copy (defense in depth) and re-check ownership.
   const v = validateBackupPayload(stored);
   if (!v.ok) {
     return json({ error: "This backup file cannot be restored.", data: { errors: v.errors } }, { status: 422 });
-  }
+ }
   const doc = JSON.parse(stored) as { company?: { id?: unknown; name?: unknown } | null; exportedAt?: unknown };
   assertSameCompany(doc, companyId);
 
@@ -168,7 +168,7 @@ async function handleConfirm(req: NextRequest, session: RestoreSession, companyI
 
   if (await checkRestoreCooldown(db, companyId)) {
     return err("A restore just finished — wait a few seconds before restoring again.", 429);
-  }
+ }
 
   const total = totalRows(v.rowCounts);
   const detail =
@@ -188,13 +188,13 @@ async function handleConfirm(req: NextRequest, session: RestoreSession, companyI
       entity: "backup",
       entityId: claims.rid,
       detail,
-    });
+ });
     await reportError(
       { route: "/api/backups/restore", message: `backup.restored for company ${companyId}: ${detail}`, companyId: null },
       tx
     );
     await restoreCompanyData(tx, companyId, doc);
-  });
+ });
   await recordRestoreDone(db, companyId);
 
   return json({ data: { ok: true, rowCounts: v.rowCounts, total } });

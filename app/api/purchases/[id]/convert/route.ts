@@ -2,7 +2,7 @@ import { NextRequest } from "next/server";
 import { z } from "zod";
 import { json, err } from "@/lib/api";
 import { toApiError } from "@/lib/errors";
-import { requireCompany, db, defaultBranchId } from "@/lib/route-helpers";
+import { requireCompany, requirePermission, db, defaultBranchId } from "@/lib/route-helpers";
 import { convertPurchaseDoc, createPurchaseReturn } from "@/lib/doc-actions";
 import { parseQty } from "@/lib/qty";
 import { logAudit } from "@/lib/audit";
@@ -14,12 +14,19 @@ const returnLineSchema = z.object({
 
 // POST /api/purchases/[id]/convert — order -> posted bill, or bill -> return (debit note)
 export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-  const gate = await requireCompany();
-  if (!gate.ok) return gate.response;
-  const { companyId, session } = gate;
+  const auth = await requireCompany();
+  if (!auth.ok) return auth.response;
+  const { companyId, session } = auth;
   const { id } = await params;
   const body = await req.json().catch(() => ({}));
   const action = body.action === "return" ? "return" : "convert";
+  // Converting a purchase order into a bill touches both areas; a purchase
+  // return is purely a purchases operation.
+  const perms = action === "return" ? (["purchases"] as const) : (["documents", "purchases"] as const);
+  for (const p of perms) {
+    const gate = await requirePermission(p);
+    if (!gate.ok) return gate.response;
+  }
   let returnLines: { itemId: string; qty: bigint }[] | undefined;
   if (action === "return" && Array.isArray(body.lines)) {
     const parsed = returnLineSchema.array().max(200).safeParse(body.lines);

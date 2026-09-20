@@ -10,17 +10,23 @@ import { periodLockError } from "@/lib/period";
 import { nextDocNo } from "@/lib/setup";
 import { json, err } from "@/lib/api";
 import { toApiError } from "@/lib/errors";
-import { requireCompany, db, parseDateOnly, defaultBranchId, assertBranch } from "@/lib/route-helpers";
+import { requirePermission, db, parseDateOnly, defaultBranchId, assertBranch } from "@/lib/route-helpers";
 import { logAudit } from "@/lib/audit";
+import type { Permission } from "@/lib/permissions";
 
 const POSTED_TYPES = ["BILL", "RETURN"] as const;
 
+/** Purchase orders are governed by the documents permission; bills/returns by purchases. */
+function permForDocType(docType: string | null): Permission {
+  return docType === "PURCHASE_ORDER" ? "documents" : "purchases";
+}
+
 export async function GET(req: NextRequest) {
-  const gate = await requireCompany();
-  if (!gate.ok) return gate.response;
-  const { companyId } = gate;
   const sp = req.nextUrl.searchParams;
   const docType = sp.get("docType");
+  const gate = await requirePermission(permForDocType(docType));
+  if (!gate.ok) return gate.response;
+  const { companyId } = gate;
   const partyId = sp.get("partyId");
   const q = sp.get("q")?.trim() ?? "";
   const from = sp.get("from");
@@ -65,12 +71,12 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
-  const gate = await requireCompany();
-  if (!gate.ok) return gate.response;
-  const { session, companyId } = gate;
   const body = await req.json().catch(() => null);
   const parsed = purchaseDocSchema.safeParse(body);
   if (!parsed.success) return err("Please check the form and try again.", 422);
+  const gate = await requirePermission(permForDocType(parsed.data.docType));
+  if (!gate.ok) return gate.response;
+  const { session, companyId } = gate;
   const b = parsed.data;
 
   const partyRows = await db

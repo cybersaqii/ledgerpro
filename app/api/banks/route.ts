@@ -2,7 +2,7 @@ import { NextRequest } from "next/server";
 import { eq, and } from "drizzle-orm";
 import { bankAccounts } from "@/db/schema";
 import { json, err } from "@/lib/api";
-import { requireCompany, db } from "@/lib/route-helpers";
+import { requireCompany, db, requirePermission } from "@/lib/route-helpers";
 import { addBankAccount } from "@/lib/setup";
 import { parseMoney } from "@/lib/money";
 import { z } from "zod";
@@ -29,7 +29,7 @@ const bankSchema = z.object({
 
 // POST /api/banks
 export async function POST(req: NextRequest) {
-  const gate = await requireCompany();
+  const gate = await requirePermission("payments");
   if (!gate.ok) return gate.response;
   const { companyId } = gate;
   const body = await req.json().catch(() => null);
@@ -53,6 +53,6 @@ export async function POST(req: NextRequest) {
     bankName: b.bankName || undefined,
     accountNo: b.accountNo || undefined,
     openingBalance: opening,
-  });
+ });
   return json({ data: ba }, { status: 201 });
 }

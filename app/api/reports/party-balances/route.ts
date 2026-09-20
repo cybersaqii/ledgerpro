@@ -2,11 +2,11 @@ import { NextRequest } from "next/server";
 import { eq, and, desc, ne } from "drizzle-orm";
 import { parties } from "@/db/schema";
 import { json } from "@/lib/api";
-import { requireCompany, db } from "@/lib/route-helpers";
+import { requirePermission, db } from "@/lib/route-helpers";
 
 // GET /api/reports/party-balances?kind=CUSTOMER — receivables/payables list
 export async function GET(req: NextRequest) {
-  const gate = await requireCompany();
+  const gate = await requirePermission("reports_basic");
   if (!gate.ok) return gate.response;
   const { companyId } = gate;
   const kind = req.nextUrl.searchParams.get("kind") === "SUPPLIER" ? "SUPPLIER" : "CUSTOMER";

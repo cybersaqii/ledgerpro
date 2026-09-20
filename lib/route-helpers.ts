@@ -1,11 +1,12 @@
 import { eq, and } from "drizzle-orm";
-import { branches } from "@/db/schema";
-import { requireAuth, err } from "./api";
+import { branches, users } from "@/db/schema";
+import { requireAuth, err, json } from "./api";
 import type { Session } from "./auth";
 import type { Db, DbTx } from "./db";
 import { db } from "./db";
 import type { NextResponse } from "next/server";
 import { UserError } from "./errors";
+import { userHasPermission, type Permission } from "./permissions";
 
 /** Parse "YYYY-MM-DD" as UTC noon (avoids timezone/DST edge cases). */
 export function parseDateOnly(s: string): Date {
@@ -25,15 +26,55 @@ export async function requireCompany(): Promise<
   return { ok: true, session, companyId: session.cid, response: null };
 }
 
-/** Auth + OWNER role + company scoping for API routes (settings, team). */
+/** Auth + OWNER role + company scoping for API routes (settings, team).
+ *  The role is re-read from the database so a demoted owner loses access
+ *  immediately instead of keeping it until their JWT expires. */
 export async function requireOwner(): Promise<
   | { ok: true; session: Session; companyId: string; response: null }
   | { ok: false; session: null; companyId: null; response: NextResponse }
 > {
   const gate = await requireCompany();
   if (!gate.ok) return gate;
-  if (gate.session.role !== "OWNER") {
+  const [u] = await db
+    .select({ role: users.role, isActive: users.isActive, companyId: users.companyId })
+    .from(users)
+    .where(eq(users.id, gate.session.uid))
+    .limit(1);
+  if (!u || !u.isActive || u.companyId !== gate.companyId || u.role !== "OWNER") {
     return { ok: false, session: null, companyId: null, response: err("Only the owner can do this.", 403) };
+  }
+  return gate;
+}
+
+/**
+ * Auth + granular permission + company scoping for API routes.
+ * Owners implicitly hold every permission; staff need an explicit grant
+ * (see lib/permissions.ts). Reads the live role/grant set from the database
+ * so changes take effect immediately.
+ */
+export async function requirePermission(
+  permission: Permission
+): Promise<
+  | { ok: true; session: Session; companyId: string; response: null }
+  | { ok: false; session: null; companyId: null; response: NextResponse }
+> {
+  const gate = await requireCompany();
+  if (!gate.ok) return gate;
+  const allowed = await userHasPermission(db, gate.session.uid, permission);
+  if (!allowed) {
+    return {
+      ok: false,
+      session: null,
+      companyId: null,
+      response: json(
+        {
+          error: "You don't have permission to do this. Ask your owner to grant access.",
+          code: "FORBIDDEN_PERMISSION",
+          permission,
+        },
+        { status: 403 }
+      ),
+    };
   }
   return gate;
 }

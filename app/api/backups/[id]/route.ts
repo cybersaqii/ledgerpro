@@ -3,13 +3,13 @@ import { and, eq } from "drizzle-orm";
 import { backups } from "@/db/schema";
 import { err } from "@/lib/api";
 import { toApiError } from "@/lib/errors";
-import { requireOwner } from "@/lib/route-helpers";
+import { requirePermission } from "@/lib/route-helpers";
 import { db } from "@/lib/db";
 import { requirePro } from "@/lib/billing-guards";
 
 // GET /api/backups/[id] — download one stored backup as JSON (owner-only, PRO feature).
 export async function GET(_req: NextRequest, ctx: { params: Promise<{ id: string }> }) {
-  const gate = await requireOwner();
+  const gate = await requirePermission("backups");
   if (!gate.ok) return gate.response;
   const pro = await requirePro("import_export");
   if (!pro.ok) return pro.response;
@@ -28,9 +28,9 @@ export async function GET(_req: NextRequest, ctx: { params: Promise<{ id: string
       headers: {
         "content-type": "application/json",
         "content-disposition": `attachment; filename="ledgerpro-backup-${stamp}.json"`,
-      },
-    });
-  } catch (e) {
+ },
+ });
+ } catch (e) {
     return toApiError(e, { route: "/api/backups/[id]", companyId: gate.companyId });
-  }
+ }
 }

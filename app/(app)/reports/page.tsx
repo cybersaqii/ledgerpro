@@ -6,6 +6,7 @@ import { Scale, TrendingUp, Landmark, BookOpen, ArrowDownToLine, ArrowUpFromLine
 import { PageHeader } from "@/components/ui";
 import { useBusinessProfile } from "@/components/business-type";
 import { useLang } from "@/components/lang-provider";
+import { useCan } from "@/components/permissions";
 import { api } from "@/lib/format";
 
 const PRO_HREFS = new Set(["/reports/profit-loss", "/reports/balance-sheet", "/reports/journal"]);
@@ -13,6 +14,7 @@ const PRO_HREFS = new Set(["/reports/profit-loss", "/reports/balance-sheet", "/r
 export default function ReportsHub() {
   const bp = useBusinessProfile();
   const { t } = useLang();
+  const canAccounting = useCan("reports_accounting");
   const [isFree, setIsFree] = useState(false);
   useEffect(() => {
     api<{ data: { level: string } }>("/api/billing/status")
@@ -34,7 +36,9 @@ export default function ReportsHub() {
     <div>
       <PageHeader title={t("reportsindex.title")} subtitle={t("reportsindex.subtitle")} icon={<BarChart3 size={20} />} />
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        {reports.map((r, i) => {
+        {reports
+          .filter((r) => canAccounting || !PRO_HREFS.has(r.href))
+          .map((r, i) => {
           const locked = isFree && PRO_HREFS.has(r.href);
           return (
             <Link key={r.href} href={r.href} className={`card card-gloss card-lift rise rise-${(i % 4) + 1} group relative p-6`}>

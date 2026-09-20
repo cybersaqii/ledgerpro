@@ -2,7 +2,7 @@ import { NextRequest } from "next/server";
 import { z } from "zod";
 import { json, err } from "@/lib/api";
 import { toApiError } from "@/lib/errors";
-import { requireCompany, db, defaultBranchId } from "@/lib/route-helpers";
+import { requireCompany, requirePermission, db, defaultBranchId } from "@/lib/route-helpers";
 import { convertSalesDoc, createSalesReturn } from "@/lib/doc-actions";
 import { parseQty } from "@/lib/qty";
 import { logAudit } from "@/lib/audit";
@@ -14,12 +14,19 @@ const returnLineSchema = z.object({
 
 // POST /api/sales/[id]/convert — quotation/order -> posted invoice (copies lines, links source)
 export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-  const gate = await requireCompany();
-  if (!gate.ok) return gate.response;
-  const { companyId, session } = gate;
+  const auth = await requireCompany();
+  if (!auth.ok) return auth.response;
+  const { companyId, session } = auth;
   const { id } = await params;
   const body = await req.json().catch(() => ({}));
   const action = body.action === "return" ? "return" : "convert";
+  // Converting a quotation into an invoice touches both areas; a sales return
+  // is purely a sales operation.
+  const perms = action === "return" ? (["sales"] as const) : (["documents", "sales"] as const);
+  for (const p of perms) {
+    const gate = await requirePermission(p);
+    if (!gate.ok) return gate.response;
+  }
   const priceOverride = body.priceOverride === true;
   const applyAdvance = body.applyAdvance !== false;
   // partial return: per-item quantities; omitted = full return of what remains

@@ -6,13 +6,13 @@ import { parseMoney } from "@/lib/money";
 import { postPayment } from "@/lib/posting";
 import { json, err } from "@/lib/api";
 import { toApiError } from "@/lib/errors";
-import { requireCompany, db, parseDateOnly, defaultBranchId, assertBranch } from "@/lib/route-helpers";
+import { requirePermission, db, parseDateOnly, defaultBranchId, assertBranch } from "@/lib/route-helpers";
 import { periodLockError } from "@/lib/period";
 import { logAudit } from "@/lib/audit";
 
 // GET /api/payments?kind=RECEIPT&partyId=&from=&to=&page=
 export async function GET(req: NextRequest) {
-  const gate = await requireCompany();
+  const gate = await requirePermission("payments");
   if (!gate.ok) return gate.response;
   const { companyId } = gate;
   const sp = req.nextUrl.searchParams;
@@ -28,10 +28,10 @@ export async function GET(req: NextRequest) {
   if (partyId) conds.push(eq(payments.partyId, partyId));
   if (from) {
     try { conds.push(sql`${payments.date} >= ${parseDateOnly(from).getTime()}`); } catch { /* ignore */ }
-  }
+ }
   if (to) {
     try { conds.push(sql`${payments.date} < ${parseDateOnly(to).getTime() + 86400000}`); } catch { /* ignore */ }
-  }
+ }
 
   const rows = await db
     .select({ p: payments, partyName: parties.name, bankName: bankAccounts.name })
@@ -50,7 +50,7 @@ export async function GET(req: NextRequest) {
     .select({
       r: sql<string | null>`sum(case when ${payments.kind} = 'RECEIPT' then ${payments.amount} else 0 end)`,
       p: sql<string | null>`sum(case when ${payments.kind} = 'PAYMENT' then ${payments.amount} else 0 end)`,
-    })
+ })
     .from(payments)
     .where(and(...conds));
   return json({
@@ -60,12 +60,12 @@ export async function GET(req: NextRequest) {
     sumPayment: sums[0]?.p ?? "0",
     page,
     perPage,
-  });
+ });
 }
 
 // POST /api/payments — receipt or payment, with optional invoice/bill allocations
 export async function POST(req: NextRequest) {
-  const gate = await requireCompany();
+  const gate = await requirePermission("payments");
   if (!gate.ok) return gate.response;
   const { session, companyId } = gate;
   const body = await req.json().catch(() => null);
@@ -95,7 +95,7 @@ export async function POST(req: NextRequest) {
           .limit(1);
         if (!pr[0]) throw new Error("Selected party is invalid.");
         partyId = pr[0].id;
-      }
+ }
 
       return postPayment(tx, {
         companyId,
@@ -112,17 +112,17 @@ export async function POST(req: NextRequest) {
           docId: a.docId,
           docKind: a.docKind,
           amount: parseMoney(a.amount),
-        })),
+ })),
         createdById: session.uid,
-      });
-    });
+ });
+ });
     await logAudit(db, {
       companyId, userId: session.uid, userName: session.name,
       action: "payment.created", entity: "payment", entityId: paymentId,
       detail: `Payment ${paymentId.slice(0, 8)}`,
-    });
+ });
     return json({ data: { id: paymentId } }, { status: 201 });
-  } catch (e) {
+ } catch (e) {
     return toApiError(e, { route: "/api/payments", companyId });
-  }
+ }
 }

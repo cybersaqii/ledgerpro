@@ -1,4 +1,4 @@
-import { sqliteTable, text, integer, numeric, index, uniqueIndex } from "drizzle-orm/sqlite-core";
+import { sqliteTable, text, integer, numeric, index, uniqueIndex, primaryKey } from "drizzle-orm/sqlite-core";
 
 const id = () =>
   text("id")
@@ -74,6 +74,23 @@ export const users = sqliteTable(
     updatedAt: updatedAt(),
   },
   (t) => [index("users_company").on(t.companyId)]
+);
+
+// ─── Granular staff permissions ─────────────────────────────────
+// Per-user grant set; owners bypass (see lib/permissions.ts). A row = granted.
+
+export const userPermissions = sqliteTable(
+  "user_permissions",
+  {
+    userId: text("user_id").notNull(),
+    companyId: text("company_id").notNull(),
+    permission: text("permission").notNull(),
+    grantedAt: ts("granted_at").notNull(),
+  },
+  (t) => [
+    primaryKey({ columns: [t.userId, t.permission] }),
+    index("user_permissions_company").on(t.companyId),
+  ]
 );
 
 // ─── Login history (security) ──────────────────────────────────

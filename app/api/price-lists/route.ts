@@ -2,7 +2,7 @@ import { NextRequest } from "next/server";
 import { eq, and } from "drizzle-orm";
 import { priceLists, priceListItems, products } from "@/db/schema";
 import { json, err } from "@/lib/api";
-import { requireCompany, db } from "@/lib/route-helpers";
+import { requireCompany, db, requirePermission } from "@/lib/route-helpers";
 import { logAudit } from "@/lib/audit";
 
 // GET /api/price-lists — all price lists with item counts
@@ -20,7 +20,7 @@ export async function GET() {
 
 // POST /api/price-lists { name, copyFromId? } — create; optionally copy rates from another list
 export async function POST(req: NextRequest) {
-  const gate = await requireCompany();
+  const gate = await requirePermission("price_lists");
   if (!gate.ok) return gate.response;
   const { companyId, session } = gate;
   const body = await req.json().catch(() => null);
@@ -39,7 +39,7 @@ export async function POST(req: NextRequest) {
   await db.insert(priceLists).values({
     id, companyId, name,
     isDefault: existing.length === 0, // first list becomes the default
-  });
+ });
 
   // copyFromId: clone another list's rates; otherwise seed from product sale prices
   const copyFromId = String(body?.copyFromId ?? "");
@@ -56,8 +56,8 @@ export async function POST(req: NextRequest) {
       await db.insert(priceListItems).values(
         src.map((s) => ({ id: crypto.randomUUID(), priceListId: id, productId: s.productId, rate: s.rate }))
       );
-    }
-  } else {
+ }
+ } else {
     const prods = await db
       .select({ id: products.id, salePrice: products.salePrice })
       .from(products)
@@ -67,8 +67,8 @@ export async function POST(req: NextRequest) {
       await db.insert(priceListItems).values(
         prods.map((p) => ({ id: crypto.randomUUID(), priceListId: id, productId: p.id, rate: p.salePrice }))
       );
-    }
-  }
+ }
+ }
 
   await logAudit(db, { companyId, userId: session.uid, userName: session.name, action: "pricelist.created", entity: "price-list", entityId: id, detail: `Price list "${name}" created` });
   return json({ data: { id, name } });

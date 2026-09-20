@@ -2,7 +2,7 @@ import { NextRequest } from "next/server";
 import { eq, and, like } from "drizzle-orm";
 import { priceLists, priceListItems, products, parties } from "@/db/schema";
 import { json, err } from "@/lib/api";
-import { requireCompany, db } from "@/lib/route-helpers";
+import { requireCompany, db, requirePermission } from "@/lib/route-helpers";
 import { parseMoney } from "@/lib/money";
 import { logAudit } from "@/lib/audit";
 
@@ -35,7 +35,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
       unit: products.unit,
       salePrice: products.salePrice,
       rate: priceListItems.rate,
-    })
+ })
     .from(priceListItems)
     .innerJoin(products, eq(priceListItems.productId, products.id))
     .where(and(...conds))
@@ -44,12 +44,12 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
   return json({
     data: { ...list, isDefault: !!list.isDefault },
     items: items.map((i) => ({ ...i, rate: i.rate.toString(), salePrice: i.salePrice.toString() })),
-  });
+ });
 }
 
 // PATCH /api/price-lists/[id] { name?, isDefault?, items: [{productId, rate}] } — rename / set default / bulk rate edit
 export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-  const gate = await requireCompany();
+  const gate = await requirePermission("price_lists");
   if (!gate.ok) return gate.response;
   const { companyId, session } = gate;
   const { id } = await params;
@@ -61,11 +61,11 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     const name = body.name.trim();
     if (!name || name.length > 60) return err("Invalid name.", 422);
     await db.update(priceLists).set({ name }).where(eq(priceLists.id, id));
-  }
+ }
   if (body?.isDefault === true) {
     await db.update(priceLists).set({ isDefault: false }).where(eq(priceLists.companyId, companyId));
     await db.update(priceLists).set({ isDefault: true }).where(eq(priceLists.id, id));
-  }
+ }
   if (Array.isArray(body?.items)) {
     // upsert rates: only for this company's products, max 2000 rows
     const rows = body.items.slice(0, 2000);
@@ -86,15 +86,15 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
         .where(and(eq(priceListItems.priceListId, id), eq(priceListItems.productId, pid))).limit(1);
       if (ex.length > 0) await db.update(priceListItems).set({ rate }).where(eq(priceListItems.id, ex[0].id));
       else await db.insert(priceListItems).values({ id: crypto.randomUUID(), priceListId: id, productId: pid, rate });
-    }
-  }
+ }
+ }
   await logAudit(db, { companyId, userId: session.uid, userName: session.name, action: "pricelist.updated", entity: "price-list", entityId: id, detail: `Price list "${list.name}" updated` });
   return json({ ok: true });
 }
 
 // DELETE /api/price-lists/[id] — also clears it from parties using it
 export async function DELETE(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-  const gate = await requireCompany();
+  const gate = await requirePermission("price_lists");
   if (!gate.ok) return gate.response;
   const { companyId, session } = gate;
   const { id } = await params;
@@ -104,7 +104,7 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
     await tx.delete(priceListItems).where(eq(priceListItems.priceListId, id));
     await tx.update(parties).set({ priceListId: null }).where(eq(parties.priceListId, id));
     await tx.delete(priceLists).where(eq(priceLists.id, id));
-  });
+ });
   await logAudit(db, { companyId, userId: session.uid, userName: session.name, action: "pricelist.deleted", entity: "price-list", entityId: id, detail: `Price list "${list.name}" deleted` });
   return json({ ok: true });
 }

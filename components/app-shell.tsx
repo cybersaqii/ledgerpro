@@ -12,11 +12,15 @@ import { Logo, ThemeToggle, LangToggle } from "./ui";
 import { api } from "@/lib/format";
 import { BusinessTypeProvider, getTranslatedProfile } from "./business-type";
 import { useLang } from "./lang-provider";
+import { usePermissions, clearMeCache } from "./permissions";
 
 export function AppShell({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
   const { t, lang } = useLang();
+  const { permissions, loading: permsLoading } = usePermissions();
+  // While permissions load, show everything (the API still enforces access).
+  const can = (p: string) => permsLoading || permissions.includes(p);
   const [open, setOpen] = useState(false);
   const [user, setUser] = useState<{ name: string; email: string } | null>(null);
   const [businessType, setBusinessType] = useState<string | null>(null);
@@ -66,29 +70,29 @@ export function AppShell({ children }: { children: ReactNode }) {
   const bp = getTranslatedProfile(businessType, lang);
 
   const nav = [
-    { href: "/dashboard", label: t("nav.dashboard"), icon: LayoutDashboard },
-    { href: "/sales", label: bp.salesNav, icon: ShoppingCart },
-    { href: "/purchases", label: t("nav.purchases"), icon: Truck },
-    { href: "/payments", label: t("nav.payments"), icon: Wallet },
-    { href: "/expenses", label: t("nav.expenses"), icon: ReceiptText },
-    { href: "/parties", label: bp.partyMany, icon: Users },
-    { href: "/products", label: bp.productMany, icon: Package },
-    { href: "/price-lists", label: t("nav.priceLists"), icon: Tags },
-    { href: "/stock", label: bp.stock, icon: Boxes },
-    { href: "/reports", label: t("nav.reports"), icon: BarChart3 },
-    { href: "/settings", label: t("nav.settings"), icon: Settings },
-    ...(billing?.isOwner ? [{ href: "/billing", label: t("nav.billing"), icon: Crown }] : []),
-    ...(billing?.isPlatformAdmin ? [{ href: "/admin/billing", label: t("nav.admin"), icon: ShieldCheck }] : []),
-    ...(billing?.isPlatformAdmin ? [{ href: "/admin/support", label: t("nav.supportInbox"), icon: LifeBuoy }] : []),
-  ];
+    { href: "/dashboard", label: t("nav.dashboard"), icon: LayoutDashboard, perm: "reports_basic" },
+    { href: "/sales", label: bp.salesNav, icon: ShoppingCart, perm: "sales" },
+    { href: "/purchases", label: t("nav.purchases"), icon: Truck, perm: "purchases" },
+    { href: "/payments", label: t("nav.payments"), icon: Wallet, perm: "payments" },
+    { href: "/expenses", label: t("nav.expenses"), icon: ReceiptText, perm: "expenses" },
+    { href: "/parties", label: bp.partyMany, icon: Users, perm: "parties" },
+    { href: "/products", label: bp.productMany, icon: Package, perm: "products" },
+    { href: "/price-lists", label: t("nav.priceLists"), icon: Tags, perm: "price_lists" },
+    { href: "/stock", label: bp.stock, icon: Boxes, perm: "stock" },
+    { href: "/reports", label: t("nav.reports"), icon: BarChart3, perm: "reports_basic" },
+    { href: "/settings", label: t("nav.settings"), icon: Settings, perm: "" },
+    ...(billing?.isOwner ? [{ href: "/billing", label: t("nav.billing"), icon: Crown, perm: "" }] : []),
+    ...(billing?.isPlatformAdmin ? [{ href: "/admin/billing", label: t("nav.admin"), icon: ShieldCheck, perm: "" }] : []),
+    ...(billing?.isPlatformAdmin ? [{ href: "/admin/support", label: t("nav.supportInbox"), icon: LifeBuoy, perm: "" }] : []),
+  ].filter((n) => !n.perm || can(n.perm));
 
   const quickCreate = [
-    { href: "/sales/new", label: bp.newSale, icon: ShoppingCart },
-    { href: "/purchases/new", label: t("header.newPurchase"), icon: Truck },
-    { href: "/payments/new?kind=RECEIPT", label: t("header.receivePayment"), icon: Wallet },
-    { href: "/payments/new?kind=PAYMENT", label: t("header.paySupplier"), icon: Wallet },
-    { href: "/expenses", label: t("header.addExpense"), icon: ReceiptText },
-  ];
+    { href: "/sales/new", label: bp.newSale, icon: ShoppingCart, perm: "sales" },
+    { href: "/purchases/new", label: t("header.newPurchase"), icon: Truck, perm: "purchases" },
+    { href: "/payments/new?kind=RECEIPT", label: t("header.receivePayment"), icon: Wallet, perm: "payments" },
+    { href: "/payments/new?kind=PAYMENT", label: t("header.paySupplier"), icon: Wallet, perm: "payments" },
+    { href: "/expenses", label: t("header.addExpense"), icon: ReceiptText, perm: "expenses" },
+  ].filter((q) => can(q.perm));
 
   // eslint-disable-next-line react-hooks/set-state-in-effect -- close drawer on navigation
   useEffect(() => setOpen(false), [pathname]);
@@ -115,6 +119,7 @@ export function AppShell({ children }: { children: ReactNode }) {
 
   async function logout() {
     await fetch("/api/auth/logout", { method: "POST" }).catch(() => {});
+    clearMeCache();
     router.push("/login");
     router.refresh();
   }
@@ -152,9 +157,11 @@ export function AppShell({ children }: { children: ReactNode }) {
         </div>
         <div className="flex-1 overflow-y-auto">{links}</div>
         <div className="border-t border-white/10 p-4">
-          <Link href="/sales/new" className="btn btn-primary w-full !py-2.5 text-sm">
-            <Plus size={16} /> {bp.newSale}
-          </Link>
+          {can("sales") && (
+            <Link href="/sales/new" className="btn btn-primary w-full !py-2.5 text-sm">
+              <Plus size={16} /> {bp.newSale}
+            </Link>
+          )}
         </div>
       </aside>
 
@@ -197,11 +204,13 @@ export function AppShell({ children }: { children: ReactNode }) {
           </div>
           <div className="flex items-center gap-2">
             <div className="relative" ref={quickRef}>
+              {quickCreate.length > 0 && (
               <button onClick={() => setQuickOpen((o) => !o)}
                 className="btn-primary grid h-11 w-11 place-items-center !rounded-xl !p-0"
                 aria-label={t("header.quickCreate")} aria-expanded={quickOpen} aria-haspopup="menu" title={t("header.quickCreate")}>
                 <Plus size={19} strokeWidth={2.5} />
               </button>
+              )}
               {quickOpen && (
                 <div role="menu" className="modal-pop absolute right-0 z-40 mt-2 w-56 overflow-hidden rounded-2xl border border-border bg-card p-1.5 shadow-xl">
                   {quickCreate.map((q) => (

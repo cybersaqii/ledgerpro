@@ -2,7 +2,7 @@ import { NextRequest } from "next/server";
 import { z } from "zod";
 import { json, err } from "@/lib/api";
 import { toApiError } from "@/lib/errors";
-import { requireCompany, db, defaultBranchId, parseDateOnly } from "@/lib/route-helpers";
+import { requirePermission, db, defaultBranchId, parseDateOnly } from "@/lib/route-helpers";
 import { periodLockError } from "@/lib/period";
 import { parseMoney } from "@/lib/money";
 import { postSetoff } from "@/lib/setoff";
@@ -20,7 +20,7 @@ const setoffSchema = z.object({
 
 // POST /api/parties/setoff — net a customer receivable against a supplier payable (contra entry)
 export async function POST(req: NextRequest) {
-  const gate = await requireCompany();
+  const gate = await requirePermission("payments");
   if (!gate.ok) return gate.response;
   const { companyId, session } = gate;
   const body = await req.json().catch(() => ({}));
@@ -43,16 +43,16 @@ export async function POST(req: NextRequest) {
         date,
         notes: b.data.notes || undefined,
         createdById: session.uid,
-      });
-    });
+ });
+ });
     await logAudit(db, {
       companyId, userId: session.uid, userName: session.name,
       action: "party.setoff",
       entity: "party", entityId: b.data.customerId,
       detail: `Set-off Rs ${b.data.amount} (customer ↔ supplier)`,
-    });
+ });
     return json({ data: { entryId } }, { status: 201 });
-  } catch (e) {
+ } catch (e) {
     return toApiError(e, { route: "/api/parties/setoff", companyId });
-  }
+ }
 }

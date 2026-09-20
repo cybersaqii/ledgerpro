@@ -4,7 +4,7 @@ import { parties } from "@/db/schema";
 import { partySchema } from "@/lib/validators";
 import { parseMoney } from "@/lib/money";
 import { json, err } from "@/lib/api";
-import { requireCompany, db } from "@/lib/route-helpers";
+import { requireCompany, db, requirePermission } from "@/lib/route-helpers";
 import { logAudit } from "@/lib/audit";
 import { validPriceListId } from "@/lib/price-lists";
 
@@ -28,7 +28,7 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
 }
 
 export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-  const gate = await requireCompany();
+  const gate = await requirePermission("parties");
   if (!gate.ok) return gate.response;
   const { session, companyId } = gate;
   const { id } = await params;
@@ -53,18 +53,18 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
       ...(p.priceListId !== undefined ? { priceListId: await validPriceListId(db, companyId, p.priceListId) } : {}),
       ...(p.notes !== undefined ? { notes: p.notes || null } : {}),
       updatedAt: new Date(),
-    })
+ })
     .where(eq(parties.id, id));
   await logAudit(db, {
     companyId, userId: session.uid, userName: session.name,
     action: "party.updated", entity: "party", entityId: id,
     detail: `Party "${row.name}" updated`,
-  });
+ });
   return json({ data: await find(companyId, id) });
 }
 
 export async function DELETE(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-  const gate = await requireCompany();
+  const gate = await requirePermission("parties");
   if (!gate.ok) return gate.response;
   const { session, companyId } = gate;
   const { id } = await params;
@@ -76,6 +76,6 @@ export async function DELETE(_req: NextRequest, { params }: { params: Promise<{ 
     companyId, userId: session.uid, userName: session.name,
     action: "party.deleted", entity: "party", entityId: id,
     detail: `Party "${row.name}" deactivated`,
-  });
+ });
   return json({ ok: true });
 }

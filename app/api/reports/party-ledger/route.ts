@@ -2,12 +2,12 @@ import { NextRequest } from "next/server";
 import { eq, and, sql } from "drizzle-orm";
 import { parties, journalEntries, journalLines } from "@/db/schema";
 import { json, err } from "@/lib/api";
-import { requireCompany, db } from "@/lib/route-helpers";
+import { requirePermission, db } from "@/lib/route-helpers";
 
 // GET /api/reports/party-ledger?partyId=&from=&to=
 // Full ledger for one party: opening balance + every journal line touching them.
 export async function GET(req: NextRequest) {
-  const gate = await requireCompany();
+  const gate = await requirePermission("reports_basic");
   if (!gate.ok) return gate.response;
   const { companyId } = gate;
   const sp = req.nextUrl.searchParams;
