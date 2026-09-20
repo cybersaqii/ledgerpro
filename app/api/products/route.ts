@@ -4,6 +4,7 @@ import { products, stockLevels } from "@/db/schema";
 import { productSchema } from "@/lib/validators";
 import { parseMoney } from "@/lib/money";
 import { parseQty } from "@/lib/qty";
+import { bundleProductIds } from "@/lib/bundles";
 import { json, err } from "@/lib/api";
 import { requireCompany, db, defaultBranchId, requirePermission } from "@/lib/route-helpers";
 import { logAudit } from "@/lib/audit";
@@ -32,8 +33,9 @@ export async function GET(req: NextRequest) {
     .limit(perPage)
     .offset((page - 1) * perPage);
 
-  // attach total stock across branches
+  // attach total stock across branches + bundle flag (bundles hold no stock)
   const branchId = await defaultBranchId(db, companyId).catch(() => null);
+  const bundleIds = await bundleProductIds(db, companyId);
   const withStock = await Promise.all(
     rows.map(async (p) => {
       let totalQty = 0n;
@@ -44,8 +46,10 @@ export async function GET(req: NextRequest) {
           .where(eq(stockLevels.productId, p.id));
         totalQty = lv.reduce((a, l) => a + l.qty, 0n);
  }
-      const out: Record<string, unknown> = { ...p, totalQty: totalQty.toString() };
-      if (lowStock && !(p.trackStock && totalQty <= p.reorderLevel)) return null;
+      const isBundle = bundleIds.has(p.id);
+      const out: Record<string, unknown> = { ...p, totalQty: totalQty.toString(), isBundle };
+      // bundles are excluded from the low-stock filter: they hold no stock
+      if (lowStock && (isBundle || !(p.trackStock && totalQty <= p.reorderLevel))) return null;
       return out;
  })
   );

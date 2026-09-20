@@ -48,6 +48,18 @@ export const productSchema = z.object({
   minSalePrice: moneyStr.default("0"),
 });
 
+// Bundle components editor: component product + qty per one bundle unit.
+export const bundleComponentsSchema = z.object({
+  components: z
+    .array(
+      z.object({
+        productId: z.string().min(1),
+        qty: qtyStr,
+      })
+    )
+    .max(200),
+});
+
 export const docItemSchema = z.object({
   productId: z.string().optional().or(z.literal("")),
   description: z.string().trim().min(1).max(200),

@@ -239,6 +239,29 @@ export const priceListItems = sqliteTable(
   ]
 );
 
+// ─── Bundles / packages ──────────────────────────────────────────
+// A product with >= 1 bundle_components row is a bundle: it sells as one
+// line item (own sale price, own min-price floor) but explodes into its
+// components for stock deduction and COGS. Bundles hold no stock of their
+// own, so the bundle product itself never gets a stock ledger movement.
+export const bundleComponents = sqliteTable(
+  "bundle_components",
+  {
+    id: id(),
+    companyId: text("company_id").notNull(),
+    bundleProductId: text("bundle_product_id").notNull(),
+    componentProductId: text("component_product_id").notNull(),
+    // component units per one bundle unit, in thousandths (2500 = 2.5 units)
+    qtyThousandths: integer("qty_thousandths").notNull(),
+    createdAt: createdAt(),
+  },
+  (t) => [
+    uniqueIndex("bundle_components_unique").on(t.bundleProductId, t.componentProductId),
+    index("bundle_components_bundle").on(t.companyId, t.bundleProductId),
+    index("bundle_components_component").on(t.componentProductId),
+  ]
+);
+
 // ─── Sales / purchase documents ────────────────────────────────
 
 export const salesDocs = sqliteTable(

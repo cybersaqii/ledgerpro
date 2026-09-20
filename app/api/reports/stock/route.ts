@@ -14,7 +14,13 @@ export async function GET(req: NextRequest) {
   const q = sp.get("q")?.trim() ?? "";
   const lowOnly = sp.get("lowStock") === "1";
 
-  const conds = [eq(products.companyId, companyId), eq(products.isActive, true), eq(products.trackStock, true)];
+  // Bundles hold no stock of their own: exclude them from stock-on-hand.
+  const conds = [
+    eq(products.companyId, companyId),
+    eq(products.isActive, true),
+    eq(products.trackStock, true),
+    sql`NOT EXISTS (SELECT 1 FROM bundle_components bc WHERE bc.bundle_product_id = ${products.id})`,
+  ];
   if (q) conds.push(sql`${products.name} LIKE ${`%${q}%`}`);
 
   const rows = await db

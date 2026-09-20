@@ -4,6 +4,7 @@ import { products, stockLevels } from "@/db/schema";
 import { productSchema } from "@/lib/validators";
 import { parseMoney } from "@/lib/money";
 import { parseQty } from "@/lib/qty";
+import { getBundleComponents, bundlesUsingProduct } from "@/lib/bundles";
 import { json, err } from "@/lib/api";
 import { requireCompany, db, requirePermission } from "@/lib/route-helpers";
 import { logAudit } from "@/lib/audit";
@@ -17,7 +18,14 @@ async function find(companyId: string, id: string) {
   const p = rows[0];
   if (!p) return null;
   const lv = await db.select().from(stockLevels).where(eq(stockLevels.productId, id));
-  return { ...p, levels: lv, totalQty: lv.reduce((a, l) => a + l.qty, 0n).toString() };
+  const components = await getBundleComponents(db, companyId, id);
+  return {
+    ...p,
+    levels: lv,
+    totalQty: lv.reduce((a, l) => a + l.qty, 0n).toString(),
+    isBundle: components.length > 0,
+    components,
+  };
 }
 
 export async function GET(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
@@ -83,6 +91,16 @@ export async function DELETE(_req: NextRequest, { params }: { params: Promise<{ 
   const { id } = await params;
   const row = await find(companyId, id);
   if (!row) return err("Not found.", 404);
+  // A product used as a bundle component cannot be deactivated: selling the
+  // bundle would silently lose a component. Remove it from the bundle first.
+  const usedIn = await bundlesUsingProduct(db, companyId, id);
+  if (usedIn.length > 0) {
+    const shown = usedIn.slice(0, 3).join(", ") + (usedIn.length > 3 ? "…" : "");
+    return err(
+      `Cannot deactivate "${row.name}" — it is a component of bundle${usedIn.length > 1 ? "s" : ""}: ${shown}. Remove it from the bundle first.`,
+      409
+    );
+  }
   await db.update(products).set({ isActive: false }).where(eq(products.id, id));
   await logAudit(db, {
     companyId, userId: session.uid, userName: session.name,

@@ -17,6 +17,7 @@ import { SYS, accountMap } from "./setup";
 import type { DbTx } from "./db";
 import type { ComputedItem } from "./totals";
 import { UserError } from "./errors";
+import { explodeSalesStockMoves } from "./bundles";
 
 type JournalLineInput = {
   accountId: string;
@@ -168,13 +169,21 @@ export async function postSalesDoc(tx: DbTx, input: PostSalesInput): Promise<str
   // and gross sales stay visible in reports.
   const grossSales = input.items.reduce((a, i) => a + i.taxablePaisa, 0n);
 
-  const stockMoves: StockMove[] = input.items
-    .filter((i) => i.productId && i.trackStock)
-    .map((i) => ({
-      productId: i.productId!,
-      qtyMilli: input.docType === "INVOICE" ? -i.qtyMilli : i.qtyMilli,
-      avgCostPaisa: 0n,
-    }));
+  // Bundle lines explode into their components for stock + COGS; the bundle
+  // product itself never gets a stock movement. Plain lines pass through.
+  // Insufficient component stock throws here, rolling back the whole doc.
+  const stockMoves: StockMove[] = (
+    await explodeSalesStockMoves(
+      tx,
+      input.companyId,
+      input.items.map((i) => ({
+        productId: i.productId,
+        qtyMilli: i.qtyMilli,
+        trackStock: i.trackStock,
+      })),
+      input.docType
+    )
+  ).map((m) => ({ productId: m.productId, qtyMilli: m.qtyMilli, avgCostPaisa: 0n }));
 
   for (const m of stockMoves) {
     const rows = await tx
