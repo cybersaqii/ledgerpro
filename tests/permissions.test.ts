@@ -110,6 +110,25 @@ describe("staff permission grants", () => {
     expect(await userHasPermission(db, a, "sales")).toBe(true);
     expect(await userHasPermission(db, b, "sales")).toBe(false);
   });
+  it("setUserPermissions works inside an existing transaction (nested savepoint, API-route pattern)", async () => {
+    const c = await makeCompany("Nested Co");
+    const staff = await makeUser(c, "nested@x.com", "STAFF");
+    await db.transaction(async (tx) => {
+      await tx.update(s.users).set({ name: "Nested Staff" }).where(eq(s.users.id, staff));
+      await setUserPermissions(tx, { companyId: c, userId: staff, permissions: ["sales", "pos"] });
+    });
+    expect([...(await getUserPermissions(db, staff))].sort()).toEqual(["pos", "sales"]);
+    expect(await userHasPermission(db, staff, "pos")).toBe(true);
+  });
+  it("nested setUserPermissions rolls back with the outer transaction", async () => {
+    const c = await makeCompany("Rollback Co");
+    const staff = await makeUser(c, "rollback@x.com", "STAFF");
+    await db.transaction(async (tx) => {
+      await setUserPermissions(tx, { companyId: c, userId: staff, permissions: ["sales"] });
+      throw new Error("boom");
+    }).catch(() => {});
+    expect(await getUserPermissions(db, staff)).toEqual([]);
+  });
   it("setUserPermissions refuses users from another company", async () => {
     const c1 = await makeCompany("Iso A");
     const c2 = await makeCompany("Iso B");

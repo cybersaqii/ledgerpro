@@ -1040,9 +1040,9 @@ export const en = {
   },
   settingsbackups: {
     title: "Automatic backups",
-    hint: "Your whole company is backed up automatically twice a day. The last 14 automatic backups are kept — manual ones are never deleted.",
+    hint: "Your whole company is backed up automatically once a day. The last 14 automatic backups are kept — manual ones are never deleted.",
     proTitle: "Scheduled backups are a PRO feature",
-    proHint: "Upgrade to keep automatic twice-daily backups of your company.",
+    proHint: "Upgrade to keep an automatic daily backup of your company.",
     viewPlans: "View plans",
     loadError: "Could not load backups.",
     backingUp: "Backing up…",

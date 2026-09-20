@@ -15,7 +15,16 @@ export async function createTestDb(): Promise<{ db: TestDb; cleanup: () => void 
   const client: Client = createClient({ url: "file:" + join(dir, "test.db") });
   const files = readdirSync(MIGRATIONS_DIR).filter((f) => f.endsWith(".sql")).sort();
   for (const f of files) {
-    const statements = readFileSync(join(MIGRATIONS_DIR, f), "utf8").split(";").map((s) => s.trim()).filter((s) => s.length > 0);
+    // Strip `--` line comments before splitting so semicolons inside comments
+    // never break statement splitting.
+    const sql = readFileSync(join(MIGRATIONS_DIR, f), "utf8")
+      .split("\n")
+      .map((line) => {
+        const idx = line.indexOf("--");
+        return idx >= 0 ? line.slice(0, idx) : line;
+      })
+      .join("\n");
+    const statements = sql.split(";").map((s) => s.trim()).filter((s) => s.length > 0);
     for (const s of statements) {
       await client.execute(s);
     }
