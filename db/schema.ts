@@ -34,6 +34,10 @@ export const companies = sqliteTable("companies", {
   businessType: text("business_type").notNull().default("WHOLESALE"),
   currency: text("currency").notNull().default("PKR"),
   lockedUntil: ts("locked_until"), // accounting period lock: no entries on/before this date
+  // Trial + subscription billing (manual payments, platform-admin approval)
+  trialEndsAt: ts("trial_ends_at"), // 30-day free trial; full access while now < trialEndsAt
+  plan: text("plan").notNull().default("FREE"), // FREE | PRO
+  proExpiresAt: ts("pro_expires_at"), // paid PRO access ends here (null = no paid plan)
   createdAt: createdAt(),
   updatedAt: updatedAt(),
 });
@@ -409,6 +413,38 @@ export const auditLogs = sqliteTable(
   (t) => [index("audit_company_time").on(t.companyId, t.createdAt)]
 );
 
+// ─── Trial + subscription billing ───────────────────────────────
+
+// Manual subscription payments: submitted by company owners, approved by platform admin.
+export const billingPayments = sqliteTable(
+  "billing_payments",
+  {
+    id: id(),
+    companyId: text("company_id").notNull(),
+    userId: text("user_id").notNull(),
+    amountPaisa: integer("amount_paisa").notNull(),
+    method: text("method").notNull(), // BANK | JAZZCASH | EASYPAISA
+    reference: text("reference").notNull(),
+    months: integer("months").notNull().default(1),
+    status: text("status").notNull().default("PENDING"), // PENDING | APPROVED | REJECTED
+    note: text("note"),
+    reviewedBy: text("reviewed_by"),
+    reviewedAt: ts("reviewed_at"),
+    createdAt: createdAt(),
+  },
+  (t) => [
+    index("billing_payments_company").on(t.companyId, t.createdAt),
+    index("billing_payments_status").on(t.status, t.createdAt),
+  ]
+);
+
+// Platform-wide settings (prices, payment instructions) — editable by platform admin.
+export const platformSettings = sqliteTable("platform_settings", {
+  key: text("key").primaryKey(),
+  value: text("value").notNull(),
+  updatedAt: updatedAt(),
+});
+
 // (Db / DbTx types live in lib/db.ts to avoid a circular import.)
 
 // ─── Hardening: rate limiting + error log ────────────────────────
@@ -432,5 +468,3 @@ export const errorLogs = sqliteTable(
   },
   (t) => [index("error_logs_company_time").on(t.companyId, t.createdAt)]
 );
-
-// (Db / DbTx types live in lib/db.ts to avoid a circular import.)

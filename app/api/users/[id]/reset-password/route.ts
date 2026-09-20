@@ -3,6 +3,8 @@ import { eq, and, sql } from "drizzle-orm";
 import { users } from "@/db/schema";
 import { json, err } from "@/lib/api";
 import { requireOwner, db } from "@/lib/route-helpers";
+import { requirePro } from "@/lib/billing-guards";
+
 import { hashPassword } from "@/lib/auth";
 import { logAudit } from "@/lib/audit";
 
@@ -14,6 +16,8 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   const { companyId, session } = gate;
   const { id } = await params;
   if (id === session.uid) return err("Use Change password in Settings → Security for your own account.", 422);
+  const pro = await requirePro("team");
+  if (!pro.ok) return pro.response;
 
   const [target] = await db
     .select()

@@ -3,6 +3,8 @@ import { eq } from "drizzle-orm";
 import { users } from "@/db/schema";
 import { json, err } from "@/lib/api";
 import { requireOwner, db } from "@/lib/route-helpers";
+import { requirePro } from "@/lib/billing-guards";
+
 import { hashPassword } from "@/lib/auth";
 import { logAudit } from "@/lib/audit";
 
@@ -11,6 +13,8 @@ export async function GET() {
   const gate = await requireOwner();
   if (!gate.ok) return gate.response;
   const { companyId } = gate;
+  const pro = await requirePro("team");
+  if (!pro.ok) return pro.response;
   const rows = await db
     .select({ id: users.id, name: users.name, email: users.email, role: users.role, isActive: users.isActive, lastLoginAt: users.lastLoginAt })
     .from(users)
@@ -23,6 +27,8 @@ export async function POST(req: NextRequest) {
   const gate = await requireOwner();
   if (!gate.ok) return gate.response;
   const { companyId, session } = gate;
+  const pro = await requirePro("team");
+  if (!pro.ok) return pro.response;
   const body = await req.json().catch(() => null);
   const name = String(body?.name || "").trim();
   const email = String(body?.email || "").trim().toLowerCase();

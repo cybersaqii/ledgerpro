@@ -3,6 +3,8 @@ import { heldBillSchema } from "@/lib/validators";
 import { createHeldBill, listHeldBills } from "@/lib/held";
 import { json, err } from "@/lib/api";
 import { requireCompany, db } from "@/lib/route-helpers";
+import { requirePro } from "@/lib/billing-guards";
+
 import { logAudit } from "@/lib/audit";
 import { users } from "@/db/schema";
 import { eq } from "drizzle-orm";
@@ -12,6 +14,8 @@ export async function GET() {
   const gate = await requireCompany();
   if (!gate.ok) return gate.response;
   const { session, companyId } = gate;
+  const pro = await requirePro("pos");
+  if (!pro.ok) return pro.response;
   const bills = await listHeldBills(db, {
     companyId,
     userId: session.uid,
@@ -31,6 +35,9 @@ export async function POST(req: NextRequest) {
   const { session, companyId } = gate;
   const body = await req.json().catch(() => null);
   const parsed = heldBillSchema.safeParse(body);
+  const pro = await requirePro("pos");
+  if (!pro.ok) return pro.response;
+
   if (!parsed.success) return err("Please check the held bill and try again.", 422);
   const b = parsed.data;
   const id = await createHeldBill(db, {

@@ -3,6 +3,8 @@ import { eq, and } from "drizzle-orm";
 import { users } from "@/db/schema";
 import { json, err } from "@/lib/api";
 import { requireOwner, db } from "@/lib/route-helpers";
+import { requirePro } from "@/lib/billing-guards";
+
 import { logAudit } from "@/lib/audit";
 
 // PATCH /api/users/[id] — change role or active status (owner only).
@@ -13,6 +15,9 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   const { companyId, session } = gate;
   const { id } = await params;
   if (id === session.uid) return err("You cannot change your own access.", 422);
+  const pro = await requirePro("team");
+  if (!pro.ok) return pro.response;
+
 
   const [target] = await db
     .select()

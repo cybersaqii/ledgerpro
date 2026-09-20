@@ -45,9 +45,25 @@ export function fmtDateInput(d: Date = new Date()): string {
   return `${y}-${m}-${day}`;
 }
 
+export class ApiError extends Error {
+  code?: string;
+  constructor(message: string, code?: string) {
+    super(message);
+    this.name = "ApiError";
+    this.code = code;
+  }
+}
+
 export async function api<T>(url: string, init?: RequestInit): Promise<T> {
   const res = await fetch(url, { ...init, headers: { "Content-Type": "application/json", ...(init?.headers || {}) } });
   const data = await res.json().catch(() => ({}));
-  if (!res.ok) throw new Error((data as { error?: string }).error || "Something went wrong.");
+  if (!res.ok) {
+    const code = (data as { code?: string }).code;
+    if (code === "UPGRADE_REQUIRED" && typeof window !== "undefined") {
+      // A PRO-only API blocked us (trial ended, no paid plan) — send the user to Billing.
+      window.dispatchEvent(new CustomEvent("ledgerpro:upgrade-required"));
+    }
+    throw new ApiError((data as { error?: string }).error || "Something went wrong.", code);
+  }
   return data as T;
 }

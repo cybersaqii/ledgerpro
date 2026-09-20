@@ -5,7 +5,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import {
   LayoutDashboard, ShoppingCart, Truck, Wallet, ReceiptText, Users, Package,
-  BarChart3, Menu, X, LogOut, Boxes, Plus, Settings,
+  BarChart3, Menu, X, LogOut, Boxes, Plus, Settings, Crown, ShieldCheck, Clock,
 } from "lucide-react";
 import { Logo, ThemeToggle } from "./ui";
 import { api } from "@/lib/format";
@@ -18,6 +18,13 @@ export function AppShell({ children }: { children: ReactNode }) {
   const [open, setOpen] = useState(false);
   const [user, setUser] = useState<{ name: string; email: string } | null>(null);
   const [businessType, setBusinessType] = useState<string | null>(null);
+  const [billing, setBilling] = useState<{
+    level: "TRIAL" | "PRO" | "FREE";
+    trialDaysLeft: number;
+    proDaysLeft: number;
+    isOwner: boolean;
+    isPlatformAdmin: boolean;
+  } | null>(null);
   const [quickOpen, setQuickOpen] = useState(false);
   const quickRef = useRef<HTMLDivElement>(null);
 
@@ -28,6 +35,18 @@ export function AppShell({ children }: { children: ReactNode }) {
         setBusinessType(d.company.businessType);
       })
       .catch(() => router.push("/login"));
+    api<{ data: { level: "TRIAL" | "PRO" | "FREE"; trialDaysLeft: number; proDaysLeft: number; isOwner: boolean; isPlatformAdmin: boolean } }>("/api/billing/status")
+      .then((d) => setBilling(d.data))
+      .catch(() => {});
+  }, [router, pathname]);
+
+  // A PRO-only API answered 403 UPGRADE_REQUIRED — take the user to Billing.
+  useEffect(() => {
+    const fn = () => {
+      if (!pathname.startsWith("/billing")) router.push("/billing");
+    };
+    window.addEventListener("ledgerpro:upgrade-required", fn);
+    return () => window.removeEventListener("ledgerpro:upgrade-required", fn);
   }, [router, pathname]);
 
   const bp = getBusinessProfile(businessType);
@@ -43,6 +62,8 @@ export function AppShell({ children }: { children: ReactNode }) {
     { href: "/stock", label: bp.stock, icon: Boxes },
     { href: "/reports", label: "Reports", icon: BarChart3 },
     { href: "/settings", label: "Settings", icon: Settings },
+    ...(billing?.isOwner ? [{ href: "/billing", label: "Billing", icon: Crown }] : []),
+    ...(billing?.isPlatformAdmin ? [{ href: "/admin/billing", label: "Admin", icon: ShieldCheck }] : []),
   ];
 
   const quickCreate = [
@@ -163,6 +184,40 @@ export function AppShell({ children }: { children: ReactNode }) {
             </button>
           </div>
         </header>
+
+        {/* Trial / subscription banner */}
+        {billing?.level === "TRIAL" && (
+          <div className="border-b border-amber-200/60 bg-gradient-to-r from-amber-50 to-orange-50 px-4 py-2.5 sm:px-6 dark:border-amber-900/40 dark:from-amber-950/40 dark:to-orange-950/40">
+            <div className="mx-auto flex max-w-7xl flex-wrap items-center gap-x-3 gap-y-1 text-sm">
+              <span className="inline-flex items-center gap-1.5 font-semibold text-amber-800 dark:text-amber-200">
+                <Clock size={15} />
+                {billing.trialDaysLeft} day{billing.trialDaysLeft === 1 ? "" : "s"} left in your free trial
+              </span>
+              <span className="text-amber-700/80 dark:text-amber-300/70">— enjoy full PRO access.</span>
+              {billing.isOwner && (
+                <Link href="/billing" className="font-bold text-amber-900 underline underline-offset-2 hover:text-amber-700 dark:text-amber-100">
+                  View plans
+                </Link>
+              )}
+            </div>
+          </div>
+        )}
+        {billing?.level === "FREE" && (
+          <div className="border-b border-rose-200/60 bg-gradient-to-r from-rose-50 to-pink-50 px-4 py-2.5 sm:px-6 dark:border-rose-900/40 dark:from-rose-950/40 dark:to-pink-950/40">
+            <div className="mx-auto flex max-w-7xl flex-wrap items-center gap-x-3 gap-y-1 text-sm">
+              <span className="inline-flex items-center gap-1.5 font-semibold text-rose-800 dark:text-rose-200">
+                <Crown size={15} />
+                Your free trial has ended
+              </span>
+              <span className="text-rose-700/80 dark:text-rose-300/70">— upgrade to PRO to unlock POS, team, advanced reports &amp; more.</span>
+              {billing.isOwner && (
+                <Link href="/billing" className="font-bold text-rose-900 underline underline-offset-2 hover:text-rose-700 dark:text-rose-100">
+                  Upgrade now
+                </Link>
+              )}
+            </div>
+          </div>
+        )}
 
         <main className="flex-1 px-4 py-6 sm:px-6 lg:px-8">
           <div className="mx-auto max-w-7xl">{children}</div>

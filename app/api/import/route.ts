@@ -4,6 +4,8 @@ import { parties, products } from "@/db/schema";
 import { parseMoney } from "@/lib/money";
 import { json, err } from "@/lib/api";
 import { requireCompany, requireOwner, db } from "@/lib/route-helpers";
+import { requirePro } from "@/lib/billing-guards";
+
 import { logAudit } from "@/lib/audit";
 
 // POST /api/import — CSV import for products and parties.
@@ -61,6 +63,9 @@ export async function POST(req: NextRequest) {
   const { session, companyId } = gate;
 
   const form = await req.formData().catch(() => null);
+  const pro = await requirePro("import_export");
+  if (!pro.ok) return pro.response;
+
   const kind = form?.get("kind");
   const file = form?.get("file");
   if (kind !== "products" && kind !== "parties") return err("Choose what to import: products or parties.", 422);

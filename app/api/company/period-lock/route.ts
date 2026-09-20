@@ -3,6 +3,8 @@ import { eq } from "drizzle-orm";
 import { companies } from "@/db/schema";
 import { json, err } from "@/lib/api";
 import { requireOwner, db, parseDateOnly } from "@/lib/route-helpers";
+import { requirePro } from "@/lib/billing-guards";
+
 import { logAudit } from "@/lib/audit";
 
 // PUT /api/company/period-lock — owner sets or clears the accounting period lock.
@@ -14,6 +16,9 @@ export async function PUT(req: NextRequest) {
   const { companyId, session } = gate;
   const body = await req.json().catch(() => null);
   const raw = body?.lockedUntil;
+  const pro = await requirePro("period_lock");
+  if (!pro.ok) return pro.response;
+
 
   let lockedUntil: Date | null = null;
   if (raw !== null && raw !== undefined && String(raw).trim() !== "") {

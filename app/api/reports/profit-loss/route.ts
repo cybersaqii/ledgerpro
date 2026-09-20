@@ -1,6 +1,8 @@
 import { NextRequest } from "next/server";
 import { json } from "@/lib/api";
 import { requireCompany, db } from "@/lib/route-helpers";
+import { requirePro } from "@/lib/billing-guards";
+
 import { glSums, netOf, sumByType } from "@/lib/reports";
 import { SYS } from "@/lib/setup";
 
@@ -12,6 +14,9 @@ export async function GET(req: NextRequest) {
   const sp = req.nextUrl.searchParams;
   const from = sp.get("from");
   const to = sp.get("to");
+  const pro = await requirePro("advanced_reports");
+  if (!pro.ok) return pro.response;
+
 
   const sums = await glSums(db, companyId, from, to);
 

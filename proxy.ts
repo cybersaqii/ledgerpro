@@ -14,6 +14,8 @@ const APP_PREFIXES = [
   "/stock",
   "/reports",
   "/settings",
+  "/billing",
+  "/admin",
 ];
 
 export async function proxy(request: NextRequest) {
@@ -51,6 +53,8 @@ export const config = {
     "/stock/:path*",
     "/reports/:path*",
     "/settings/:path*",
+    "/billing/:path*",
+    "/admin/:path*",
     "/login",
     "/signup",
   ],

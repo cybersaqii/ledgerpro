@@ -2,6 +2,8 @@ import { eq, and } from "drizzle-orm";
 import { bankAccounts } from "@/db/schema";
 import { json } from "@/lib/api";
 import { requireCompany, db } from "@/lib/route-helpers";
+import { requirePro } from "@/lib/billing-guards";
+
 import { glSums, netOf, sumByType, sumByTypeCredit } from "@/lib/reports";
 import { SYS } from "@/lib/setup";
 
@@ -12,6 +14,9 @@ export async function GET() {
   const { companyId } = gate;
 
   const sums = await glSums(db, companyId);
+  const pro = await requirePro("advanced_reports");
+  if (!pro.ok) return pro.response;
+
 
   // Assets (debit-normal)
   const inventory = netOf(sums, SYS.INVENTORY);

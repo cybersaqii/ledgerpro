@@ -46,6 +46,9 @@ const ACTION_LABEL: Record<string, string> = {
   "user.invited": "Staff member added",
   "user.updated": "Team member updated",
   "user.password_reset": "Staff password reset",
+  "billing.payment_submitted": "PRO payment submitted",
+  "billing.payment_approved": "PRO subscription activated",
+  "billing.payment_rejected": "PRO payment rejected",
 };
 
 function fmtTime(v: number | string) {

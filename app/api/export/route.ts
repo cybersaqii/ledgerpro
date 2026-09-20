@@ -7,6 +7,8 @@ import {
   journalEntries, journalLines, numberSequences, stockLevels,
 } from "@/db/schema";
 import { requireCompany, requireOwner, db } from "@/lib/route-helpers";
+import { requirePro } from "@/lib/billing-guards";
+
 
 // GET /api/export?kind=backup|parties|products|sales|purchases|payments|expenses|stock
 // - backup: full company JSON (owner-only — it contains everything)
@@ -47,6 +49,9 @@ export async function GET(req: NextRequest) {
   const { companyId } = gate;
 
   if (kind === "backup") {
+  const pro = await requirePro("import_export");
+  if (!pro.ok) return pro.response;
+
     const c = companyId;
     const data = {
       exportedAt: new Date().toISOString(),

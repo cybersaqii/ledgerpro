@@ -2,6 +2,7 @@ import { NextRequest } from "next/server";
 import { eq } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { users, companies } from "@/db/schema";
+import { TRIAL_DAYS } from "@/lib/entitlements";
 import { hashPassword, createSession } from "@/lib/auth";
 import { generateRecoveryCode, normalizeRecoveryCode } from "@/lib/recovery";
 import { setupCompany } from "@/lib/setup";
@@ -40,6 +41,7 @@ export async function POST(req: NextRequest) {
     address: address || null,
     city: city || null,
     businessType,
+    trialEndsAt: new Date(Date.now() + TRIAL_DAYS * 86_400_000), // 30-day free trial
   });
   const userId = crypto.randomUUID();
   const recoveryCode = generateRecoveryCode();

@@ -12,6 +12,8 @@ import { applyCustomerAdvance } from "@/lib/advance";
 import { json, err } from "@/lib/api";
 import { toApiError } from "@/lib/errors";
 import { requireCompany, db, parseDateOnly, defaultBranchId, assertBranch } from "@/lib/route-helpers";
+import { requirePro } from "@/lib/billing-guards";
+
 import { logAudit } from "@/lib/audit";
 import { belowMinPrice, floorErrorMessage } from "@/lib/min-price";
 
@@ -26,6 +28,9 @@ export async function POST(req: NextRequest) {
   const { session, companyId } = gate;
   const body = await req.json().catch(() => null);
   const parsed = posCheckoutSchema.safeParse(body);
+  const pro = await requirePro("pos");
+  if (!pro.ok) return pro.response;
+
   if (!parsed.success) return err("Please check the form and try again.", 422);
   const b = parsed.data;
 

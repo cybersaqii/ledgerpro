@@ -3,6 +3,8 @@ import { eq, and, desc, sql, or, like, inArray } from "drizzle-orm";
 import { journalEntries, journalLines, accounts, parties } from "@/db/schema";
 import { json } from "@/lib/api";
 import { requireCompany, db, parseDateOnly } from "@/lib/route-helpers";
+import { requirePro } from "@/lib/billing-guards";
+
 
 // GET /api/reports/journal?from=&to=&q=&page=
 // The audit trail: every balanced journal entry with its debit/credit lines.
@@ -10,6 +12,8 @@ export async function GET(req: NextRequest) {
   const gate = await requireCompany();
   if (!gate.ok) return gate.response;
   const { companyId } = gate;
+  const pro = await requirePro("advanced_reports");
+  if (!pro.ok) return pro.response;
   const sp = req.nextUrl.searchParams;
   const q = sp.get("q")?.trim() ?? "";
   const from = sp.get("from");
