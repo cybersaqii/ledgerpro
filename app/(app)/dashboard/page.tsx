@@ -5,7 +5,7 @@ import { useEffect, useState } from "react";
 import {
   TrendingUp, ShoppingBag, ReceiptText, ArrowDownToLine, ArrowUpFromLine,
   Landmark, TriangleAlert, FileText, LayoutDashboard, Zap, ArrowRight,
-  ShoppingCart, Truck, Users, Package, BarChart3,
+  ShoppingCart, Truck, Users, Package, BarChart3, KeyRound, X,
 } from "lucide-react";
 import { PageHeader, Stat, EmptyState } from "@/components/ui";
 import { api, fmtMoney, fmtDate } from "@/lib/format";
@@ -27,6 +27,7 @@ export default function DashboardPage() {
   const bp = useBusinessProfile();
   const [data, setData] = useState<DashboardData | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [showRecoveryNudge, setShowRecoveryNudge] = useState(false);
 
   const quickActions = [
     { href: "/sales/new", label: bp.newSale, icon: ShoppingCart, cls: "bg-primary-soft text-primary" },
@@ -43,6 +44,12 @@ export default function DashboardPage() {
     api<{ kpis: DashboardData["kpis"]; recentSales: DashboardData["recentSales"]; salesTrend: DashboardData["salesTrend"] }>("/api/dashboard")
       .then(setData)
       .catch((e) => setError(e instanceof Error ? e.message : "Could not load dashboard."));
+    // Nudge pre-recovery-code accounts to generate one (dismissible, once).
+    if (typeof window !== "undefined" && !localStorage.getItem("lp-recovery-nudge-dismissed")) {
+      api<{ hasCode: boolean }>("/api/auth/recovery-status")
+        .then((d) => { if (!d.hasCode) setShowRecoveryNudge(true); })
+        .catch(() => {});
+    }
   }, []);
 
   if (error) return <PageHeader title="Dashboard" subtitle={error} />;
@@ -67,6 +74,31 @@ export default function DashboardPage() {
         subtitle="Your business at a glance"
         icon={<LayoutDashboard size={20} />}
       />
+
+      {/* Recovery-code nudge for accounts created before the feature shipped */}
+      {showRecoveryNudge && (
+        <div className="card mb-5 flex items-start gap-3 border-amber-500/30 bg-gradient-to-r from-amber-50 to-orange-50 p-4 dark:from-amber-950/40 dark:to-orange-950/40 sm:p-5">
+          <span className="grid h-10 w-10 shrink-0 place-items-center rounded-2xl bg-amber-500/15 text-amber-600 dark:text-amber-400">
+            <KeyRound size={19} />
+          </span>
+          <div className="min-w-0 flex-1">
+            <p className="font-extrabold text-amber-900 dark:text-amber-100">Secure your account</p>
+            <p className="mt-0.5 text-sm text-amber-800/90 dark:text-amber-200/80">
+              You don&apos;t have a recovery code yet — generate one so you can reset your password if you ever forget it.
+            </p>
+            <Link href="/settings" className="mt-2 inline-block text-sm font-bold text-amber-900 underline underline-offset-2 hover:text-amber-700 dark:text-amber-100">
+              Go to Settings → Password &amp; recovery
+            </Link>
+          </div>
+          <button
+            aria-label="Dismiss"
+            onClick={() => { setShowRecoveryNudge(false); try { localStorage.setItem("lp-recovery-nudge-dismissed", "1"); } catch {} }}
+            className="grid h-8 w-8 shrink-0 place-items-center rounded-lg text-amber-700/70 transition hover:bg-amber-500/15 dark:text-amber-300/70"
+          >
+            <X size={16} />
+          </button>
+        </div>
+      )}
 
       {/* POS banner for counter businesses */}
       {(bp.type === "RETAIL" || bp.type === "PHARMACY" || bp.type === "RESTAURANT") && (

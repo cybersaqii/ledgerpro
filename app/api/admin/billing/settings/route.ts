@@ -5,7 +5,7 @@ import {
   requirePlatformAdmin,
   getPlatformSettings,
   setPlatformSetting,
-  BILLING_SETTING_KEYS,
+  PLATFORM_SETTING_KEYS,
 } from "@/lib/billing-guards";
 
 // GET /api/admin/billing/settings — platform admin: read billing settings.
@@ -16,15 +16,16 @@ export async function GET() {
   return json({ data: settings });
 }
 
-// PUT /api/admin/billing/settings — platform admin: update prices & payment instructions.
-// { key: value, ... } — only known billing.* keys are accepted.
+// PUT /api/admin/billing/settings — platform admin: update prices, payment
+// instructions and support contact details.
+// { key: value, ... } — only known platform.* keys are accepted.
 export async function PUT(req: NextRequest) {
   const gate = await requirePlatformAdmin();
   if (!gate.ok) return gate.response;
   try {
     const body = await req.json().catch(() => null);
     if (!body || typeof body !== "object") return err("Nothing to update.", 422);
-    const allowed = new Set<string>(BILLING_SETTING_KEYS);
+    const allowed = new Set<string>(PLATFORM_SETTING_KEYS);
     let updated = 0;
     for (const [key, value] of Object.entries(body)) {
       if (!allowed.has(key)) continue;

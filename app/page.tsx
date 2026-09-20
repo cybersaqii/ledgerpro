@@ -464,6 +464,8 @@ export default function LandingPage() {
             <p className="flex items-center gap-4">
               <Link href="/terms" className="transition hover:text-emerald-100">Terms</Link>
               <Link href="/privacy" className="transition hover:text-emerald-100">Privacy</Link>
+              <Link href="/support" className="transition hover:text-emerald-100">Support</Link>
+              <Link href="/changelog" className="transition hover:text-emerald-100">Changelog</Link>
               <span className="hidden sm:inline">Complete hisaab-kitab for every business.</span>
             </p>
           </div>

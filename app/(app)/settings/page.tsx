@@ -2,10 +2,12 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { Building2, Database, Download, Save, Upload, Users, UserPlus, ScrollText, KeyRound, Copy, Check, Lock, Activity } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { Building2, Database, Download, Save, Upload, Users, UserPlus, ScrollText, KeyRound, Copy, Check, Lock, Activity, TriangleAlert } from "lucide-react";
 import { PageHeader, Field, ErrorNote } from "@/components/ui";
 import { api } from "@/lib/format";
 import { BUSINESS_TYPES } from "@/lib/business-types";
+import { PERIOD_LOCK_GUIDANCE } from "@/lib/period-guidance";
 
 type Company = {
   name: string; email: string | null; phone: string | null; address: string | null;
@@ -150,6 +152,7 @@ export default function SettingsPage() {
       <SecurityCard />
       <PeriodLockCard />
       <SystemHealthCard isOwner={isOwner} />
+      <DangerZoneCard isOwner={isOwner} />
       <div className="card mt-6 max-w-2xl p-6 sm:p-8">
         <div className="flex items-center justify-between gap-3">
           <div>
@@ -400,6 +403,15 @@ function SecurityCard() {
   const [codeBusy, setCodeBusy] = useState(false);
   const [copied, setCopied] = useState(false);
   const [savedAck, setSavedAck] = useState(false);
+  const [hasCode, setHasCode] = useState<boolean | null>(null);
+
+  useEffect(() => {
+    let alive = true;
+    api<{ hasCode: boolean }>("/api/auth/recovery-status")
+      .then((d) => { if (alive) setHasCode(d.hasCode); })
+      .catch(() => {});
+    return () => { alive = false; };
+  }, []);
 
   async function changePassword(e: React.FormEvent) {
     e.preventDefault();
@@ -419,7 +431,7 @@ function SecurityCard() {
     setCodeError(null); setCodeBusy(true);
     try {
       const d = await api<{ recoveryCode: string }>("/api/auth/recovery-code", { method: "POST" });
-      setCode(d.recoveryCode); setCopied(false); setSavedAck(false);
+      setCode(d.recoveryCode); setCopied(false); setSavedAck(false); setHasCode(true);
     } catch (err) {
       setCodeError(err instanceof Error ? err.message : "Could not generate code.");
     } finally { setCodeBusy(false); }
@@ -455,6 +467,15 @@ function SecurityCard() {
 
       <div className="mt-4 rounded-2xl border border-border p-4">
         <h3 className="text-sm font-extrabold">Recovery code</h3>
+        {hasCode === false && !code && (
+          <div className="mt-3 flex items-start gap-3 rounded-xl bg-amber-500/10 px-4 py-3 text-sm">
+            <TriangleAlert size={17} className="mt-0.5 shrink-0 text-amber-600 dark:text-amber-400" />
+            <p className="font-semibold text-amber-700 dark:text-amber-300">
+              Your account was created before recovery codes existed — you don&apos;t have one yet.
+              Generate one now so you can reset your password if you ever forget it.
+            </p>
+          </div>
+        )}
         <p className="mt-1 text-sm text-muted-foreground">
           Your recovery code resets your password when you forget it. Generating a new one invalidates the old one.
         </p>
@@ -521,6 +542,14 @@ function PeriodLockCard() {
         Lock the books up to a date — for example after closing the month. While locked, no entry dated on or
         before that date can be added, changed, converted, returned or deleted.
       </p>
+      <ul className="mt-3 space-y-1.5 rounded-2xl bg-muted/50 px-4 py-3.5">
+        {PERIOD_LOCK_GUIDANCE.map((g, i) => (
+          <li key={i} className="flex gap-2.5 text-[0.83rem] leading-relaxed text-muted-foreground">
+            <span className="mt-[0.45rem] h-1.5 w-1.5 shrink-0 rounded-full bg-primary/60" />
+            <span>{g}</span>
+          </li>
+        ))}
+      </ul>
       {loading ? (
         <div className="mt-4 h-12 animate-pulse rounded-xl bg-muted" />
       ) : (
@@ -601,6 +630,97 @@ function SystemHealthCard({ isOwner }: { isOwner: boolean }) {
             </li>
           ))}
         </ul>
+      )}
+    </div>
+  );
+}
+
+function DangerZoneCard({ isOwner }: { isOwner: boolean }) {
+  const router = useRouter();
+  const [companyName, setCompanyName] = useState<string | null>(null);
+  const [typed, setTyped] = useState("");
+  const [password, setPassword] = useState("");
+  const [error, setError] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [confirming, setConfirming] = useState(false);
+
+  useEffect(() => {
+    if (!isOwner) return;
+    let alive = true;
+    api<{ data: { name: string } }>("/api/company")
+      .then((d) => { if (alive) setCompanyName(d.data.name); })
+      .catch(() => {});
+    return () => { alive = false; };
+  }, [isOwner]);
+
+  if (!isOwner) return null;
+
+  async function destroy(e: React.FormEvent) {
+    e.preventDefault();
+    setError(null);
+    if (!companyName || typed.trim() !== companyName) {
+      setError("Type your company name exactly as shown to confirm.");
+      return;
+    }
+    if (!password) { setError("Enter your current password."); return; }
+    setBusy(true);
+    try {
+      const res = await fetch("/api/company", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ companyName: typed.trim(), password }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error || "Could not delete the company.");
+      router.push("/login");
+      router.refresh();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Could not delete the company.");
+      setBusy(false);
+    }
+  }
+
+  return (
+    <div className="card mt-6 max-w-2xl border-red-500/30 p-6 sm:p-8">
+      <h2 className="inline-flex items-center gap-2 text-lg font-extrabold text-red-600 dark:text-red-400">
+        <TriangleAlert size={19} /> Danger zone
+      </h2>
+      <p className="mt-1 text-sm text-muted-foreground">
+        Permanently delete this company and <strong>all</strong> of its data — bills, stock, parties,
+        payments, reports, team logins and backups of this company. This cannot be undone.
+      </p>
+      {!confirming ? (
+        <button className="btn mt-4 border-red-500/40 text-sm text-red-600 hover:bg-red-500/10 dark:text-red-400"
+          onClick={() => { setConfirming(true); setError(null); }}>
+          Delete this company…
+        </button>
+      ) : (
+        <form onSubmit={destroy} className="mt-4 space-y-3 rounded-2xl border border-red-500/30 bg-red-500/5 p-4">
+          <ErrorNote message={error} />
+          <p className="text-sm font-semibold">
+            To confirm, type your company name exactly:{" "}
+            <span className="font-extrabold">{companyName ?? "…"}</span>
+          </p>
+          <Field label="Company name">
+            <input className="field" value={typed} onChange={(e) => setTyped(e.target.value)}
+              placeholder={companyName ?? ""} autoComplete="off" />
+          </Field>
+          <Field label="Your current password">
+            <input className="field" type="password" value={password}
+              onChange={(e) => setPassword(e.target.value)} autoComplete="current-password" />
+          </Field>
+          <div className="flex flex-wrap gap-2 pt-1">
+            <button type="submit" disabled={busy}
+              className="btn bg-red-600 text-sm text-white hover:bg-red-700 disabled:opacity-60">
+              {busy ? "Deleting…" : "Delete everything permanently"}
+            </button>
+            <button type="button" className="btn btn-ghost text-sm"
+              onClick={() => { setConfirming(false); setTyped(""); setPassword(""); setError(null); }}>
+              Cancel
+            </button>
+          </div>
+        </form>
       )}
     </div>
   );

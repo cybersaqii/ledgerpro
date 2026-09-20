@@ -468,3 +468,21 @@ export const errorLogs = sqliteTable(
   },
   (t) => [index("error_logs_company_time").on(t.companyId, t.createdAt)]
 );
+
+// ─── Public support requests ────────────────────────────────────
+
+// Contact-form submissions from the public /support page.
+// Not company-scoped: anyone (including non-customers) can ask for help.
+export const supportRequests = sqliteTable(
+  "support_requests",
+  {
+    id: id(),
+    name: text("name").notNull(),
+    email: text("email").notNull(),
+    subject: text("subject").notNull(),
+    message: text("message").notNull(),
+    status: text("status").notNull().default("OPEN"), // OPEN | RESOLVED
+    createdAt: createdAt(),
+  },
+  (t) => [index("support_requests_status").on(t.status, t.createdAt)]
+);

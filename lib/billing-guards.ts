@@ -142,6 +142,15 @@ export const BILLING_SETTING_KEYS = [
   "billing.instructions",
 ] as const;
 
+export const SUPPORT_SETTING_KEYS = [
+  "support.email",
+  "support.phone",
+  "support.hours",
+] as const;
+
+/** Every platform_settings key the admin console may read/write. */
+export const PLATFORM_SETTING_KEYS = [...BILLING_SETTING_KEYS, ...SUPPORT_SETTING_KEYS] as const;
+
 export function priceForPlan(settings: Record<string, string>, months: number): number {
   const monthly = parseInt(settings["billing.monthly_price_paisa"] || "150000", 10);
   const yearly = parseInt(settings["billing.yearly_price_paisa"] || "1500000", 10);

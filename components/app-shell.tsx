@@ -6,6 +6,7 @@ import { useEffect, useRef, useState, type ReactNode } from "react";
 import {
   LayoutDashboard, ShoppingCart, Truck, Wallet, ReceiptText, Users, Package,
   BarChart3, Menu, X, LogOut, Boxes, Plus, Settings, Crown, ShieldCheck, Clock,
+  LifeBuoy,
 } from "lucide-react";
 import { Logo, ThemeToggle } from "./ui";
 import { api } from "@/lib/format";
@@ -64,6 +65,7 @@ export function AppShell({ children }: { children: ReactNode }) {
     { href: "/settings", label: "Settings", icon: Settings },
     ...(billing?.isOwner ? [{ href: "/billing", label: "Billing", icon: Crown }] : []),
     ...(billing?.isPlatformAdmin ? [{ href: "/admin/billing", label: "Admin", icon: ShieldCheck }] : []),
+    ...(billing?.isPlatformAdmin ? [{ href: "/admin/support", label: "Support inbox", icon: LifeBuoy }] : []),
   ];
 
   const quickCreate = [

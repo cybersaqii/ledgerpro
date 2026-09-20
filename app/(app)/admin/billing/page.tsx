@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import { ShieldCheck, Check, X } from "lucide-react";
 import { PageHeader, Field, ErrorNote, EmptyState } from "@/components/ui";
 import { api, fmtMoney } from "@/lib/format";
@@ -21,6 +22,12 @@ const LABELS: Record<string, string> = {
   "billing.jazzcash": "JazzCash",
   "billing.easypaisa": "EasyPaisa",
   "billing.instructions": "Payment instructions",
+};
+
+const SUPPORT_LABELS: Record<string, string> = {
+  "support.email": "Support email",
+  "support.phone": "Support phone / WhatsApp",
+  "support.hours": "Support hours",
 };
 
 export default function AdminBillingPage() {
@@ -125,6 +132,10 @@ export default function AdminBillingPage() {
     <div className="space-y-6">
       <PageHeader title="Billing admin" subtitle="Verify payments & manage pricing" icon={<ShieldCheck size={22} />} />
       <ErrorNote message={error} />
+      <Link href="/admin/support" className="card flex items-center justify-between p-4 transition hover:-translate-y-0.5">
+        <span className="font-bold">Support inbox</span>
+        <span className="text-sm font-bold text-primary">Open →</span>
+      </Link>
 
       {/* Payments */}
       <div className="card p-5">
@@ -189,6 +200,19 @@ export default function AdminBillingPage() {
         <p className="font-bold">Pricing &amp; payment details</p>
         <div className="grid gap-4 sm:grid-cols-2">
           {Object.entries(LABELS).map(([key, label]) => (
+            <Field key={key} label={label}>
+              <input
+                className="input"
+                value={settings[key] || ""}
+                onChange={(e) => setSettings((s) => ({ ...s, [key]: e.target.value }))}
+                maxLength={500}
+              />
+            </Field>
+          ))}
+        </div>
+        <p className="font-bold pt-2">Support contact details <span className="font-normal text-sm text-muted-foreground">(shown on the public /support page)</span></p>
+        <div className="grid gap-4 sm:grid-cols-2">
+          {Object.entries(SUPPORT_LABELS).map(([key, label]) => (
             <Field key={key} label={label}>
               <input
                 className="input"
