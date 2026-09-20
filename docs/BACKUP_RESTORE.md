@@ -11,7 +11,9 @@ the **Download full backup (JSON)** button in Settings produces.
 ## Automatic backups
 
 - A scheduled job (`POST /api/cron/backup`, configured in `vercel.json`)
-  backs up **every company twice a day** (02:00 and 14:00 UTC).
+  backs up **every company once a day** (02:00 UTC). (Vercel Hobby plan
+  allows at most one cron run per day, so the schedule is daily rather
+  than twice-daily.)
 - The endpoint is guarded by the `CRON_SECRET` environment variable
   (constant-time compared; the request returns **401** without it, **503**
   when the variable is not set on the server).
