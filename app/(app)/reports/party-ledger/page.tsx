@@ -2,6 +2,8 @@
 
 import { Suspense, useCallback, useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
+import Link from "next/link";
+import { Users, TriangleAlert, RotateCcw } from "lucide-react";
 import { PageHeader, Field } from "@/components/ui";
 import { useBusinessProfile } from "@/components/business-type";
 import { api, fmtMoney, fmtDate, fmtDateInput } from "@/lib/format";
@@ -31,6 +33,7 @@ function PartyLedgerInner() {
   const [closing, setClosing] = useState("0");
   const [partyName, setPartyName] = useState("");
   const [loading, setLoading] = useState(false);
+  const [ledgerError, setLedgerError] = useState<string | null>(null);
 
   useEffect(() => {
     const t = setTimeout(async () => {
@@ -48,6 +51,7 @@ function PartyLedgerInner() {
   const load = useCallback(async () => {
     if (!partyId) return;
     setLoading(true);
+    setLedgerError(null);
     try {
       const d = await api<{ entries: Entry[]; opening: string; closing: string; party: { name: string } }>(
         `/api/reports/party-ledger?partyId=${partyId}${from ? `&from=${from}` : ""}${to ? `&to=${to}` : ""}`
@@ -56,7 +60,10 @@ function PartyLedgerInner() {
       setOpening(d.opening);
       setClosing(d.closing);
       setPartyName(d.party.name);
-    } catch { /* ignore */ } finally { setLoading(false); }
+    } catch (err) {
+      setEntries([]);
+      setLedgerError(err instanceof Error ? err.message : "Could not load the ledger.");
+    } finally { setLoading(false); }
   }, [partyId, from, to]);
 
   // eslint-disable-next-line react-hooks/set-state-in-effect -- data fetch on filter/mount change
@@ -116,7 +123,20 @@ function PartyLedgerInner() {
       </div>
 
       {!partyId ? (
-        <div className="card px-6 py-14 text-center text-sm text-muted-foreground">Select a party to view their ledger.</div>
+        <div className="card px-6 py-14 text-center">
+          <p className="text-sm text-muted-foreground">Select a party above to view their ledger.</p>
+          <Link href="/parties" className="btn btn-ghost mt-4 text-sm"><Users size={15} /> Manage parties</Link>
+        </div>
+      ) : ledgerError ? (
+        <div className="card flex flex-wrap items-center gap-3 border-danger/40 bg-danger-soft p-4">
+          <TriangleAlert size={20} className="shrink-0 text-danger" />
+          <p className="min-w-0 flex-1 text-sm font-semibold text-danger">
+            Could not load the ledger — {ledgerError}
+          </p>
+          <button className="btn btn-danger text-sm" onClick={load}>
+            <RotateCcw size={15} /> Try again
+          </button>
+        </div>
       ) : (
         <>
           <PartyStats key={partyId} partyId={partyId} />
@@ -235,6 +255,7 @@ function SetOffDialog({ partyId, kind, name, balance, onDone }: {
       {open && (
         <div className="fixed inset-0 z-50 grid place-items-center bg-black/50 p-4" onClick={() => setOpen(false)}>
           <form onSubmit={submit} onClick={(e) => e.stopPropagation()}
+            role="dialog" aria-modal="true" aria-label="Set off balances"
             className="card w-full max-w-md p-5">
             <h3 className="text-base font-extrabold">Set off balances</h3>
             <p className="mt-1 text-xs text-muted-foreground">

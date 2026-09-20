@@ -177,17 +177,17 @@ export default function BillingPage() {
 
             <div className="grid gap-4 pt-2 sm:grid-cols-3">
               <Field label="Method">
-                <select className="input" value={method} onChange={(e) => setMethod(e.target.value)}>
+                <select className="field" value={method} onChange={(e) => setMethod(e.target.value)}>
                   <option value="BANK">Bank transfer</option>
                   <option value="JAZZCASH">JazzCash</option>
                   <option value="EASYPAISA">EasyPaisa</option>
                 </select>
               </Field>
               <Field label="Transaction reference" hint="From your bank / JazzCash / EasyPaisa receipt">
-                <input className="input" value={reference} onChange={(e) => setReference(e.target.value)} placeholder="e.g. FT123456789" maxLength={60} />
+                <input className="field" value={reference} onChange={(e) => setReference(e.target.value)} placeholder="e.g. FT123456789" maxLength={60} />
               </Field>
               <Field label="Amount">
-                <input className="input" value={fmtMoney(price)} disabled />
+                <input className="field" value={fmtMoney(price)} disabled />
               </Field>
             </div>
             <ErrorNote message={error} />

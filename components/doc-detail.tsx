@@ -417,7 +417,8 @@ function DocActions({ doc, isSales }: { doc: Doc; isSales: boolean }) {
       {error && <span className="text-xs font-semibold text-danger">{error}</span>}
       {showReturn && doc && (
         <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/50 p-0 sm:items-center sm:p-4" onClick={() => !busy && setShowReturn(false)}>
-          <div className="w-full max-w-lg rounded-t-2xl bg-card p-5 shadow-xl sm:rounded-2xl" onClick={(e) => e.stopPropagation()}>
+          <div role="dialog" aria-modal="true" aria-label={isSales ? "Create sales return" : "Create purchase return"}
+            className="w-full max-w-lg rounded-t-2xl bg-card p-5 shadow-xl sm:rounded-2xl" onClick={(e) => e.stopPropagation()}>
             <h3 className="text-base font-bold">{isSales ? "Sales return (credit note)" : "Purchase return (debit note)"}</h3>
             <p className="mt-1 text-xs text-muted-foreground">
               Enter the quantity to return per item. Leave everything as-is for a full return.
@@ -433,7 +434,7 @@ function DocActions({ doc, isSales }: { doc: Doc; isSales: boolean }) {
                       <div className="text-xs text-muted-foreground">Returnable: {fmtQty(r.toString())}</div>
                     </div>
                     <input
-                      className="input w-24 text-right"
+                      className="field w-24 text-right"
                       inputMode="decimal"
                       value={returnQtys[it.id] ?? ""}
                       onChange={(e) => setReturnQtys((q) => ({ ...q, [it.id]: e.target.value }))}

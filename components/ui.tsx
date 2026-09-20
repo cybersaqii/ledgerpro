@@ -14,7 +14,7 @@ export function Logo({ compact = false }: { compact?: boolean }) {
       {!compact && (
         <span className="leading-tight">
           <span className="block text-[1.05rem] font-extrabold tracking-tight">{brand.name}</span>
-          <span className="block text-[0.68rem] font-medium text-muted-foreground">{brand.tagline}</span>
+          <span className="hidden text-[0.68rem] font-medium text-muted-foreground sm:block">{brand.tagline}</span>
         </span>
       )}
     </span>
@@ -26,12 +26,12 @@ export function ThemeToggle() {
   const [mounted, setMounted] = useState(false);
   // eslint-disable-next-line react-hooks/set-state-in-effect -- avoid hydration mismatch for theme
   useEffect(() => setMounted(true), []);
-  if (!mounted) return <span className="h-10 w-10" />;
+  if (!mounted) return <span className="h-11 w-11" />;
   const dark = theme === "dark";
   return (
     <button
       onClick={() => setTheme(dark ? "light" : "dark")}
-      className="grid h-10 w-10 place-items-center rounded-xl border border-border bg-card text-foreground shadow-sm transition hover:scale-105 active:scale-95"
+      className="grid h-11 w-11 place-items-center rounded-xl border border-border bg-card text-foreground shadow-sm transition hover:scale-105 active:scale-95"
       aria-label={dark ? "Switch to light mode" : "Switch to dark mode"}
       title={dark ? "Light mode" : "Dark mode"}
     >

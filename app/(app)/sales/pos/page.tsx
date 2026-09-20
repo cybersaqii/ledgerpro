@@ -154,6 +154,16 @@ export default function PosPage() {
     return () => clearTimeout(t);
   }, [stage]);
 
+  // Escape closes the small confirm dialogs (dup product / min-price override)
+  useEffect(() => {
+    if (!dupProduct && !priceWarn) return;
+    const fn = (e: KeyboardEvent) => {
+      if (e.key === "Escape") { setDupProduct(null); setPriceWarn(null); }
+    };
+    window.addEventListener("keydown", fn);
+    return () => window.removeEventListener("keydown", fn);
+  }, [dupProduct, priceWarn]);
+
   function pickMethod(s: Stage) {
     setError(null);
     if (s === "cash") setTendered((totals.grand / 100).toFixed(2));
@@ -609,13 +619,14 @@ export default function PosPage() {
             ) : (
               <ul className="divide-y divide-border">
                 {lines.map((l) => (
-                  <li key={l.key} className="flex items-center gap-2 px-3 py-3 sm:gap-3 sm:px-4">
+                  <li key={l.key} className="flex flex-col gap-2.5 px-3 py-3 sm:flex-row sm:items-center sm:gap-3 sm:px-4">
                     <div className="min-w-0 flex-1">
                       <p className="truncate text-sm font-bold">{l.name}</p>
                       <p className="text-xs text-muted-foreground">{l.sku}</p>
                     </div>
+                    <div className="flex items-center justify-between gap-2 sm:justify-end sm:gap-3">
                     <div className="flex shrink-0 items-center gap-1">
-                      <button onClick={() => bumpQty(l.key, -1)} className="grid h-8 w-8 place-items-center rounded-lg bg-muted transition hover:bg-primary/15" aria-label="Decrease quantity">
+                      <button onClick={() => bumpQty(l.key, -1)} className="grid h-11 w-11 place-items-center rounded-lg bg-muted transition hover:bg-primary/15" aria-label={`Decrease quantity of ${l.name}`}>
                         <Minus size={15} />
                       </button>
                       <input
@@ -623,9 +634,9 @@ export default function PosPage() {
                         inputMode="decimal"
                         value={l.qty}
                         onChange={(e) => patchLine(l.key, { qty: e.target.value.replace(/[^0-9.]/g, "") })}
-                        aria-label="Quantity"
+                        aria-label={`Quantity of ${l.name}`}
                       />
-                      <button onClick={() => bumpQty(l.key, 1)} className="grid h-8 w-8 place-items-center rounded-lg bg-muted transition hover:bg-primary/15" aria-label="Increase quantity">
+                      <button onClick={() => bumpQty(l.key, 1)} className="grid h-11 w-11 place-items-center rounded-lg bg-muted transition hover:bg-primary/15" aria-label={`Increase quantity of ${l.name}`}>
                         <Plus size={15} />
                       </button>
                     </div>
@@ -634,16 +645,17 @@ export default function PosPage() {
                       inputMode="decimal"
                       value={l.rate}
                       onChange={(e) => patchLine(l.key, { rate: e.target.value.replace(/[^0-9.]/g, "") })}
-                      aria-label="Rate"
+                      aria-label={`Rate for ${l.name}`}
                       title="Rate"
                     />
                     <span className="hidden w-24 shrink-0 text-right text-sm font-extrabold sm:block">
                       {fmtMoney(lineTotalPaisa(l))}
                     </span>
                     <button onClick={() => setLines((ls) => ls.filter((x) => x.key !== l.key))}
-                      className="grid h-8 w-8 shrink-0 place-items-center rounded-lg text-muted-foreground transition hover:bg-red-500/10 hover:text-red-500" aria-label="Remove item">
+                      className="grid h-11 w-11 shrink-0 place-items-center rounded-lg text-muted-foreground transition hover:bg-red-500/10 hover:text-red-500" aria-label={`Remove ${l.name} from cart`}>
                       <Trash2 size={16} />
                     </button>
+                    </div>
                   </li>
                 ))}
               </ul>
@@ -753,7 +765,7 @@ export default function PosPage() {
                     />
                     <button
                       onClick={() => setTenders((ts) => ts.filter((x) => x.key !== t.key))}
-                      className="grid h-10 w-10 shrink-0 place-items-center rounded-xl text-muted-foreground transition hover:bg-red-500/10 hover:text-red-500"
+                      className="grid h-11 w-11 shrink-0 place-items-center rounded-xl text-muted-foreground transition hover:bg-red-500/10 hover:text-red-500"
                       aria-label="Remove tender"
                     >
                       <Trash2 size={16} />
@@ -871,7 +883,8 @@ export default function PosPage() {
       {/* duplicate-item protection */}
       {dupProduct && (
         <div className="fixed inset-0 z-50 grid place-items-center bg-black/50 p-4" onClick={() => setDupProduct(null)}>
-          <div className="w-full max-w-sm rounded-2xl bg-card p-6 shadow-xl" onClick={(e) => e.stopPropagation()}>
+          <div role="dialog" aria-modal="true" aria-label="Item already in this bill"
+            className="w-full max-w-sm rounded-2xl bg-card p-6 shadow-xl" onClick={(e) => e.stopPropagation()}>
             <h3 className="text-lg font-extrabold">Already in this bill</h3>
             <p className="mt-1 text-sm text-muted-foreground">
               <span className="font-bold text-foreground">{dupProduct.name}</span> is already on the bill. What should we do?
@@ -901,7 +914,8 @@ export default function PosPage() {
       {/* minimum sale price override */}
       {priceWarn && (
         <div className="fixed inset-0 z-50 grid place-items-center bg-black/50 p-4" onClick={() => setPriceWarn(null)}>
-          <div className="w-full max-w-sm rounded-2xl bg-card p-6 shadow-xl" onClick={(e) => e.stopPropagation()}>
+          <div role="dialog" aria-modal="true" aria-label="Below minimum price"
+            className="w-full max-w-sm rounded-2xl bg-card p-6 shadow-xl" onClick={(e) => e.stopPropagation()}>
             <h3 className="text-lg font-extrabold">Below minimum price</h3>
             <p className="mt-1 text-sm text-muted-foreground">
               These items are priced below their minimum sale price. This will be recorded in the activity log.

@@ -5,7 +5,7 @@ import { useEffect, useState } from "react";
 import {
   TrendingUp, ShoppingBag, ReceiptText, ArrowDownToLine, ArrowUpFromLine,
   Landmark, TriangleAlert, FileText, LayoutDashboard, Zap, ArrowRight,
-  ShoppingCart, Truck, Users, Package, BarChart3, KeyRound, X, CircleCheck, Circle, ListChecks, Crown,
+  ShoppingCart, Truck, Users, Package, BarChart3, KeyRound, X, CircleCheck, Circle, ListChecks, Crown, RotateCcw,
 } from "lucide-react";
 import { PageHeader, Stat, EmptyState } from "@/components/ui";
 import { api, fmtMoney, fmtDate } from "@/lib/format";
@@ -41,6 +41,16 @@ export default function DashboardPage() {
   const [sampleBusy, setSampleBusy] = useState(false);
   const [sampleError, setSampleError] = useState<string | null>(null);
 
+  async function retry() {
+    setError(null);
+    setData(null);
+    try {
+      setData(await api<{ kpis: DashboardData["kpis"]; recentSales: DashboardData["recentSales"]; salesTrend: DashboardData["salesTrend"] }>("/api/dashboard"));
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Could not load dashboard.");
+    }
+  }
+
   const quickActions = [
     { href: "/sales/new", label: bp.newSale, icon: ShoppingCart, cls: "bg-primary-soft text-primary" },
     { href: "/purchases/new", label: "New purchase", icon: Truck, cls: "bg-accent-soft text-accent" },
@@ -70,7 +80,21 @@ export default function DashboardPage() {
     }
   }, []);
 
-  if (error) return <PageHeader title="Dashboard" subtitle={error} />;
+  if (error) return (
+    <div>
+      <PageHeader title="Dashboard" icon={<LayoutDashboard size={20} />} />
+      <div className="card mx-auto flex max-w-lg flex-col items-center gap-3 p-8 text-center">
+        <span className="grid h-14 w-14 place-items-center rounded-2xl bg-danger-soft text-danger">
+          <TriangleAlert size={26} />
+        </span>
+        <h2 className="text-lg font-extrabold">Could not load the dashboard</h2>
+        <p className="text-sm text-muted-foreground">{error}</p>
+        <button className="btn btn-primary text-sm" onClick={retry}>
+          <RotateCcw size={15} /> Try again
+        </button>
+      </div>
+    </div>
+  );
   if (!data) {
     return (
       <div>
@@ -111,7 +135,7 @@ export default function DashboardPage() {
           <button
             aria-label="Dismiss"
             onClick={() => { setShowRecoveryNudge(false); try { localStorage.setItem("lp-recovery-nudge-dismissed", "1"); } catch {} }}
-            className="grid h-8 w-8 shrink-0 place-items-center rounded-lg text-amber-700/70 transition hover:bg-amber-500/15 dark:text-amber-300/70"
+            className="grid h-11 w-11 shrink-0 place-items-center rounded-lg text-amber-700/70 transition hover:bg-amber-500/15 dark:text-amber-300/70"
           >
             <X size={16} />
           </button>
@@ -136,7 +160,7 @@ export default function DashboardPage() {
             <button
               aria-label="Dismiss"
               onClick={() => { setSteps(null); try { localStorage.setItem("lp-onboarding-dismissed", "1"); } catch {} }}
-              className="grid h-8 w-8 shrink-0 place-items-center rounded-lg text-muted-foreground transition hover:bg-muted"
+              className="grid h-11 w-11 shrink-0 place-items-center rounded-lg text-muted-foreground transition hover:bg-muted"
             >
               <X size={16} />
             </button>

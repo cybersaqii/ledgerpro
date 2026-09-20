@@ -182,7 +182,7 @@ export default function AdminBillingPage() {
                 {p.status === "PENDING" && (
                   <div className="mt-3 flex gap-2">
                     <input
-                      className="input flex-1"
+                      className="field flex-1"
                       placeholder="Rejection note (optional)"
                       value={rejectNote[p.id] || ""}
                       onChange={(e) => setRejectNote((r) => ({ ...r, [p.id]: e.target.value }))}
@@ -206,7 +206,7 @@ export default function AdminBillingPage() {
           {Object.entries(LABELS).map(([key, label]) => (
             <Field key={key} label={label}>
               <input
-                className="input"
+                className="field"
                 value={settings[key] || ""}
                 onChange={(e) => setSettings((s) => ({ ...s, [key]: e.target.value }))}
                 maxLength={500}
@@ -219,7 +219,7 @@ export default function AdminBillingPage() {
           {Object.entries(SUPPORT_LABELS).map(([key, label]) => (
             <Field key={key} label={label}>
               <input
-                className="input"
+                className="field"
                 value={settings[key] || ""}
                 onChange={(e) => setSettings((s) => ({ ...s, [key]: e.target.value }))}
                 maxLength={500}
@@ -232,7 +232,7 @@ export default function AdminBillingPage() {
           {Object.entries(SECURITY_LABELS).map(([key, label]) => (
             <Field key={key} label={label}>
               <input
-                className="input"
+                className="field"
                 inputMode="numeric"
                 value={settings[key] || ""}
                 onChange={(e) => setSettings((s) => ({ ...s, [key]: e.target.value.replace(/[^0-9]/g, "") }))}

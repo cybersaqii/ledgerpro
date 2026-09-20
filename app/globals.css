@@ -132,6 +132,7 @@ body {
   font-size: 0.9rem;
   border-radius: 0.7rem;
   padding: 0.62rem 1.15rem;
+  min-height: 2.75rem; /* 44px touch target */
   border: 1px solid transparent;
   cursor: pointer;
   transition: transform 0.08s, filter 0.15s, box-shadow 0.15s;
@@ -139,6 +140,19 @@ body {
 }
 .btn:active { transform: translateY(1px); }
 .btn:disabled { opacity: 0.55; cursor: not-allowed; }
+/* Anchor targets for in-page section links (e.g. the Settings jump nav) */
+.anchor-scroll { scroll-margin-top: 5.5rem; }
+/* Visible keyboard focus everywhere — mouse/touch users see nothing extra */
+:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
+  border-radius: 6px;
+}
+/* Respect users who ask for less motion */
+@media (prefers-reduced-motion: reduce) {
+  .rise, .rise-1, .rise-2, .rise-3, .rise-4, .float-slow, .marquee-track, .pos-scroll { animation: none !important; }
+  .btn, a, button, input, select, textarea { transition: none !important; }
+}
 .btn-primary {
   background: linear-gradient(180deg, color-mix(in srgb, var(--primary) 88%, white 12%), var(--primary));
   color: var(--primary-foreground);

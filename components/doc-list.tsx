@@ -81,7 +81,7 @@ export function DocList({ mode }: { mode: "SALES" | "PURCHASE" }) {
         actions={
           <div className="flex gap-2">
             {isSales && (
-              <Link href="/sales/pos" className="btn text-sm">
+              <Link href="/sales/pos" className="btn btn-ghost text-sm">
                 <Zap size={16} /> POS
               </Link>
             )}

@@ -79,7 +79,7 @@ export default function LandingPage() {
             </span>
             <span>
               <span className="block text-[1.05rem] font-extrabold leading-none tracking-tight text-white">{brand.name}</span>
-              <span className="block text-[0.68rem] text-emerald-100/70">{brand.tagline}</span>
+              <span className="hidden text-[0.68rem] text-emerald-100/70 sm:block">{brand.tagline}</span>
             </span>
           </Link>
           <nav className="hidden items-center gap-7 text-sm font-semibold text-emerald-50/85 md:flex">

@@ -17,6 +17,34 @@ type Company = {
 
 const empty: Company = { name: "", email: "", phone: "", address: "", city: "", ntn: "", businessType: "WHOLESALE" };
 
+const SECTIONS: Array<[string, string]> = [
+  ["sec-company", "Company"],
+  ["sec-data", "Data"],
+  ["sec-import", "Import"],
+  ["sec-backups", "Backups"],
+  ["sec-team", "Team"],
+  ["sec-security", "Password"],
+  ["sec-sessions", "Sessions"],
+  ["sec-lock", "Period lock"],
+  ["sec-health", "Health"],
+  ["sec-activity", "Activity"],
+  ["sec-danger", "Delete"],
+];
+
+/** Sticky jump-links so the long Settings page stays navigable on every screen. */
+function SettingsJumpNav() {
+  return (
+    <nav aria-label="Settings sections" className="sticky top-16 z-20 -mx-1 mb-6 flex gap-2 overflow-x-auto bg-background/90 px-1 py-2 backdrop-blur-xl">
+      {SECTIONS.map(([id, label]) => (
+        <a key={id} href={`#${id}`}
+          className="shrink-0 rounded-full border border-border bg-card px-3.5 py-2 text-xs font-bold text-muted-foreground transition hover:border-primary hover:text-primary">
+          {label}
+        </a>
+      ))}
+    </nav>
+  );
+}
+
 export default function SettingsPage() {
   const [form, setForm] = useState<Company>(empty);
   const [loading, setLoading] = useState(true);
@@ -65,7 +93,8 @@ export default function SettingsPage() {
         subtitle="Your shop details — shown on invoices and used to tailor your workspace"
         icon={<Building2 size={20} />}
       />
-      <div className="card max-w-2xl p-6 sm:p-8">
+      <SettingsJumpNav />
+      <div id="sec-company" className="card anchor-scroll max-w-2xl p-6 sm:p-8">
         {loading ? (
           <div className="space-y-4">{[1, 2, 3, 4].map((i) => <div key={i} className="h-12 animate-pulse rounded-xl bg-muted" />)}</div>
         ) : (
@@ -119,7 +148,7 @@ export default function SettingsPage() {
           </form>
         )}
       </div>
-      <div className="card mt-6 max-w-2xl p-6 sm:p-8">
+      <div id="sec-data" className="card anchor-scroll mt-6 max-w-2xl p-6 sm:p-8">
         <h2 className="text-lg font-extrabold">Data &amp; backup</h2>
         <p className="mt-1 text-sm text-muted-foreground">
           Your data is yours. Download a full backup anytime, or export any register to a spreadsheet.
@@ -156,7 +185,7 @@ export default function SettingsPage() {
       <PeriodLockCard />
       <SystemHealthCard isOwner={isOwner} />
       <DangerZoneCard isOwner={isOwner} />
-      <div className="card mt-6 max-w-2xl p-6 sm:p-8">
+      <div id="sec-activity" className="card anchor-scroll mt-6 max-w-2xl p-6 sm:p-8">
         <div className="flex items-center justify-between gap-3">
           <div>
             <h2 className="text-lg font-extrabold">Activity log</h2>
@@ -227,7 +256,7 @@ function BackupsCard({ isOwner }: { isOwner: boolean }) {
   const totalRows = (r: Record<string, number>) => Object.values(r).reduce((a, n) => a + n, 0);
 
   return (
-    <div className="card mt-6 max-w-2xl p-6 sm:p-8">
+    <div id="sec-backups" className="card anchor-scroll mt-6 max-w-2xl p-6 sm:p-8">
       <h2 className="inline-flex items-center gap-2 text-lg font-extrabold"><History size={19} /> Automatic backups</h2>
       <p className="mt-1 text-sm text-muted-foreground">
         Your whole company is backed up automatically twice a day. The last 14 automatic backups are kept — manual ones are never deleted.
@@ -374,7 +403,7 @@ function TeamCard() {
   }
 
   return (
-    <div className="card mt-6 max-w-2xl p-6 sm:p-8">
+    <div id="sec-team" className="card anchor-scroll mt-6 max-w-2xl p-6 sm:p-8">
       <div className="flex items-center justify-between gap-3">
         <div>
           <h2 className="inline-flex items-center gap-2 text-lg font-extrabold"><Users size={19} /> Team</h2>
@@ -406,17 +435,17 @@ function TeamCard() {
           <ul className="mt-4 divide-y divide-border">
             {users.map((u) => (
               <li key={u.id} className="py-3">
-                <div className="flex items-center justify-between gap-3">
+                <div className="flex flex-col gap-2.5 sm:flex-row sm:items-center sm:justify-between sm:gap-3">
                   <div className="min-w-0">
                     <p className="truncate text-sm font-bold">{u.name} {!u.isActive && <span className="badge bg-muted text-xs text-muted-foreground">inactive</span>}</p>
                     <p className="truncate text-xs text-muted-foreground">{u.email}</p>
                   </div>
-                  <div className="flex shrink-0 items-center gap-2">
+                  <div className="flex flex-wrap items-center gap-2">
                     <select
                       className="field !w-auto !py-1.5 text-xs"
                       value={u.role}
                       onChange={(e) => patchUser(u.id, { role: e.target.value })}
-                      aria-label="Role"
+                      aria-label={`Role for ${u.name}`}
                     >
                       <option value="OWNER">Owner</option>
                       <option value="STAFF">Staff</option>
@@ -482,7 +511,7 @@ function ImportCard() {
   }
 
   return (
-    <div className="card mt-6 max-w-2xl p-6 sm:p-8">
+    <div id="sec-import" className="card anchor-scroll mt-6 max-w-2xl p-6 sm:p-8">
       <h2 className="text-lg font-extrabold">Import from spreadsheet</h2>
       <p className="mt-1 text-sm text-muted-foreground">
         Bring your existing products and parties from Excel. Download a template, fill it in, then upload the CSV.
@@ -583,7 +612,7 @@ function SecurityCard() {
   }
 
   return (
-    <div className="card mt-6 max-w-2xl p-6 sm:p-8">
+    <div id="sec-security" className="card anchor-scroll mt-6 max-w-2xl p-6 sm:p-8">
       <h2 className="inline-flex items-center gap-2 text-lg font-extrabold"><KeyRound size={19} /> Password & recovery</h2>
       <p className="mt-1 text-sm text-muted-foreground">Change your password, or get a new recovery code for forgotten passwords.</p>
 
@@ -675,7 +704,7 @@ function SessionsCard() {
   }
 
   return (
-    <div className="card mt-6 max-w-2xl p-6 sm:p-8">
+    <div id="sec-sessions" className="card anchor-scroll mt-6 max-w-2xl p-6 sm:p-8">
       <h2 className="inline-flex items-center gap-2 text-lg font-extrabold"><MonitorSmartphone size={19} /> Sessions &amp; devices</h2>
       <p className="mt-1 text-sm text-muted-foreground">
         Where your account is signed in. For your security, a session ends automatically after a day without activity.
@@ -744,7 +773,7 @@ function PeriodLockCard() {
   }
 
   return (
-    <div className="card mt-6 max-w-2xl p-6 sm:p-8">
+    <div id="sec-lock" className="card anchor-scroll mt-6 max-w-2xl p-6 sm:p-8">
       <h2 className="inline-flex items-center gap-2 text-lg font-extrabold"><Lock size={19} /> Accounting period lock</h2>
       <p className="mt-1 text-sm text-muted-foreground">
         Lock the books up to a date — for example after closing the month. While locked, no entry dated on or
@@ -819,7 +848,7 @@ function SystemHealthCard({ isOwner }: { isOwner: boolean }) {
   if (!isOwner) return null;
 
   return (
-    <div className="card mt-6 max-w-2xl p-6 sm:p-8">
+    <div id="sec-health" className="card anchor-scroll mt-6 max-w-2xl p-6 sm:p-8">
       <h2 className="inline-flex items-center gap-2 text-lg font-extrabold"><Activity size={19} /> System health</h2>
       <p className="mt-1 text-sm text-muted-foreground">
         Recent unexpected server errors. If something breaks for your team, it shows up here.
@@ -890,7 +919,7 @@ function DangerZoneCard({ isOwner }: { isOwner: boolean }) {
   }
 
   return (
-    <div className="card mt-6 max-w-2xl border-red-500/30 p-6 sm:p-8">
+    <div id="sec-danger" className="card anchor-scroll mt-6 max-w-2xl border-red-500/30 p-6 sm:p-8">
       <h2 className="inline-flex items-center gap-2 text-lg font-extrabold text-red-600 dark:text-red-400">
         <TriangleAlert size={19} /> Danger zone
       </h2>
