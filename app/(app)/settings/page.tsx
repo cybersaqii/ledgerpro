@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Building2, Database, Download, Save, Upload, Users, UserPlus, ScrollText, KeyRound, Copy, Check, Lock, Activity, TriangleAlert, MonitorSmartphone, LogOut, CircleCheck } from "lucide-react";
+import { Building2, Database, Download, Save, Upload, Users, UserPlus, ScrollText, KeyRound, Copy, Check, Lock, Activity, TriangleAlert, MonitorSmartphone, LogOut, CircleCheck, History, ShieldCheck, RefreshCw, Crown } from "lucide-react";
 import { PageHeader, Field, ErrorNote } from "@/components/ui";
 import { api, fmtDate } from "@/lib/format";
 import { BUSINESS_TYPES } from "@/lib/business-types";
@@ -149,6 +149,7 @@ export default function SettingsPage() {
         </div>
       </div>
       <ImportCard />
+      <BackupsCard isOwner={isOwner} />
       <TeamCard />
       <SecurityCard />
       <SessionsCard />
@@ -174,6 +175,140 @@ export default function SettingsPage() {
 }
 
 type TeamUser = { id: string; name: string; email: string; role: string; isActive: boolean; lastLoginAt: number | string | null };
+
+function BackupsCard({ isOwner }: { isOwner: boolean }) {
+  type BackupItem = { id: string; createdAt: string; byteSize: number; rowCounts: Record<string, number>; trigger: "auto" | "manual" };
+  type Verify = { ok: boolean; rowCounts: Record<string, number>; errors: string[] };
+  const [items, setItems] = useState<BackupItem[] | null>(null);
+  const [pro, setPro] = useState<boolean | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [verifying, setVerifying] = useState<string | null>(null);
+  const [results, setResults] = useState<Record<string, Verify>>({});
+
+  useEffect(() => {
+    if (!isOwner) return;
+    let alive = true;
+    api<{ data: { level: string } }>("/api/billing/status")
+      .then((d) => {
+        if (!alive) return;
+        if (d.data.level === "FREE") { setPro(false); return; }
+        setPro(true);
+        return api<{ data: BackupItem[] }>("/api/backups")
+          .then((b) => { if (alive) setItems(b.data); });
+      })
+      .catch((e) => { if (alive) setError(e instanceof Error ? e.message : "Could not load backups."); });
+    return () => { alive = false; };
+  }, [isOwner]);
+
+  if (!isOwner) return null;
+
+  async function backupNow() {
+    setBusy(true); setError(null);
+    try {
+      const d = await api<{ data: { backups: BackupItem[] } }>("/api/backups", { method: "POST" });
+      setItems(d.data.backups);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Could not create the backup.");
+    } finally { setBusy(false); }
+  }
+
+  async function verify(id: string) {
+    setVerifying(id); setError(null);
+    try {
+      const d = await api<{ data: Verify }>(`/api/backups/${id}/verify`, { method: "POST" });
+      setResults((r) => ({ ...r, [id]: d.data }));
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Could not verify the backup.");
+    } finally { setVerifying(null); }
+  }
+
+  const kb = (b: number) => (b / 1024).toFixed(1) + " KB";
+  const totalRows = (r: Record<string, number>) => Object.values(r).reduce((a, n) => a + n, 0);
+
+  return (
+    <div className="card mt-6 max-w-2xl p-6 sm:p-8">
+      <h2 className="inline-flex items-center gap-2 text-lg font-extrabold"><History size={19} /> Automatic backups</h2>
+      <p className="mt-1 text-sm text-muted-foreground">
+        Your whole company is backed up automatically twice a day. The last 14 automatic backups are kept — manual ones are never deleted.
+      </p>
+      <ErrorNote message={error} />
+      {pro === false ? (
+        <div className="mt-4 rounded-2xl border border-amber-500/30 bg-amber-500/5 p-4">
+          <p className="inline-flex items-center gap-2 text-sm font-bold text-amber-700 dark:text-amber-300">
+            <Crown size={15} /> Scheduled backups are a PRO feature
+          </p>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Upgrade to keep automatic twice-daily backups of your company.
+          </p>
+          <Link href="/billing" className="btn btn-primary mt-3 text-sm">View plans</Link>
+        </div>
+      ) : items === null ? (
+        <div className="mt-4 space-y-2">{[1, 2].map((i) => <div key={i} className="h-14 animate-pulse rounded-xl bg-muted" />)}</div>
+      ) : (
+        <>
+          <button onClick={backupNow} disabled={busy} className="btn btn-primary mt-4 text-sm">
+            <RefreshCw size={15} /> {busy ? "Backing up…" : "Back up now"}
+          </button>
+          {items.length === 0 ? (
+            <p className="mt-4 text-sm text-muted-foreground">No backups yet — press “Back up now” or wait for the next automatic run.</p>
+          ) : (
+            <ul className="mt-4 divide-y divide-border rounded-2xl border border-border">
+              {items.map((b) => {
+                const v = results[b.id];
+                return (
+                  <li key={b.id} className="px-4 py-3">
+                    <div className="flex items-center gap-3">
+                      <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-muted text-muted-foreground">
+                        <Database size={16} />
+                      </span>
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate text-sm font-bold">
+                          {fmtDate(b.createdAt)}
+                          <span className={`ml-2 rounded-full px-2 py-0.5 text-[0.7rem] font-extrabold ${b.trigger === "auto" ? "bg-muted text-muted-foreground" : "bg-primary-soft text-primary"}`}>
+                            {b.trigger === "auto" ? "Auto" : "Manual"}
+                          </span>
+                        </p>
+                        <p className="truncate text-xs text-muted-foreground">
+                          {kb(b.byteSize)} · {totalRows(b.rowCounts)} records
+                        </p>
+                      </div>
+                      <a href={`/api/backups/${b.id}`} download className="btn btn-ghost shrink-0 !px-2.5 !py-2 text-xs" title="Download backup">
+                        <Download size={15} />
+                      </a>
+                      <button
+                        onClick={() => verify(b.id)}
+                        disabled={verifying === b.id}
+                        className="btn btn-ghost shrink-0 !px-2.5 !py-2 text-xs"
+                        title="Verify backup (dry-run — checks the backup without touching your data)"
+                      >
+                        <ShieldCheck size={15} /> {verifying === b.id ? "…" : ""}
+                      </button>
+                    </div>
+                    {v && (
+                      <div className={`mt-2 rounded-xl px-3 py-2 text-xs font-semibold ${v.ok ? "bg-emerald-500/10 text-emerald-700 dark:text-emerald-300" : "bg-red-500/10 text-red-600 dark:text-red-400"}`}>
+                        {v.ok ? (
+                          <>Verified — {totalRows(v.rowCounts)} records across {Object.keys(v.rowCounts).length} sections are intact and restorable.</>
+                        ) : (
+                          <>
+                            <p>Verification found problems:</p>
+                            <ul className="mt-1 list-disc space-y-0.5 pl-4">
+                              {v.errors.map((e, i) => <li key={i}>{e}</li>)}
+                            </ul>
+                          </>
+                        )}
+                      </div>
+                    )}
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+        </>
+      )}
+    </div>
+  );
+}
 
 function TeamCard() {
   const [users, setUsers] = useState<TeamUser[]>([]);

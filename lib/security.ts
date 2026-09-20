@@ -113,6 +113,8 @@ export interface OnboardingStep {
   done: boolean;
   /** Shown with a PRO badge and sent to /billing instead of the feature. */
   locked?: boolean;
+  /** When set, the dashboard renders a one-click button instead of a link. */
+  action?: "load-sample";
 }
 
 export interface OnboardingFacts {
@@ -123,11 +125,15 @@ export interface OnboardingFacts {
   hasTeammate: boolean;
   /** True when the team feature is PRO-gated for this company right now. */
   teamLocked: boolean;
+  /** True when the sample demo dataset is currently loaded. */
+  sampleLoaded: boolean;
+  /** Only owners may load/remove sample data — staff never see the step. */
+  isOwner: boolean;
 }
 
 /** Pure step list from live DB facts — the API computes facts, UI renders steps. */
 export function computeOnboardingSteps(f: OnboardingFacts): OnboardingStep[] {
-  return [
+  const steps: OnboardingStep[] = [
     {
       key: "profile",
       label: "Complete your business profile",
@@ -165,4 +171,17 @@ export function computeOnboardingSteps(f: OnboardingFacts): OnboardingStep[] {
       locked: f.teamLocked || undefined,
     },
   ];
+  if (f.isOwner) {
+    // One-click demo data for brand-new companies. Done when loaded, or when
+    // real data already exists (samples are pointless then — and blocked).
+    steps.push({
+      key: "sample",
+      label: "Try sample data",
+      hint: "Load demo parties, products and bills to explore — removes cleanly",
+      href: "/settings",
+      done: f.sampleLoaded || (f.hasParty && f.hasProduct),
+      action: "load-sample",
+    });
+  }
+  return steps;
 }

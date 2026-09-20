@@ -502,3 +502,35 @@ export const supportRequests = sqliteTable(
   },
   (t) => [index("support_requests_status").on(t.status, t.createdAt)]
 );
+
+// ─── Scheduled backups + sample-data manifest ───────────────────
+
+// Automatic (cron) and manual full-company backups. Payload is the same JSON
+// the owner-only /api/export?kind=backup download produces.
+export const backups = sqliteTable(
+  "backups",
+  {
+    id: id(),
+    companyId: text("company_id").notNull(),
+    createdAt: createdAt(),
+    byteSize: integer("byte_size").notNull(),
+    rowCounts: text("row_counts").notNull().default("{}"), // JSON: { table: count }
+    payload: text("payload").notNull(), // full backup JSON
+    trigger: text("trigger").notNull().default("auto"), // auto | manual
+  },
+  (t) => [index("backups_company_time").on(t.companyId, t.createdAt)]
+);
+
+// Tracks every row created by the sample-data loader so removal deletes
+// exactly those rows and nothing else.
+export const sampleManifest = sqliteTable(
+  "sample_manifest",
+  {
+    id: id(),
+    companyId: text("company_id").notNull(),
+    tableName: text("table_name").notNull(),
+    rowId: text("row_id").notNull(),
+    createdAt: createdAt(),
+  },
+  (t) => [index("sample_manifest_company").on(t.companyId)]
+);

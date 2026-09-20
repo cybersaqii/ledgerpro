@@ -25,7 +25,12 @@ type DashboardData = {
 
 type OnboardingStep = {
   key: string; label: string; hint: string; href: string; done: boolean; locked?: boolean;
+  action?: "load-sample";
 };
+
+async function loadSampleDataNow(): Promise<void> {
+  await api("/api/sample-data", { method: "POST" });
+}
 
 export default function DashboardPage() {
   const bp = useBusinessProfile();
@@ -33,6 +38,8 @@ export default function DashboardPage() {
   const [error, setError] = useState<string | null>(null);
   const [showRecoveryNudge, setShowRecoveryNudge] = useState(false);
   const [steps, setSteps] = useState<OnboardingStep[] | null>(null);
+  const [sampleBusy, setSampleBusy] = useState(false);
+  const [sampleError, setSampleError] = useState<string | null>(null);
 
   const quickActions = [
     { href: "/sales/new", label: bp.newSale, icon: ShoppingCart, cls: "bg-primary-soft text-primary" },
@@ -137,6 +144,31 @@ export default function DashboardPage() {
           <ul className="mt-4 space-y-1.5">
             {steps.map((s) => (
               <li key={s.key}>
+                {s.action === "load-sample" && !s.done ? (
+                  <button
+                    onClick={async () => {
+                      setSampleBusy(true); setSampleError(null);
+                      try {
+                        await loadSampleDataNow();
+                        const d = await api<{ data: OnboardingStep[] }>("/api/onboarding");
+                        if (d.data.some((x) => !x.done)) setSteps(d.data); else setSteps(null);
+                      } catch (e) {
+                        setSampleError(e instanceof Error ? e.message : "Could not load sample data.");
+                      } finally { setSampleBusy(false); }
+                    }}
+                    disabled={sampleBusy}
+                    className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left transition hover:bg-muted/70 disabled:opacity-60"
+                  >
+                    <Circle size={19} className="shrink-0 text-muted-foreground" />
+                    <span className="min-w-0 flex-1">
+                      <span className="block truncate text-sm font-bold">{s.label}</span>
+                      <span className="block truncate text-xs text-muted-foreground">{s.hint}</span>
+                    </span>
+                    <span className="shrink-0 rounded-full bg-primary-soft px-3 py-1.5 text-xs font-extrabold text-primary">
+                      {sampleBusy ? "Loading…" : "Load now"}
+                    </span>
+                  </button>
+                ) : (
                 <Link
                   href={s.href}
                   className={`flex items-center gap-3 rounded-xl px-3 py-2.5 transition hover:bg-muted/70 ${s.done ? "opacity-60" : ""}`}
@@ -155,9 +187,15 @@ export default function DashboardPage() {
                   )}
                   {!s.done && <ArrowRight size={16} className="shrink-0 text-muted-foreground" />}
                 </Link>
+                )}
               </li>
             ))}
           </ul>
+          {sampleError && (
+            <p className="mt-2 rounded-xl bg-red-500/10 px-3 py-2 text-xs font-semibold text-red-600 dark:text-red-400">
+              {sampleError}
+            </p>
+          )}
         </div>
       )}
 

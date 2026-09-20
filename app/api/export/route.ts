@@ -1,13 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
 import { eq, and, desc } from "drizzle-orm";
 import {
-  companies, branches, accounts, parties, products, bankAccounts,
-  salesDocs, salesDocItems, purchaseDocs, purchaseDocItems,
-  payments, paymentAllocations, expenses,
-  journalEntries, journalLines, numberSequences, stockLevels,
+  accounts, parties, products, bankAccounts,
+  salesDocs, purchaseDocs,
+  payments, expenses,
+  stockLevels,
 } from "@/db/schema";
 import { requireCompany, requireOwner, db } from "@/lib/route-helpers";
 import { requirePro } from "@/lib/billing-guards";
+import { buildBackupPayload, serializeBackup } from "@/lib/backup";
 
 
 // GET /api/export?kind=backup|parties|products|sales|purchases|payments|expenses|stock
@@ -52,55 +53,8 @@ export async function GET(req: NextRequest) {
   const pro = await requirePro("import_export");
   if (!pro.ok) return pro.response;
 
-    const c = companyId;
-    const data = {
-      exportedAt: new Date().toISOString(),
-      app: "LedgerPro",
-      version: 1,
-      company: (await db.select().from(companies).where(eq(companies.id, c)).limit(1))[0] ?? null,
-      branches: await db.select().from(branches).where(eq(branches.companyId, c)),
-      accounts: await db.select().from(accounts).where(eq(accounts.companyId, c)),
-      parties: await db.select().from(parties).where(eq(parties.companyId, c)),
-      products: await db.select().from(products).where(eq(products.companyId, c)),
-      bankAccounts: await db.select().from(bankAccounts).where(eq(bankAccounts.companyId, c)),
-      salesDocs: await db.select().from(salesDocs).where(eq(salesDocs.companyId, c)),
-      salesDocItems: await db
-        .select({ i: salesDocItems })
-        .from(salesDocItems)
-        .innerJoin(salesDocs, eq(salesDocItems.docId, salesDocs.id))
-        .where(eq(salesDocs.companyId, c))
-        .then((rows) => rows.map((r) => r.i)),
-      purchaseDocs: await db.select().from(purchaseDocs).where(eq(purchaseDocs.companyId, c)),
-      purchaseDocItems: await db
-        .select({ i: purchaseDocItems })
-        .from(purchaseDocItems)
-        .innerJoin(purchaseDocs, eq(purchaseDocItems.docId, purchaseDocs.id))
-        .where(eq(purchaseDocs.companyId, c))
-        .then((rows) => rows.map((r) => r.i)),
-      payments: await db.select().from(payments).where(eq(payments.companyId, c)),
-      paymentAllocations: await db
-        .select({ a: paymentAllocations })
-        .from(paymentAllocations)
-        .innerJoin(payments, eq(paymentAllocations.paymentId, payments.id))
-        .where(eq(payments.companyId, c))
-        .then((rows) => rows.map((r) => r.a)),
-      expenses: await db.select().from(expenses).where(eq(expenses.companyId, c)),
-      journalEntries: await db.select().from(journalEntries).where(eq(journalEntries.companyId, c)),
-      journalLines: await db
-        .select({ l: journalLines })
-        .from(journalLines)
-        .innerJoin(journalEntries, eq(journalLines.entryId, journalEntries.id))
-        .where(eq(journalEntries.companyId, c))
-        .then((rows) => rows.map((r) => r.l)),
-      stockLevels: await db
-        .select({ s: stockLevels })
-        .from(stockLevels)
-        .innerJoin(products, eq(stockLevels.productId, products.id))
-        .where(eq(products.companyId, c))
-        .then((rows) => rows.map((r) => r.s)),
-      numberSequences: await db.select().from(numberSequences).where(eq(numberSequences.companyId, c)),
-    };
-    const body = JSON.stringify(data, (_k, v) => (typeof v === "bigint" ? v.toString() : v));
+    const { payload } = await buildBackupPayload(db, companyId);
+    const body = serializeBackup(payload);
     return new NextResponse(body, {
       headers: {
         "content-type": "application/json",

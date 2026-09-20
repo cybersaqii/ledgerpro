@@ -131,10 +131,11 @@ describe("parseDevice", () => {
 });
 
 describe("onboarding checklist", () => {
-  it("builds five deep-linked steps from live facts", () => {
+  it("builds five deep-linked steps from live facts (plus the owner-only sample step)", () => {
     const steps = computeOnboardingSteps({
       profileComplete: false, hasParty: false, hasProduct: false,
       hasSale: false, hasTeammate: false, teamLocked: false,
+      sampleLoaded: false, isOwner: false,
     });
     expect(steps).toHaveLength(5);
     expect(steps.map((x) => x.key)).toEqual(["profile", "party", "product", "sale", "team"]);
@@ -149,8 +150,9 @@ describe("onboarding checklist", () => {
     const steps = computeOnboardingSteps({
       profileComplete: true, hasParty: true, hasProduct: true,
       hasSale: true, hasTeammate: false, teamLocked: true,
+      sampleLoaded: false, isOwner: true,
     });
-    expect(steps.filter((x) => x.done)).toHaveLength(4);
+    expect(steps.filter((x) => x.done)).toHaveLength(5); // 4 real steps + sample (real data exists)
     const team = steps.find((x) => x.key === "team")!;
     expect(team.done).toBe(false);
     expect(team.locked).toBe(true);
