@@ -17,7 +17,7 @@ export interface ChangelogEntry {
 export const CHANGELOG: ChangelogEntry[] = [
   {
     date: "2026-09-20",
-    tag: "PENDING",
+    tag: "23d349e",
     title: "Granular staff permissions",
     bullets: [
       "Staff access is now per-permission: sales, purchases, POS, payments, expenses, parties, products, stock, price lists, documents, reports, held bills, settings, team, import/export, backups, period lock and audit trail.",
