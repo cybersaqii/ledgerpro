@@ -327,6 +327,20 @@ body::before {
 .card-lift { transition: transform 0.2s ease, box-shadow 0.25s ease; }
 .card-lift:hover { transform: translateY(-3px); box-shadow: var(--shadow-pop); }
 
+/* Clickable dashboard KPI tiles — pointer cursor + arrow chip affordance */
+.kpi-tile { border-radius: var(--radius); }
+.kpi-tile:focus-visible { outline: 2px solid var(--primary); outline-offset: 3px; }
+.kpi-tile-go {
+  position: absolute; right: 0.9rem; bottom: 0.9rem;
+  display: grid; place-items: center; height: 1.9rem; width: 1.9rem;
+  border-radius: 9999px; background: var(--primary-soft); color: var(--primary);
+  opacity: 0.45; transform: translateY(0); pointer-events: none;
+  transition: opacity 0.18s ease, transform 0.18s ease;
+}
+.kpi-tile:hover .kpi-tile-go, .kpi-tile:focus-visible .kpi-tile-go {
+  opacity: 1; transform: translateY(-2px);
+}
+
 /* Gradient hairline along the top edge of a card */
 .card-edge { position: relative; overflow: hidden; }
 .card-edge::after {
@@ -453,6 +467,6 @@ body::before {
   .skeleton::after, .modal-pop, .pulse-dot, .banner-shine::after, .trial-cta,
   .btn-primary::after, .btn-accent::after { animation: none !important; }
   .btn, .btn-primary, .btn-accent, .btn-ghost, a, button, input, select, textarea,
-  .card-lift, .tbl tbody tr { transition: none !important; }
+  .card-lift, .tbl tbody tr, .kpi-tile-go { transition: none !important; }
   .btn-primary:hover, .btn-accent:hover, .btn-ghost:hover, .card-lift:hover { transform: none !important; }
 }

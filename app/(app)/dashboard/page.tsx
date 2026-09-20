@@ -1,17 +1,19 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import {
   TrendingUp, ShoppingBag, ReceiptText, ArrowDownToLine, ArrowUpFromLine,
   Landmark, TriangleAlert, FileText, LayoutDashboard, Zap, ArrowRight,
   ShoppingCart, Truck, Users, Package, BarChart3, KeyRound, X, CircleCheck, Circle, ListChecks, Crown, RotateCcw,
+  ArrowUpRight,
 } from "lucide-react";
 import { PageHeader, Stat, EmptyState } from "@/components/ui";
 import { api, fmtMoney, fmtDate } from "@/lib/format";
 import { useBusinessProfile } from "@/components/business-type";
 import { useLang } from "@/components/lang-provider";
 import { useCan } from "@/components/permissions";
+import { metricTileTarget, type MetricTileKey } from "@/lib/dashboard-tiles";
 import {
   ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, CartesianGrid,
 } from "recharts";
@@ -112,6 +114,21 @@ export default function DashboardPage() {
 
   const k = data.kpis;
   const trend = data.salesTrend.map((t) => ({ month: t.month.slice(5), total: Number(BigInt(t.total) / 100n) }));
+
+  // Interactive metric tiles — each KPI opens its detail list.
+  const metricTiles: Array<{
+    key: MetricTileKey; label: string; value: string; sub?: string;
+    icon: ReactNode; tone: "primary" | "accent" | "danger" | "neutral"; target: string;
+  }> = [
+    { key: "salesToday", label: `${bp.salesNav} ${t("dashboard.today")}`, value: fmtMoney(k.salesToday), icon: <TrendingUp size={20} />, tone: "primary", target: bp.salesNav },
+    { key: "salesMonth", label: `${bp.salesNav} ${t("dashboard.thisMonth")}`, value: fmtMoney(k.salesMonth), icon: <ShoppingBag size={20} />, tone: "primary", target: bp.salesNav },
+    { key: "receivables", label: bp.receivables, value: fmtMoney(k.receivables), sub: t("dashboard.fromParties", { parties: bp.partyMany.toLowerCase() }), icon: <ArrowDownToLine size={20} />, tone: "accent", target: bp.receivables },
+    { key: "payables", label: t("dashboard.toPay"), value: fmtMoney(k.payables), sub: t("dashboard.toSuppliers"), icon: <ArrowUpFromLine size={20} />, tone: "danger", target: t("balances.payables") },
+    { key: "cashBank", label: t("dashboard.cashBank"), value: fmtMoney(k.cashAndBank), icon: <Landmark size={20} />, tone: "neutral", target: t("nav.payments") },
+    { key: "expensesMonth", label: t("dashboard.expensesMonth"), value: fmtMoney(k.expensesMonth), icon: <ReceiptText size={20} />, tone: "neutral", target: t("nav.expenses") },
+    { key: "lowStock", label: t("dashboard.lowStock"), value: String(k.lowStock), sub: t("dashboard.needsReorder"), icon: <TriangleAlert size={20} />, tone: k.lowStock > 0 ? "danger" : "neutral", target: t("dashboard.lowStock") },
+    { key: "profitLoss", label: t("dashboard.profitLoss"), value: fmtMoney(k.profitMonth), sub: t("dashboard.profitSub"), icon: <FileText size={20} />, tone: "primary", target: t("dashboard.profitLoss") },
+  ];
 
   return (
     <div>
@@ -260,18 +277,19 @@ export default function DashboardPage() {
       </div>
 
       <div className="stagger-rise grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <Stat label={`${bp.salesNav} ${t("dashboard.today")}`} value={fmtMoney(k.salesToday)} icon={<TrendingUp size={20} />} tone="primary" />
-        <Stat label={`${bp.salesNav} ${t("dashboard.thisMonth")}`} value={fmtMoney(k.salesMonth)} icon={<ShoppingBag size={20} />} tone="primary" />
-        <Stat label={bp.receivables} value={fmtMoney(k.receivables)} sub={t("dashboard.fromParties", { parties: bp.partyMany.toLowerCase() })} icon={<ArrowDownToLine size={20} />} tone="accent" />
-        <Stat label={t("dashboard.toPay")} value={fmtMoney(k.payables)} sub={t("dashboard.toSuppliers")} icon={<ArrowUpFromLine size={20} />} tone="danger" />
-        <Stat label={t("dashboard.cashBank")} value={fmtMoney(k.cashAndBank)} icon={<Landmark size={20} />} tone="neutral" />
-        <Stat label={t("dashboard.expensesMonth")} value={fmtMoney(k.expensesMonth)} icon={<ReceiptText size={20} />} tone="neutral" />
-        <Link href="/stock?lowStock=1" className="rise block">
-          <Stat label={t("dashboard.lowStock")} value={String(k.lowStock)} sub={t("dashboard.needsReorder")} icon={<TriangleAlert size={20} />} tone={k.lowStock > 0 ? "danger" : "neutral"} />
-        </Link>
-        <Link href="/reports/profit-loss" className="rise block">
-          <Stat label={t("dashboard.profitLoss")} value={fmtMoney(k.profitMonth)} sub={t("dashboard.profitSub")} icon={<FileText size={20} />} tone="primary" />
-        </Link>
+        {metricTiles.map((tile) => (
+          <Link
+            key={tile.key}
+            href={metricTileTarget(tile.key)}
+            aria-label={t("dashboard.openTile", { target: tile.target })}
+            className="kpi-tile group relative block"
+          >
+            <Stat label={tile.label} value={tile.value} sub={tile.sub} icon={tile.icon} tone={tile.tone} />
+            <span className="kpi-tile-go" aria-hidden="true">
+              <ArrowUpRight size={15} />
+            </span>
+          </Link>
+        ))}
       </div>
 
       <div className="mt-6 grid gap-4 xl:grid-cols-5">

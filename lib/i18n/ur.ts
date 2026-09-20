@@ -172,6 +172,7 @@ export const ur: DeepPartial<EnDict> = {
     noRecent: "ابھی کوئی {sales} نہیں",
     noRecentHint: "آپ کی حالیہ {sales} یہاں نظر آئے گی۔",
     salesTooltip: "فروخت",
+    openTile: "{target} کی فہرست کھولیں",
   },
   docs: {
     purchasesTitle: "خریداریاں",

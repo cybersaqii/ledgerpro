@@ -170,6 +170,7 @@ export const en = {
     noRecent: "No {sales} yet",
     noRecentHint: "Your recent {sales} will appear here.",
     salesTooltip: "Sales",
+    openTile: "Open {target} list",
   },
   docs: {
     purchasesTitle: "Purchases",
