@@ -260,23 +260,23 @@ export function DocDetail({ mode, id }: { mode: "SALES" | "PURCHASE"; id: string
           <p className="mt-10 text-center text-xs text-muted-foreground">{t("docdetail.generatedBy", { brand: brand.name, tagline: brand.tagline })}</p>
         </div>
       ) : (
-        <div className="thermal mx-auto bg-white p-4 text-black print:shadow-none">
+        <div className="thermal mx-auto bg-white p-3 text-black print:shadow-none">
           {/* header: business name, address, bank lines, phone */}
           <div className="text-center">
-            <p className="break-words text-[17px] font-extrabold leading-tight">{sellerName}</p>
-            {company?.address && <p className="mt-0.5 break-words text-xs">{company.address}</p>}
-            {company?.city && <p className="break-words text-xs">{company.city}</p>}
+            <p className="break-words text-[15px] font-extrabold leading-tight">{sellerName}</p>
+            {company?.address && <p className="mt-0.5 break-words text-[11px] leading-snug">{company.address}</p>}
+            {company?.city && <p className="break-words text-[11px] leading-snug">{company.city}</p>}
             {company?.bankInfo && company.bankInfo.split("\n").map((line, i) => (
-              line.trim() ? <p key={i} className="break-words text-xs">{line.trim()}</p> : null
+              line.trim() ? <p key={i} className="break-words text-[11px] leading-snug">{line.trim()}</p> : null
             ))}
-            {company?.phone && <p className="break-words text-xs">{company.phone}</p>}
-            {company?.ntn && <p className="text-xs">NTN: {company.ntn}</p>}
+            {company?.phone && <p className="break-words text-[11px] leading-snug">{company.phone}</p>}
+            {company?.ntn && <p className="text-[11px] leading-snug">NTN: {company.ntn}</p>}
           </div>
 
-          <p className="mt-2 text-[22px] font-extrabold leading-tight">{docTitle}</p>
+          <p className="mt-2 text-[19px] font-extrabold leading-tight">{docTitle}</p>
 
           {/* customer / meta block */}
-          <div className="mt-1 flex items-start justify-between gap-2 text-xs">
+          <div className="mt-1 flex items-start justify-between gap-2 text-[11px]">
             <div className="min-w-0">
               <p className="font-extrabold">{isSales ? t("docdetail.customer") : t("docdetail.supplier")}</p>
               <p className="mt-0.5 break-words"><span className="font-bold">{t("docdetail.customerName")}</span> {doc.partyName ?? "—"}</p>
@@ -288,34 +288,36 @@ export function DocDetail({ mode, id }: { mode: "SALES" | "PURCHASE"; id: string
             </div>
           </div>
 
-          {/* boxed items table, like the paper invoice */}
-          <table className="mt-2 w-full border-collapse text-[11px]">
+          {/* boxed items table, like the paper invoice.
+              The item cell wraps anywhere (long codes like OPAL10+20+16AMP must
+              break) so the table can never grow wider than the 72mm receipt. */}
+          <table className="mt-2 w-full border-collapse text-[10px]">
             <thead>
               <tr>
-                <th className="border border-black px-1 py-1">{t("docdetail.colSrNo")}</th>
-                <th className="border border-black px-1 py-1 text-left">{t("docdetail.colItem")}</th>
-                <th className="border border-black px-1 py-1">{t("docdetail.colUnit")}</th>
-                <th className="border border-black px-1 py-1">{t("docdetail.colQty")}</th>
-                <th className="border border-black px-1 py-1">{t("docdetail.colRate")}</th>
-                <th className="border border-black px-1 py-1">{t("docdetail.colAmount")}</th>
+                <th className="whitespace-nowrap border border-black px-1 py-0.5">{t("docdetail.colSrNo")}</th>
+                <th className="border border-black px-1 py-0.5 text-left">{t("docdetail.colItem")}</th>
+                <th className="whitespace-nowrap border border-black px-1 py-0.5">{t("docdetail.colUnit")}</th>
+                <th className="whitespace-nowrap border border-black px-1 py-0.5">{t("docdetail.colQty")}</th>
+                <th className="whitespace-nowrap border border-black px-1 py-0.5">{t("docdetail.colRate")}</th>
+                <th className="whitespace-nowrap border border-black px-1 py-0.5">{t("docdetail.colAmount")}</th>
               </tr>
             </thead>
             <tbody>
               {doc.items.map((it, i) => (
                 <tr key={it.id}>
-                  <td className="border border-black px-1 py-1 text-center">{i + 1}</td>
-                  <td className="border border-black px-1 py-1">{it.description}</td>
-                  <td className="border border-black px-1 py-1 text-center">{it.unit ?? "—"}</td>
-                  <td className="border border-black px-1 py-1 text-right">{fmtQty(it.qty)}</td>
-                  <td className="border border-black px-1 py-1 text-right">{fmtMoneyPlain(it.rate)}</td>
-                  <td className="border border-black px-1 py-1 text-right font-bold">{fmtMoneyPlain(it.lineTotal)}</td>
+                  <td className="whitespace-nowrap border border-black px-1 py-0.5 text-center">{i + 1}</td>
+                  <td className="border border-black px-1 py-0.5 [overflow-wrap:anywhere]">{it.description}</td>
+                  <td className="whitespace-nowrap border border-black px-1 py-0.5 text-center">{it.unit ?? "—"}</td>
+                  <td className="whitespace-nowrap border border-black px-1 py-0.5 text-right">{fmtQty(it.qty)}</td>
+                  <td className="whitespace-nowrap border border-black px-1 py-0.5 text-right">{fmtMoneyPlain(it.rate)}</td>
+                  <td className="whitespace-nowrap border border-black px-1 py-0.5 text-right font-bold">{fmtMoneyPlain(it.lineTotal)}</td>
                 </tr>
               ))}
             </tbody>
           </table>
 
           {/* totals */}
-          <div className="mt-1 text-xs">
+          <div className="mt-1 text-[11px]">
             <div className="flex justify-between py-0.5">
               <span>{t("docdetail.subtotal")}:</span>
               <span>{fmtMoneyPlain(doc.subtotal)}</span>
@@ -332,7 +334,7 @@ export function DocDetail({ mode, id }: { mode: "SALES" | "PURCHASE"; id: string
                 <span>{fmtMoneyPlain(doc.taxTotal)}</span>
               </div>
             )}
-            <div className="flex items-center justify-between border-y-2 border-black py-1 text-[15px] font-extrabold">
+            <div className="flex items-center justify-between border-y-2 border-black py-1 text-[14px] font-extrabold">
               <span>{t("docdetail.total")}:</span>
               <span>Rs. {fmtMoneyPlain(doc.grandTotal)}</span>
             </div>
@@ -348,14 +350,14 @@ export function DocDetail({ mode, id }: { mode: "SALES" | "PURCHASE"; id: string
 
           {/* notes */}
           {(doc.notes || company?.invoiceFooter) && (
-            <div className="mt-2 text-xs">
+            <div className="mt-2 text-[11px]">
               <p className="font-extrabold">{t("docdetail.notes")}</p>
               <div className="border-t border-black" />
               <p className="mt-1 break-words">{doc.notes || company?.invoiceFooter}</p>
             </div>
           )}
 
-          <p className="mt-3 text-center text-xs">{t("docdetail.thankYou")}</p>
+          <p className="mt-3 text-center text-[11px]">{t("docdetail.thankYou")}</p>
           <p className="mt-1 text-center text-[10px] text-neutral-500">{t("docdetail.poweredBy", { brand: brand.name })}</p>
         </div>
       )}
