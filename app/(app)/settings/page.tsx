@@ -14,10 +14,11 @@ import { usePermissions } from "@/components/permissions";
 
 type Company = {
   name: string; email: string | null; phone: string | null; address: string | null;
-  city: string | null; ntn: string | null; businessType: string;
+  city: string | null; ntn: string | null; bankInfo: string | null; invoiceFooter: string | null;
+  businessType: string;
 };
 
-const empty: Company = { name: "", email: "", phone: "", address: "", city: "", ntn: "", businessType: "WHOLESALE" };
+const empty: Company = { name: "", email: "", phone: "", address: "", city: "", ntn: "", bankInfo: "", invoiceFooter: "", businessType: "WHOLESALE" };
 
 const SECTIONS = [
   "sec-company",
@@ -81,6 +82,7 @@ export default function SettingsPage() {
       .then((d) => setForm({
         name: d.data.name ?? "", email: d.data.email ?? "", phone: d.data.phone ?? "",
         address: d.data.address ?? "", city: d.data.city ?? "", ntn: d.data.ntn ?? "",
+        bankInfo: d.data.bankInfo ?? "", invoiceFooter: d.data.invoiceFooter ?? "",
         businessType: d.data.businessType ?? "WHOLESALE",
       }))
       .catch(() => setError(t("settings.loadError")))
@@ -157,6 +159,14 @@ export default function SettingsPage() {
                 <input className="field" value={form.ntn ?? ""} onChange={set("ntn")} />
               </Field>
             </div>
+            <Field label={t("settings.bankInfo")}>
+              <textarea className="field min-h-20" value={form.bankInfo ?? ""} onChange={set("bankInfo")} placeholder={t("settings.bankInfoPh")} />
+              <p className="mt-1 text-xs text-muted-foreground">{t("settings.bankInfoHint")}</p>
+            </Field>
+            <Field label={t("settings.invoiceFooter")}>
+              <textarea className="field min-h-20" value={form.invoiceFooter ?? ""} onChange={set("invoiceFooter")} placeholder={t("settings.invoiceFooterPh")} />
+              <p className="mt-1 text-xs text-muted-foreground">{t("settings.invoiceFooterHint")}</p>
+            </Field>
             <div className="flex justify-end pt-2">
               <button className="btn btn-primary" disabled={saving || !canEditCompany}>
                 <Save size={16} /> {saving ? t("settings.saving") : t("settings.saveChanges")}

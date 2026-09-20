@@ -5,23 +5,25 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { ArrowLeft, ArrowRightLeft, MessageCircle, Printer, Undo2, Wallet } from "lucide-react";
 import { PageHeader, StatusPill } from "@/components/ui";
-import { api, fmtMoney, fmtQty, fmtDate } from "@/lib/format";
+import { api, fmtMoney, fmtMoneyPlain, fmtQty, fmtDate } from "@/lib/format";
 import { brand } from "@/lib/brand";
 import { useLang } from "@/components/lang-provider";
 
 type Item = {
   id: string; description: string; qty: string; qtyReturned?: string | null; rate: string; discount: string; lineTotal: string;
-  extraCost?: string | null;
+  extraCost?: string | null; unit?: string | null;
 };
 type Doc = {
   id: string; docNo: string; docType: string; date: number; dueDate: number | null;
   status: string; subtotal: string; discountTotal: string; taxTotal: string; grandTotal: string;
+  amountPaid: string;
   notes: string | null; refNo: string | null; partyName: string | null; partyId: string | null;
   partyPhone: string | null; sourceDocId: string | null;
   items: Item[];
 };
 type Company = {
   name: string; phone: string | null; address: string | null; city: string | null; ntn: string | null;
+  bankInfo: string | null; invoiceFooter: string | null;
 };
 
 type PrintFormat = "a4" | "80mm" | "challan";
@@ -30,7 +32,7 @@ export function DocDetail({ mode, id }: { mode: "SALES" | "PURCHASE"; id: string
   const { t } = useLang();
   const [doc, setDoc] = useState<Doc | null>(null);
   const [company, setCompany] = useState<Company | null>(null);
-  const [format, setFormat] = useState<PrintFormat>("a4");
+  const [formatSel, setFormatSel] = useState<PrintFormat | null>(null);
   const [error, setError] = useState<string | null>(null);
   const isSales = mode === "SALES";
 
@@ -46,6 +48,10 @@ export function DocDetail({ mode, id }: { mode: "SALES" | "PURCHASE"; id: string
       .catch((e) => setError(e instanceof Error ? e.message : t("docdetail.loadError")));
   }, [id, isSales, t]);
 
+  // Invoices open in the thermal-receipt style by default (matches the paper invoice).
+  const format: PrintFormat =
+    formatSel ?? (doc && (doc.docType === "INVOICE" || doc.docType === "BILL") ? "80mm" : "a4");
+
   if (error) return <PageHeader title={t("docdetail.notFound")} subtitle={error} actions={<Link href={isSales ? "/sales" : "/purchases"} className="btn btn-ghost text-sm"><ArrowLeft size={15} /> {t("docdetail.printBack")}</Link>} />;
   if (!doc) return <div className="card h-64 animate-pulse" />;
 
@@ -57,6 +63,8 @@ export function DocDetail({ mode, id }: { mode: "SALES" | "PURCHASE"; id: string
   const sellerLines = [company?.address, company?.city, company?.phone ? `Ph: ${company.phone}` : null]
     .filter(Boolean)
     .join(" · ");
+  const paidTotal = doc.amountPaid ?? "0";
+  const balanceTotal = (BigInt(doc.grandTotal) - BigInt(paidTotal)).toString();
 
   function waText(d: Doc): string {
     if (format === "challan") {
@@ -119,7 +127,7 @@ export function DocDetail({ mode, id }: { mode: "SALES" | "PURCHASE"; id: string
                 )).map((f) => (
                   <button
                     key={f}
-                    onClick={() => setFormat(f)}
+                    onClick={() => setFormatSel(f)}
                     className={`px-3 py-2 transition ${format === f ? "bg-primary text-white" : "text-muted-foreground hover:bg-muted"}`}
                   >
                     {f === "a4" ? t("docdetail.fmtA4") : f === "80mm" ? t("docdetail.fmt80mm") : t("docdetail.fmtChallan")}
@@ -253,51 +261,107 @@ export function DocDetail({ mode, id }: { mode: "SALES" | "PURCHASE"; id: string
         </div>
       ) : (
         <div className="thermal mx-auto bg-white p-4 text-black print:shadow-none">
+          {/* header: business name, address, bank lines, phone */}
           <div className="text-center">
-            <p className="break-words text-lg font-extrabold leading-tight">{sellerName}</p>
-            {sellerLines && <p className="mt-0.5 break-words text-xs">{sellerLines}</p>}
+            <p className="break-words text-[17px] font-extrabold leading-tight">{sellerName}</p>
+            {company?.address && <p className="mt-0.5 break-words text-xs">{company.address}</p>}
+            {company?.city && <p className="break-words text-xs">{company.city}</p>}
+            {company?.bankInfo && company.bankInfo.split("\n").map((line, i) => (
+              line.trim() ? <p key={i} className="break-words text-xs">{line.trim()}</p> : null
+            ))}
+            {company?.phone && <p className="break-words text-xs">{company.phone}</p>}
             {company?.ntn && <p className="text-xs">NTN: {company.ntn}</p>}
           </div>
-          <div className="my-2 border-t border-dashed border-black" />
-          <div className="flex justify-between text-sm font-bold">
-            <span>{docTitle}</span>
-            <span>{doc.docNo}</span>
+
+          <p className="mt-2 text-[22px] font-extrabold leading-tight">{docTitle}</p>
+
+          {/* customer / meta block */}
+          <div className="mt-1 flex items-start justify-between gap-2 text-xs">
+            <div className="min-w-0">
+              <p className="font-extrabold">{isSales ? t("docdetail.customer") : t("docdetail.supplier")}</p>
+              <p className="mt-0.5 break-words"><span className="font-bold">{t("docdetail.customerName")}</span> {doc.partyName ?? "—"}</p>
+              {doc.partyPhone && <p className="break-words"><span className="font-bold">{t("docdetail.customerMobile")}:</span> {doc.partyPhone}</p>}
+            </div>
+            <div className="shrink-0 text-right">
+              <p><span className="font-bold">{t("docdetail.invNo")}</span> {doc.docNo}</p>
+              <p className="mt-0.5"><span className="font-bold">{t("docdetail.invDate")}</span> {fmtDate(doc.date)}</p>
+            </div>
           </div>
-          <div className="flex justify-between text-xs">
-            <span>{fmtDate(doc.date)}</span>
-            <span>{doc.partyName ?? ""}</span>
-          </div>
-          <div className="my-2 border-t border-dashed border-black" />
-          <div className="space-y-1.5 text-sm">
-            {doc.items.map((it) => (
-              <div key={it.id}>
-                <p className="break-words font-semibold leading-tight">{it.description}</p>
-                <p className="flex justify-between text-xs">
-                  <span>{fmtQty(it.qty)} x {fmtMoney(it.rate)}</span>
-                  <span className="font-bold">{fmtMoney(it.lineTotal)}</span>
-                </p>
-              </div>
-            ))}
-          </div>
-          <div className="my-2 border-t border-dashed border-black" />
-          <div className="space-y-1 text-sm">
-            <p className="flex justify-between"><span>{t("docdetail.subtotal")}</span><span>{fmtMoney(doc.subtotal)}</span></p>
+
+          {/* boxed items table, like the paper invoice */}
+          <table className="mt-2 w-full border-collapse text-[11px]">
+            <thead>
+              <tr>
+                <th className="border border-black px-1 py-1">{t("docdetail.colSrNo")}</th>
+                <th className="border border-black px-1 py-1 text-left">{t("docdetail.colItem")}</th>
+                <th className="border border-black px-1 py-1">{t("docdetail.colUnit")}</th>
+                <th className="border border-black px-1 py-1">{t("docdetail.colQty")}</th>
+                <th className="border border-black px-1 py-1">{t("docdetail.colRate")}</th>
+                <th className="border border-black px-1 py-1">{t("docdetail.colAmount")}</th>
+              </tr>
+            </thead>
+            <tbody>
+              {doc.items.map((it, i) => (
+                <tr key={it.id}>
+                  <td className="border border-black px-1 py-1 text-center">{i + 1}</td>
+                  <td className="border border-black px-1 py-1">{it.description}</td>
+                  <td className="border border-black px-1 py-1 text-center">{it.unit ?? "—"}</td>
+                  <td className="border border-black px-1 py-1 text-right">{fmtQty(it.qty)}</td>
+                  <td className="border border-black px-1 py-1 text-right">{fmtMoneyPlain(it.rate)}</td>
+                  <td className="border border-black px-1 py-1 text-right font-bold">{fmtMoneyPlain(it.lineTotal)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+
+          {/* totals */}
+          <div className="mt-1 text-xs">
+            <div className="flex justify-between py-0.5">
+              <span>{t("docdetail.subtotal")}:</span>
+              <span>{fmtMoneyPlain(doc.subtotal)}</span>
+            </div>
             {BigInt(doc.discountTotal) > 0n && (
-              <p className="flex justify-between"><span>{t("docdetail.discount")}</span><span>− {fmtMoney(doc.discountTotal)}</span></p>
+              <div className="flex justify-between py-0.5">
+                <span>{t("docdetail.discount")}:</span>
+                <span>− {fmtMoneyPlain(doc.discountTotal)}</span>
+              </div>
             )}
             {BigInt(doc.taxTotal) > 0n && (
-              <p className="flex justify-between"><span>{t("docdetail.tax")}</span><span>{fmtMoney(doc.taxTotal)}</span></p>
+              <div className="flex justify-between py-0.5">
+                <span>{t("docdetail.tax")}:</span>
+                <span>{fmtMoneyPlain(doc.taxTotal)}</span>
+              </div>
             )}
-            <p className="flex justify-between text-base font-extrabold"><span>{t("docdetail.grandTotal")}</span><span>{fmtMoney(doc.grandTotal)}</span></p>
+            <div className="flex items-center justify-between border-y-2 border-black py-1 text-[15px] font-extrabold">
+              <span>{t("docdetail.total")}:</span>
+              <span>Rs. {fmtMoneyPlain(doc.grandTotal)}</span>
+            </div>
+            <div className="flex justify-between py-0.5">
+              <span>{t("docdetail.paid")}:</span>
+              <span>{fmtMoneyPlain(paidTotal)}</span>
+            </div>
+            <div className="flex justify-between py-0.5">
+              <span>{t("docdetail.invoiceBalance")}:</span>
+              <span className="font-bold">{fmtMoneyPlain(balanceTotal)}</span>
+            </div>
           </div>
-          <div className="my-2 border-t border-dashed border-black" />
-          <p className="text-center text-xs">{t("docdetail.thankYou")}</p>
+
+          {/* notes */}
+          {(doc.notes || company?.invoiceFooter) && (
+            <div className="mt-2 text-xs">
+              <p className="font-extrabold">{t("docdetail.notes")}</p>
+              <div className="border-t border-black" />
+              <p className="mt-1 break-words">{doc.notes || company?.invoiceFooter}</p>
+            </div>
+          )}
+
+          <p className="mt-3 text-center text-xs">{t("docdetail.thankYou")}</p>
           <p className="mt-1 text-center text-[10px] text-neutral-500">{t("docdetail.poweredBy", { brand: brand.name })}</p>
         </div>
       )}
 
       <style>{`
-        .thermal { width: 72mm; max-width: 100%; font-family: ui-monospace, monospace; }
+        .thermal { width: 72mm; max-width: 100%; }
         @media print {
           header, aside { display: none !important; }
           main { padding: 0 !important; }

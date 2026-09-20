@@ -30,6 +30,8 @@ export const companies = sqliteTable("companies", {
   address: text("address"),
   city: text("city"),
   ntn: text("ntn"),
+  bankInfo: text("bank_info"), // bank/payment lines printed on invoices
+  invoiceFooter: text("invoice_footer"), // default note printed under every invoice
   logoUrl: text("logo_url"),
   businessType: text("business_type").notNull().default("WHOLESALE"),
   currency: text("currency").notNull().default("PKR"),

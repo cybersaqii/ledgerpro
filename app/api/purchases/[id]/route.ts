@@ -1,8 +1,9 @@
 import { NextRequest } from "next/server";
-import { eq, and } from "drizzle-orm";
-import { purchaseDocs, purchaseDocItems, parties } from "@/db/schema";
+import { eq } from "drizzle-orm";
+import { purchaseDocs, purchaseDocItems } from "@/db/schema";
 import { json, err } from "@/lib/api";
 import { requireCompany, requirePermission, db } from "@/lib/route-helpers";
+import { getPurchaseDocDetail } from "@/lib/doc-detail";
 import { periodLockError } from "@/lib/period";
 import type { Permission } from "@/lib/permissions";
 
@@ -12,16 +13,7 @@ function permForDocType(docType: string | null | undefined): Permission {
 }
 
 async function find(companyId: string, id: string) {
-  const docs = await db
-    .select({ doc: purchaseDocs, partyName: parties.name })
-    .from(purchaseDocs)
-    .leftJoin(parties, eq(purchaseDocs.partyId, parties.id))
-    .where(and(eq(purchaseDocs.id, id), eq(purchaseDocs.companyId, companyId)))
-    .limit(1);
-  const row = docs[0];
-  if (!row) return null;
-  const items = await db.select().from(purchaseDocItems).where(eq(purchaseDocItems.docId, id));
-  return { ...row.doc, partyName: row.partyName, items };
+  return getPurchaseDocDetail(db, companyId, id);
 }
 
 export async function GET(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {

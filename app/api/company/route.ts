@@ -17,6 +17,8 @@ const companySchema = z.object({
   address: z.string().trim().max(300).optional().or(z.literal("")),
   city: z.string().trim().max(60).optional().or(z.literal("")),
   ntn: z.string().trim().max(30).optional().or(z.literal("")),
+  bankInfo: z.string().trim().max(500).optional().or(z.literal("")),
+  invoiceFooter: z.string().trim().max(500).optional().or(z.literal("")),
   businessType: z.enum(["WHOLESALE", "RETAIL", "DISTRIBUTION", "PHARMACY", "CLINIC", "RESTAURANT", "SERVICES", "MANUFACTURING", "OTHER"]),
 });
 
@@ -31,6 +33,7 @@ export async function GET() {
     data: {
       id: c.id, name: c.name, email: c.email, phone: c.phone,
       address: c.address, city: c.city, ntn: c.ntn,
+      bankInfo: c.bankInfo, invoiceFooter: c.invoiceFooter,
       businessType: c.businessType, businessTypeLabel: businessTypeLabel(c.businessType),
       currency: c.currency,
       lockedUntil: c.lockedUntil ? c.lockedUntil.toISOString().slice(0, 10) : null,
@@ -53,6 +56,8 @@ export async function PUT(req: NextRequest) {
     address: d.address || null,
     city: d.city || null,
     ntn: d.ntn || null,
+    bankInfo: d.bankInfo || null,
+    invoiceFooter: d.invoiceFooter || null,
     businessType: d.businessType,
     updatedAt: new Date(),
   }).where(eq(companies.id, gate.companyId));

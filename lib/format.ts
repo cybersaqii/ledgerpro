@@ -19,6 +19,11 @@ export function fmtMoney(paisa: string | number | bigint): string {
   return `${neg ? "-" : ""}Rs ${grouped}.${p}`;
 }
 
+export function fmtMoneyPlain(paisa: string | number | bigint): string {
+  // Same as fmtMoney but without the "Rs" prefix — for dense receipt tables.
+  return fmtMoney(paisa).replace(/^(-?)Rs /, "$1");
+}
+
 export function fmtQty(milli: string | number | bigint, unit = ""): string {
   const n = typeof milli === "bigint" ? milli : BigInt(milli);
   const neg = n < 0n;
