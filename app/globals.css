@@ -262,6 +262,11 @@ body {
 }
 
 /* Animations */
+@keyframes cta-glow {
+  0%, 100% { box-shadow: 0 10px 28px -12px rgba(245, 158, 11, 0.65), 0 2px 8px -4px rgba(245, 158, 11, 0.4); }
+  50% { box-shadow: 0 10px 38px -8px rgba(245, 158, 11, 0.95), 0 2px 12px -2px rgba(245, 158, 11, 0.55); }
+}
+.trial-cta { animation: cta-glow 2.8s ease-in-out infinite; }
 @keyframes rise {
   from { opacity: 0; transform: translateY(14px); }
   to { opacity: 1; transform: translateY(0); }
@@ -445,7 +450,7 @@ body::before {
 /* Respect users who ask for less motion */
 @media (prefers-reduced-motion: reduce) {
   .rise, .rise-1, .rise-2, .rise-3, .rise-4, .float-slow, .marquee-track, .pos-scroll,
-  .skeleton::after, .modal-pop, .pulse-dot, .banner-shine::after,
+  .skeleton::after, .modal-pop, .pulse-dot, .banner-shine::after, .trial-cta,
   .btn-primary::after, .btn-accent::after { animation: none !important; }
   .btn, .btn-primary, .btn-accent, .btn-ghost, a, button, input, select, textarea,
   .card-lift, .tbl tbody tr { transition: none !important; }

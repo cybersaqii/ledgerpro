@@ -94,7 +94,7 @@ export default function SettingsPage() {
         icon={<Building2 size={20} />}
       />
       <SettingsJumpNav />
-      <div id="sec-company" className="card card-gloss anchor-scroll max-w-2xl p-6 sm:p-8">
+      <div id="sec-company" className="card card-gloss anchor-scroll mx-auto max-w-2xl p-6 sm:p-8">
         {loading ? (
           <div className="space-y-4">{[1, 2, 3, 4].map((i) => <div key={i} className="skeleton h-12 rounded-xl" />)}</div>
         ) : (
@@ -148,7 +148,7 @@ export default function SettingsPage() {
           </form>
         )}
       </div>
-      <div id="sec-data" className="card card-gloss anchor-scroll mt-6 max-w-2xl p-6 sm:p-8">
+      <div id="sec-data" className="card card-gloss anchor-scroll mt-6 mx-auto max-w-2xl p-6 sm:p-8">
         <h2 className="text-lg font-extrabold">Data &amp; backup</h2>
         <p className="mt-1 text-sm text-muted-foreground">
           Your data is yours. Download a full backup anytime, or export any register to a spreadsheet.
@@ -185,7 +185,7 @@ export default function SettingsPage() {
       <PeriodLockCard />
       <SystemHealthCard isOwner={isOwner} />
       <DangerZoneCard isOwner={isOwner} />
-      <div id="sec-activity" className="card card-gloss anchor-scroll mt-6 max-w-2xl p-6 sm:p-8">
+      <div id="sec-activity" className="card card-gloss anchor-scroll mt-6 mx-auto max-w-2xl p-6 sm:p-8">
         <div className="flex items-center justify-between gap-3">
           <div>
             <h2 className="text-lg font-extrabold">Activity log</h2>
@@ -322,7 +322,7 @@ function BackupsCard({ isOwner }: { isOwner: boolean }) {
   const totalRows = (r: Record<string, number>) => Object.values(r).reduce((a, n) => a + n, 0);
 
   return (
-    <div id="sec-backups" className="card card-gloss anchor-scroll mt-6 max-w-2xl p-6 sm:p-8">
+    <div id="sec-backups" className="card card-gloss anchor-scroll mt-6 mx-auto max-w-2xl p-6 sm:p-8">
       <h2 className="inline-flex items-center gap-2 text-lg font-extrabold"><History size={19} /> Automatic backups</h2>
       <p className="mt-1 text-sm text-muted-foreground">
         Your whole company is backed up automatically twice a day. The last 14 automatic backups are kept — manual ones are never deleted.
@@ -624,7 +624,7 @@ function TeamCard() {
   }
 
   return (
-    <div id="sec-team" className="card card-gloss anchor-scroll mt-6 max-w-2xl p-6 sm:p-8">
+    <div id="sec-team" className="card card-gloss anchor-scroll mt-6 mx-auto max-w-2xl p-6 sm:p-8">
       <div className="flex items-center justify-between gap-3">
         <div>
           <h2 className="inline-flex items-center gap-2 text-lg font-extrabold"><Users size={19} /> Team</h2>
@@ -732,7 +732,7 @@ function ImportCard() {
   }
 
   return (
-    <div id="sec-import" className="card card-gloss anchor-scroll mt-6 max-w-2xl p-6 sm:p-8">
+    <div id="sec-import" className="card card-gloss anchor-scroll mt-6 mx-auto max-w-2xl p-6 sm:p-8">
       <h2 className="text-lg font-extrabold">Import from spreadsheet</h2>
       <p className="mt-1 text-sm text-muted-foreground">
         Bring your existing products and parties from Excel. Download a template, fill it in, then upload the CSV.
@@ -833,7 +833,7 @@ function SecurityCard() {
   }
 
   return (
-    <div id="sec-security" className="card card-gloss anchor-scroll mt-6 max-w-2xl p-6 sm:p-8">
+    <div id="sec-security" className="card card-gloss anchor-scroll mt-6 mx-auto max-w-2xl p-6 sm:p-8">
       <h2 className="inline-flex items-center gap-2 text-lg font-extrabold"><KeyRound size={19} /> Password & recovery</h2>
       <p className="mt-1 text-sm text-muted-foreground">Change your password, or get a new recovery code for forgotten passwords.</p>
 
@@ -925,7 +925,7 @@ function SessionsCard() {
   }
 
   return (
-    <div id="sec-sessions" className="card card-gloss anchor-scroll mt-6 max-w-2xl p-6 sm:p-8">
+    <div id="sec-sessions" className="card card-gloss anchor-scroll mt-6 mx-auto max-w-2xl p-6 sm:p-8">
       <h2 className="inline-flex items-center gap-2 text-lg font-extrabold"><MonitorSmartphone size={19} /> Sessions &amp; devices</h2>
       <p className="mt-1 text-sm text-muted-foreground">
         Where your account is signed in. For your security, a session ends automatically after a day without activity.
@@ -994,7 +994,7 @@ function PeriodLockCard() {
   }
 
   return (
-    <div id="sec-lock" className="card card-gloss anchor-scroll mt-6 max-w-2xl p-6 sm:p-8">
+    <div id="sec-lock" className="card card-gloss anchor-scroll mt-6 mx-auto max-w-2xl p-6 sm:p-8">
       <h2 className="inline-flex items-center gap-2 text-lg font-extrabold"><Lock size={19} /> Accounting period lock</h2>
       <p className="mt-1 text-sm text-muted-foreground">
         Lock the books up to a date — for example after closing the month. While locked, no entry dated on or
@@ -1069,7 +1069,7 @@ function SystemHealthCard({ isOwner }: { isOwner: boolean }) {
   if (!isOwner) return null;
 
   return (
-    <div id="sec-health" className="card card-gloss anchor-scroll mt-6 max-w-2xl p-6 sm:p-8">
+    <div id="sec-health" className="card card-gloss anchor-scroll mt-6 mx-auto max-w-2xl p-6 sm:p-8">
       <h2 className="inline-flex items-center gap-2 text-lg font-extrabold"><Activity size={19} /> System health</h2>
       <p className="mt-1 text-sm text-muted-foreground">
         Recent unexpected server errors. If something breaks for your team, it shows up here.
@@ -1140,7 +1140,7 @@ function DangerZoneCard({ isOwner }: { isOwner: boolean }) {
   }
 
   return (
-    <div id="sec-danger" className="card anchor-scroll mt-6 max-w-2xl border-red-500/30 p-6 sm:p-8">
+    <div id="sec-danger" className="card anchor-scroll mx-auto mt-6 max-w-2xl border-red-500/30 p-6 sm:p-8">
       <h2 className="inline-flex items-center gap-2 text-lg font-extrabold text-red-600 dark:text-red-400">
         <TriangleAlert size={19} /> Danger zone
       </h2>

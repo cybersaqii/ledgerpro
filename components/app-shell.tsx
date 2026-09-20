@@ -5,8 +5,8 @@ import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import {
   LayoutDashboard, ShoppingCart, Truck, Wallet, ReceiptText, Users, Package,
-  BarChart3, Menu, X, LogOut, Boxes, Plus, Settings, Crown, ShieldCheck, Clock,
-  LifeBuoy,
+  BarChart3, Menu, X, LogOut, Boxes, Plus, Settings, Crown, ShieldCheck,
+  LifeBuoy, ArrowRight, Sparkles,
 } from "lucide-react";
 import { Logo, ThemeToggle } from "./ui";
 import { api } from "@/lib/format";
@@ -28,6 +28,18 @@ export function AppShell({ children }: { children: ReactNode }) {
   } | null>(null);
   const [quickOpen, setQuickOpen] = useState(false);
   const quickRef = useRef<HTMLDivElement>(null);
+  const [hello, setHello] = useState({ greet: "Welcome back", today: "" });
+
+  useEffect(() => {
+    const now = new Date();
+    const h = now.getHours();
+    // Mount-once sync with the client clock (avoids SSR hydration mismatch on date/time).
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setHello({
+      greet: h < 12 ? "Good morning" : h < 17 ? "Good afternoon" : "Good evening",
+      today: now.toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long" }),
+    });
+  }, []);
 
   useEffect(() => {
     api<{ user: { name: string; email: string }; company: { name: string; businessType: string } }>("/api/auth/me")
@@ -169,9 +181,17 @@ export function AppShell({ children }: { children: ReactNode }) {
               <Menu size={19} />
             </button>
             <div className="lg:hidden"><Logo compact /></div>
-            <p className="hidden text-sm text-muted-foreground sm:block">
-              {user ? <>Welcome back, <span className="font-bold text-foreground">{user.name}</span></> : "…"}
-            </p>
+            <div className="hidden min-w-0 sm:block">
+              {user ? (
+                <>
+                  <p className="flex items-center gap-1.5 truncate text-[15px] font-extrabold tracking-tight">
+                    {hello.greet}, <span className="text-gradient">{user.name}</span>
+                    <Sparkles size={14} className="shrink-0 text-amber-500" />
+                  </p>
+                  {hello.today && <p className="truncate text-xs text-muted-foreground">{hello.today}</p>}
+                </>
+              ) : "…"}
+            </div>
           </div>
           <div className="flex items-center gap-2">
             <div className="relative" ref={quickRef}>
@@ -199,42 +219,44 @@ export function AppShell({ children }: { children: ReactNode }) {
           </div>
         </header>
 
-        {/* Trial / subscription banner */}
+        {/* Trial CTA — animated pill, opens subscription page */}
         {billing?.level === "TRIAL" && (
-          <div className="banner-shine border-b border-amber-200/60 bg-gradient-to-r from-amber-50 via-amber-100/60 to-orange-50 px-4 py-2.5 sm:px-6 dark:border-amber-900/40 dark:from-amber-950/40 dark:via-amber-900/30 dark:to-orange-950/40">
-            <div className="mx-auto flex max-w-7xl flex-wrap items-center gap-x-3 gap-y-1 text-sm">
-              <span className="inline-flex items-center gap-1.5 font-semibold text-amber-800 dark:text-amber-200">
-                <Clock size={15} />
-                {billing.trialDaysLeft} day{billing.trialDaysLeft === 1 ? "" : "s"} left in your free trial
+          <div className="px-4 pt-4 sm:px-6 lg:px-8">
+            <Link
+              href="/billing"
+              className="trial-cta group relative flex flex-wrap items-center justify-center gap-x-2.5 gap-y-1 overflow-hidden rounded-2xl bg-gradient-to-r from-amber-300 via-amber-400 to-orange-400 px-5 py-2.5 text-center text-sm font-bold text-amber-950 transition duration-300 hover:-translate-y-0.5"
+            >
+              <span className="banner-shine pointer-events-none absolute inset-0" aria-hidden />
+              <Crown size={16} className="relative shrink-0 transition group-hover:scale-125 group-hover:rotate-12" />
+              <span className="relative">
+                {billing.trialDaysLeft} day{billing.trialDaysLeft === 1 ? "" : "s"} left in your free trial — enjoy full PRO access.
               </span>
-              <span className="text-amber-700/80 dark:text-amber-300/70">— enjoy full PRO access.</span>
-              {billing.isOwner && (
-                <Link href="/billing" className="font-bold text-amber-900 underline underline-offset-2 hover:text-amber-700 dark:text-amber-100">
-                  View plans
-                </Link>
-              )}
-            </div>
+              <span className="relative inline-flex shrink-0 items-center gap-1 rounded-full bg-amber-950 px-3.5 py-1 text-xs font-extrabold text-amber-100 transition group-hover:gap-2">
+                View plans <ArrowRight size={13} />
+              </span>
+            </Link>
           </div>
         )}
         {billing?.level === "FREE" && (
-          <div className="banner-shine border-b border-rose-200/60 bg-gradient-to-r from-rose-50 via-rose-100/60 to-pink-50 px-4 py-2.5 sm:px-6 dark:border-rose-900/40 dark:from-rose-950/40 dark:via-rose-900/30 dark:to-pink-950/40">
-            <div className="mx-auto flex max-w-7xl flex-wrap items-center gap-x-3 gap-y-1 text-sm">
-              <span className="inline-flex items-center gap-1.5 font-semibold text-rose-800 dark:text-rose-200">
-                <Crown size={15} />
-                Your free trial has ended
+          <div className="px-4 pt-4 sm:px-6 lg:px-8">
+            <Link
+              href="/billing"
+              className="trial-cta group relative flex flex-wrap items-center justify-center gap-x-2.5 gap-y-1 overflow-hidden rounded-2xl bg-gradient-to-r from-rose-400 via-rose-500 to-pink-500 px-5 py-2.5 text-center text-sm font-bold text-white transition duration-300 hover:-translate-y-0.5"
+            >
+              <span className="banner-shine pointer-events-none absolute inset-0" aria-hidden />
+              <Crown size={16} className="relative shrink-0 transition group-hover:scale-125 group-hover:rotate-12" />
+              <span className="relative">
+                Your free trial has ended — upgrade to PRO to unlock POS, team, advanced reports &amp; more.
               </span>
-              <span className="text-rose-700/80 dark:text-rose-300/70">— upgrade to PRO to unlock POS, team, advanced reports &amp; more.</span>
-              {billing.isOwner && (
-                <Link href="/billing" className="font-bold text-rose-900 underline underline-offset-2 hover:text-rose-700 dark:text-rose-100">
-                  Upgrade now
-                </Link>
-              )}
-            </div>
+              <span className="relative inline-flex shrink-0 items-center gap-1 rounded-full bg-white/95 px-3.5 py-1 text-xs font-extrabold text-rose-700 transition group-hover:gap-2">
+                Upgrade now <ArrowRight size={13} />
+              </span>
+            </Link>
           </div>
         )}
 
         <main className="flex-1 px-4 py-6 sm:px-6 lg:px-8">
-          <div className="mx-auto max-w-7xl">{children}</div>
+          {children}
         </main>
       </div>
     </div>
