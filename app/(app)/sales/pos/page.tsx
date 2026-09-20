@@ -711,7 +711,7 @@ export default function PosPage() {
                 <div className="flex items-center justify-between gap-3">
                   <label className="text-sm font-bold" htmlFor="pos-tendered">{t("pos.cashReceived")}</label>
                   <input id="pos-tendered" ref={tenderedRef} className="field !w-36 !py-2.5 text-right text-lg font-extrabold"
-                    inputMode="decimal" value={tendered}
+                    inputMode="decimal" placeholder="0.00" value={tendered}
                     onChange={(e) => setTendered(e.target.value.replace(/[^0-9.]/g, ""))}
                     onKeyDown={(e) => { if (e.key === "Enter") completeSale(); }} />
                 </div>

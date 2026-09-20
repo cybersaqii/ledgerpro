@@ -120,7 +120,7 @@ body {
   border-color: var(--primary);
   box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary) 18%, transparent);
 }
-.field::placeholder { color: var(--muted-foreground); }
+.field::placeholder { color: var(--muted-foreground); font-weight: 400; opacity: 1; }
 
 /* Buttons */
 .btn {

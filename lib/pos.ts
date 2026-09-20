@@ -104,7 +104,7 @@ export function addAsNewLine(
     unit: product.unit || "PCS",
     qty: "1",
     rate: paisaToRupees(product.salePrice),
-    discount: "0",
+    discount: "",
   };
   return { lines: [...lines, line], touchedKey: nextKey };
 }
