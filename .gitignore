@@ -42,3 +42,11 @@ next-env.d.ts
 dev.db
 dev.db-shm
 dev.db-wal
+
+# Playwright E2E (isolated throwaway database + reports)
+e2e-test.db
+e2e-test.db-shm
+e2e-test.db-wal
+e2e-report/
+test-results/
+playwright/.cache
