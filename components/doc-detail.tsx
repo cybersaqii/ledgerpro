@@ -252,8 +252,8 @@ export function DocDetail({ mode, id }: { mode: "SALES" | "PURCHASE"; id: string
       ) : (
         <div className="thermal mx-auto bg-white p-4 text-black print:shadow-none">
           <div className="text-center">
-            <p className="text-lg font-extrabold leading-tight">{sellerName}</p>
-            {sellerLines && <p className="mt-0.5 text-xs">{sellerLines}</p>}
+            <p className="break-words text-lg font-extrabold leading-tight">{sellerName}</p>
+            {sellerLines && <p className="mt-0.5 break-words text-xs">{sellerLines}</p>}
             {company?.ntn && <p className="text-xs">NTN: {company.ntn}</p>}
           </div>
           <div className="my-2 border-t border-dashed border-black" />
@@ -269,7 +269,7 @@ export function DocDetail({ mode, id }: { mode: "SALES" | "PURCHASE"; id: string
           <div className="space-y-1.5 text-sm">
             {doc.items.map((it) => (
               <div key={it.id}>
-                <p className="font-semibold leading-tight">{it.description}</p>
+                <p className="break-words font-semibold leading-tight">{it.description}</p>
                 <p className="flex justify-between text-xs">
                   <span>{fmtQty(it.qty)} x {fmtMoney(it.rate)}</span>
                   <span className="font-bold">{fmtMoney(it.lineTotal)}</span>
@@ -282,6 +282,9 @@ export function DocDetail({ mode, id }: { mode: "SALES" | "PURCHASE"; id: string
             <p className="flex justify-between"><span>{t("docdetail.subtotal")}</span><span>{fmtMoney(doc.subtotal)}</span></p>
             {BigInt(doc.discountTotal) > 0n && (
               <p className="flex justify-between"><span>{t("docdetail.discount")}</span><span>− {fmtMoney(doc.discountTotal)}</span></p>
+            )}
+            {BigInt(doc.taxTotal) > 0n && (
+              <p className="flex justify-between"><span>{t("docdetail.tax")}</span><span>{fmtMoney(doc.taxTotal)}</span></p>
             )}
             <p className="flex justify-between text-base font-extrabold"><span>{t("docdetail.grandTotal")}</span><span>{fmtMoney(doc.grandTotal)}</span></p>
           </div>
@@ -298,7 +301,7 @@ export function DocDetail({ mode, id }: { mode: "SALES" | "PURCHASE"; id: string
           main { padding: 0 !important; }
           body { background: white; }
           .thermal { width: 72mm; margin: 0 auto; box-shadow: none !important; }
-          @page { margin: 4mm; }
+          @page { margin: ${format === "80mm" ? "4mm" : "12mm"}; }
         }
       `}</style>
     </div>
