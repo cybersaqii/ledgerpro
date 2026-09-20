@@ -93,6 +93,7 @@ export async function POST(req: NextRequest) {
     trackStock: p.trackStock,
     reorderLevel: parseQty(p.reorderLevel),
     minSalePrice: parseMoney(p.minSalePrice || "0"),
+    location: p.location?.trim() ? p.location.trim().slice(0, 60) : null,
  });
   await logAudit(db, {
     companyId, userId: session.uid, userName: session.name,

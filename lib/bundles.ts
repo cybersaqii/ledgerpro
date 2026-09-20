@@ -219,6 +219,9 @@ export type SalesLineForStock = {
   productId: string | null;
   qtyMilli: bigint;
   trackStock: boolean;
+  /** Explicit batch choice for plain lines. Dropped when a bundle explodes —
+   *  component moves always use FIFO (see lib/batches). */
+  batchId?: string | null;
 };
 
 export type ExplodedStockMove = {
@@ -226,6 +229,8 @@ export type ExplodedStockMove = {
   productId: string;
   /** Signed component quantity in milli-units (negative = stock out). */
   qtyMilli: bigint;
+  /** Batch choice, only ever set for non-exploded (plain) lines. */
+  batchId: string | null;
 };
 
 /**
@@ -274,8 +279,8 @@ export async function explodeSalesStockMoves(
   const out: ExplodedStockMove[] = [];
   for (const line of lines) {
     if (!line.productId || line.qtyMilli === 0n) continue;
-    const leafMoves = expand(graph, tsMap, line.productId, line.qtyMilli, 0, new Set(), line.trackStock);
-    for (const m of leafMoves) out.push({ productId: m.productId, qtyMilli: m.qtyMilli * sign });
+    const leafMoves = expand(graph, tsMap, line.productId, line.qtyMilli, 0, new Set(), line.trackStock, line.batchId ?? null);
+    for (const m of leafMoves) out.push({ productId: m.productId, qtyMilli: m.qtyMilli * sign, batchId: m.batchId });
   }
   return out;
 }
@@ -287,8 +292,9 @@ function expand(
   qtyMilli: bigint,
   depth: number,
   path: Set<string>,
-  trackStock: boolean
-): { productId: string; qtyMilli: bigint }[] {
+  trackStock: boolean,
+  batchId: string | null
+): { productId: string; qtyMilli: bigint; batchId: string | null }[] {
   if (path.has(productId)) {
     // Backstop: cycles are rejected at save time, but never trust stored data.
     throw new UserError("Bundle cycle detected while posting. Please fix the bundle definition.");
@@ -296,14 +302,15 @@ function expand(
   const comps = graph.get(productId);
   if (!comps || comps.length === 0) {
     // Plain product (or a bundle with zero components): one move if tracked.
-    return trackStock ? [{ productId, qtyMilli }] : [];
+    // An explicit batch choice only survives on non-exploded lines.
+    return trackStock ? [{ productId, qtyMilli, batchId }] : [];
   }
   if (depth >= MAX_BUNDLE_DEPTH) {
     throw new UserError(`Bundle nesting is too deep (max ${MAX_BUNDLE_DEPTH} levels).`);
   }
   const nextPath = new Set(path);
   nextPath.add(productId);
-  const out: { productId: string; qtyMilli: bigint }[] = [];
+  const out: { productId: string; qtyMilli: bigint; batchId: string | null }[] = [];
   for (const c of comps) {
     // Quantities here are positive (validators reject negative line qtys);
     // half-up rounding keeps tiny fractional component qtys exact.
@@ -317,7 +324,8 @@ function expand(
         compQty,
         depth + 1,
         nextPath,
-        tsMap.get(c.componentProductId) ?? false
+        tsMap.get(c.componentProductId) ?? false,
+        null // bundle explosion drops the line-level batch choice; components use FIFO
       )
     );
   }

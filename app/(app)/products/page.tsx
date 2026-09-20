@@ -12,6 +12,11 @@ type Product = {
   id: string; sku: string; name: string; unit: string; category: string | null;
   purchasePrice: string; salePrice: string; trackStock: boolean;
   reorderLevel: string; totalQty: string; minSalePrice: string; isBundle: boolean;
+  location: string | null;
+};
+
+type BatchInfo = {
+  id: string; batchNo: string; expiryDate: string | null; qtyThousandths: string; unit: string;
 };
 
 type BundleRow = {
@@ -23,6 +28,7 @@ type ProductPick = { id: string; name: string; sku: string; unit: string };
 const emptyForm = {
   sku: "", name: "", barcode: "", category: "", unit: "PCS",
   purchasePrice: "", salePrice: "", trackStock: true, reorderLevel: "", minSalePrice: "",
+  location: "",
 };
 
 const UNITS = ["PCS", "KG", "G", "LTR", "ML", "MTR", "BOX", "CTN", "DOZ", "BAG"];
@@ -51,6 +57,10 @@ export default function ProductsPage() {
   const [componentsLoaded, setComponentsLoaded] = useState(false);
   const [compQuery, setCompQuery] = useState("");
   const [compResults, setCompResults] = useState<ProductPick[]>([]);
+  // per-product batch expander
+  const [openBatches, setOpenBatches] = useState<string | null>(null);
+  const [batchRows, setBatchRows] = useState<Record<string, BatchInfo[]>>({});
+  const [batchLoading, setBatchLoading] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -82,6 +92,7 @@ export default function ProductsPage() {
       trackStock: p.trackStock,
       reorderLevel: (Number(BigInt(p.reorderLevel)) / 1000).toString(),
       minSalePrice: (Number(BigInt(p.minSalePrice ?? "0")) / 100).toString(),
+      location: p.location ?? "",
     });
     setError(null);
     setComponents([]); setComponentsLoaded(false);
@@ -115,6 +126,26 @@ export default function ProductsPage() {
   function addComponent(p: ProductPick) {
     setComponents((cs) => [...cs, { productId: p.id, name: p.name, sku: p.sku, unit: p.unit, qty: "1" }]);
     setCompQuery(""); setCompResults([]);
+  }
+
+  async function toggleBatches(p: Product) {
+    if (openBatches === p.id) { setOpenBatches(null); return; }
+    setOpenBatches(p.id);
+    if (batchRows[p.id]) return;
+    setBatchLoading(true);
+    try {
+      const d = await api<{ data: BatchInfo[] }>(`/api/products/${p.id}/batches`);
+      setBatchRows((m) => ({ ...m, [p.id]: d.data }));
+    } catch {
+      setBatchRows((m) => ({ ...m, [p.id]: [] }));
+    } finally { setBatchLoading(false); }
+  }
+
+  /** "2026-10-01" -> locale date; null -> "—". */
+  function fmtExpiry(s: string | null): string {
+    if (!s) return "—";
+    const [y, m, d] = s.split("-").map(Number);
+    return new Date(y, (m ?? 1) - 1, d).toLocaleDateString();
   }
 
   async function save(e: React.FormEvent) {
@@ -188,20 +219,67 @@ export default function ProductsPage() {
               <tbody>
                 {rows.map((p) => {
                   const low = !p.isBundle && p.trackStock && BigInt(p.totalQty) <= BigInt(p.reorderLevel);
+                  const expanded = openBatches === p.id;
+                  const batches = batchRows[p.id] ?? [];
                   return (
+                    <>
                     <tr key={p.id}>
                       <td>
                         <span className="font-bold">{p.name}</span>
                         {p.isBundle && <span className="badge ml-2 bg-primary-soft text-primary">{t("bundles.badge")}</span>}
                         {low && <span className="badge ml-2 bg-danger-soft text-danger"><TriangleAlert size={11} /> {t("products.lowBadge")}</span>}
-                        <span className="block text-xs text-muted-foreground">{p.category ?? ""}</span>
+                        <span className="block text-xs text-muted-foreground">
+                          {[p.category, p.location].filter(Boolean).join(" · ")}
+                        </span>
                       </td>
                       <td className="text-muted-foreground">{p.sku}</td>
                       <td className="num font-bold">{p.trackStock && !p.isBundle ? fmtQty(p.totalQty, p.unit) : "—"}</td>
                       <td className="num">{fmtMoney(p.purchasePrice)}</td>
                       <td className="num">{fmtMoney(p.salePrice)}</td>
-                      <td className="text-right"><button className="btn btn-ghost !p-2" onClick={() => openEdit(p)} aria-label={t("common.edit")}><Pencil size={15} /></button></td>
+                      <td className="whitespace-nowrap text-right">
+                        {!p.isBundle && p.trackStock && (
+                          <button className="btn btn-ghost !px-2 !py-1.5 text-xs font-bold text-primary" onClick={() => toggleBatches(p)}>
+                            {expanded ? t("batches.hideBatches") : t("batches.viewBatches")}
+                          </button>
+                        )}
+                        <button className="btn btn-ghost !p-2" onClick={() => openEdit(p)} aria-label={t("common.edit")}><Pencil size={15} /></button>
+                      </td>
                     </tr>
+                    {expanded && (
+                      <tr key={`${p.id}-batches`}>
+                        <td colSpan={6} className="!bg-muted/40 !py-3">
+                          {batchLoading && !batchRows[p.id] ? (
+                            <div className="skeleton h-10 rounded-xl" />
+                          ) : batches.length === 0 ? (
+                            <p className="px-2 text-xs text-muted-foreground">{t("batches.noBatches")}</p>
+                          ) : (
+                            <div className="overflow-x-auto px-1">
+                              <table className="tbl !text-xs">
+                                <thead><tr><th>{t("batches.batchNo")}</th><th>{t("batches.expiry")}</th><th className="num">{t("batches.remaining")}</th><th>{t("batches.colStatus")}</th></tr></thead>
+                                <tbody>
+                                  {batches.map((b) => {
+                                    const expired = b.expiryDate != null && b.expiryDate < new Date().toISOString().slice(0, 10);
+                                    return (
+                                      <tr key={b.id}>
+                                        <td className="font-bold">{b.batchNo}</td>
+                                        <td>{fmtExpiry(b.expiryDate)}</td>
+                                        <td className="num font-bold">{fmtQty(b.qtyThousandths, b.unit)}</td>
+                                        <td>
+                                          {expired
+                                            ? <span className="badge bg-danger-soft text-danger">{t("batches.expired")}</span>
+                                            : <span className="badge bg-primary-soft text-primary">{t("batches.ok")}</span>}
+                                        </td>
+                                      </tr>
+                                    );
+                                  })}
+                                </tbody>
+                              </table>
+                            </div>
+                          )}
+                        </td>
+                      </tr>
+                    )}
+                    </>
                   );
                 })}
               </tbody>
@@ -227,6 +305,7 @@ export default function ProductsPage() {
                 </select>
               </Field>
             </div>
+            <Field label={t("batches.location")}><input className="field" value={form.location} onChange={set("location")} placeholder={t("batches.locationPlaceholder")} maxLength={60} /></Field>
             <div className="grid gap-4 sm:grid-cols-3">
               <Field label={t("products.buyPrice")}><input className="field" type="number" min="0" step="0.01" placeholder="0.00" value={form.purchasePrice} onChange={set("purchasePrice")} /></Field>
               <Field label={t("products.salePrice")}><input className="field" type="number" min="0" step="0.01" placeholder="0.00" value={form.salePrice} onChange={set("salePrice")} /></Field>

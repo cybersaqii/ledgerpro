@@ -73,6 +73,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
       ...(p.trackStock !== undefined ? { trackStock: p.trackStock } : {}),
       ...(p.reorderLevel !== undefined ? { reorderLevel: parseQty(p.reorderLevel) } : {}),
       ...(p.minSalePrice !== undefined ? { minSalePrice: parseMoney(p.minSalePrice || "0") } : {}),
+      ...(p.location !== undefined ? { location: p.location?.trim() ? p.location.trim().slice(0, 60) : null } : {}),
       updatedAt: new Date(),
  })
     .where(eq(products.id, id));

@@ -1,6 +1,6 @@
 import { NextRequest } from "next/server";
 import { eq, and, desc, sql, inArray } from "drizzle-orm";
-import { purchaseDocs, purchaseDocItems, parties, products } from "@/db/schema";
+import { purchaseDocs, purchaseDocItems, parties, products, productBatches } from "@/db/schema";
 import { purchaseDocSchema } from "@/lib/validators";
 import { computeTotals, type DocItemInput } from "@/lib/totals";
 import { parseMoney } from "@/lib/money";
@@ -120,6 +120,27 @@ export async function POST(req: NextRequest) {
   const date = parseDateOnly(b.date);
   const dueDate = b.dueDate ? parseDateOnly(b.dueDate) : null;
 
+  // Return lines may choose a batch to deduct from: it must belong to this
+  // company and to the line's product. Bill lines carry batch_no/expiry_date
+  // instead (validated strictly at posting time).
+  if (isPosted && b.docType === "RETURN") {
+    const wanted = b.items
+      .map((i) => ({ batchId: (i.batchId || "").trim(), productId: i.productId || "" }))
+      .filter((x) => x.batchId && x.productId);
+    if (wanted.length > 0) {
+      const ids = [...new Set(wanted.map((x) => x.batchId))];
+      const rows = await db
+        .select({ id: productBatches.id, productId: productBatches.productId })
+        .from(productBatches)
+        .where(and(eq(productBatches.companyId, companyId), inArray(productBatches.id, ids)));
+      const ownerOf = new Map(rows.map((r) => [r.id, r.productId]));
+      for (const w of wanted) {
+        if (ownerOf.get(w.batchId) !== w.productId)
+          return err("The selected batch is not valid for this product.", 422);
+      }
+    }
+  }
+
   const lockErr = await periodLockError(db, companyId, date);
   if (lockErr) return err(lockErr, 422);
 
@@ -191,9 +212,12 @@ export async function POST(req: NextRequest) {
           docNo,
           docType: b.docType as "BILL" | "RETURN",
           date,
-          items: totals.items.map((i) => ({
+          items: totals.items.map((i, idx) => ({
             ...i,
             trackStock: i.productId ? prodMap.get(i.productId)?.trackStock ?? false : false,
+            batchNo: (b.items[idx]?.batchNo || "").trim() || null,
+            expiryDate: (b.items[idx]?.expiryDate || "").trim() || null,
+            batchId: (b.items[idx]?.batchId || "").trim() || null,
           })),
           discountTotal: parseMoney(b.discountTotal || "0"),
           taxTotal: totals.taxTotal,

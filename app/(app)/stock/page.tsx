@@ -4,7 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import { Search, TriangleAlert, Boxes } from "lucide-react";
 import { PageHeader, EmptyState, ExportCsv } from "@/components/ui";
 import { csvMoney } from "@/lib/csv";
-import { api, fmtMoney, fmtQty } from "@/lib/format";
+import { api, fmtMoney, fmtQty, fmtDate } from "@/lib/format";
 import { useBusinessProfile } from "@/components/business-type";
 import { useLang } from "@/components/lang-provider";
 
@@ -12,6 +12,11 @@ type Row = {
   productId: string; sku: string; name: string; unit: string; category: string | null;
   branchName: string | null; qty: string; avgCost: string; value: string;
   reorderLevel: string; low: boolean;
+};
+
+type BatchAlert = {
+  id: string; productId: string; productName: string; unit: string;
+  batchNo: string; expiryDate: string | null; qtyThousandths: string;
 };
 
 export default function StockPage() {
@@ -22,6 +27,8 @@ export default function StockPage() {
   const [q, setQ] = useState("");
   const [lowOnly, setLowOnly] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [expired, setExpired] = useState<BatchAlert[]>([]);
+  const [expiring, setExpiring] = useState<BatchAlert[]>([]);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -38,6 +45,14 @@ export default function StockPage() {
     const t = setTimeout(load, q ? 300 : 0);
     return () => clearTimeout(t);
   }, [load, q]);
+
+  useEffect(() => {
+    api<{ data: { expired: BatchAlert[]; expiring: BatchAlert[] } }>("/api/batches/expiring")
+      .then((d) => { setExpired(d.data.expired); setExpiring(d.data.expiring); })
+      .catch(() => {});
+  }, []);
+
+  const alertCount = expired.length + expiring.length;
 
   return (
     <div>
@@ -62,6 +77,41 @@ export default function StockPage() {
           <TriangleAlert size={15} className="text-accent" /> {t("stockpage.lowStockOnly")}
         </label>
       </div>
+
+      {alertCount > 0 && (
+        <div className="card rise mb-5 overflow-hidden border-danger/30">
+          <div className="flex items-center gap-2 border-b border-border px-5 py-3">
+            <TriangleAlert size={17} className="text-danger" />
+            <h2 className="text-sm font-extrabold">{t("batches.alertsTitle")}</h2>
+            <span className="badge bg-danger-soft text-danger">{alertCount}</span>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="tbl">
+              <thead><tr><th>{t("batches.colProduct")}</th><th>{t("batches.colBatch")}</th><th>{t("batches.colExpiry")}</th><th className="num">{t("batches.colRemaining")}</th><th>{t("batches.colStatus")}</th></tr></thead>
+              <tbody>
+                {expired.map((b) => (
+                  <tr key={b.id}>
+                    <td className="font-bold">{b.productName}</td>
+                    <td>{b.batchNo}</td>
+                    <td>{b.expiryDate ? fmtDate(b.expiryDate) : "—"}</td>
+                    <td className="num font-bold">{fmtQty(b.qtyThousandths, b.unit)}</td>
+                    <td><span className="badge bg-danger-soft text-danger"><TriangleAlert size={11} /> {t("batches.expired")}</span></td>
+                  </tr>
+                ))}
+                {expiring.map((b) => (
+                  <tr key={b.id}>
+                    <td className="font-bold">{b.productName}</td>
+                    <td>{b.batchNo}</td>
+                    <td>{b.expiryDate ? fmtDate(b.expiryDate) : "—"}</td>
+                    <td className="num font-bold">{fmtQty(b.qtyThousandths, b.unit)}</td>
+                    <td><span className="badge bg-amber-500/15 text-amber-700 dark:text-amber-300"><TriangleAlert size={11} /> {t("batches.expiringSoon")}</span></td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
 
       <div className="card rise rise-1 overflow-hidden">
         {loading ? (

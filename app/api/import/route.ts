@@ -11,7 +11,7 @@ import { logAudit } from "@/lib/audit";
 // POST /api/import — CSV import for products and parties.
 // Owner-only: bulk data mutation bypasses the per-record UI flow.
 // multipart/form-data: file (CSV), kind=products|parties.
-// Products columns: SKU, Name, Barcode, Category, Unit, Purchase Price, Sale Price, Min Sale Price, Track Stock
+// Products columns: SKU, Name, Barcode, Category, Unit, Purchase Price, Sale Price, Min Sale Price, Track Stock, Location
 // Parties columns: Name, Type (CUSTOMER/SUPPLIER), Phone, Email, Address, City, Credit Limit
 // Returns { imported, skipped, errors[] } — valid rows import, bad rows are reported.
 
@@ -102,9 +102,10 @@ export async function POST(req: NextRequest) {
     const iSP = idx(["saleprice", "sale", "price", "rate"]);
     const iTrack = idx(["trackstock", "track", "stock"]);
     const iMin = idx(["minsaleprice", "minprice", "floorprice", "minimumprice"]);
+    const iLoc = idx(["location", "godown", "rack", "godownrack"]);
     if (iSku < 0 || iName < 0) return err("The CSV needs at least SKU and Name columns.", 422);
 
-    type PRow = { sku: string; name: string; barcode: string | null; category: string | null; unit: string; pp: bigint; sp: bigint; track: boolean; min: bigint };
+    type PRow = { sku: string; name: string; barcode: string | null; category: string | null; unit: string; pp: bigint; sp: bigint; track: boolean; min: bigint; location: string | null };
     const valid: PRow[] = [];
     const seen = new Set<string>();
     rows.slice(1).forEach((r, k) => {
@@ -132,6 +133,7 @@ export async function POST(req: NextRequest) {
         pp: parseMoney(ppS), sp: parseMoney(spS),
         track: trackRaw === "" ? true : ["yes", "y", "true", "1"].includes(trackRaw),
         min: parseMoney(minS),
+        location: (cell(r, iLoc) || "").trim().slice(0, 60) || null,
  });
  });
 
@@ -161,6 +163,7 @@ export async function POST(req: NextRequest) {
           salePrice: v.sp,
           trackStock: v.track,
           minSalePrice: v.min,
+          location: v.location,
           isActive: true,
  }))
       );

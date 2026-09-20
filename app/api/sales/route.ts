@@ -1,6 +1,6 @@
 import { NextRequest } from "next/server";
 import { eq, and, desc, sql, inArray } from "drizzle-orm";
-import { salesDocs, salesDocItems, parties, products } from "@/db/schema";
+import { salesDocs, salesDocItems, parties, products, productBatches } from "@/db/schema";
 import { salesDocSchema } from "@/lib/validators";
 import { computeTotals, type DocItemInput } from "@/lib/totals";
 import { parseMoney } from "@/lib/money";
@@ -135,6 +135,26 @@ export async function POST(req: NextRequest) {
   const date = parseDateOnly(b.date);
   const dueDate = b.dueDate ? parseDateOnly(b.dueDate) : null;
 
+  // Batch choices are only meaningful on posted docs: the chosen batch must
+  // belong to this company and to the line's product.
+  if (isPosted) {
+    const wanted = b.items
+      .map((i) => ({ batchId: (i.batchId || "").trim(), productId: i.productId || "" }))
+      .filter((x) => x.batchId && x.productId);
+    if (wanted.length > 0) {
+      const ids = [...new Set(wanted.map((x) => x.batchId))];
+      const rows = await db
+        .select({ id: productBatches.id, productId: productBatches.productId })
+        .from(productBatches)
+        .where(and(eq(productBatches.companyId, companyId), inArray(productBatches.id, ids)));
+      const ownerOf = new Map(rows.map((r) => [r.id, r.productId]));
+      for (const w of wanted) {
+        if (ownerOf.get(w.batchId) !== w.productId)
+          return err("The selected batch is not valid for this product.", 422);
+      }
+    }
+  }
+
   const lockErr = await periodLockError(db, companyId, date);
   if (lockErr) return err(lockErr, 422);
 
@@ -188,9 +208,10 @@ export async function POST(req: NextRequest) {
           docNo,
           docType: b.docType as "INVOICE" | "RETURN",
           date,
-          items: totals.items.map((i) => ({
+          items: totals.items.map((i, idx) => ({
             ...i,
             trackStock: i.productId ? prodMap.get(i.productId)?.trackStock ?? false : false,
+            batchId: (b.items[idx]?.batchId || "").trim() || null,
           })),
           discountTotal: parseMoney(b.discountTotal || "0"),
           taxTotal: totals.taxTotal,

@@ -46,6 +46,7 @@ export const productSchema = z.object({
   trackStock: z.boolean().default(true),
   reorderLevel: qtyStr.default("0"),
   minSalePrice: moneyStr.default("0"),
+  location: z.string().trim().max(60).optional().or(z.literal("")),
 });
 
 // Bundle components editor: component product + qty per one bundle unit.
@@ -67,6 +68,13 @@ export const docItemSchema = z.object({
   rate: moneyStr,
   discount: moneyStr.default("0"),
   taxBps: z.coerce.number().int().min(0).max(10000).default(0),
+  // Batch tracking (optional, per line):
+  //  - sales lines: batchId selects the batch to deduct from (blank = FIFO by expiry)
+  //  - purchase bills: batchNo (+expiryDate) records the receipt as a batch
+  //  - return lines: batchId selects the batch to restore/deduct
+  batchId: z.string().trim().max(40).optional().or(z.literal("")),
+  batchNo: z.string().trim().max(40).optional().or(z.literal("")),
+  expiryDate: z.string().trim().max(10).optional().or(z.literal("")),
 });
 
 export const salesDocSchema = z.object({

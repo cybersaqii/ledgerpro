@@ -188,6 +188,7 @@ export const products = sqliteTable(
     trackStock: flag("track_stock", true),
     reorderLevel: qty("reorder_level"),
     minSalePrice: money("min_sale_price"), // floor price; selling below needs an override
+    location: text("location"), // godown/rack free text, e.g. "Godown A · Rack 3"
     isActive: flag("is_active", true),
     createdAt: createdAt(),
     updatedAt: updatedAt(),
@@ -208,6 +209,27 @@ export const stockLevels = sqliteTable(
     avgCost: money("avg_cost"), // paisa per base unit, moving average
   },
   (t) => [uniqueIndex("stock_product_branch").on(t.productId, t.branchId)]
+);
+
+// ─── Batch / expiry tracking ───────────────────────────────────
+// A product is "batch-tracked" when it has at least one product_batches row.
+// qty_thousandths is the remaining quantity (milli-units) attributed to the
+// batch; it may be lower than total stock when some receipts were unbatched.
+export const productBatches = sqliteTable(
+  "product_batches",
+  {
+    id: id(),
+    companyId: text("company_id").notNull(),
+    productId: text("product_id").notNull(),
+    batchNo: text("batch_no").notNull(),
+    expiryDate: text("expiry_date"), // YYYY-MM-DD or NULL
+    qtyThousandths: qty("qty_thousandths"), // remaining, milli-units
+    createdAt: createdAt(),
+  },
+  (t) => [
+    uniqueIndex("product_batches_unique").on(t.companyId, t.productId, t.batchNo),
+    index("product_batches_product").on(t.companyId, t.productId),
+  ]
 );
 
 // ─── Price lists (multiple price levels per product) ──────────

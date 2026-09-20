@@ -4,13 +4,15 @@ import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Plus, Search, Trash2 } from "lucide-react";
 import { PageHeader, Field, ErrorNote } from "@/components/ui";
-import { api, fmtMoney, fmtDateInput } from "@/lib/format";
+import { api, fmtMoney, fmtQty, fmtDateInput, fmtDate } from "@/lib/format";
 import { resolveListRate } from "@/lib/price-lists";
 import { useBusinessProfile } from "@/components/business-type";
 import { useLang } from "@/components/lang-provider";
 
 type Party = { id: string; name: string; phone: string | null; priceListId: string | null };
-type Product = { id: string; sku: string; name: string; unit: string; salePrice: string; purchasePrice: string; totalQty: string; minSalePrice?: string | null };
+type Product = { id: string; sku: string; name: string; unit: string; salePrice: string; purchasePrice: string; totalQty: string; minSalePrice?: string | null; isBundle?: boolean };
+
+type BatchOpt = { id: string; batchNo: string; expiryDate: string | null; qtyThousandths: string };
 
 type Line = {
   key: number;
@@ -21,7 +23,102 @@ type Line = {
   rate: string;
   discount: string;
   availQty: string | null;
+  isBundle: boolean;
+  /** sales: chosen batch to deduct from ("" = FIFO). purchase return: batch to deduct. sales return: batch to restore. */
+  batchId: string;
+  /** purchase bill: batch_no for this receipt. */
+  batchNo: string;
+  /** purchase bill: expiry date for this receipt (YYYY-MM-DD). */
+  expiryDate: string;
 };
+
+type TFn = (key: string, vars?: Record<string, string | number>) => string;
+
+/**
+ * Per-line batch controls. Sales invoices get a batch dropdown (blank = FIFO
+ * by expiry); sales returns require the batch being restored; purchase bills
+ * get batch_no + expiry inputs; purchase returns get a FIFO-default dropdown.
+ * Returns null when the line has no product, is a bundle, or has no batches.
+ */
+function BatchControls({ line, isSales, docType, batches, t, onChange }: {
+  line: Line;
+  isSales: boolean;
+  docType: string;
+  /** undefined = not loaded yet; [] = product has no batches. */
+  batches: BatchOpt[] | undefined;
+  t: TFn;
+  onChange: (patch: Partial<Line>) => void;
+}) {
+  if (!line.productId || line.isBundle) return null;
+  if (isSales && docType !== "INVOICE" && docType !== "RETURN") return null;
+  if (!isSales && docType !== "BILL" && docType !== "RETURN") return null;
+
+  if (!isSales && docType === "BILL") {
+    return (
+      <div className="mt-1 flex flex-wrap items-center gap-2">
+        <input
+          className="field !w-32 !py-1 !text-xs"
+          placeholder={t("batches.purchaseBatchNoPlaceholder")}
+          aria-label={t("batches.purchaseBatchNo")}
+          title={t("batches.purchaseBatchHint")}
+          value={line.batchNo}
+          maxLength={40}
+          onChange={(e) => onChange({ batchNo: e.target.value })}
+        />
+        <input
+          className="field !w-36 !py-1 !text-xs"
+          type="date"
+          value={line.expiryDate}
+          aria-label={t("batches.purchaseExpiry")}
+          title={t("batches.purchaseExpiry")}
+          onChange={(e) => onChange({ expiryDate: e.target.value })}
+        />
+      </div>
+    );
+  }
+
+  if (batches === undefined || batches.length === 0) return null;
+  const batchOption = (b: BatchOpt) => (
+    <option key={b.id} value={b.id}>
+      {b.batchNo} · {fmtQty(b.qtyThousandths, line.unit)}{b.expiryDate ? ` · ${fmtDate(b.expiryDate)}` : ""}
+    </option>
+  );
+
+  if (isSales && docType === "RETURN") {
+    // restoring: the batch must be chosen explicitly
+    return (
+      <div className="mt-1">
+        <select
+          className="field !w-auto !max-w-full !py-1 !text-xs"
+          value={line.batchId}
+          aria-label={t("batches.selectBatch")}
+          onChange={(e) => onChange({ batchId: e.target.value })}
+        >
+          <option value="">{t("batches.selectBatchPlaceholder")}</option>
+          {batches.map(batchOption)}
+        </select>
+      </div>
+    );
+  }
+
+  // INVOICE + purchase RETURN: deduct, FIFO default
+  const avail = batches.filter((b) => { try { return BigInt(b.qtyThousandths) > 0n; } catch { return false; } });
+  if (avail.length === 0) return null;
+  return (
+    <div className="mt-1">
+      <select
+        className="field !w-auto !max-w-full !py-1 !text-xs"
+        value={line.batchId}
+        aria-label={t("batches.selectBatch")}
+        title={t("batches.autoFifoHint")}
+        onChange={(e) => onChange({ batchId: e.target.value })}
+      >
+        <option value="">{t("batches.autoFifo")}</option>
+        {avail.map(batchOption)}
+      </select>
+    </div>
+  );
+}
 
 export function DocForm({ mode }: { mode: "SALES" | "PURCHASE" }) {
   const bp = useBusinessProfile();
@@ -59,6 +156,16 @@ export function DocForm({ mode }: { mode: "SALES" | "PURCHASE" }) {
   const keyRef = useRef(0);
   const prodBoxRef = useRef<HTMLDivElement>(null);
   const productCache = useRef(new Map<string, Product>());
+  // batch rows per product (undefined = not loaded yet)
+  const [batchCache, setBatchCache] = useState<Record<string, BatchOpt[] | undefined>>({});
+  const batchLoadingRef = useRef(new Set<string>());
+  const loadBatches = useCallback((productId: string) => {
+    if (!productId || batchLoadingRef.current.has(productId)) return;
+    batchLoadingRef.current.add(productId);
+    api<{ data: BatchOpt[] }>(`/api/products/${productId}/batches`)
+      .then((d) => setBatchCache((m) => ({ ...m, [productId]: d.data })))
+      .catch(() => setBatchCache((m) => ({ ...m, [productId]: [] })));
+  }, []);
 
   // parties search
   useEffect(() => {
@@ -144,14 +251,19 @@ export function DocForm({ mode }: { mode: "SALES" | "PURCHASE" }) {
       rate: (Number(BigInt(price)) / 100).toString(),
       discount: "",
       availQty: p.totalQty,
+      isBundle: p.isBundle ?? false,
+      batchId: "",
+      batchNo: "",
+      expiryDate: "",
     }]);
+    loadBatches(p.id);
     setProdQ("");
     setShowProdList(false);
   }
 
   function addCustomLine() {
     keyRef.current += 1;
-    setLines((ls) => [...ls, { key: keyRef.current, productId: "", description: "", unit: "", qty: "1", rate: "", discount: "", availQty: null }]);
+    setLines((ls) => [...ls, { key: keyRef.current, productId: "", description: "", unit: "", qty: "1", rate: "", discount: "", availQty: null, isBundle: false, batchId: "", batchNo: "", expiryDate: "" }]);
   }
 
   function updateLine(key: number, patch: Partial<Line>) {
@@ -205,6 +317,15 @@ export function DocForm({ mode }: { mode: "SALES" | "PURCHASE" }) {
     for (const l of lines) {
       if (!l.description.trim()) { setError(t("docform.errNoDescription")); return; }
       if (!(parseFloat(l.qty || "0") > 0)) { setError(t("docform.errQty")); return; }
+      // purchase bill: expiry must at least look like YYYY-MM-DD (server checks it's a real date)
+      if (!isSales && docType === "BILL" && l.expiryDate && !/^\d{4}-\d{2}-\d{2}$/.test(l.expiryDate)) {
+        setError(t("batches.errInvalidExpiry")); return;
+      }
+      // sales return: the batch being restored must be chosen when the product has batches
+      if (isSales && docType === "RETURN" && l.productId && !l.isBundle) {
+        const bs = batchCache[l.productId];
+        if (bs && bs.length > 0 && !l.batchId) { setError(t("batches.errBatchRequired")); return; }
+      }
     }
     // minimum sale price lock (posted invoices only) — one confirm, then retry with override
     if (isSales && docType === "INVOICE" && !priceOverride) {
@@ -231,6 +352,9 @@ export function DocForm({ mode }: { mode: "SALES" | "PURCHASE" }) {
           productId: l.productId || undefined,
           description: l.description.trim(),
           qty: l.qty, rate: l.rate, discount: l.discount || "0",
+          batchId: l.batchId || undefined,
+          batchNo: l.batchNo || undefined,
+          expiryDate: l.expiryDate || undefined,
         })),
       };
       if (!isSales && refNo) body.refNo = refNo;
@@ -376,7 +500,7 @@ export function DocForm({ mode }: { mode: "SALES" | "PURCHASE" }) {
                       <button type="button" className="flex w-full items-center gap-2 px-4 py-2.5 text-left text-sm hover:bg-muted"
                         onClick={() => {
                           keyRef.current += 1;
-                          setLines((ls) => [...ls, { key: keyRef.current, productId: "", description: prodQ.trim(), unit: "", qty: "1", rate: "", discount: "", availQty: null }]);
+                          setLines((ls) => [...ls, { key: keyRef.current, productId: "", description: prodQ.trim(), unit: "", qty: "1", rate: "", discount: "", availQty: null, isBundle: false, batchId: "", batchNo: "", expiryDate: "" }]);
                           setProdQ("");
                           setShowProdList(false);
                         }}>
@@ -415,6 +539,7 @@ export function DocForm({ mode }: { mode: "SALES" | "PURCHASE" }) {
                               {t("docform.inStock", { qty: (Number(BigInt(l.availQty)) / 1000).toLocaleString(), unit: l.unit })}
                             </p>
                           )}
+                          <BatchControls line={l} isSales={isSales} docType={docType} batches={batchCache[l.productId]} t={t} onChange={(patch) => updateLine(l.key, patch)} />
                         </td>
                         <td><input className="field num !px-2 !py-1.5" type="number" min="0" step="0.001" value={l.qty}
                           onChange={(e) => updateLine(l.key, { qty: e.target.value })} /></td>
@@ -455,6 +580,7 @@ export function DocForm({ mode }: { mode: "SALES" | "PURCHASE" }) {
                             {t("docform.inStock", { qty: (Number(BigInt(l.availQty)) / 1000).toLocaleString(), unit: l.unit })}
                           </p>
                         )}
+                        <BatchControls line={l} isSales={isSales} docType={docType} batches={batchCache[l.productId]} t={t} onChange={(patch) => updateLine(l.key, patch)} />
                       </div>
                       <div className="grid grid-cols-3 gap-3">
                         <div>

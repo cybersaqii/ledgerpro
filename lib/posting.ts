@@ -18,6 +18,7 @@ import type { DbTx } from "./db";
 import type { ComputedItem } from "./totals";
 import { UserError } from "./errors";
 import { explodeSalesStockMoves } from "./bundles";
+import { addBatchStock, deductBatchStock, restoreBatchStock } from "./batches";
 
 type JournalLineInput = {
   accountId: string;
@@ -155,7 +156,7 @@ export type PostSalesInput = {
   docNo: string;
   docType: "INVOICE" | "RETURN";
   date: Date;
-  items: (ComputedItem & { trackStock: boolean })[];
+  items: (ComputedItem & { trackStock: boolean; batchId?: string | null })[];
   discountTotal: bigint;
   taxTotal: bigint;
   grandTotal: bigint;
@@ -172,7 +173,9 @@ export async function postSalesDoc(tx: DbTx, input: PostSalesInput): Promise<str
   // Bundle lines explode into their components for stock + COGS; the bundle
   // product itself never gets a stock movement. Plain lines pass through.
   // Insufficient component stock throws here, rolling back the whole doc.
-  const stockMoves: StockMove[] = (
+  // Each exploded move carries the line's batch choice (plain lines only —
+  // bundle explosion drops it, components use FIFO).
+  const stockMoves = (
     await explodeSalesStockMoves(
       tx,
       input.companyId,
@@ -180,10 +183,11 @@ export async function postSalesDoc(tx: DbTx, input: PostSalesInput): Promise<str
         productId: i.productId,
         qtyMilli: i.qtyMilli,
         trackStock: i.trackStock,
+        batchId: i.batchId ?? null,
       })),
       input.docType
     )
-  ).map((m) => ({ productId: m.productId, qtyMilli: m.qtyMilli, avgCostPaisa: 0n }));
+  ).map((m) => ({ productId: m.productId, qtyMilli: m.qtyMilli, avgCostPaisa: 0n, batchId: m.batchId }));
 
   for (const m of stockMoves) {
     const rows = await tx
@@ -193,6 +197,18 @@ export async function postSalesDoc(tx: DbTx, input: PostSalesInput): Promise<str
       .limit(1);
     m.avgCostPaisa = rows[0]?.avgCost ?? 0n;
   }
+
+  // Batch-tracked products: invoices deduct (explicit batch, or FIFO by
+  // expiry); returns restore the chosen batch. Runs inside the same
+  // transaction, so a batch error rolls the whole document back.
+  for (const m of stockMoves) {
+    if (input.docType === "INVOICE") {
+      await deductBatchStock(tx, input.companyId, m.productId, -m.qtyMilli, m.batchId);
+    } else if (m.batchId) {
+      await restoreBatchStock(tx, input.companyId, m.productId, m.batchId, m.qtyMilli);
+    }
+  }
+
   const { cogsOut, cogsIn } = await applyStock(tx, input.branchId, stockMoves);
 
   const lines: JournalLineInput[] =
@@ -250,7 +266,14 @@ export type PostPurchaseInput = {
   docNo: string;
   docType: "BILL" | "RETURN";
   date: Date;
-  items: (ComputedItem & { trackStock: boolean })[];
+  items: (ComputedItem & {
+    trackStock: boolean;
+    /** Purchase bill: optional batch_no + expiry_date to track this receipt. */
+    batchNo?: string | null;
+    expiryDate?: string | null;
+    /** Purchase return: optional batch to deduct the returned qty from. */
+    batchId?: string | null;
+  })[];
   discountTotal: bigint;
   taxTotal: bigint;
   grandTotal: bigint;
@@ -327,6 +350,22 @@ export async function postPurchaseDoc(tx: DbTx, input: PostPurchaseInput): Promi
       });
     }
   }
+
+  // Batch tracking, inside the same transaction as the stock + journal writes:
+  // - BILL with a batch_no: create the batch row or top it up (expiry format
+  //   validated inside addBatchStock — a bad date aborts the whole bill).
+  // - RETURN with a chosen batch: deduct the returned qty from that batch.
+  for (const i of input.items) {
+    if (!i.productId || !i.trackStock) continue;
+    if (input.docType === "BILL") {
+      if (i.batchNo && i.batchNo.trim()) {
+        await addBatchStock(tx, input.companyId, i.productId, i.batchNo, i.expiryDate ?? null, i.qtyMilli);
+      }
+    } else if (i.batchId) {
+      await deductBatchStock(tx, input.companyId, i.productId, i.qtyMilli, i.batchId);
+    }
+  }
+
   const { cogsOut: stockCostOut } = await applyStock(tx, input.branchId, stockMoves);
   // For purchase returns, inventory leaves at average cost (stockCostOut), not at
   // the return document's rate. Any difference is a price gain/loss vs cost.
