@@ -1,3 +1,4 @@
+import { UserError } from "./errors";
 // Quantity helpers — quantities stored as BigInt in milli-units (scale 1000).
 // 2.5 kg  -> 2500n. Exact, no floats.
 
@@ -6,7 +7,7 @@ const SCALE = 1000n;
 export function parseQty(input: string | number | bigint): bigint {
   if (typeof input === "bigint") return input;
   const s = String(input).trim().replace(/,/g, "");
-  if (!/^-?\d+(\.\d{1,3})?$/.test(s)) throw new Error(`Invalid quantity: ${String(input)}`);
+  if (!/^-?\d+(\.\d{1,3})?$/.test(s)) throw new UserError(`Invalid quantity: ${String(input)}`);
   const neg = s.startsWith("-");
   const core = neg ? s.slice(1) : s;
   const [w, f = ""] = core.split(".");

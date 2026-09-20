@@ -16,6 +16,7 @@ import {
 import { SYS, accountMap } from "./setup";
 import type { DbTx } from "./db";
 import type { ComputedItem } from "./totals";
+import { UserError } from "./errors";
 
 type JournalLineInput = {
   accountId: string;
@@ -108,7 +109,7 @@ async function applyStock(
     const next = current + m.qtyMilli;
     if (next < 0n) {
       const p = await tx.select({ name: products.name }).from(products).where(eq(products.id, m.productId)).limit(1);
-      throw new Error(`Insufficient stock for "${p[0]?.name ?? "product"}"`);
+      throw new UserError(`Insufficient stock for "${p[0]?.name ?? "product"}"`);
     }
     let newAvg = avg;
     if (m.qtyMilli > 0n && m.unitCostPaisa !== undefined) {
@@ -282,7 +283,7 @@ export async function postPurchaseDoc(tx: DbTx, input: PostPurchaseInput): Promi
   const extraCosts = (input.extraCosts ?? []).filter((c) => c.amount > 0n);
   const totalExtra = extraCosts.reduce((a, c) => a + c.amount, 0n);
   if (totalExtra > 0n && input.docType !== "BILL")
-    throw new Error("Extra costs can only be added to a purchase bill.");
+    throw new UserError("Extra costs can only be added to a purchase bill.");
 
   let stockNet = 0n;
   let nonStockNet = 0n;
@@ -300,7 +301,7 @@ export async function postPurchaseDoc(tx: DbTx, input: PostPurchaseInput): Promi
     }
   });
   if (totalExtra > 0n && stockNets.length === 0)
-    throw new Error("Extra costs need at least one stock-tracked item.");
+    throw new UserError("Extra costs need at least one stock-tracked item.");
   const landed = distributeExtraCost(stockNets, totalExtra); // per stock line, same order
   const landedByItem = new Map<number, bigint>();
   stockItemIdx.forEach((idx, j) => landedByItem.set(idx, landed[j] ?? 0n));
@@ -339,7 +340,7 @@ export async function postPurchaseDoc(tx: DbTx, input: PostPurchaseInput): Promi
         )
         .limit(1);
       const bank = bankRows[0];
-      if (!bank) throw new Error("Cash/bank account for extra costs not found.");
+      if (!bank) throw new UserError("Cash/bank account for extra costs not found.");
       extraCredit = { accountId: bank.accountId, debit: 0n, credit: totalExtra };
       await tx
         .update(bankAccounts)
@@ -418,7 +419,7 @@ export type PostPaymentInput = {
 };
 
 export async function postPayment(tx: DbTx, input: PostPaymentInput): Promise<string> {
-  if (input.amount <= 0n) throw new Error("Payment amount must be positive");
+  if (input.amount <= 0n) throw new UserError("Payment amount must be positive");
   const ac = await accountMap(tx, input.companyId);
 
   const bankRows = await tx
@@ -427,12 +428,12 @@ export async function postPayment(tx: DbTx, input: PostPaymentInput): Promise<st
     .where(and(eq(bankAccounts.id, input.bankAccountId), eq(bankAccounts.companyId, input.companyId)))
     .limit(1);
   const bank = bankRows[0];
-  if (!bank) throw new Error("Bank/cash account not found");
+  if (!bank) throw new UserError("Bank/cash account not found");
 
   const allocTotal = input.allocations.reduce((a, x) => a + x.amount, 0n);
-  if (allocTotal > input.amount) throw new Error("Allocated amount exceeds payment amount");
+  if (allocTotal > input.amount) throw new UserError("Allocated amount exceeds payment amount");
   for (const a of input.allocations) {
-    if (a.amount <= 0n) throw new Error("Allocation amounts must be positive");
+    if (a.amount <= 0n) throw new UserError("Allocation amounts must be positive");
   }
 
   const isReceipt = input.kind === "RECEIPT";
@@ -480,9 +481,9 @@ export async function postPayment(tx: DbTx, input: PostPaymentInput): Promise<st
         .where(and(eq(salesDocs.id, a.docId), eq(salesDocs.companyId, input.companyId)))
         .limit(1);
       const doc = rows[0];
-      if (!doc || doc.partyId !== input.partyId) throw new Error("Invalid sales document for allocation");
+      if (!doc || doc.partyId !== input.partyId) throw new UserError("Invalid sales document for allocation");
       const remaining = doc.grandTotal - doc.amountPaid;
-      if (a.amount > remaining) throw new Error(`Allocation exceeds remaining balance of ${doc.docNo}`);
+      if (a.amount > remaining) throw new UserError(`Allocation exceeds remaining balance of ${doc.docNo}`);
       const paid = doc.amountPaid + a.amount;
       await tx
         .update(salesDocs)
@@ -502,9 +503,9 @@ export async function postPayment(tx: DbTx, input: PostPaymentInput): Promise<st
         .where(and(eq(purchaseDocs.id, a.docId), eq(purchaseDocs.companyId, input.companyId)))
         .limit(1);
       const doc = rows[0];
-      if (!doc || doc.partyId !== input.partyId) throw new Error("Invalid purchase document for allocation");
+      if (!doc || doc.partyId !== input.partyId) throw new UserError("Invalid purchase document for allocation");
       const remaining = doc.grandTotal - doc.amountPaid;
-      if (a.amount > remaining) throw new Error(`Allocation exceeds remaining balance of ${doc.docNo}`);
+      if (a.amount > remaining) throw new UserError(`Allocation exceeds remaining balance of ${doc.docNo}`);
       const paid = doc.amountPaid + a.amount;
       await tx
         .update(purchaseDocs)
@@ -544,8 +545,8 @@ export type PostExpenseInput = {
 };
 
 export async function postExpense(tx: DbTx, input: PostExpenseInput): Promise<string> {
-  if (input.amount <= 0n) throw new Error("Expense amount must be positive");
-  if (input.taxAmount < 0n) throw new Error("Tax amount cannot be negative");
+  if (input.amount <= 0n) throw new UserError("Expense amount must be positive");
+  if (input.taxAmount < 0n) throw new UserError("Tax amount cannot be negative");
   const ac = await accountMap(tx, input.companyId);
 
   const bankRows = await tx
@@ -554,7 +555,7 @@ export async function postExpense(tx: DbTx, input: PostExpenseInput): Promise<st
     .where(and(eq(bankAccounts.id, input.bankAccountId), eq(bankAccounts.companyId, input.companyId)))
     .limit(1);
   const bank = bankRows[0];
-  if (!bank) throw new Error("Bank/cash account not found");
+  if (!bank) throw new UserError("Bank/cash account not found");
 
   const glRows = await tx
     .select()
@@ -562,7 +563,7 @@ export async function postExpense(tx: DbTx, input: PostExpenseInput): Promise<st
     .where(and(eq(accounts.id, input.accountId), eq(accounts.companyId, input.companyId)))
     .limit(1);
   const gl = glRows[0];
-  if (!gl || gl.type !== "EXPENSE") throw new Error("Please select a valid expense account");
+  if (!gl || gl.type !== "EXPENSE") throw new UserError("Please select a valid expense account");
 
   const total = input.amount + input.taxAmount;
   const entryId = await createJournal(tx, {

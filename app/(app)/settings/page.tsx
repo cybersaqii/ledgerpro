@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { Building2, Database, Download, Save, Upload, Users, UserPlus, ScrollText, KeyRound, Copy, Check, Lock } from "lucide-react";
+import { Building2, Database, Download, Save, Upload, Users, UserPlus, ScrollText, KeyRound, Copy, Check, Lock, Activity } from "lucide-react";
 import { PageHeader, Field, ErrorNote } from "@/components/ui";
 import { api } from "@/lib/format";
 import { BUSINESS_TYPES } from "@/lib/business-types";
@@ -149,6 +149,7 @@ export default function SettingsPage() {
       <TeamCard />
       <SecurityCard />
       <PeriodLockCard />
+      <SystemHealthCard isOwner={isOwner} />
       <div className="card mt-6 max-w-2xl p-6 sm:p-8">
         <div className="flex items-center justify-between gap-3">
           <div>
@@ -552,6 +553,54 @@ function PeriodLockCard() {
             <p className="mt-4 text-sm text-muted-foreground">Only the owner can change the period lock.</p>
           )}
         </div>
+      )}
+    </div>
+  );
+}
+
+type ErrorRow = { id: string; route: string; message: string; createdAt: number | string };
+
+function fmtErrorTime(v: number | string): string {
+  const d = new Date(typeof v === "number" ? v : v);
+  return isNaN(d.getTime()) ? "—" : d.toLocaleString();
+}
+
+function SystemHealthCard({ isOwner }: { isOwner: boolean }) {
+  const [rows, setRows] = useState<ErrorRow[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    if (!isOwner) return;
+    let alive = true;
+    api<{ data: ErrorRow[] }>("/api/system/errors")
+      .then((d) => { if (alive) setRows(d.data); })
+      .catch(() => {})
+      .finally(() => { if (alive) setLoading(false); });
+    return () => { alive = false; };
+  }, [isOwner]);
+
+  if (!isOwner) return null;
+
+  return (
+    <div className="card mt-6 max-w-2xl p-6 sm:p-8">
+      <h2 className="inline-flex items-center gap-2 text-lg font-extrabold"><Activity size={19} /> System health</h2>
+      <p className="mt-1 text-sm text-muted-foreground">
+        Recent unexpected server errors. If something breaks for your team, it shows up here.
+      </p>
+      {loading ? (
+        <div className="mt-4 h-12 animate-pulse rounded-xl bg-muted" />
+      ) : rows.length === 0 ? (
+        <p className="mt-4 rounded-xl bg-muted/60 px-4 py-3 text-sm text-muted-foreground">No errors logged.</p>
+      ) : (
+        <ul className="mt-4 divide-y divide-border rounded-2xl border border-border">
+          {rows.map((r) => (
+            <li key={r.id} className="px-4 py-3">
+              <p className="font-mono text-xs font-bold text-red-500">{r.route}</p>
+              <p className="mt-0.5 truncate text-sm">{r.message}</p>
+              <p className="mt-0.5 text-xs text-muted-foreground">{fmtErrorTime(r.createdAt)}</p>
+            </li>
+          ))}
+        </ul>
       )}
     </div>
   );

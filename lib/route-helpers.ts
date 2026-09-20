@@ -5,11 +5,12 @@ import type { Session } from "./auth";
 import type { Db, DbTx } from "./db";
 import { db } from "./db";
 import type { NextResponse } from "next/server";
+import { UserError } from "./errors";
 
 /** Parse "YYYY-MM-DD" as UTC noon (avoids timezone/DST edge cases). */
 export function parseDateOnly(s: string): Date {
   const d = new Date(`${s}T12:00:00Z`);
-  if (isNaN(d.getTime())) throw new Error("Invalid date");
+  if (isNaN(d.getTime())) throw new UserError("Invalid date");
   return d;
 }
 
@@ -55,7 +56,7 @@ export async function assertBranch(tx: Db | DbTx, companyId: string, branchId: s
     .from(branches)
     .where(and(eq(branches.id, branchId), eq(branches.companyId, companyId)))
     .limit(1);
-  if (!rows[0]) throw new Error("Invalid branch");
+  if (!rows[0]) throw new UserError("Invalid branch");
 }
 
 export { db, err };

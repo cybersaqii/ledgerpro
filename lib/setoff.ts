@@ -3,6 +3,7 @@ import { parties } from "@/db/schema";
 import { createJournal } from "./posting";
 import { SYS, accountMap } from "./setup";
 import type { DbTx } from "./db";
+import { UserError } from "./errors";
 
 export type SetoffInput = {
   companyId: string;
@@ -23,8 +24,8 @@ export type SetoffInput = {
  * Both party balances drop by the amount; the entry is fully balanced.
  */
 export async function postSetoff(tx: DbTx, input: SetoffInput): Promise<string> {
-  if (input.amount <= 0n) throw new Error("Set-off amount must be positive.");
-  if (input.customerId === input.supplierId) throw new Error("Customer and supplier must be different parties.");
+  if (input.amount <= 0n) throw new UserError("Set-off amount must be positive.");
+  if (input.customerId === input.supplierId) throw new UserError("Customer and supplier must be different parties.");
 
   const [customer] = await tx
     .select({ id: parties.id, name: parties.name, kind: parties.kind, balance: parties.balance })
@@ -36,17 +37,17 @@ export async function postSetoff(tx: DbTx, input: SetoffInput): Promise<string> 
     .from(parties)
     .where(and(eq(parties.id, input.supplierId), eq(parties.companyId, input.companyId)))
     .limit(1);
-  if (!customer) throw new Error("Customer not found.");
-  if (!supplier) throw new Error("Supplier not found.");
-  if (customer.kind !== "CUSTOMER") throw new Error("First party must be a customer.");
-  if (supplier.kind !== "SUPPLIER") throw new Error("Second party must be a supplier.");
+  if (!customer) throw new UserError("Customer not found.");
+  if (!supplier) throw new UserError("Supplier not found.");
+  if (customer.kind !== "CUSTOMER") throw new UserError("First party must be a customer.");
+  if (supplier.kind !== "SUPPLIER") throw new UserError("Second party must be a supplier.");
 
   const custBal = BigInt(customer.balance); // +ve = they owe us
   const suppBal = BigInt(supplier.balance); // +ve = we owe them
-  if (custBal <= 0n) throw new Error(`${customer.name} has no receivable to set off.`);
-  if (suppBal <= 0n) throw new Error(`${supplier.name} has no payable to set off.`);
+  if (custBal <= 0n) throw new UserError(`${customer.name} has no receivable to set off.`);
+  if (suppBal <= 0n) throw new UserError(`${supplier.name} has no payable to set off.`);
   const max = custBal < suppBal ? custBal : suppBal;
-  if (input.amount > max) throw new Error(`Set-off cannot exceed Rs ${(max / 100n).toLocaleString()} (the smaller balance).`);
+  if (input.amount > max) throw new UserError(`Set-off cannot exceed Rs ${(max / 100n).toLocaleString()} (the smaller balance).`);
 
   const ac = await accountMap(tx, input.companyId);
   const entryId = await createJournal(tx, {

@@ -1,6 +1,7 @@
 import { NextRequest } from "next/server";
 import { z } from "zod";
 import { json, err } from "@/lib/api";
+import { toApiError } from "@/lib/errors";
 import { requireCompany, db, defaultBranchId } from "@/lib/route-helpers";
 import { convertPurchaseDoc, createPurchaseReturn } from "@/lib/doc-actions";
 import { parseQty } from "@/lib/qty";
@@ -41,6 +42,6 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     });
     return json({ data: result }, { status: 201 });
   } catch (e) {
-    return err(e instanceof Error ? e.message : "Could not process the document.", 422);
+    return toApiError(e, { route: "/api/purchases/[id]/convert", companyId });
   }
 }

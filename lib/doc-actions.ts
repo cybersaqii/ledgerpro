@@ -9,6 +9,7 @@ import { floorErrorMessage } from "./min-price";
 import { applyCustomerAdvance } from "./advance";
 import { assertPeriodOpen } from "./period";
 import type { DbTx } from "./db";
+import { UserError } from "./errors";
 
 type Tx = DbTx;
 
@@ -33,13 +34,13 @@ export async function convertSalesDoc(
 ): Promise<ConvertResult> {
   const [src] = await tx.select().from(salesDocs)
     .where(and(eq(salesDocs.id, input.sourceId), eq(salesDocs.companyId, input.companyId))).limit(1);
-  if (!src) throw new Error("Source document not found.");
-  if (src.docType !== "QUOTATION" && src.docType !== "ORDER") throw new Error("Only quotations and orders can be converted.");
-  if (src.status === "CONVERTED") throw new Error("This document was already converted.");
+  if (!src) throw new UserError("Source document not found.");
+  if (src.docType !== "QUOTATION" && src.docType !== "ORDER") throw new UserError("Only quotations and orders can be converted.");
+  if (src.status === "CONVERTED") throw new UserError("This document was already converted.");
   await assertPeriodOpen(tx, input.companyId, src.date);
 
   const srcItems = await tx.select().from(salesDocItems).where(eq(salesDocItems.docId, src.id));
-  if (srcItems.length === 0) throw new Error("Source document has no items.");
+  if (srcItems.length === 0) throw new UserError("Source document has no items.");
 
   // minimum sale price lock on the resulting posted invoice
   // (source item rates are already in paisa — compare directly)
@@ -54,7 +55,7 @@ export async function convertSalesDoc(
     const floor = (i.productId && floorMap.get(i.productId)) || 0n;
     if (floor > 0n && BigInt(i.rate) < floor) belowFloor.push(i.description || "item");
   }
-  if (belowFloor.length > 0 && !input.priceOverride) throw new Error(floorErrorMessage(belowFloor));
+  if (belowFloor.length > 0 && !input.priceOverride) throw new UserError(floorErrorMessage(belowFloor));
 
   const items: DocItemInput[] = srcItems.map((i) => ({
     productId: i.productId,
@@ -145,15 +146,15 @@ export async function createSalesReturn(
 ): Promise<ConvertResult> {
   const [src] = await tx.select().from(salesDocs)
     .where(and(eq(salesDocs.id, input.sourceId), eq(salesDocs.companyId, input.companyId))).limit(1);
-  if (!src) throw new Error("Source invoice not found.");
-  if (src.docType !== "INVOICE" || src.status !== "POSTED") throw new Error("Only posted invoices can be returned.");
+  if (!src) throw new UserError("Source invoice not found.");
+  if (src.docType !== "INVOICE" || src.status !== "POSTED") throw new UserError("Only posted invoices can be returned.");
   await assertPeriodOpen(tx, input.companyId, src.date);
 
   const srcItems = await tx.select().from(salesDocItems).where(eq(salesDocItems.docId, src.id));
-  if (srcItems.length === 0) throw new Error("Source invoice has no items.");
+  if (srcItems.length === 0) throw new UserError("Source invoice has no items.");
   if (input.lines) {
     const ids = new Set(srcItems.map((i) => i.id));
-    for (const l of input.lines) if (!ids.has(l.itemId)) throw new Error("Invalid return lines.");
+    for (const l of input.lines) if (!ids.has(l.itemId)) throw new UserError("Invalid return lines.");
   }
 
   const requested = new Map((input.lines ?? []).map((l) => [l.itemId, l.qty]));
@@ -166,7 +167,7 @@ export async function createSalesReturn(
     const q = input.lines ? (requested.get(si.id) ?? 0n) : remaining;
     if (q <= 0n) continue;
     if (q > remaining)
-      throw new Error(`Return quantity for "${si.description}" exceeds the remaining ${(Number(remaining) / 1000).toLocaleString()}.`);
+      throw new UserError(`Return quantity for "${si.description}" exceeds the remaining ${(Number(remaining) / 1000).toLocaleString()}.`);
     items.push({
       productId: si.productId,
       description: si.description,
@@ -178,7 +179,7 @@ export async function createSalesReturn(
     });
     returnedById.set(si.id, already + q);
   }
-  if (items.length === 0) throw new Error("This invoice has already been fully returned.");
+  if (items.length === 0) throw new UserError("This invoice has already been fully returned.");
 
   // document-level discount scales with the returned share of the subtotal
   const srcDiscount = src.discountTotal ?? 0n;
@@ -252,13 +253,13 @@ export async function convertPurchaseDoc(
 ): Promise<ConvertResult> {
   const [src] = await tx.select().from(purchaseDocs)
     .where(and(eq(purchaseDocs.id, input.sourceId), eq(purchaseDocs.companyId, input.companyId))).limit(1);
-  if (!src) throw new Error("Source document not found.");
-  if (src.docType !== "ORDER") throw new Error("Only purchase orders can be converted.");
-  if (src.status === "CONVERTED") throw new Error("This document was already converted.");
+  if (!src) throw new UserError("Source document not found.");
+  if (src.docType !== "ORDER") throw new UserError("Only purchase orders can be converted.");
+  if (src.status === "CONVERTED") throw new UserError("This document was already converted.");
   await assertPeriodOpen(tx, input.companyId, src.date);
 
   const srcItems = await tx.select().from(purchaseDocItems).where(eq(purchaseDocItems.docId, src.id));
-  if (srcItems.length === 0) throw new Error("Source document has no items.");
+  if (srcItems.length === 0) throw new UserError("Source document has no items.");
 
   const items: DocItemInput[] = srcItems.map((i) => ({
     productId: i.productId,
@@ -334,15 +335,15 @@ export async function createPurchaseReturn(
 ): Promise<ConvertResult> {
   const [src] = await tx.select().from(purchaseDocs)
     .where(and(eq(purchaseDocs.id, input.sourceId), eq(purchaseDocs.companyId, input.companyId))).limit(1);
-  if (!src) throw new Error("Source bill not found.");
-  if (src.docType !== "BILL" || src.status !== "POSTED") throw new Error("Only posted bills can be returned.");
+  if (!src) throw new UserError("Source bill not found.");
+  if (src.docType !== "BILL" || src.status !== "POSTED") throw new UserError("Only posted bills can be returned.");
   await assertPeriodOpen(tx, input.companyId, src.date);
 
   const srcItems = await tx.select().from(purchaseDocItems).where(eq(purchaseDocItems.docId, src.id));
-  if (srcItems.length === 0) throw new Error("Source bill has no items.");
+  if (srcItems.length === 0) throw new UserError("Source bill has no items.");
   if (input.lines) {
     const ids = new Set(srcItems.map((i) => i.id));
-    for (const l of input.lines) if (!ids.has(l.itemId)) throw new Error("Invalid return lines.");
+    for (const l of input.lines) if (!ids.has(l.itemId)) throw new UserError("Invalid return lines.");
   }
 
   const requested = new Map((input.lines ?? []).map((l) => [l.itemId, l.qty]));
@@ -355,7 +356,7 @@ export async function createPurchaseReturn(
     const q = input.lines ? (requested.get(si.id) ?? 0n) : remaining;
     if (q <= 0n) continue;
     if (q > remaining)
-      throw new Error(`Return quantity for "${si.description}" exceeds the remaining ${(Number(remaining) / 1000).toLocaleString()}.`);
+      throw new UserError(`Return quantity for "${si.description}" exceeds the remaining ${(Number(remaining) / 1000).toLocaleString()}.`);
     items.push({
       productId: si.productId,
       description: si.description,
@@ -366,7 +367,7 @@ export async function createPurchaseReturn(
     });
     returnedById.set(si.id, already + q);
   }
-  if (items.length === 0) throw new Error("This bill has already been fully returned.");
+  if (items.length === 0) throw new UserError("This bill has already been fully returned.");
 
   const srcDiscount = src.discountTotal ?? 0n;
   const srcSubtotal = src.subtotal ?? 0n;

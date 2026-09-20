@@ -6,11 +6,11 @@ import { verifyPassword, createSession } from "@/lib/auth";
 import { loginSchema } from "@/lib/validators";
 import { setupCompany, SYS } from "@/lib/setup";
 import { json, err } from "@/lib/api";
-import { rateLimit, clientIp } from "@/lib/rate-limit";
+import { rateLimitDb, clientIp } from "@/lib/rate-limit-db";
 import { logAudit } from "@/lib/audit";
 
 export async function POST(req: NextRequest) {
-  const rl = rateLimit(`login:${clientIp(req)}`, 10, 60_000);
+  const rl = await rateLimitDb(`login:${clientIp(req)}`, 10, 60_000);
   if (!rl.ok) {
     return json(
       { error: `Too many login attempts. Try again in ${rl.retryAfterSec} seconds.` },

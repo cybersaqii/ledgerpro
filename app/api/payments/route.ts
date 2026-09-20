@@ -5,6 +5,7 @@ import { paymentSchema } from "@/lib/validators";
 import { parseMoney } from "@/lib/money";
 import { postPayment } from "@/lib/posting";
 import { json, err } from "@/lib/api";
+import { toApiError } from "@/lib/errors";
 import { requireCompany, db, parseDateOnly, defaultBranchId, assertBranch } from "@/lib/route-helpers";
 import { periodLockError } from "@/lib/period";
 import { logAudit } from "@/lib/audit";
@@ -122,6 +123,6 @@ export async function POST(req: NextRequest) {
     });
     return json({ data: { id: paymentId } }, { status: 201 });
   } catch (e) {
-    return err(e instanceof Error ? e.message : "Could not save the payment.", 422);
+    return toApiError(e, { route: "/api/payments", companyId });
   }
 }

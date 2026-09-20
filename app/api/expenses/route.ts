@@ -5,6 +5,7 @@ import { expenseSchema } from "@/lib/validators";
 import { parseMoney } from "@/lib/money";
 import { postExpense } from "@/lib/posting";
 import { json, err } from "@/lib/api";
+import { toApiError } from "@/lib/errors";
 import { requireCompany, db, parseDateOnly, defaultBranchId, assertBranch } from "@/lib/route-helpers";
 import { periodLockError } from "@/lib/period";
 import { logAudit } from "@/lib/audit";
@@ -98,6 +99,6 @@ export async function POST(req: NextRequest) {
     });
     return json({ data: { id: expenseId } }, { status: 201 });
   } catch (e) {
-    return err(e instanceof Error ? e.message : "Could not save the expense.", 422);
+    return toApiError(e, { route: "/api/expenses", companyId });
   }
 }

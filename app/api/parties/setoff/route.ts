@@ -1,6 +1,7 @@
 import { NextRequest } from "next/server";
 import { z } from "zod";
 import { json, err } from "@/lib/api";
+import { toApiError } from "@/lib/errors";
 import { requireCompany, db, defaultBranchId, parseDateOnly } from "@/lib/route-helpers";
 import { periodLockError } from "@/lib/period";
 import { parseMoney } from "@/lib/money";
@@ -52,6 +53,6 @@ export async function POST(req: NextRequest) {
     });
     return json({ data: { entryId } }, { status: 201 });
   } catch (e) {
-    return err(e instanceof Error ? e.message : "Could not post the set-off.", 422);
+    return toApiError(e, { route: "/api/parties/setoff", companyId });
   }
 }

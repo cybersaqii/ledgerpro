@@ -5,14 +5,14 @@ import { db } from "@/lib/db";
 import { hashPassword, verifyPassword } from "@/lib/auth";
 import { generateRecoveryCode, normalizeRecoveryCode, isValidRecoveryCodeShape } from "@/lib/recovery";
 import { json, err } from "@/lib/api";
-import { rateLimit, clientIp } from "@/lib/rate-limit";
+import { rateLimitDb, clientIp } from "@/lib/rate-limit-db";
 import { logAudit } from "@/lib/audit";
 
 // POST /api/auth/forgot — reset a forgotten password with the account recovery code.
 // Single step: { email, recoveryCode, newPassword }. No email service required.
 // On success the recovery code is rotated and returned once — the user must save it.
 export async function POST(req: NextRequest) {
-  const rl = rateLimit(`forgot:${clientIp(req)}`, 5, 300_000);
+  const rl = await rateLimitDb(`forgot:${clientIp(req)}`, 5, 300_000);
   if (!rl.ok) {
     return json(
       { error: `Too many attempts. Try again in ${Math.ceil(rl.retryAfterSec / 60)} minutes.` },

@@ -1,10 +1,11 @@
+import { UserError } from "./errors";
 // Money helpers — ALL money is stored and computed as BigInt in minor units (paisa).
 // No floats anywhere. Every rounding is explicit half-up.
 
 export function parseMoney(input: string | number | bigint): bigint {
   if (typeof input === "bigint") return input;
   const s = String(input).trim().replace(/,/g, "");
-  if (!/^-?\d+(\.\d{1,2})?$/.test(s)) throw new Error(`Invalid money value: ${String(input)}`);
+  if (!/^-?\d+(\.\d{1,2})?$/.test(s)) throw new UserError(`Invalid money value: ${String(input)}`);
   const neg = s.startsWith("-");
   const core = neg ? s.slice(1) : s;
   const [w, f = ""] = core.split(".");

@@ -1,6 +1,7 @@
 import { eq } from "drizzle-orm";
 import { companies } from "@/db/schema";
 import type { Db, DbTx } from "./db";
+import { UserError } from "./errors";
 
 /** The company's accounting period lock (locked through this date, UTC noon), or null. */
 export async function getPeriodLock(tx: Db | DbTx, companyId: string): Promise<Date | null> {
@@ -42,5 +43,5 @@ export async function periodLockError(
 /** Throw-style variant for lib/ code paths that surface errors via thrown Error. */
 export async function assertPeriodOpen(tx: Db | DbTx, companyId: string, date: Date | number): Promise<void> {
   const msg = await periodLockError(tx, companyId, date);
-  if (msg) throw new Error(msg);
+  if (msg) throw new UserError(msg);
 }

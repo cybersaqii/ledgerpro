@@ -7,11 +7,11 @@ import { generateRecoveryCode, normalizeRecoveryCode } from "@/lib/recovery";
 import { setupCompany } from "@/lib/setup";
 import { signupSchema } from "@/lib/validators";
 import { json, err } from "@/lib/api";
-import { rateLimit, clientIp } from "@/lib/rate-limit";
+import { rateLimitDb, clientIp } from "@/lib/rate-limit-db";
 import { logAudit } from "@/lib/audit";
 
 export async function POST(req: NextRequest) {
-  const rl = rateLimit(`signup:${clientIp(req)}`, 5, 300_000);
+  const rl = await rateLimitDb(`signup:${clientIp(req)}`, 5, 300_000);
   if (!rl.ok) {
     return json(
       { error: `Too many signup attempts. Try again in ${Math.ceil(rl.retryAfterSec / 60)} minutes.` },

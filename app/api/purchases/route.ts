@@ -9,6 +9,7 @@ import { postPurchaseDoc, distributeExtraCost } from "@/lib/posting";
 import { periodLockError } from "@/lib/period";
 import { nextDocNo } from "@/lib/setup";
 import { json, err } from "@/lib/api";
+import { toApiError } from "@/lib/errors";
 import { requireCompany, db, parseDateOnly, defaultBranchId, assertBranch } from "@/lib/route-helpers";
 import { logAudit } from "@/lib/audit";
 
@@ -106,7 +107,7 @@ export async function POST(req: NextRequest) {
   try {
     totals = computeTotals(docItems, parseMoney(b.discountTotal));
   } catch (e) {
-    return err(e instanceof Error ? e.message : "Invalid document totals.", 422);
+    return toApiError(e, { route: "/api/purchases", companyId });
   }
 
   const isPosted = (POSTED_TYPES as readonly string[]).includes(b.docType);
@@ -208,7 +209,6 @@ export async function POST(req: NextRequest) {
     });
     return json({ data: result }, { status: 201 });
   } catch (e) {
-    const msg = e instanceof Error ? e.message : "Could not save the document.";
-    return err(msg, 422);
+    return toApiError(e, { route: "/api/purchases", companyId });
   }
 }

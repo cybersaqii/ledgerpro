@@ -410,3 +410,27 @@ export const auditLogs = sqliteTable(
 );
 
 // (Db / DbTx types live in lib/db.ts to avoid a circular import.)
+
+// ─── Hardening: rate limiting + error log ────────────────────────
+
+// DB-backed sliding-window rate limiter (works across serverless instances).
+export const rateLimits = sqliteTable("rate_limits", {
+  key: text("key").primaryKey(),
+  hits: text("hits").notNull().default("[]"), // JSON array of epoch-ms timestamps
+});
+
+// Server-side error log: unexpected 500s. Owners can view recent entries in Settings.
+export const errorLogs = sqliteTable(
+  "error_logs",
+  {
+    id: id(),
+    companyId: text("company_id"),
+    route: text("route").notNull(),
+    message: text("message").notNull(),
+    stack: text("stack"),
+    createdAt: createdAt(),
+  },
+  (t) => [index("error_logs_company_time").on(t.companyId, t.createdAt)]
+);
+
+// (Db / DbTx types live in lib/db.ts to avoid a circular import.)
