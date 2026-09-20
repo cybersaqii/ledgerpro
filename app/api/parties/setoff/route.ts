@@ -2,6 +2,7 @@ import { NextRequest } from "next/server";
 import { z } from "zod";
 import { json, err } from "@/lib/api";
 import { requireCompany, db, defaultBranchId, parseDateOnly } from "@/lib/route-helpers";
+import { periodLockError } from "@/lib/period";
 import { parseMoney } from "@/lib/money";
 import { postSetoff } from "@/lib/setoff";
 import { logAudit } from "@/lib/audit";
@@ -25,6 +26,10 @@ export async function POST(req: NextRequest) {
   const b = setoffSchema.safeParse(body);
   if (!b.success) return err(b.error.issues[0]?.message ?? "Invalid set-off.", 422);
 
+  const date = b.data.date ? parseDateOnly(b.data.date) : new Date();
+  const lockErr = await periodLockError(db, companyId, date);
+  if (lockErr) return err(lockErr, 422);
+
   try {
     const entryId = await db.transaction(async (tx) => {
       const branchId = await defaultBranchId(tx, companyId);
@@ -34,7 +39,7 @@ export async function POST(req: NextRequest) {
         customerId: b.data.customerId,
         supplierId: b.data.supplierId,
         amount: parseMoney(b.data.amount),
-        date: b.data.date ? parseDateOnly(b.data.date) : new Date(),
+        date,
         notes: b.data.notes || undefined,
         createdById: session.uid,
       });

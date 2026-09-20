@@ -3,6 +3,7 @@ import { eq } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { users, companies } from "@/db/schema";
 import { hashPassword, createSession } from "@/lib/auth";
+import { generateRecoveryCode, normalizeRecoveryCode } from "@/lib/recovery";
 import { setupCompany } from "@/lib/setup";
 import { signupSchema } from "@/lib/validators";
 import { json, err } from "@/lib/api";
@@ -41,12 +42,14 @@ export async function POST(req: NextRequest) {
     businessType,
   });
   const userId = crypto.randomUUID();
+  const recoveryCode = generateRecoveryCode();
   await db.insert(users).values({
     id: userId,
     companyId,
     name,
     email: email.toLowerCase(),
     passwordHash,
+    recoveryCodeHash: await hashPassword(normalizeRecoveryCode(recoveryCode)),
     role: "OWNER",
   });
 
@@ -63,5 +66,5 @@ export async function POST(req: NextRequest) {
     action: "auth.signup", entity: "user", entityId: userId,
     detail: `Company ${companyName} created`,
   });
-  return json({ ok: true, user: { id: userId, name, email: email.toLowerCase(), role: "OWNER" } });
+  return json({ ok: true, user: { id: userId, name, email: email.toLowerCase(), role: "OWNER" }, recoveryCode });
 }

@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
-import { UserPlus, Eye, EyeOff } from "lucide-react";
+import { UserPlus, Eye, EyeOff, KeyRound, Copy, Check } from "lucide-react";
 import { AuthLayout } from "@/components/auth-layout";
 import { Field, ErrorNote } from "@/components/ui";
 import { api } from "@/lib/format";
@@ -23,6 +23,9 @@ export default function SignupPage() {
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [showPw, setShowPw] = useState(false);
+  const [recoveryCode, setRecoveryCode] = useState<string | null>(null);
+  const [savedAck, setSavedAck] = useState(false);
+  const [copied, setCopied] = useState(false);
 
   const set = (k: keyof Form) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) =>
     setForm((f) => ({ ...f, [k]: e.target.value }));
@@ -32,9 +35,13 @@ export default function SignupPage() {
     setError(null);
     setBusy(true);
     try {
-      await api("/api/auth/signup", { method: "POST", body: JSON.stringify(form) });
-      router.push("/dashboard");
-      router.refresh();
+      const d = await api<{ recoveryCode?: string }>("/api/auth/signup", { method: "POST", body: JSON.stringify(form) });
+      if (d.recoveryCode) {
+        setRecoveryCode(d.recoveryCode);
+      } else {
+        router.push("/dashboard");
+        router.refresh();
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Signup failed.");
     } finally {
@@ -42,9 +49,52 @@ export default function SignupPage() {
     }
   }
 
+  async function copy() {
+    if (!recoveryCode) return;
+    try {
+      await navigator.clipboard.writeText(recoveryCode);
+      setCopied(true);
+    } catch { /* clipboard unavailable — user can select manually */ }
+  }
+
+  function continueToDashboard() {
+    router.push("/dashboard");
+    router.refresh();
+  }
+
   return (
     <AuthLayout>
       <div className="card card-gloss rise p-7 sm:p-9">
+        {recoveryCode ? (
+          <div className="text-center">
+            <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-primary-soft text-primary">
+              <KeyRound size={22} />
+            </div>
+            <h1 className="mt-4 text-2xl font-extrabold tracking-tight">Save your recovery code</h1>
+            <p className="mt-2 text-sm text-muted-foreground">
+              This code is the <span className="font-bold text-foreground">only way</span> to get back into
+              your account if you forget your password. Write it down or take a screenshot — it will not be shown again.
+            </p>
+            <button
+              type="button"
+              onClick={copy}
+              className="mt-5 flex w-full items-center justify-between gap-3 rounded-2xl border-2 border-dashed border-primary/40 bg-primary-soft/50 px-5 py-4 font-mono text-base font-extrabold tracking-[0.2em] text-primary sm:text-lg"
+              title="Copy recovery code"
+            >
+              <span>{recoveryCode}</span>
+              {copied ? <Check size={18} /> : <Copy size={18} />}
+            </button>
+            {copied && <p className="mt-2 text-xs font-semibold text-primary">Copied to clipboard.</p>}
+            <label className="mt-4 flex cursor-pointer items-start gap-3 rounded-2xl bg-muted/60 p-4 text-left text-sm">
+              <input type="checkbox" className="mt-1 h-4 w-4 accent-primary" checked={savedAck} onChange={(e) => setSavedAck(e.target.checked)} />
+              <span>I have saved my recovery code somewhere safe.</span>
+            </label>
+            <button className="btn btn-primary mt-4 w-full !py-3" disabled={!savedAck} onClick={continueToDashboard}>
+              Continue to dashboard
+            </button>
+          </div>
+        ) : (
+        <>
         <h1 className="text-2xl font-extrabold tracking-tight">Create your company</h1>
         <p className="mt-1 text-sm text-muted-foreground">Free to start. Tell us about your shop — your workspace adapts to it.</p>
         <form onSubmit={submit} className="mt-6 space-y-4">
@@ -102,6 +152,8 @@ export default function SignupPage() {
           Already have an account?{" "}
           <Link href="/login" className="font-bold text-primary hover:underline">Log in</Link>
         </p>
+        </>
+        )}
       </div>
     </AuthLayout>
   );

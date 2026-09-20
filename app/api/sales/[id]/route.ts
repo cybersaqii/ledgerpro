@@ -3,6 +3,7 @@ import { eq, and } from "drizzle-orm";
 import { salesDocs, salesDocItems, parties, journalEntries } from "@/db/schema";
 import { json, err } from "@/lib/api";
 import { requireCompany, db } from "@/lib/route-helpers";
+import { periodLockError } from "@/lib/period";
 
 async function find(companyId: string, id: string) {
   const docs = await db
@@ -48,6 +49,8 @@ export async function DELETE(_req: NextRequest, { params }: { params: Promise<{ 
   if (doc.status !== "DRAFT") {
     return err("Posted documents cannot be deleted. Create a return to reverse them.", 400);
   }
+  const lockErr = await periodLockError(db, companyId, doc.date);
+  if (lockErr) return err(lockErr, 422);
   await db.transaction(async (tx) => {
     await tx.delete(salesDocItems).where(eq(salesDocItems.docId, id));
     await tx.delete(salesDocs).where(eq(salesDocs.id, id));

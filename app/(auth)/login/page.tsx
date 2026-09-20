@@ -59,7 +59,10 @@ export default function LoginPage() {
             <LogIn size={17} /> {busy ? "Logging in…" : "Log in"}
           </button>
         </form>
-        <p className="mt-6 text-center text-sm text-muted-foreground">
+        <p className="mt-4 text-center text-sm">
+          <Link href="/forgot-password" className="font-semibold text-primary hover:underline">Forgot password?</Link>
+        </p>
+        <p className="mt-4 text-center text-sm text-muted-foreground">
           New to {brand.name}?{" "}
           <Link href="/signup" className="font-bold text-primary hover:underline">Create an account</Link>
         </p>

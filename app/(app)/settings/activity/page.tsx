@@ -10,6 +10,9 @@ type Row = { id: string; userName: string; action: string; entity: string | null
 const ACTION_LABEL: Record<string, string> = {
   "auth.login": "Logged in",
   "auth.signup": "Account created",
+  "auth.password_reset": "Password reset with recovery code",
+  "auth.password_changed": "Password changed",
+  "auth.recovery_code_regenerated": "Recovery code regenerated",
   "sale.invoice.created": "Sale invoice created",
   "sale.quotation.created": "Quotation created",
   "sale.order.created": "Sale order created",
@@ -36,11 +39,13 @@ const ACTION_LABEL: Record<string, string> = {
   "product.updated": "Product updated",
   "product.deleted": "Product removed",
   "settings.updated": "Business settings updated",
+  "settings.period_lock": "Period lock updated",
   "data.imported": "CSV data imported",
   "payment.created": "Payment recorded",
   "expense.created": "Expense recorded",
   "user.invited": "Staff member added",
   "user.updated": "Team member updated",
+  "user.password_reset": "Staff password reset",
 };
 
 function fmtTime(v: number | string) {

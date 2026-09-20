@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { Building2, Database, Download, Save, Upload, Users, UserPlus, ScrollText } from "lucide-react";
+import { Building2, Database, Download, Save, Upload, Users, UserPlus, ScrollText, KeyRound, Copy, Check, Lock } from "lucide-react";
 import { PageHeader, Field, ErrorNote } from "@/components/ui";
 import { api } from "@/lib/format";
 import { BUSINESS_TYPES } from "@/lib/business-types";
@@ -147,6 +147,8 @@ export default function SettingsPage() {
       </div>
       <ImportCard />
       <TeamCard />
+      <SecurityCard />
+      <PeriodLockCard />
       <div className="card mt-6 max-w-2xl p-6 sm:p-8">
         <div className="flex items-center justify-between gap-3">
           <div>
@@ -174,6 +176,11 @@ function TeamCard() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [saving, setSaving] = useState(false);
+  const [resetFor, setResetFor] = useState<string | null>(null);
+  const [resetPw, setResetPw] = useState("");
+  const [resetError, setResetError] = useState<string | null>(null);
+  const [resetBusy, setResetBusy] = useState(false);
+  const [resetDone, setResetDone] = useState<string | null>(null);
 
   function load() {
     api<{ data: TeamUser[] }>("/api/users")
@@ -209,6 +216,19 @@ function TeamCard() {
     } catch (err) { setError(err instanceof Error ? err.message : "Could not update."); }
   }
 
+  async function resetPassword(e: React.FormEvent, id: string, userName: string) {
+    e.preventDefault();
+    setResetError(null); setResetDone(null);
+    if (resetPw.length < 8) { setResetError("Password must be at least 8 characters."); return; }
+    setResetBusy(true);
+    try {
+      await api(`/api/users/${id}/reset-password`, { method: "POST", body: JSON.stringify({ password: resetPw }) });
+      setResetDone(`Password reset for ${userName}. They have been logged out everywhere.`);
+      setResetPw(""); setResetFor(null);
+    } catch (err) { setResetError(err instanceof Error ? err.message : "Could not reset password."); }
+    finally { setResetBusy(false); }
+  }
+
   return (
     <div className="card mt-6 max-w-2xl p-6 sm:p-8">
       <div className="flex items-center justify-between gap-3">
@@ -241,31 +261,53 @@ function TeamCard() {
           )}
           <ul className="mt-4 divide-y divide-border">
             {users.map((u) => (
-              <li key={u.id} className="flex items-center justify-between gap-3 py-3">
-                <div className="min-w-0">
-                  <p className="truncate text-sm font-bold">{u.name} {!u.isActive && <span className="badge bg-muted text-xs text-muted-foreground">inactive</span>}</p>
-                  <p className="truncate text-xs text-muted-foreground">{u.email}</p>
+              <li key={u.id} className="py-3">
+                <div className="flex items-center justify-between gap-3">
+                  <div className="min-w-0">
+                    <p className="truncate text-sm font-bold">{u.name} {!u.isActive && <span className="badge bg-muted text-xs text-muted-foreground">inactive</span>}</p>
+                    <p className="truncate text-xs text-muted-foreground">{u.email}</p>
+                  </div>
+                  <div className="flex shrink-0 items-center gap-2">
+                    <select
+                      className="field !w-auto !py-1.5 text-xs"
+                      value={u.role}
+                      onChange={(e) => patchUser(u.id, { role: e.target.value })}
+                      aria-label="Role"
+                    >
+                      <option value="OWNER">Owner</option>
+                      <option value="STAFF">Staff</option>
+                    </select>
+                    <button
+                      className="btn btn-ghost !px-3 !py-1.5 text-xs"
+                      onClick={() => patchUser(u.id, { isActive: !u.isActive })}
+                    >
+                      {u.isActive ? "Deactivate" : "Activate"}
+                    </button>
+                    <button
+                      className="btn btn-ghost !px-3 !py-1.5 text-xs"
+                      title="Set a new password for this staff member"
+                      onClick={() => { setResetFor(resetFor === u.id ? null : u.id); setResetPw(""); setResetError(null); }}
+                    >
+                      <KeyRound size={13} /> Reset password
+                    </button>
+                  </div>
                 </div>
-                <div className="flex shrink-0 items-center gap-2">
-                  <select
-                    className="field !w-auto !py-1.5 text-xs"
-                    value={u.role}
-                    onChange={(e) => patchUser(u.id, { role: e.target.value })}
-                    aria-label="Role"
-                  >
-                    <option value="OWNER">Owner</option>
-                    <option value="STAFF">Staff</option>
-                  </select>
-                  <button
-                    className="btn btn-ghost !px-3 !py-1.5 text-xs"
-                    onClick={() => patchUser(u.id, { isActive: !u.isActive })}
-                  >
-                    {u.isActive ? "Deactivate" : "Activate"}
-                  </button>
-                </div>
+                {resetFor === u.id && (
+                  <form onSubmit={(e) => resetPassword(e, u.id, u.name)} className="mt-3 flex flex-wrap items-end gap-2 rounded-2xl bg-muted/60 p-3">
+                    <Field label={`New password for ${u.name}`}>
+                      <input className="field !w-56" type="password" required minLength={8} autoFocus
+                        placeholder="Min 8 characters" value={resetPw} onChange={(e) => setResetPw(e.target.value)} />
+                    </Field>
+                    <button className="btn btn-primary !px-3 !py-2 text-xs" disabled={resetBusy}>
+                      {resetBusy ? "Resetting…" : "Set password"}
+                    </button>
+                    {resetError && <p className="w-full text-xs font-semibold text-red-500">{resetError}</p>}
+                  </form>
+                )}
               </li>
             ))}
           </ul>
+          {resetDone && <p className="mt-3 rounded-xl bg-primary-soft px-4 py-2.5 text-sm font-semibold text-primary">{resetDone}</p>}
         </>
       )}
     </div>
@@ -338,6 +380,176 @@ function ImportCard() {
                 <li>…and {result.errorCount - result.errors.length} more.</li>
               )}
             </ul>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function SecurityCard() {
+  const [current, setCurrent] = useState("");
+  const [pw1, setPw1] = useState("");
+  const [pw2, setPw2] = useState("");
+  const [pwError, setPwError] = useState<string | null>(null);
+  const [pwDone, setPwDone] = useState(false);
+  const [pwBusy, setPwBusy] = useState(false);
+  const [code, setCode] = useState<string | null>(null);
+  const [codeError, setCodeError] = useState<string | null>(null);
+  const [codeBusy, setCodeBusy] = useState(false);
+  const [copied, setCopied] = useState(false);
+  const [savedAck, setSavedAck] = useState(false);
+
+  async function changePassword(e: React.FormEvent) {
+    e.preventDefault();
+    setPwError(null); setPwDone(false);
+    if (pw1 !== pw2) { setPwError("The two new passwords do not match."); return; }
+    if (pw1.length < 8) { setPwError("New password must be at least 8 characters."); return; }
+    setPwBusy(true);
+    try {
+      await api("/api/auth/change-password", { method: "POST", body: JSON.stringify({ currentPassword: current, newPassword: pw1 }) });
+      setCurrent(""); setPw1(""); setPw2(""); setPwDone(true);
+    } catch (err) {
+      setPwError(err instanceof Error ? err.message : "Could not change password.");
+    } finally { setPwBusy(false); }
+  }
+
+  async function regenCode() {
+    setCodeError(null); setCodeBusy(true);
+    try {
+      const d = await api<{ recoveryCode: string }>("/api/auth/recovery-code", { method: "POST" });
+      setCode(d.recoveryCode); setCopied(false); setSavedAck(false);
+    } catch (err) {
+      setCodeError(err instanceof Error ? err.message : "Could not generate code.");
+    } finally { setCodeBusy(false); }
+  }
+
+  async function copy() {
+    if (!code) return;
+    try { await navigator.clipboard.writeText(code); setCopied(true); } catch { /* manual select */ }
+  }
+
+  return (
+    <div className="card mt-6 max-w-2xl p-6 sm:p-8">
+      <h2 className="inline-flex items-center gap-2 text-lg font-extrabold"><KeyRound size={19} /> Password & recovery</h2>
+      <p className="mt-1 text-sm text-muted-foreground">Change your password, or get a new recovery code for forgotten passwords.</p>
+
+      <form onSubmit={changePassword} className="mt-5 space-y-3 rounded-2xl border border-border p-4">
+        <h3 className="text-sm font-extrabold">Change password</h3>
+        <ErrorNote message={pwError} />
+        {pwDone && <p className="rounded-xl bg-primary-soft px-4 py-2.5 text-sm font-semibold text-primary">Password changed. Your other devices have been logged out.</p>}
+        <Field label="Current password">
+          <input className="field" type="password" required autoComplete="current-password" value={current} onChange={(e) => setCurrent(e.target.value)} />
+        </Field>
+        <div className="grid gap-3 sm:grid-cols-2">
+          <Field label="New password">
+            <input className="field" type="password" required minLength={8} autoComplete="new-password" value={pw1} onChange={(e) => setPw1(e.target.value)} />
+          </Field>
+          <Field label="Repeat new password">
+            <input className="field" type="password" required minLength={8} autoComplete="new-password" value={pw2} onChange={(e) => setPw2(e.target.value)} />
+          </Field>
+        </div>
+        <button className="btn btn-ghost text-sm" disabled={pwBusy}>{pwBusy ? "Changing…" : "Change password"}</button>
+      </form>
+
+      <div className="mt-4 rounded-2xl border border-border p-4">
+        <h3 className="text-sm font-extrabold">Recovery code</h3>
+        <p className="mt-1 text-sm text-muted-foreground">
+          Your recovery code resets your password when you forget it. Generating a new one invalidates the old one.
+        </p>
+        <ErrorNote message={codeError} />
+        {code ? (
+          <div className="mt-3">
+            <button type="button" onClick={copy}
+              className="flex w-full items-center justify-between gap-3 rounded-2xl border-2 border-dashed border-primary/40 bg-primary-soft/50 px-5 py-3.5 font-mono text-base font-extrabold tracking-[0.2em] text-primary"
+              title="Copy recovery code">
+              <span>{code}</span>
+              {copied ? <Check size={18} /> : <Copy size={18} />}
+            </button>
+            <label className="mt-3 flex cursor-pointer items-start gap-3 text-sm">
+              <input type="checkbox" className="mt-1 h-4 w-4 accent-primary" checked={savedAck} onChange={(e) => setSavedAck(e.target.checked)} />
+              <span>I have saved this code somewhere safe.</span>
+            </label>
+            {!savedAck && <p className="mt-2 text-xs text-muted-foreground">Keep this page open until you have saved the code — it will not be shown again.</p>}
+          </div>
+        ) : (
+          <button className="btn btn-ghost mt-3 text-sm" onClick={regenCode} disabled={codeBusy}>
+            <KeyRound size={15} /> {codeBusy ? "Generating…" : "Generate new recovery code"}
+          </button>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function PeriodLockCard() {
+  const [lockedUntil, setLockedUntil] = useState<string | null>(null);
+  const [isOwner, setIsOwner] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [date, setDate] = useState("");
+  const [error, setError] = useState<string | null>(null);
+  const [done, setDone] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+
+  useEffect(() => {
+    Promise.all([
+      api<{ data: { lockedUntil: string | null } }>("/api/company").then((d) => d.data.lockedUntil).catch(() => null),
+      api<{ user: { role: string } }>("/api/auth/me").then((d) => d.user.role === "OWNER").catch(() => false),
+    ]).then(([lock, owner]) => {
+      setLockedUntil(lock); setIsOwner(owner); if (lock) setDate(lock);
+    }).finally(() => setLoading(false));
+  }, []);
+
+  async function save(next: string | null) {
+    setError(null); setDone(null); setBusy(true);
+    try {
+      const d = await api<{ lockedUntil: string | null }>("/api/company/period-lock", {
+        method: "PUT", body: JSON.stringify({ lockedUntil: next }),
+      });
+      setLockedUntil(d.lockedUntil);
+      setDone(d.lockedUntil ? `Books locked up to ${d.lockedUntil}.` : "Period lock cleared.");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Could not update period lock.");
+    } finally { setBusy(false); }
+  }
+
+  return (
+    <div className="card mt-6 max-w-2xl p-6 sm:p-8">
+      <h2 className="inline-flex items-center gap-2 text-lg font-extrabold"><Lock size={19} /> Accounting period lock</h2>
+      <p className="mt-1 text-sm text-muted-foreground">
+        Lock the books up to a date — for example after closing the month. While locked, no entry dated on or
+        before that date can be added, changed, converted, returned or deleted.
+      </p>
+      {loading ? (
+        <div className="mt-4 h-12 animate-pulse rounded-xl bg-muted" />
+      ) : (
+        <div className="mt-4">
+          <ErrorNote message={error} />
+          {done && <p className="rounded-xl bg-primary-soft px-4 py-2.5 text-sm font-semibold text-primary">{done}</p>}
+          {lockedUntil ? (
+            <p className="rounded-xl bg-amber-500/10 px-4 py-3 text-sm font-semibold text-amber-600 dark:text-amber-400">
+              Currently locked up to {lockedUntil}.
+            </p>
+          ) : (
+            <p className="rounded-xl bg-muted/60 px-4 py-3 text-sm text-muted-foreground">No period lock set — all dates are open.</p>
+          )}
+          {isOwner ? (
+            <div className="mt-4 flex flex-wrap items-end gap-3">
+              <Field label="Lock books up to">
+                <input type="date" className="field !w-auto" value={date} max={new Date().toISOString().slice(0, 10)}
+                  onChange={(e) => setDate(e.target.value)} />
+              </Field>
+              <button className="btn btn-primary text-sm" disabled={busy || !date} onClick={() => save(date)}>
+                {busy ? "Saving…" : "Lock period"}
+              </button>
+              {lockedUntil && (
+                <button className="btn btn-ghost text-sm" disabled={busy} onClick={() => save(null)}>
+                  Clear lock
+                </button>
+              )}
+            </div>
+          ) : (
+            <p className="mt-4 text-sm text-muted-foreground">Only the owner can change the period lock.</p>
           )}
         </div>
       )}

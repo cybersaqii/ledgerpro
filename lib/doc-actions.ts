@@ -7,6 +7,7 @@ import { postSalesDoc, postPurchaseDoc } from "./posting";
 import { nextDocNo } from "./setup";
 import { floorErrorMessage } from "./min-price";
 import { applyCustomerAdvance } from "./advance";
+import { assertPeriodOpen } from "./period";
 import type { DbTx } from "./db";
 
 type Tx = DbTx;
@@ -35,6 +36,7 @@ export async function convertSalesDoc(
   if (!src) throw new Error("Source document not found.");
   if (src.docType !== "QUOTATION" && src.docType !== "ORDER") throw new Error("Only quotations and orders can be converted.");
   if (src.status === "CONVERTED") throw new Error("This document was already converted.");
+  await assertPeriodOpen(tx, input.companyId, src.date);
 
   const srcItems = await tx.select().from(salesDocItems).where(eq(salesDocItems.docId, src.id));
   if (srcItems.length === 0) throw new Error("Source document has no items.");
@@ -145,6 +147,7 @@ export async function createSalesReturn(
     .where(and(eq(salesDocs.id, input.sourceId), eq(salesDocs.companyId, input.companyId))).limit(1);
   if (!src) throw new Error("Source invoice not found.");
   if (src.docType !== "INVOICE" || src.status !== "POSTED") throw new Error("Only posted invoices can be returned.");
+  await assertPeriodOpen(tx, input.companyId, src.date);
 
   const srcItems = await tx.select().from(salesDocItems).where(eq(salesDocItems.docId, src.id));
   if (srcItems.length === 0) throw new Error("Source invoice has no items.");
@@ -252,6 +255,7 @@ export async function convertPurchaseDoc(
   if (!src) throw new Error("Source document not found.");
   if (src.docType !== "ORDER") throw new Error("Only purchase orders can be converted.");
   if (src.status === "CONVERTED") throw new Error("This document was already converted.");
+  await assertPeriodOpen(tx, input.companyId, src.date);
 
   const srcItems = await tx.select().from(purchaseDocItems).where(eq(purchaseDocItems.docId, src.id));
   if (srcItems.length === 0) throw new Error("Source document has no items.");
@@ -332,6 +336,7 @@ export async function createPurchaseReturn(
     .where(and(eq(purchaseDocs.id, input.sourceId), eq(purchaseDocs.companyId, input.companyId))).limit(1);
   if (!src) throw new Error("Source bill not found.");
   if (src.docType !== "BILL" || src.status !== "POSTED") throw new Error("Only posted bills can be returned.");
+  await assertPeriodOpen(tx, input.companyId, src.date);
 
   const srcItems = await tx.select().from(purchaseDocItems).where(eq(purchaseDocItems.docId, src.id));
   if (srcItems.length === 0) throw new Error("Source bill has no items.");

@@ -30,6 +30,7 @@ export async function GET() {
       address: c.address, city: c.city, ntn: c.ntn,
       businessType: c.businessType, businessTypeLabel: businessTypeLabel(c.businessType),
       currency: c.currency,
+      lockedUntil: c.lockedUntil ? c.lockedUntil.toISOString().slice(0, 10) : null,
     },
   });
 }

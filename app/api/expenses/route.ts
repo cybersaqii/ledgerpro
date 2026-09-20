@@ -6,6 +6,7 @@ import { parseMoney } from "@/lib/money";
 import { postExpense } from "@/lib/posting";
 import { json, err } from "@/lib/api";
 import { requireCompany, db, parseDateOnly, defaultBranchId, assertBranch } from "@/lib/route-helpers";
+import { periodLockError } from "@/lib/period";
 import { logAudit } from "@/lib/audit";
 
 // GET /api/expenses?from=&to=&accountId=&page=
@@ -70,6 +71,10 @@ export async function POST(req: NextRequest) {
   if (!parsed.success) return err("Please check the form and try again.", 422);
   const b = parsed.data;
 
+  const date = parseDateOnly(b.date);
+  const lockErr = await periodLockError(db, companyId, date);
+  if (lockErr) return err(lockErr, 422);
+
   try {
     const expenseId = await db.transaction(async (tx) => {
       const branchId = b.branchId || (await defaultBranchId(tx, companyId));
@@ -79,7 +84,7 @@ export async function POST(req: NextRequest) {
         branchId,
         accountId: b.accountId,
         bankAccountId: b.bankAccountId,
-        date: parseDateOnly(b.date),
+        date,
         amount: parseMoney(b.amount),
         taxAmount: parseMoney(b.taxAmount),
         notes: b.notes || undefined,

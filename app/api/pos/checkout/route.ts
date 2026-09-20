@@ -6,6 +6,7 @@ import { computeTotals, type DocItemInput } from "@/lib/totals";
 import { parseMoney } from "@/lib/money";
 import { parseQty } from "@/lib/qty";
 import { postSalesDoc, postPayment } from "@/lib/posting";
+import { periodLockError } from "@/lib/period";
 import { nextDocNo } from "@/lib/setup";
 import { applyCustomerAdvance } from "@/lib/advance";
 import { json, err } from "@/lib/api";
@@ -95,6 +96,9 @@ export async function POST(req: NextRequest) {
   const change = tendered > totals.grandTotal ? tendered - totals.grandTotal : 0n;
 
   const date = parseDateOnly(b.date);
+
+  const lockErr = await periodLockError(db, companyId, date);
+  if (lockErr) return err(lockErr, 422);
 
   try {
     const result = await db.transaction(async (tx) => {

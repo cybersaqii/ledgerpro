@@ -6,6 +6,7 @@ import { parseMoney } from "@/lib/money";
 import { postPayment } from "@/lib/posting";
 import { json, err } from "@/lib/api";
 import { requireCompany, db, parseDateOnly, defaultBranchId, assertBranch } from "@/lib/route-helpers";
+import { periodLockError } from "@/lib/period";
 import { logAudit } from "@/lib/audit";
 
 // GET /api/payments?kind=RECEIPT&partyId=&from=&to=&page=
@@ -74,6 +75,10 @@ export async function POST(req: NextRequest) {
   const amount = parseMoney(b.amount);
   if (amount <= 0n) return err("Amount must be positive.", 422);
 
+  const date = parseDateOnly(b.date);
+  const lockErr = await periodLockError(db, companyId, date);
+  if (lockErr) return err(lockErr, 422);
+
   try {
     const paymentId = await db.transaction(async (tx) => {
       const branchId = b.branchId || (await defaultBranchId(tx, companyId));
@@ -97,7 +102,7 @@ export async function POST(req: NextRequest) {
         kind: b.kind,
         partyId,
         bankAccountId: b.bankAccountId,
-        date: parseDateOnly(b.date),
+        date,
         amount,
         method: b.method,
         reference: b.reference || undefined,

@@ -33,6 +33,7 @@ export const companies = sqliteTable("companies", {
   logoUrl: text("logo_url"),
   businessType: text("business_type").notNull().default("WHOLESALE"),
   currency: text("currency").notNull().default("PKR"),
+  lockedUntil: ts("locked_until"), // accounting period lock: no entries on/before this date
   createdAt: createdAt(),
   updatedAt: updatedAt(),
 });
@@ -62,6 +63,7 @@ export const users = sqliteTable(
     role: text("role").notNull().default("OWNER"),
     isActive: flag("is_active", true),
     tokenVersion: integer("token_version").notNull().default(0),
+    recoveryCodeHash: text("recovery_code_hash"), // bcrypt hash of the account recovery code
     lastLoginAt: ts("last_login_at"),
     createdAt: createdAt(),
     updatedAt: updatedAt(),

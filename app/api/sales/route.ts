@@ -6,6 +6,7 @@ import { computeTotals, type DocItemInput } from "@/lib/totals";
 import { parseMoney } from "@/lib/money";
 import { parseQty } from "@/lib/qty";
 import { postSalesDoc } from "@/lib/posting";
+import { periodLockError } from "@/lib/period";
 import { nextDocNo } from "@/lib/setup";
 import { json, err } from "@/lib/api";
 import { requireCompany, db, parseDateOnly, defaultBranchId, assertBranch } from "@/lib/route-helpers";
@@ -126,6 +127,9 @@ export async function POST(req: NextRequest) {
   const isPosted = (POSTED_TYPES as readonly string[]).includes(b.docType);
   const date = parseDateOnly(b.date);
   const dueDate = b.dueDate ? parseDateOnly(b.dueDate) : null;
+
+  const lockErr = await periodLockError(db, companyId, date);
+  if (lockErr) return err(lockErr, 422);
 
   try {
     const result = await db.transaction(async (tx) => {
