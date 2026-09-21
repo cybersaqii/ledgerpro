@@ -14,6 +14,7 @@ import { requirePermission, db, parseDateOnly, defaultBranchId, assertBranch } f
 import { logAudit } from "@/lib/audit";
 import { belowMinPrice, floorErrorMessage } from "@/lib/min-price";
 import { applyCustomerAdvance } from "@/lib/advance";
+import { enforceCreditLimit, CreditLimitError } from "@/lib/credit-limit";
 import type { Permission } from "@/lib/permissions";
 
 const POSTED_TYPES = ["INVOICE", "RETURN"] as const;
@@ -228,6 +229,11 @@ export async function POST(req: NextRequest) {
             grandTotal: totals.grandTotal,
           });
         }
+        // udhaar control: block posted invoices that cross the credit limit
+        // (checked after posting so payments/advances are already reflected)
+        if (b.docType === "INVOICE" && !b.overrideCreditLimit) {
+          await enforceCreditLimit(tx, { companyId, partyId: party.id, newCreditPaisa: totals.grandTotal - advanceApplied });
+        }
       }
       return { docId, docNo, entryId, advanceApplied };
     });
@@ -253,8 +259,18 @@ export async function POST(req: NextRequest) {
         detail: `Advance Rs ${(result.advanceApplied / 100n).toLocaleString()} auto-applied to ${result.docNo}`,
       });
     }
+    if (b.overrideCreditLimit) {
+      await logAudit(db, {
+        companyId, userId: session.uid, userName: session.name,
+        action: "sale.credit_limit_override",
+        entity: "sale", entityId: result.docId,
+        detail: `Posted ${result.docNo} with credit-limit override`,
+      });
+    }
     return json({ data: result }, { status: 201 });
   } catch (e) {
+    if (e instanceof CreditLimitError)
+      return json({ error: e.message, code: "CREDIT_LIMIT_EXCEEDED", details: e.details }, { status: 409 });
     return toApiError(e, { route: "/api/sales", companyId });
   }
 }

@@ -52,10 +52,12 @@ export function fmtDateInput(d: Date = new Date()): string {
 
 export class ApiError extends Error {
   code?: string;
-  constructor(message: string, code?: string) {
+  details?: unknown;
+  constructor(message: string, code?: string, details?: unknown) {
     super(message);
     this.name = "ApiError";
     this.code = code;
+    this.details = details;
   }
 }
 
@@ -79,7 +81,7 @@ export async function api<T>(url: string, init?: RequestInit): Promise<T> {
         window.location.href = "/login";
       }
     }
-    throw new ApiError((data as { error?: string }).error || "Something went wrong.", code);
+    throw new ApiError((data as { error?: string }).error || "Something went wrong.", code, (data as { details?: unknown }).details);
   }
   return data as T;
 }

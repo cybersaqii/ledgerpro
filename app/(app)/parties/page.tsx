@@ -152,7 +152,7 @@ export default function PartiesPage() {
             </div>
             <Field label={t("common.address")}><input className="field" value={form.address} onChange={set("address")} placeholder={t("parties.addressPlaceholder")} /></Field>
             <div className="grid gap-4 sm:grid-cols-2">
-              <Field label={t("parties.creditLimit")}>
+              <Field label={t("parties.creditLimit")} hint={t("parties.creditLimitHint")}>
                 <input className="field" type="number" min="0" step="0.01" placeholder="0.00" value={form.creditLimit} onChange={set("creditLimit")} />
               </Field>
               <Field label={t("parties.filerStatus")}>

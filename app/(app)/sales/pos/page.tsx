@@ -8,7 +8,7 @@ import {
   SplitSquareHorizontal,
 } from "lucide-react";
 import { ErrorNote } from "@/components/ui";
-import { api, fmtMoney, fmtDateInput } from "@/lib/format";
+import { api, ApiError, fmtMoney, fmtDateInput } from "@/lib/format";
 import {
   addToCart, addAsNewLine, cartTotals, lineTotalPaisa, toDocItems, validateCart, priceWarnings,
   type PosLine, type PosProduct,
@@ -243,7 +243,7 @@ export default function PosPage() {
     return c.data.id;
   }
 
-  async function completeSale(priceOverride = false) {
+  async function completeSale(priceOverride = false, creditOverride = false) {
     const err = validateCart(lines);
     if (err) { setError(err); return; }
     setError(null);
@@ -318,6 +318,7 @@ export default function PosPage() {
           payments,
           tendered: tenderedVal,
           priceOverride,
+          overrideCreditLimit: creditOverride,
         }),
       });
       const docId = res.data.docId;
@@ -330,6 +331,19 @@ export default function PosPage() {
       });
       setStage("done");
     } catch (e) {
+      // udhaar control: limit crossed → one confirm, then retry with override
+      if (!creditOverride && e instanceof ApiError && e.code === "CREDIT_LIMIT_EXCEEDED") {
+        const det = (e.details || {}) as { partyName?: string; limitPaisa?: string; balancePaisa?: string };
+        const paisa = (v?: string) => { try { return fmtMoney(BigInt(v || "0")); } catch { return ""; } };
+        if (window.confirm(t("pos.creditLimitConfirm", {
+          party: det.partyName || "",
+          limit: paisa(det.limitPaisa),
+          balance: paisa(det.balancePaisa),
+        }))) {
+          setSaving(false);
+          return completeSale(priceOverride, true);
+        }
+      }
       setError(e instanceof Error ? e.message : t("pos.errSaveBill"));
     } finally {
       setSaving(false);

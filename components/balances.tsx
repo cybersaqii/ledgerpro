@@ -8,10 +8,11 @@ import { csvMoney } from "@/lib/csv";
 import { api, fmtMoney, fmtDate } from "@/lib/format";
 import { useBusinessProfile } from "@/components/business-type";
 import { waLink, waPhone, reminderText } from "@/lib/whatsapp";
+import { creditUtilization } from "@/lib/credit-limit";
 import { brand } from "@/lib/brand";
 import { useLang } from "@/components/lang-provider";
 
-type Row = { id: string; name: string; phone: string | null; city: string | null; balance: string };
+type Row = { id: string; name: string; phone: string | null; city: string | null; balance: string; creditLimit: string };
 
 export function BalancesPage({ kind }: { kind: "CUSTOMER" | "SUPPLIER" }) {
   const { t } = useLang();
@@ -36,9 +37,9 @@ export function BalancesPage({ kind }: { kind: "CUSTOMER" | "SUPPLIER" }) {
         subtitle={<>{t("balances.outstanding")} <span className="font-extrabold text-primary">{fmtMoney(total)}</span></>}
         actions={<>
           <ExportCsv filename={isCustomer ? "receivables" : "payables"} disabled={loading || rows.length === 0} rows={() => [
-            [t("balances.csvParty"), t("balances.csvPhone"), t("balances.csvCity"), t("balances.csvBalance")],
-            ...rows.map((r) => [r.name, r.phone ?? "", r.city ?? "", csvMoney(r.balance)]),
-            [t("balances.csvTotal"), "", "", csvMoney(total)],
+            [t("balances.csvParty"), t("balances.csvPhone"), t("balances.csvCity"), t("balances.csvBalance"), t("balances.csvLimit")],
+            ...rows.map((r) => [r.name, r.phone ?? "", r.city ?? "", csvMoney(r.balance), BigInt(r.creditLimit) > 0n ? csvMoney(r.creditLimit) : ""]),
+            [t("balances.csvTotal"), "", "", csvMoney(total), ""],
           ]} />
           <Link href={`/payments/new?kind=${isCustomer ? "RECEIPT" : "PAYMENT"}`} className="btn btn-primary text-sm">
             <Plus size={16} /> {isCustomer ? t("balances.receivePayment") : t("balances.paySupplier")}
@@ -68,7 +69,7 @@ export function BalancesPage({ kind }: { kind: "CUSTOMER" | "SUPPLIER" }) {
         ) : (
           <div className="overflow-x-auto">
             <table className="tbl">
-              <thead><tr><th>{t("balances.colParty")}</th><th>{t("balances.colPhone")}</th><th>{t("balances.colCity")}</th><th className="num">{t("balances.colBalance")}</th><th></th></tr></thead>
+              <thead><tr><th>{t("balances.colParty")}</th><th>{t("balances.colPhone")}</th><th>{t("balances.colCity")}</th><th className="num">{t("balances.colBalance")}</th><th>{t("balances.colLimit")}</th><th></th></tr></thead>
               <tbody>
                 {rows.map((r) => (
                   <tr key={r.id}>
@@ -76,6 +77,7 @@ export function BalancesPage({ kind }: { kind: "CUSTOMER" | "SUPPLIER" }) {
                     <td className="text-muted-foreground">{r.phone ? <span className="inline-flex items-center gap-1.5"><Phone size={13} />{r.phone}</span> : "—"}</td>
                     <td className="text-muted-foreground">{r.city ?? "—"}</td>
                     <td className="num font-extrabold text-accent">{fmtMoney(r.balance)}</td>
+                    <td><LimitCell balance={r.balance} limit={r.creditLimit} /></td>
                     <td className="text-right">
                       <Link href={`/reports/party-ledger`} className="text-sm font-bold text-primary hover:underline">{t("balances.ledger")}</Link>
                     </td>
@@ -86,7 +88,7 @@ export function BalancesPage({ kind }: { kind: "CUSTOMER" | "SUPPLIER" }) {
                 <tr className="border-t-2 border-border">
                   <td colSpan={3} className="!py-3 font-extrabold">{t("balances.total")}</td>
                   <td className="num !py-3 font-extrabold">{fmtMoney(total)}</td>
-                  <td />
+                  <td colSpan={2} />
                 </tr>
               </tfoot>
             </table>
@@ -98,8 +100,26 @@ export function BalancesPage({ kind }: { kind: "CUSTOMER" | "SUPPLIER" }) {
   );
 }
 
-type AgingInvoice = { docNo: string; date: number; dueDate: number | null; total: string; outstanding: string; daysOverdue: number };
-type AgingRow = {
+/** Credit-limit utilization bar for the balances list (— when unlimited). */
+function LimitCell({ balance, limit }: { balance: string; limit: string }) {
+  let u: number | null = null;
+  try { u = creditUtilization(BigInt(balance), BigInt(limit)); } catch { u = null; }
+  if (u === null) return <span className="text-muted-foreground/50">—</span>;
+  const pct = Math.min(100, Math.round(u * 100));
+  const bar = pct >= 100 ? "bg-danger" : pct >= 80 ? "bg-accent" : "bg-primary";
+  return (
+    <div className="min-w-[110px]">
+      <div className="h-1.5 overflow-hidden rounded-full bg-muted">
+        <div className={`h-full rounded-full ${bar}`} style={{ width: `${pct}%` }} />
+      </div>
+      <div className="mt-0.5 whitespace-nowrap text-[11px] text-muted-foreground">
+        {fmtMoney(balance)} / {fmtMoney(limit)}
+      </div>
+    </div>
+  );
+}
+
+type AgingInvoice = { docNo: string; date: number; dueDate: number | null; total: string; outstanding: string; daysOverdue: number };type AgingRow = {
   id: string; name: string; phone: string | null; city: string | null;
   total: string; notDue: string; d30: string; d60: string; d90: string; d90plus: string;
   oldestDays: number; invoices: AgingInvoice[];

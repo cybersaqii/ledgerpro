@@ -88,6 +88,7 @@ export const salesDocSchema = z.object({
   items: z.array(docItemSchema).min(1, "Add at least one item"),
   priceOverride: z.boolean().default(false), // explicit override of minimum sale price
   applyAdvance: z.boolean().default(true), // auto-consume customer's unallocated advance on invoices
+  overrideCreditLimit: z.boolean().default(false), // owner-confirmed: post even if udhaar crosses the credit limit
 });
 
 export const purchaseDocSchema = salesDocSchema.extend({
@@ -154,6 +155,7 @@ export const posCheckoutSchema = z.object({
   // Cash received from the customer (for change); informational only.
   tendered: moneyStr.optional().or(z.literal("")),
   priceOverride: z.boolean().default(false), // explicit override of minimum sale price
+  overrideCreditLimit: z.boolean().default(false), // owner-confirmed: post even if udhaar crosses the credit limit
 });
 
 // POST /api/pos/held — park a bill on the server (durable, user-owned).

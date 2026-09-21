@@ -4,7 +4,7 @@ import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Plus, Search, Trash2 } from "lucide-react";
 import { PageHeader, Field, ErrorNote } from "@/components/ui";
-import { api, fmtMoney, fmtQty, fmtDateInput, fmtDate } from "@/lib/format";
+import { api, ApiError, fmtMoney, fmtQty, fmtDateInput, fmtDate } from "@/lib/format";
 import { resolveListRate } from "@/lib/price-lists";
 import { useBusinessProfile } from "@/components/business-type";
 import { useLang } from "@/components/lang-provider";
@@ -309,7 +309,8 @@ export function DocForm({ mode }: { mode: "SALES" | "PURCHASE" }) {
   const discTotal = Math.round(parseFloat(discountTotal || "0") * 100);
   const grand = Math.max(0, subtotal - discTotal);
 
-  async function submit(e: React.FormEvent, priceOverride = false) {
+  async function submit(e: React.FormEvent, opts: { priceOverride?: boolean; creditOverride?: boolean } = {}) {
+    const { priceOverride = false, creditOverride = false } = opts;
     e.preventDefault();
     setError(null);
     if (!partyId) { setError(t("docform.errSelectParty", { party: isSales ? bp.partyOne.toLowerCase() : t("docs.supplier").toLowerCase() })); return; }
@@ -337,7 +338,7 @@ export function DocForm({ mode }: { mode: "SALES" | "PURCHASE" }) {
       if (low.length > 0) {
         const names = low.slice(0, 3).map((l) => l.description).join(", ") + (low.length > 3 ? "…" : "");
         if (!window.confirm(t("docform.minPriceConfirm", { names }))) return;
-        return submit(e, true);
+        return submit(e, { priceOverride: true });
       }
     }
     setSaving(true);
@@ -368,10 +369,26 @@ export function DocForm({ mode }: { mode: "SALES" | "PURCHASE" }) {
           if (extraPaidFrom === "CASH" && extraAccountId) body.extraCostAccountId = extraAccountId;
         }
       }
-      if (isSales && docType === "INVOICE") body.priceOverride = priceOverride;
+      if (isSales && docType === "INVOICE") {
+        body.priceOverride = priceOverride;
+        body.overrideCreditLimit = creditOverride;
+      }
       const d = await api<{ data: { docId: string } }>(endpoint, { method: "POST", body: JSON.stringify(body) });
       router.push(isSales ? `/sales/${d.data.docId}` : `/purchases/${d.data.docId}`);
     } catch (err) {
+      // udhaar control: limit crossed → one confirm, then retry with override
+      if (!creditOverride && err instanceof ApiError && err.code === "CREDIT_LIMIT_EXCEEDED") {
+        const det = (err.details || {}) as { partyName?: string; limitPaisa?: string; balancePaisa?: string };
+        const paisa = (v?: string) => { try { return fmtMoney(BigInt(v || "0")); } catch { return ""; } };
+        if (window.confirm(t("docform.creditLimitConfirm", {
+          party: det.partyName || "",
+          limit: paisa(det.limitPaisa),
+          balance: paisa(det.balancePaisa),
+        }))) {
+          setSaving(false);
+          return submit(e, { priceOverride, creditOverride: true });
+        }
+      }
       setError(err instanceof Error ? err.message : t("docform.errSave"));
       setSaving(false);
     }

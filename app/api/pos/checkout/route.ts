@@ -16,6 +16,7 @@ import { requirePro } from "@/lib/billing-guards";
 
 import { logAudit } from "@/lib/audit";
 import { belowMinPrice, floorErrorMessage } from "@/lib/min-price";
+import { enforceCreditLimit, CreditLimitError } from "@/lib/credit-limit";
 
 // POST /api/pos/checkout — atomic POS sale.
 // Creates the invoice AND its receipt(s) inside ONE database transaction:
@@ -200,6 +201,10 @@ export async function POST(req: NextRequest) {
           alreadyPaid: paidTotal,
  });
  }
+      // udhaar control: block the checkout only when it actually adds khata
+      if (!b.overrideCreditLimit) {
+        await enforceCreditLimit(tx, { companyId, partyId: party.id, newCreditPaisa: remaining - advanceApplied });
+      }
       return { docId, docNo, paymentIds, paidTotal, advanceApplied };
  });
 
@@ -225,6 +230,14 @@ export async function POST(req: NextRequest) {
         detail: `Advance auto-applied to POS invoice ${result.docNo}`,
  });
  }
+    if (b.overrideCreditLimit) {
+      await logAudit(db, {
+        companyId, userId: session.uid, userName: session.name,
+        action: "pos.credit_limit_override",
+        entity: "sale", entityId: result.docId,
+        detail: `POS invoice ${result.docNo} posted with credit-limit override`,
+ });
+ }
     return json(
       {
         data: {
@@ -240,6 +253,8 @@ export async function POST(req: NextRequest) {
       { status: 201 }
     );
  } catch (e) {
+    if (e instanceof CreditLimitError)
+      return json({ error: e.message, code: "CREDIT_LIMIT_EXCEEDED", details: e.details }, { status: 409 });
     return toApiError(e, { route: "/api/pos/checkout", companyId });
  }
 }
