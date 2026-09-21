@@ -142,7 +142,7 @@ export async function convertSalesDoc(
  *  returns are allowed until nothing remains. */
 export async function createSalesReturn(
   tx: Tx,
-  input: { companyId: string; branchId: string; sourceId: string; userId: string; lines?: { itemId: string; qty: bigint }[] }
+  input: { companyId: string; branchId: string; sourceId: string; userId: string; lines?: { itemId: string; qty: bigint }[]; docId?: string }
 ): Promise<ConvertResult> {
   const [src] = await tx.select().from(salesDocs)
     .where(and(eq(salesDocs.id, input.sourceId), eq(salesDocs.companyId, input.companyId))).limit(1);
@@ -189,7 +189,7 @@ export async function createSalesReturn(
 
   const totals = computeTotals(items, docDiscount);
   const docNo = await nextDocNo(tx, input.companyId, "RETURN");
-  const docId = crypto.randomUUID();
+  const docId = input.docId ?? crypto.randomUUID();
   const date = new Date();
   const tsMap = await trackStockMap(tx, items.map((i) => i.productId));
   const isFull = srcItems.every((si) => BigInt(si.qty) - (returnedById.get(si.id) ?? BigInt(si.qtyReturned ?? 0n)) <= 0n);
@@ -331,7 +331,7 @@ export async function convertPurchaseDoc(
 /** Create a purchase RETURN (debit note) from a posted BILL — full or partial. */
 export async function createPurchaseReturn(
   tx: Tx,
-  input: { companyId: string; branchId: string; sourceId: string; userId: string; lines?: { itemId: string; qty: bigint }[] }
+  input: { companyId: string; branchId: string; sourceId: string; userId: string; lines?: { itemId: string; qty: bigint }[]; docId?: string }
 ): Promise<ConvertResult> {
   const [src] = await tx.select().from(purchaseDocs)
     .where(and(eq(purchaseDocs.id, input.sourceId), eq(purchaseDocs.companyId, input.companyId))).limit(1);
@@ -376,7 +376,7 @@ export async function createPurchaseReturn(
 
   const totals = computeTotals(items, docDiscount);
   const docNo = await nextDocNo(tx, input.companyId, "RETURN");
-  const docId = crypto.randomUUID();
+  const docId = input.docId ?? crypto.randomUUID();
   const date = new Date();
   const tsMap = await trackStockMap(tx, items.map((i) => i.productId));
   const isFull = srcItems.every((si) => BigInt(si.qty) - (returnedById.get(si.id) ?? BigInt(si.qtyReturned ?? 0n)) <= 0n);

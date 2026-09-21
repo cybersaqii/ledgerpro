@@ -16,6 +16,7 @@ export const PRO_FEATURES = [
   "period_lock", // accounting period lock (/api/company/period-lock)
   "import_export", // CSV import + exports (/api/import, /api/export)
   "advanced_reports", // P&L, balance sheet, journal
+  "sync", // offline device sync (/api/sync/*)
 ] as const;
 export type ProFeature = (typeof PRO_FEATURES)[number];
 

@@ -1,6 +1,6 @@
 import { and, eq } from "drizzle-orm";
 import { heldBills } from "@/db/schema";
-import type { Db } from "@/lib/db";
+import type { Db, DbTx } from "@/lib/db";
 
 export interface HeldLine {
   productId: string | null;
@@ -18,12 +18,13 @@ export interface HeldBillInput {
   discount: string;
 }
 
-/** Create a held bill owned by (companyId, userId). */
+/** Create a held bill owned by (companyId, userId). Accepts an optional explicit
+ *  id (sync push uses the client's refId); defaults to a fresh UUID. */
 export async function createHeldBill(
-  db: Db,
-  opts: { companyId: string; userId: string } & HeldBillInput
+  db: Db | DbTx,
+  opts: { companyId: string; userId: string; id?: string } & HeldBillInput
 ): Promise<string> {
-  const id = crypto.randomUUID();
+  const id = opts.id ?? crypto.randomUUID();
   await db.insert(heldBills).values({
     id,
     companyId: opts.companyId,
@@ -88,7 +89,7 @@ export async function listHeldBills(
  * Returns false when the bill does not exist or is not deletable by caller.
  */
 export async function deleteHeldBill(
-  db: Db,
+  db: Db | DbTx,
   opts: { companyId: string; userId: string; role: string; id: string }
 ): Promise<boolean> {
   const rows = await db

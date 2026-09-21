@@ -452,6 +452,8 @@ export async function postPurchaseDoc(tx: DbTx, input: PostPurchaseInput): Promi
 export type AllocationInput = { docId: string; docKind: "SALES" | "PURCHASE"; amount: bigint };
 
 export type PostPaymentInput = {
+  /** Optional explicit id (sync push uses the client's refId); defaults to a fresh UUID. */
+  id?: string;
   companyId: string;
   branchId: string;
   kind: "RECEIPT" | "PAYMENT";
@@ -504,7 +506,7 @@ export async function postPayment(tx: DbTx, input: PostPaymentInput): Promise<st
         ],
   });
 
-  const paymentId = crypto.randomUUID();
+  const paymentId = input.id ?? crypto.randomUUID();
   await tx.insert(payments).values({
     id: paymentId,
     companyId: input.companyId,
@@ -581,6 +583,8 @@ export async function postPayment(tx: DbTx, input: PostPaymentInput): Promise<st
 // ─── Expenses ──────────────────────────────────────────────────
 
 export type PostExpenseInput = {
+  /** Optional explicit id (sync push uses the client's refId); defaults to a fresh UUID. */
+  id?: string;
   companyId: string;
   branchId: string;
   accountId: string;
@@ -628,7 +632,7 @@ export async function postExpense(tx: DbTx, input: PostExpenseInput): Promise<st
     ],
   });
 
-  const expenseId = crypto.randomUUID();
+  const expenseId = input.id ?? crypto.randomUUID();
   await tx.insert(expenses).values({
     id: expenseId,
     companyId: input.companyId,

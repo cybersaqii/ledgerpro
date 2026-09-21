@@ -177,3 +177,11 @@ export const heldBillSchema = z.object({
     .min(1, "Hold at least one item")
     .max(200, "Too many items"),
 });
+
+// POST /api/sync/enroll — device enrollment credentials for offline sync.
+export const syncEnrollSchema = z.object({
+  email: z.string().email(),
+  password: z.string().min(1),
+  deviceName: z.string().max(80).default(""),
+  deviceModel: z.string().max(80).default(""),
+});

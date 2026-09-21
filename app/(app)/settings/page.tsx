@@ -1040,6 +1040,7 @@ function SecurityCard() {
 }
 
 type LoginEvent = { id: string; device: string; ip: string | null; createdAt: string };
+type SyncDevice = { id: string; deviceName: string; deviceModel: string; userId: string; userName: string; createdAt: number | null; lastUsedAt: number | null; revokedAt: number | null };
 
 function SessionsCard() {
   const { t } = useLang();
@@ -1048,6 +1049,35 @@ function SessionsCard() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [devices, setDevices] = useState<SyncDevice[]>([]);
+  const [devLoading, setDevLoading] = useState(true);
+  const [devError, setDevError] = useState<string | null>(null);
+  const [revoking, setRevoking] = useState<string | null>(null);
+
+  async function loadDevices() {
+    setDevLoading(true); setDevError(null);
+    try {
+      const d = await api<{ devices: SyncDevice[] }>("/api/sync/devices");
+      setDevices(d.devices);
+    } catch (e) {
+      setDevError(e instanceof Error ? e.message : t("settingssyncdevices.loadError"));
+    } finally {
+      setDevLoading(false);
+    }
+  }
+
+  async function revokeDevice(id: string) {
+    if (!window.confirm(t("settingssyncdevices.revokeConfirm"))) return;
+    setRevoking(id); setDevError(null);
+    try {
+      await api(`/api/sync/devices/${id}`, { method: "DELETE" });
+      await loadDevices();
+    } catch (e) {
+      setDevError(e instanceof Error ? e.message : t("settingssyncdevices.revokeError"));
+    } finally {
+      setRevoking(null);
+    }
+  }
 
   useEffect(() => {
     let alive = true;
@@ -1055,6 +1085,10 @@ function SessionsCard() {
       .then((d) => { if (alive) setEvents(d.data); })
       .catch((e) => { if (alive) setError(e instanceof Error ? e.message : t("settingssessions.loadError")); })
       .finally(() => { if (alive) setLoading(false); });
+    api<{ devices: SyncDevice[] }>("/api/sync/devices")
+      .then((d) => { if (alive) setDevices(d.devices); })
+      .catch((e) => { if (alive) setDevError(e instanceof Error ? e.message : t("settingssyncdevices.loadError")); })
+      .finally(() => { if (alive) setDevLoading(false); });
     return () => { alive = false; };
   }, [t]);
 
@@ -1100,6 +1134,55 @@ function SessionsCard() {
             ))}
           </ul>
         )}
+      </div>
+      <div className="mt-6">
+        <h3 className="text-sm font-extrabold">{t("settingssyncdevices.title")}</h3>
+        <p className="mt-1 text-sm text-muted-foreground">
+          {t("settingssyncdevices.hint")}
+        </p>
+        <ErrorNote message={devError} />
+        <div className="mt-3">
+          {devLoading ? (
+            <div className="space-y-2">{[1, 2].map((i) => <div key={i} className="skeleton h-12 rounded-xl" />)}</div>
+          ) : devices.length === 0 ? (
+            <p className="text-sm text-muted-foreground">{t("settingssyncdevices.noDevices")}</p>
+          ) : (
+            <ul className="divide-y divide-border rounded-2xl border border-border">
+              {devices.map((d) => {
+                const revoked = d.revokedAt != null;
+                return (
+                  <li key={d.id} className="flex items-center gap-3 px-4 py-3">
+                    <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-muted text-muted-foreground">
+                      <MonitorSmartphone size={17} />
+                    </span>
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-sm font-bold">
+                        {d.deviceName || "—"}{d.userName ? ` · ${d.userName}` : ""}
+                      </p>
+                      <p className="truncate text-xs text-muted-foreground">
+                        {[d.deviceModel, d.lastUsedAt ? t("settingssyncdevices.lastUsed", { date: fmtDate(d.lastUsedAt) }) : t("settingssyncdevices.neverUsed")].filter(Boolean).join(" · ")}
+                      </p>
+                    </div>
+                    {revoked ? (
+                      <span className="shrink-0 rounded-full bg-muted px-3 py-1 text-xs font-bold text-muted-foreground">
+                        {t("settingssyncdevices.revoked")}
+                      </span>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => revokeDevice(d.id)}
+                        disabled={revoking === d.id}
+                        className="btn btn-ghost shrink-0 text-sm text-rose-600 dark:text-rose-400"
+                      >
+                        {t("settingssyncdevices.revoke")}
+                      </button>
+                    )}
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+        </div>
       </div>
       <button onClick={logoutEverywhere} disabled={busy || loading} className="btn btn-ghost mt-4 text-sm text-rose-600 dark:text-rose-400">
         <LogOut size={15} /> {busy ? t("settingssessions.loggingOut") : t("settingssessions.logoutAll")}

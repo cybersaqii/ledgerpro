@@ -54,6 +54,7 @@ export const branches = sqliteTable(
     phone: text("phone"),
     isDefault: flag("is_default", false),
     isActive: flag("is_active", true),
+    updatedAt: updatedAt(),
   },
   (t) => [uniqueIndex("branches_company_name").on(t.companyId, t.name), index("branches_company").on(t.companyId)]
 );
@@ -124,6 +125,7 @@ export const accounts = sqliteTable(
     isSystem: flag("is_system", false),
     isActive: flag("is_active", true),
     openingBalance: money("opening_balance"),
+    updatedAt: updatedAt(),
   },
   (t) => [
     uniqueIndex("accounts_company_code").on(t.companyId, t.code),
@@ -144,6 +146,7 @@ export const bankAccounts = sqliteTable(
     openingBalance: money("opening_balance"),
     balance: money("balance"), // cached, updated transactionally
     isActive: flag("is_active", true),
+    updatedAt: updatedAt(),
   },
   (t) => [uniqueIndex("bank_company_name").on(t.companyId, t.name)]
 );
@@ -244,6 +247,7 @@ export const priceLists = sqliteTable(
     name: text("name").notNull(),
     isDefault: flag("is_default", false),
     createdAt: createdAt(),
+    updatedAt: updatedAt(),
   },
   (t) => [index("price_lists_company").on(t.companyId)]
 );
@@ -399,6 +403,7 @@ export const payments = sqliteTable(
     journalEntryId: text("journal_entry_id").unique(),
     createdById: text("created_by_id").notNull(),
     createdAt: createdAt(),
+    updatedAt: updatedAt(),
   },
   (t) => [index("payments_company_kind_date").on(t.companyId, t.kind, t.date)]
 );
@@ -427,6 +432,7 @@ export const expenses = sqliteTable(
     journalEntryId: text("journal_entry_id").unique(),
     createdById: text("created_by_id").notNull(),
     createdAt: createdAt(),
+    updatedAt: updatedAt(),
   },
   (t) => [index("expenses_company_date").on(t.companyId, t.date)]
 );
@@ -485,6 +491,7 @@ export const settings = sqliteTable(
     companyId: text("company_id").notNull(),
     key: text("key").notNull(),
     value: text("value").notNull().default(""),
+    updatedAt: updatedAt(),
   },
   (t) => [uniqueIndex("settings_company_key").on(t.companyId, t.key)]
 );
@@ -502,6 +509,7 @@ export const heldBills = sqliteTable(
     lines: text("lines").notNull(), // JSON: [{productId,name,sku,unit,qty,rate,discount}]
     discount: text("discount").notNull().default("0"), // money string
     createdAt: createdAt(),
+    updatedAt: updatedAt(),
   },
   (t) => [index("held_company_user").on(t.companyId, t.userId)]
 );
@@ -627,4 +635,63 @@ export const sampleManifest = sqliteTable(
     createdAt: createdAt(),
   },
   (t) => [index("sample_manifest_company").on(t.companyId)]
+);
+
+// ─── Offline sync (Phase 1) ─────────────────────────────────────
+// Central delete tombstones: only for true row removal. Deactivation
+// (is_active) stays a regular update. Pruned after 90 days; devices with an
+// older tombstone cursor get resyncRequired and must do a full re-pull.
+export const syncTombstones = sqliteTable(
+  "sync_tombstones",
+  {
+    id: id(),
+    companyId: text("company_id").notNull(),
+    tableName: text("table_name").notNull(),
+    rowId: text("row_id").notNull(),
+    deletedAt: integer("deleted_at", { mode: "timestamp_ms" }).notNull(),
+    deletedBy: text("deleted_by"), // users.id
+    createdAt: createdAt(),
+  },
+  (t) => [
+    uniqueIndex("sync_tombstones_unique").on(t.companyId, t.tableName, t.rowId),
+    index("sync_tombstones_company_time").on(t.companyId, t.deletedAt),
+  ]
+);
+
+// Device enrollment tokens: only sha256(token) is stored, never the raw token.
+// Long-lived by design; die on user deactivation, token_version bump
+// (password change / logout-everywhere) or explicit revoke.
+export const deviceTokens = sqliteTable(
+  "device_tokens",
+  {
+    id: id(),
+    userId: text("user_id").notNull(),
+    companyId: text("company_id").notNull(),
+    deviceName: text("device_name").notNull().default(""),
+    deviceModel: text("device_model").notNull().default(""),
+    tokenHash: text("token_hash").notNull().unique(), // sha256 of the opaque dvt_ token
+    tokenVersion: integer("token_version").notNull().default(0), // users.token_version at enrollment
+    lastUsedAt: integer("last_used_at", { mode: "timestamp_ms" }),
+    revokedAt: integer("revoked_at", { mode: "timestamp_ms" }), // set on revoke; row kept for audit
+    createdAt: createdAt(),
+  },
+  (t) => [index("device_tokens_user").on(t.userId), index("device_tokens_company").on(t.companyId)]
+);
+
+// Push idempotency log: opId → stored per-op result for replay on retry.
+// Pruned after 90 days.
+export const syncOperations = sqliteTable(
+  "sync_operations",
+  {
+    opId: text("op_id").primaryKey(), // client UUIDv7 idempotency key
+    deviceId: text("device_id").notNull(), // device_tokens.id
+    companyId: text("company_id").notNull(),
+    userId: text("user_id").notNull(),
+    kind: text("kind").notNull(), // domain action, e.g. pos.checkout
+    refId: text("ref_id"), // client entity UUID
+    status: text("status").notNull(), // accepted | rejected | conflict
+    result: text("result").notNull().default("{}"), // JSON per-op result for replay
+    createdAt: createdAt(),
+  },
+  (t) => [index("sync_operations_device").on(t.deviceId, t.createdAt)]
 );

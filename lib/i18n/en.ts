@@ -1282,6 +1282,18 @@ export const en = {
     logoutConfirm: "Log out on all devices, including this one? You will need to sign in again.",
     logoutError: "Could not log out everywhere.",
   },
+  settingssyncdevices: {
+    title: "Synced devices",
+    hint: "Android devices enrolled for offline sync. Revoking a device stops it syncing immediately — it must sign in again to re-enroll.",
+    loadError: "Could not load synced devices.",
+    noDevices: "No devices enrolled for offline sync yet.",
+    revoke: "Revoke",
+    revokeConfirm: "Revoke this device? It will stop syncing immediately.",
+    revoked: "Revoked",
+    revokeError: "Could not revoke the device.",
+    lastUsed: "Last synced {date}",
+    neverUsed: "Never synced",
+  },
   settingslock: {
     title: "Accounting period lock",
     hint: "Lock the books up to a date — for example after closing the month. While locked, no entry dated on or before that date can be added, changed, converted, returned or deleted.",
