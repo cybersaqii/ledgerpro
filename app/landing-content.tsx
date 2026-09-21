@@ -78,11 +78,11 @@ export default function LandingContent() {
       {/* Nav */}
       <header className="fixed inset-x-0 top-0 z-40 border-b border-white/10 bg-[#0a2e25]/85 backdrop-blur-xl">
         <div className="flex h-16 items-center justify-between px-4 sm:px-8 lg:px-12">
-          <Link href="/" className="flex items-center gap-2.5">
-            <span className="grid h-9 w-9 place-items-center rounded-xl bg-white/15 shadow-lg">
+          <Link href="/" className="flex min-w-0 items-center gap-2.5">
+            <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-white/15 shadow-lg">
               <FileText size={18} className="text-white" />
             </span>
-            <span>
+            <span className="hidden min-[420px]:block">
               <span className="block text-[1.05rem] font-extrabold leading-none tracking-tight text-white">{b}</span>
               <span className="hidden text-[0.68rem] text-emerald-100/70 sm:block">{brand.tagline}</span>
             </span>
@@ -93,12 +93,12 @@ export default function LandingContent() {
             <a href="#how" className="transition hover:text-white">{L("navHow")}</a>
             <a href="#faq" className="transition hover:text-white">{L("navFaq")}</a>
           </nav>
-          <div className="flex items-center gap-2 sm:gap-3">
+          <div className="flex items-center gap-1.5 sm:gap-3">
             <LangToggle />
             <ThemeToggle />
             <Link href="/login" className="hidden rounded-xl px-4 py-2 text-sm font-bold text-white transition hover:bg-white/10 sm:inline-flex">{L("navLogin")}</Link>
-            <Link href="/signup" className="btn !border-0 !bg-white !px-4 !py-2 text-sm !text-[#0a2e25] hover:!bg-emerald-50">
-              {L("navStart")} <ArrowRight size={16} />
+            <Link href="/signup" className="btn shrink-0 !border-0 !bg-white !px-3 !py-2 text-[0.8rem] !text-[#0a2e25] hover:!bg-emerald-50 sm:!px-4 sm:text-sm">
+              {L("navStart")} <ArrowRight size={15} />
             </Link>
           </div>
         </div>
