@@ -475,11 +475,92 @@ body::before {
   color: transparent;
 }
 
+/* Premium auth card — gradient border, layered glow shadow, inner highlight */
+.auth-card {
+  position: relative;
+  overflow: hidden;
+  isolation: isolate;
+  border: 1px solid transparent;
+  border-radius: 1.35rem;
+  background:
+    linear-gradient(var(--card), var(--card)) padding-box,
+    linear-gradient(140deg,
+      color-mix(in srgb, var(--primary) 60%, transparent),
+      color-mix(in srgb, var(--border) 85%, transparent) 38%,
+      color-mix(in srgb, var(--accent) 40%, transparent)) border-box;
+  box-shadow:
+    0 28px 64px -26px color-mix(in srgb, var(--primary) 38%, transparent),
+    0 2px 8px -2px rgb(0 0 0 / 0.08),
+    inset 0 1px 0 rgb(255 255 255 / 0.55);
+}
+.dark .auth-card {
+  box-shadow:
+    0 28px 64px -22px rgb(0 0 0 / 0.75),
+    inset 0 1px 0 rgb(255 255 255 / 0.09);
+}
+.auth-card::before {
+  content: "";
+  position: absolute;
+  inset: 0 0 auto 0;
+  height: 46%;
+  background: linear-gradient(to bottom, rgb(255 255 255 / 0.10), transparent);
+  pointer-events: none;
+}
+.dark .auth-card::before {
+  background: linear-gradient(to bottom, rgb(255 255 255 / 0.05), transparent);
+}
+
+/* Gradient icon medallion for auth cards */
+.auth-medallion {
+  display: grid;
+  place-items: center;
+  height: 3.25rem;
+  width: 3.25rem;
+  flex-shrink: 0;
+  border-radius: 1.1rem;
+  color: #fff;
+  background: linear-gradient(135deg,
+    color-mix(in srgb, var(--primary) 78%, white 22%) 0%,
+    var(--primary) 55%,
+    color-mix(in srgb, var(--primary) 72%, var(--accent)) 100%);
+  box-shadow:
+    0 14px 26px -10px color-mix(in srgb, var(--primary) 70%, transparent),
+    inset 0 1px 0 rgb(255 255 255 / 0.45),
+    inset 0 0 0 1px rgb(255 255 255 / 0.18);
+  animation: medallion-float 5s ease-in-out infinite;
+}
+@keyframes medallion-float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-4px); }
+}
+
+/* Small-caps eyebrow label above auth titles */
+.auth-eyebrow {
+  display: block;
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--primary);
+}
+
+/* Soft glow blob behind an auth card */
+.auth-glow {
+  position: absolute;
+  inset: -4rem -3rem auto -3rem;
+  height: 18rem;
+  background: radial-gradient(closest-side,
+    color-mix(in srgb, var(--primary) 20%, transparent), transparent);
+  filter: blur(12px);
+  pointer-events: none;
+}
+
 /* Respect users who ask for less motion */
 @media (prefers-reduced-motion: reduce) {
   .rise, .rise-1, .rise-2, .rise-3, .rise-4, .float-slow, .marquee-track, .pos-scroll,
   .skeleton::after, .modal-pop, .pulse-dot, .banner-shine::after, .trial-cta,
-  .btn-primary::after, .btn-accent::after, .auth-pan, .orb-drift, .orb-drift-rev { animation: none !important; }
+  .btn-primary::after, .btn-accent::after, .auth-pan, .orb-drift, .orb-drift-rev,
+  .auth-medallion { animation: none !important; }
   .btn, .btn-primary, .btn-accent, .btn-ghost, a, button, input, select, textarea,
   .card-lift, .tbl tbody tr, .kpi-tile-go { transition: none !important; }
   .btn-primary:hover, .btn-accent:hover, .btn-ghost:hover, .card-lift:hover { transform: none !important; }

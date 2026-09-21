@@ -52,14 +52,17 @@ export default function ForgotPasswordPage() {
       <Link href="/login" className="rise mb-5 inline-flex items-center gap-2 text-sm font-semibold text-muted-foreground transition-all hover:gap-3 hover:text-primary">
         <ArrowLeft size={16} /> {t("auth.backToLogin")}
       </Link>
-      <div className="card card-gloss rise rise-1 relative p-7 shadow-2xl ring-1 ring-primary/10 sm:p-9">
+      <div className="relative">
+        <div className="auth-glow" aria-hidden="true" />
+        <div className="auth-card rise rise-1 p-7 shadow-2xl sm:p-9">
         <div className="pointer-events-none absolute inset-x-10 top-0 h-[3px] rounded-full bg-gradient-to-r from-transparent via-primary/70 to-transparent" />
         {newCode ? (
           <div className="text-center">
-            <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-primary-soft text-primary">
-              <KeyRound size={22} />
+            <div className="auth-medallion mx-auto">
+              <Check size={24} />
             </div>
-            <h1 className="mt-4 text-2xl font-extrabold tracking-tight">{t("auth.resetTitle")}</h1>
+            <span className="auth-eyebrow mt-4">{t("auth.forgotEyebrow")}</span>
+            <h1 className="mt-1 text-2xl font-extrabold tracking-tight">{t("auth.resetTitle")}</h1>
             <p className="mt-2 text-sm text-muted-foreground">
               {t("auth.resetDoneHint")}
             </p>
@@ -82,8 +85,14 @@ export default function ForgotPasswordPage() {
           </div>
         ) : (
           <>
-            <h1 className="rise rise-2 text-2xl font-extrabold tracking-tight">{t("auth.forgotTitle")}</h1>
-            <p className="rise rise-2 mt-1 text-sm text-muted-foreground">
+            <div className="rise rise-2 flex items-center gap-4">
+              <span className="auth-medallion"><KeyRound size={24} /></span>
+              <span>
+                <span className="auth-eyebrow">{t("auth.forgotEyebrow")}</span>
+                <h1 className="mt-0.5 text-2xl font-extrabold tracking-tight">{t("auth.forgotTitle")}</h1>
+              </span>
+            </div>
+            <p className="rise rise-2 mt-3 text-sm text-muted-foreground">
               {t("auth.forgotSub")}
             </p>
             <form onSubmit={submit} className="rise rise-3 mt-6 space-y-4">
@@ -115,6 +124,7 @@ export default function ForgotPasswordPage() {
             </p>
           </>
         )}
+        </div>
       </div>
     </AuthLayout>
   );

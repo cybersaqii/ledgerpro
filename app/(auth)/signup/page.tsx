@@ -66,14 +66,17 @@ export default function SignupPage() {
 
   return (
     <AuthLayout>
-      <div className="card card-gloss rise relative p-7 sm:p-9">
+      <div className="relative">
+        <div className="auth-glow" aria-hidden="true" />
+        <div className="auth-card rise p-7 sm:p-9">
         <div className="pointer-events-none absolute inset-x-10 top-0 h-[3px] rounded-full bg-gradient-to-r from-transparent via-primary/70 to-transparent" />
         {recoveryCode ? (
           <div className="text-center">
-            <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-primary-soft text-primary">
-              <KeyRound size={22} />
+            <div className="auth-medallion mx-auto">
+              <KeyRound size={24} />
             </div>
-            <h1 className="mt-4 text-2xl font-extrabold tracking-tight">{t("auth.saveCodeTitle")}</h1>
+            <span className="auth-eyebrow mt-4">{t("auth.signupEyebrow")}</span>
+            <h1 className="mt-1 text-2xl font-extrabold tracking-tight">{t("auth.saveCodeTitle")}</h1>
             <p className="mt-2 text-sm text-muted-foreground">
               {t("auth.saveCodeHint")}
             </p>
@@ -97,8 +100,14 @@ export default function SignupPage() {
           </div>
         ) : (
         <>
-        <h1 className="rise rise-1 text-2xl font-extrabold tracking-tight">{t("auth.signupTitle")}</h1>
-        <p className="rise rise-1 mt-1 text-sm text-muted-foreground">{t("auth.signupSub")}</p>
+        <div className="rise rise-1 flex items-center gap-4">
+          <span className="auth-medallion"><UserPlus size={24} /></span>
+          <span>
+            <span className="auth-eyebrow">{t("auth.signupEyebrow")}</span>
+            <h1 className="mt-0.5 text-2xl font-extrabold tracking-tight">{t("auth.signupTitle")}</h1>
+          </span>
+        </div>
+        <p className="rise rise-1 mt-3 text-sm text-muted-foreground">{t("auth.signupSub")}</p>
         <form onSubmit={submit} className="rise rise-2 mt-6 space-y-4">
           <ErrorNote message={error} />
           <Field label={t("auth.businessName")}>
@@ -156,6 +165,7 @@ export default function SignupPage() {
         </p>
         </>
         )}
+        </div>
       </div>
     </AuthLayout>
   );

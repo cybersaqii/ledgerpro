@@ -36,10 +36,18 @@ export default function LoginPage() {
 
   return (
     <AuthLayout>
-      <div className="card card-gloss rise relative p-7 shadow-2xl ring-1 ring-primary/10 sm:p-9">
+      <div className="relative">
+        <div className="auth-glow" aria-hidden="true" />
+        <div className="auth-card rise p-7 shadow-2xl sm:p-9">
         <div className="pointer-events-none absolute inset-x-10 top-0 h-[3px] rounded-full bg-gradient-to-r from-transparent via-primary/70 to-transparent" />
-        <h1 className="rise rise-1 text-2xl font-extrabold tracking-tight">{t("auth.loginTitle")}</h1>
-        <p className="rise rise-1 mt-1 text-sm text-muted-foreground">{t("auth.loginSub", { brand: brand.name })}</p>
+        <div className="rise rise-1 flex items-center gap-4">
+          <span className="auth-medallion"><LogIn size={24} /></span>
+          <span>
+            <span className="auth-eyebrow">{t("auth.loginEyebrow")}</span>
+            <h1 className="mt-0.5 text-2xl font-extrabold tracking-tight">{t("auth.loginTitle")}</h1>
+          </span>
+        </div>
+        <p className="rise rise-1 mt-3 text-sm text-muted-foreground">{t("auth.loginSub", { brand: brand.name })}</p>
         <form onSubmit={submit} className="rise rise-2 mt-6 space-y-4">
           <ErrorNote message={error} />
           <Field label={t("auth.email")}>
@@ -69,6 +77,7 @@ export default function LoginPage() {
           {t("auth.newTo", { brand: brand.name })}{" "}
           <Link href="/signup" className="font-bold text-primary hover:underline">{t("auth.createAccount")}</Link>
         </p>
+        </div>
       </div>
       <div className="rise rise-1 mt-6 flex flex-wrap items-center justify-center gap-x-5 gap-y-2 text-xs text-muted-foreground">
         <span className="inline-flex items-center gap-1.5"><ShieldCheck size={14} className="text-primary" /> {t("auth.secureLogin")}</span>
