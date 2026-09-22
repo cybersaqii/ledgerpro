@@ -30,8 +30,10 @@ export interface CompanyBilling {
 }
 
 export function getAccessLevel(c: CompanyBilling, now: Date = new Date()): AccessLevel {
-  if (c.trialEndsAt && now.getTime() < c.trialEndsAt.getTime()) return "TRIAL";
+  // A paid PRO plan always wins: a customer who paid during their trial is PRO,
+  // not "still trialing". (activatePro also ends the trial row on approval.)
   if (c.plan === "PRO" && c.proExpiresAt && now.getTime() < c.proExpiresAt.getTime()) return "PRO";
+  if (c.trialEndsAt && now.getTime() < c.trialEndsAt.getTime()) return "TRIAL";
   return "FREE";
 }
 

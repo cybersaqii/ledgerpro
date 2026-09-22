@@ -50,6 +50,14 @@ describe("getAccessLevel", () => {
       )
     ).toBe("PRO");
   });
+  it("prefers PRO over a still-running trial (paid during trial)", () => {
+    expect(
+      getAccessLevel(
+        company({ trialEndsAt: new Date(NOW.getTime() + 29 * DAY), plan: "PRO", proExpiresAt: new Date(NOW.getTime() + 365 * DAY) }),
+        NOW
+      )
+    ).toBe("PRO");
+  });
   it("is FREE when the paid plan expired", () => {
     expect(
       getAccessLevel(
@@ -126,6 +134,31 @@ describe("billing DB flow", () => {
     expect(rows[0].plan).toBe("PRO");
     const st = await billingStatusFor(id, db);
     expect(st?.level).toBe("PRO");
+  });
+
+  it("activatePro during an active trial ends the trial and flips the account to PRO", async () => {
+    const id = crypto.randomUUID();
+    await db.insert(s.companies).values({
+      id, name: "Trial Buyer Co", businessType: "RETAIL",
+      trialEndsAt: new Date(Date.now() + 29 * DAY), // trial still active, like the reported bug
+    });
+    const before = await billingStatusFor(id, db);
+    expect(before?.level).toBe("TRIAL");
+
+    await activatePro(db, id, 12, NOW);
+
+    const rows = await db
+      .select({ plan: s.companies.plan, trialEndsAt: s.companies.trialEndsAt, proExpiresAt: s.companies.proExpiresAt })
+      .from(s.companies)
+      .where(eq(s.companies.id, id));
+    expect(rows[0].plan).toBe("PRO");
+    expect(rows[0].trialEndsAt!.getTime()).toBeLessThanOrEqual(Date.now());
+    expect(rows[0].proExpiresAt!.getTime()).toBeGreaterThan(Date.now());
+
+    const after = await billingStatusFor(id, db);
+    expect(after?.level).toBe("PRO");
+    expect(after?.trialDaysLeft).toBe(0);
+    expect(after?.proDaysLeft).toBeGreaterThan(0);
   });
 
   it("createBillingPayment stores a pending submission", async () => {

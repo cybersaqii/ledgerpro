@@ -163,6 +163,8 @@ export function priceForPlan(settings: Record<string, string>, months: number): 
 
 /**
  * Activate/extend PRO for a company by `months` starting from max(now, current expiry).
+ * A paid activation also ends any running free trial on the spot, so the account
+ * immediately reports PRO (not "Free trial") on the billing page and banners.
  * Returns the new proExpiresAt.
  */
 export async function activatePro(
@@ -176,7 +178,7 @@ export async function activatePro(
   const expires = new Date(start.getTime() + months * 30 * 86_400_000);
   await dbc
     .update(companies)
-    .set({ plan: "PRO", proExpiresAt: expires, updatedAt: new Date() })
+    .set({ plan: "PRO", proExpiresAt: expires, trialEndsAt: now, updatedAt: new Date() })
     .where(eq(companies.id, companyId));
   return expires;
 }
