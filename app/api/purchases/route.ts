@@ -184,6 +184,7 @@ export async function POST(req: NextRequest) {
         taxTotal: totals.taxTotal,
         grandTotal: totals.grandTotal,
         notes: b.notes || null,
+        terms: b.terms || null,
         createdById: session.uid,
       });
       await tx.insert(purchaseDocItems).values(

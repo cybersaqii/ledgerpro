@@ -1,9 +1,10 @@
 "use client";
 
 import { useRouter, useSearchParams } from "next/navigation";
-import { useEffect, useState, Suspense } from "react";
+import { useEffect, useRef, useState, Suspense } from "react";
 import { PageHeader, Field, ErrorNote } from "@/components/ui";
 import { api, fmtMoney, fmtDate, fmtDateInput } from "@/lib/format";
+import { parseDecimalToPaisa } from "@/lib/decimal";
 import { useLang } from "@/components/lang-provider";
 
 type Party = { id: string; name: string };
@@ -15,6 +16,7 @@ function PaymentFormInner() {
   const sp = useSearchParams();
   const { t } = useLang();
   const [kind, setKind] = useState<"RECEIPT" | "PAYMENT">(sp.get("kind") === "PAYMENT" ? "PAYMENT" : "RECEIPT");
+  const [payPartyKind, setPayPartyKind] = useState<"CUSTOMER" | "SUPPLIER">("SUPPLIER");
   const isReceipt = kind === "RECEIPT";
 
   const [parties, setParties] = useState<Party[]>([]);
@@ -24,7 +26,7 @@ function PaymentFormInner() {
   const [banks, setBanks] = useState<Bank[]>([]);
   const [bankId, setBankId] = useState("");
   const [date, setDate] = useState(fmtDateInput());
-  const [amount, setAmount] = useState("");
+  const [amount, setAmount] = useState(() => sp.get("amount") ?? "");
   const [method, setMethod] = useState("CASH");
   const [reference, setReference] = useState("");
   const [notes, setNotes] = useState("");
@@ -32,8 +34,13 @@ function PaymentFormInner() {
   const [alloc, setAlloc] = useState<Record<string, string>>({});
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // "Make Payment" deep link pre-fill: ?allocateDocId=&amount= — applied once
+  // the outstanding list for the pre-selected party finishes loading.
+  const [prefill] = useState(() => ({ docId: sp.get("allocateDocId") ?? "", amount: sp.get("amount") ?? "" }));
+  const prefillApplied = useRef(false);
 
-  const partyKind = isReceipt ? "CUSTOMER" : "SUPPLIER";
+  const partyKind = isReceipt ? "CUSTOMER" : payPartyKind;
+  const isRefund = !isReceipt && partyKind === "CUSTOMER"; // customer refund: plain ledger movement, no allocation
 
   useEffect(() => {
     api<{ data: Bank[] }>("/api/banks").then((d) => {
@@ -58,12 +65,28 @@ function PaymentFormInner() {
     /* eslint-disable react-hooks/set-state-in-effect -- data fetch on party change */
     setOutstanding([]);
     setAlloc({});
-    if (!partyId) return;
+    if (!partyId || isRefund) return;
     api<{ data: Outstanding[] }>(`/api/parties/${partyId}/outstanding?kind=${isReceipt ? "SALES" : "PURCHASE"}`)
       .then((d) => setOutstanding(d.data))
       .catch(() => {});
     /* eslint-enable react-hooks/set-state-in-effect */
-  }, [partyId, isReceipt]);
+  }, [partyId, isReceipt, isRefund]);
+
+  // apply the "Make Payment" deep-link pre-fill once outstanding docs load
+  useEffect(() => {
+    /* eslint-disable react-hooks/set-state-in-effect -- one-time pre-fill after docs load */
+    if (prefillApplied.current || !prefill.docId || outstanding.length === 0) return;
+    const row = outstanding.find((o) => o.id === prefill.docId);
+    if (!row) return;
+    prefillApplied.current = true;
+    let want = 0n;
+    try { want = parseDecimalToPaisa(prefill.amount.trim() || "0"); } catch { want = 0n; }
+    if (want <= 0n) return;
+    const cap = BigInt(row.balance);
+    const fill = want < cap ? want : cap;
+    setAlloc({ [row.id]: `${fill / 100n}.${(fill % 100n).toString().padStart(2, "0")}` });
+    /* eslint-enable react-hooks/set-state-in-effect */
+  }, [outstanding, prefill]);
 
   const selectedParty = parties.find((p) => p.id === partyId) ?? (partyId ? { id: partyId, name: "Selected" } : null);
   const allocTotal = Object.values(alloc).reduce((a, v) => a + Math.round(parseFloat(v || "0") * 100), 0);
@@ -87,7 +110,7 @@ function PaymentFormInner() {
   async function submit(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
-    if (!partyId) { setError(t("payform.errParty", { party: isReceipt ? t("payform.customer").toLowerCase() : t("payform.supplier").toLowerCase() })); return; }
+    if (!partyId) { setError(t("payform.errParty", { party: t(partyKind === "CUSTOMER" ? "payform.customer" : "payform.supplier").toLowerCase() })); return; }
     if (!bankId) { setError(t("payform.errAccount")); return; }
     if (!(parseFloat(amount || "0") > 0)) { setError(t("payform.errAmount")); return; }
     if (allocTotal > amountPaisa) { setError(t("payform.errAlloc")); return; }
@@ -98,7 +121,7 @@ function PaymentFormInner() {
         body: JSON.stringify({
           kind, partyId, bankAccountId: bankId, date, amount,
           method, reference: reference || undefined, notes: notes || undefined,
-          allocations: Object.entries(alloc)
+          allocations: isRefund ? [] : Object.entries(alloc)
             .filter(([, v]) => parseFloat(v || "0") > 0)
             .map(([docId, v]) => ({ docId, docKind: isReceipt ? "SALES" : "PURCHASE", amount: v })),
         }),
@@ -126,9 +149,23 @@ function PaymentFormInner() {
               </button>
             ))}
           </div>
+          {!isReceipt && (
+            <div className="mb-5 flex items-center gap-2 rounded-xl border border-border bg-muted/40 px-3 py-2">
+              <span className="text-xs font-semibold text-muted-foreground">{t("payform.payTo")}</span>
+              <div className="flex flex-1 gap-1">
+                {(["SUPPLIER", "CUSTOMER"] as const).map((k) => (
+                  <button key={k} type="button" onClick={() => { setPayPartyKind(k); setPartyId(""); }}
+                    className={`flex-1 rounded-lg px-3 py-1.5 text-xs font-bold transition ${payPartyKind === k ? "bg-primary text-primary-foreground shadow" : "text-muted-foreground hover:text-foreground"}`}>
+                    {k === "SUPPLIER" ? t("payform.supplier") : t("payform.customer")}
+                  </button>
+                ))}
+              </div>
+              {isRefund && <span className="text-xs text-muted-foreground">{t("payform.refundHint")}</span>}
+            </div>
+          )}
 
           <div className="grid gap-4 sm:grid-cols-2">
-            <Field label={isReceipt ? t("payform.customer") : t("payform.supplier")}>
+            <Field label={t(partyKind === "CUSTOMER" ? "payform.customer" : "payform.supplier")}>
               <div className="relative">
                 <button type="button" onClick={() => setShowPartyList((s) => !s)} className="field flex items-center justify-between text-left">
                   <span className={selectedParty ? "" : "text-muted-foreground"}>{selectedParty ? selectedParty.name : t("payform.selectPlaceholder")}</span>

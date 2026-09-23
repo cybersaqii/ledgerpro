@@ -1,5 +1,5 @@
 import { NextRequest } from "next/server";
-import { eq, and, sql } from "drizzle-orm";
+import { eq, and, sql, inArray } from "drizzle-orm";
 import { salesDocs, purchaseDocs, parties } from "@/db/schema";
 import { json } from "@/lib/api";
 import { requirePermission, db } from "@/lib/route-helpers";
@@ -25,6 +25,7 @@ export async function GET(req: NextRequest) {
       dueDate: docs.dueDate,
       grandTotal: docs.grandTotal,
       amountPaid: docs.amountPaid,
+      returnedTotal: docs.returnedTotal,
       partyId: docs.partyId,
       partyName: parties.name,
       phone: parties.phone,
@@ -36,8 +37,10 @@ export async function GET(req: NextRequest) {
       and(
         eq(docs.companyId, companyId),
         eq(docs.docType, docType),
-        eq(docs.status, "POSTED"),
-        sql`${docs.grandTotal} > ${docs.amountPaid}`
+        // PARTIAL invoices carry real outstanding; RETURNED ones are settled
+        // by definition. Outstanding nets off returns (M3).
+        inArray(docs.status, ["POSTED", "PARTIAL"]),
+        sql`${docs.grandTotal} > ${docs.amountPaid} + ${docs.returnedTotal}`
       )
     )
     .orderBy(docs.date);
@@ -52,7 +55,7 @@ export async function GET(req: NextRequest) {
   const totals = { total: 0n, notDue: 0n, d30: 0n, d60: 0n, d90: 0n, d90plus: 0n };
 
   for (const r of rows) {
-    const outstanding = (r.grandTotal as bigint) - (r.amountPaid as bigint);
+    const outstanding = (r.grandTotal as bigint) - (r.amountPaid as bigint) - (r.returnedTotal as bigint);
     if (outstanding <= 0n) continue;
     const dateMs = (r.date as unknown as Date).getTime();
     const dueMs = r.dueDate ? (r.dueDate as unknown as Date).getTime() : null;

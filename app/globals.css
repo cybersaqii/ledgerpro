@@ -449,6 +449,13 @@ body::before {
 }
 .pulse-dot { animation: pulse-dot 2s ease-in-out infinite; }
 
+/* Item-entry row flash (barcode scan / keyboard add) */
+@keyframes row-flash {
+  0% { background-color: color-mix(in srgb, var(--primary) 25%, transparent); }
+  100% { background-color: transparent; }
+}
+.row-flash { animation: row-flash 1.2s ease-out; }
+
 /* Trial/upgrade banner sweep */
 .banner-shine { position: relative; overflow: hidden; }
 .banner-shine::after {

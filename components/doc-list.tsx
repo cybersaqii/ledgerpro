@@ -12,6 +12,7 @@ import { useCan } from "@/components/permissions";
 type Doc = {
   id: string; docNo: string; docType: string; date: number; status: string;
   grandTotal: string; partyName: string | null;
+  partyId: string; amountPaid: string; returnedTotal: string;
 };
 
 const typeBadge: Record<string, string> = {
@@ -26,10 +27,23 @@ const typeBadge: Record<string, string> = {
 
 const PER_PAGE = 20;
 
+/** BigInt paisa → plain "1234.56" decimal string (no grouping) for URL params. */
+function paisaDecimal(p: bigint): string {
+  const neg = p < 0n;
+  const abs = neg ? -p : p;
+  return `${neg ? "-" : ""}${abs / 100n}.${(abs % 100n).toString().padStart(2, "0")}`;
+}
+
+/** Outstanding balance of a doc row: grandTotal − paid − returned. */
+function docBalance(d: Doc): bigint {
+  return toBig(d.grandTotal) - toBig(d.amountPaid) - toBig(d.returnedTotal);
+}
+
 export function DocList({ mode }: { mode: "SALES" | "PURCHASE" }) {
   const bp = useBusinessProfile();
   const { t } = useLang();
   const canPos = useCan("pos");
+  const canPay = useCan("payments");
   const isSales = mode === "SALES";
   const [rows, setRows] = useState<Doc[]>([]);
   const [total, setTotal] = useState(0);
@@ -140,7 +154,7 @@ export function DocList({ mode }: { mode: "SALES" | "PURCHASE" }) {
         ) : (
           <div className="overflow-x-auto">
             <table className="tbl">
-              <thead><tr><th>{t("docs.colBillNo")}</th><th>{t("docs.colType")}</th><th>{isSales ? bp.partyOne : t("docs.supplier")}</th><th>{t("docs.colDate")}</th><th>{t("docs.colStatus")}</th><th className="num">{t("docs.colTotal")}</th></tr></thead>
+              <thead><tr><th>{t("docs.colBillNo")}</th><th>{t("docs.colType")}</th><th>{isSales ? bp.partyOne : t("docs.supplier")}</th><th>{t("docs.colDate")}</th><th>{t("docs.colStatus")}</th><th className="num">{t("docs.colTotal")}</th><th /></tr></thead>
               <tbody>
                 {rows.map((d) => (
                   <tr key={d.id}>
@@ -154,6 +168,16 @@ export function DocList({ mode }: { mode: "SALES" | "PURCHASE" }) {
                     <td className="whitespace-nowrap text-muted-foreground">{fmtDate(d.date)}</td>
                     <td><StatusPill status={d.status} /></td>
                     <td className="num font-extrabold">{fmtMoney(d.grandTotal)}</td>
+                    <td className="text-right">
+                      {canPay && (d.docType === "INVOICE" || d.docType === "BILL") && docBalance(d) > 0n && d.partyId ? (
+                        <Link
+                          href={`/payments/new?kind=${isSales ? "RECEIPT" : "PAYMENT"}&partyId=${d.partyId}&allocateDocId=${d.id}&amount=${paisaDecimal(docBalance(d))}`}
+                          className="btn btn-ghost !px-2.5 !py-1.5 text-xs font-bold text-primary"
+                          title={t("docs.makePayment")}>
+                          {t("docs.makePayment")}
+                        </Link>
+                      ) : null}
+                    </td>
                   </tr>
                 ))}
               </tbody>

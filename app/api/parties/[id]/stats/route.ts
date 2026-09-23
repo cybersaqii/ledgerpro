@@ -1,5 +1,5 @@
 import { NextRequest } from "next/server";
-import { eq, and, sql } from "drizzle-orm";
+import { eq, and, sql, inArray } from "drizzle-orm";
 import { parties, salesDocs, purchaseDocs, payments } from "@/db/schema";
 import { json, err } from "@/lib/api";
 import { requireCompany, db } from "@/lib/route-helpers";
@@ -31,7 +31,9 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
           eq(docsTable.companyId, companyId),
           eq(docsTable.partyId, id),
           eq(docsTable.docType, docType),
-          eq(docsTable.status, "POSTED")
+          // Paid / partially-paid / returned docs still count toward lifetime
+          // business — only drafts are excluded.
+          inArray(docsTable.status, ["POSTED", "PARTIAL", "PAID", "RETURNED"])
         )
       );
     return { total: BigInt(r[0]?.total ?? "0"), n: r[0]?.n ?? 0 };
@@ -50,7 +52,7 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
         eq(docsTable.companyId, companyId),
         eq(docsTable.partyId, id),
         eq(docsTable.docType, mainType),
-        eq(docsTable.status, "POSTED")
+        inArray(docsTable.status, ["POSTED", "PARTIAL", "PAID", "RETURNED"])
       )
     )
     .orderBy(sql`${docsTable.date} desc`)

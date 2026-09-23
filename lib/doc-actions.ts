@@ -1,6 +1,7 @@
-import { eq, and, inArray } from "drizzle-orm";
+import { eq, and, inArray, desc } from "drizzle-orm";
 import {
   salesDocs, salesDocItems, purchaseDocs, purchaseDocItems, products,
+  paymentAllocations, setoffAllocations,
 } from "@/db/schema";
 import { computeTotals, type DocItemInput, type ComputedItem } from "./totals";
 import { postSalesDoc, postPurchaseDoc } from "./posting";
@@ -8,6 +9,7 @@ import { nextDocNo } from "./setup";
 import { floorErrorMessage } from "./min-price";
 import { applyCustomerAdvance } from "./advance";
 import { assertPeriodOpen } from "./period";
+import { qtyRateTotal } from "./money";
 import type { DbTx } from "./db";
 import { UserError } from "./errors";
 
@@ -147,7 +149,11 @@ export async function createSalesReturn(
   const [src] = await tx.select().from(salesDocs)
     .where(and(eq(salesDocs.id, input.sourceId), eq(salesDocs.companyId, input.companyId))).limit(1);
   if (!src) throw new UserError("Source invoice not found.");
-  if (src.docType !== "INVOICE" || src.status !== "POSTED") throw new UserError("Only posted invoices can be returned.");
+  if (src.docType !== "INVOICE") throw new UserError("Only invoices can be returned.");
+  // Paid and partially-paid invoices CAN be returned (M3) — the return frees
+  // their allocations back into advance credit. Draft/converted docs cannot.
+  if (src.status === "DRAFT" || src.status === "CONVERTED") throw new UserError("Only posted invoices can be returned.");
+  if (src.status === "RETURNED") throw new UserError("This invoice was already fully returned.");
   await assertPeriodOpen(tx, input.companyId, src.date);
 
   const srcItems = await tx.select().from(salesDocItems).where(eq(salesDocItems.docId, src.id));
@@ -173,8 +179,8 @@ export async function createSalesReturn(
       description: si.description,
       qtyMilli: q,
       ratePaisa: si.rate,
-      // line discount scales with the returned quantity
-      discountPaisa: si.qty > 0n ? (BigInt(si.discount) * q) / BigInt(si.qty) : 0n,
+      // line discount scales with the returned quantity (half-up, M8)
+      discountPaisa: scaledReturnDiscount(BigInt(si.discount ?? 0n), BigInt(si.qty), q),
       taxBps: si.taxBps,
     });
     returnedById.set(si.id, already + q);
@@ -184,7 +190,7 @@ export async function createSalesReturn(
   // document-level discount scales with the returned share of the subtotal
   const srcDiscount = src.discountTotal ?? 0n;
   const srcSubtotal = src.subtotal ?? 0n;
-  const returnedSubtotal = items.reduce((a, i) => a + (i.qtyMilli * i.ratePaisa) / 1000n, 0n);
+  const returnedSubtotal = items.reduce((a, i) => a + qtyRateTotal(i.qtyMilli, i.ratePaisa), 0n);
   const docDiscount = srcSubtotal > 0n && srcDiscount > 0n ? (srcDiscount * returnedSubtotal) / srcSubtotal : 0n;
 
   const totals = computeTotals(items, docDiscount);
@@ -241,8 +247,17 @@ export async function createSalesReturn(
     taxTotal: totals.taxTotal,
     grandTotal: totals.grandTotal,
     createdById: input.userId,
+    sourceDocId: src.id, // restores the invoice's exact batches (M4)
   });
   await tx.update(salesDocs).set({ journalEntryId: entryId }).where(eq(salesDocs.id, docId));
+  // M3: grow the source's returnedTotal, release over-allocations, fix status.
+  await releaseAllocationsForReturn(tx, {
+    companyId: input.companyId,
+    docId: src.id,
+    side: "SALES",
+    returnTotal: totals.grandTotal,
+    isFull,
+  });
   return { docId, docNo };
 }
 
@@ -336,7 +351,10 @@ export async function createPurchaseReturn(
   const [src] = await tx.select().from(purchaseDocs)
     .where(and(eq(purchaseDocs.id, input.sourceId), eq(purchaseDocs.companyId, input.companyId))).limit(1);
   if (!src) throw new UserError("Source bill not found.");
-  if (src.docType !== "BILL" || src.status !== "POSTED") throw new UserError("Only posted bills can be returned.");
+  if (src.docType !== "BILL") throw new UserError("Only bills can be returned.");
+  // Paid and partially-paid bills CAN be returned (M3). Draft/converted docs cannot.
+  if (src.status === "DRAFT" || src.status === "CONVERTED") throw new UserError("Only posted bills can be returned.");
+  if (src.status === "RETURNED") throw new UserError("This bill was already fully returned.");
   await assertPeriodOpen(tx, input.companyId, src.date);
 
   const srcItems = await tx.select().from(purchaseDocItems).where(eq(purchaseDocItems.docId, src.id));
@@ -362,7 +380,7 @@ export async function createPurchaseReturn(
       description: si.description,
       qtyMilli: q,
       ratePaisa: si.rate,
-      discountPaisa: si.qty > 0n ? (BigInt(si.discount) * q) / BigInt(si.qty) : 0n,
+      discountPaisa: scaledReturnDiscount(BigInt(si.discount ?? 0n), BigInt(si.qty), q),
       taxBps: si.taxBps,
     });
     returnedById.set(si.id, already + q);
@@ -371,7 +389,7 @@ export async function createPurchaseReturn(
 
   const srcDiscount = src.discountTotal ?? 0n;
   const srcSubtotal = src.subtotal ?? 0n;
-  const returnedSubtotal = items.reduce((a, i) => a + (i.qtyMilli * i.ratePaisa) / 1000n, 0n);
+  const returnedSubtotal = items.reduce((a, i) => a + qtyRateTotal(i.qtyMilli, i.ratePaisa), 0n);
   const docDiscount = srcSubtotal > 0n && srcDiscount > 0n ? (srcDiscount * returnedSubtotal) / srcSubtotal : 0n;
 
   const totals = computeTotals(items, docDiscount);
@@ -425,8 +443,17 @@ export async function createPurchaseReturn(
     taxTotal: totals.taxTotal,
     grandTotal: totals.grandTotal,
     createdById: input.userId,
+    sourceDocId: src.id, // deducts from the bill's exact batches (M4)
   });
   await tx.update(purchaseDocs).set({ journalEntryId: entryId }).where(eq(purchaseDocs.id, docId));
+  // M3: grow the source's returnedTotal, release over-allocations, fix status.
+  await releaseAllocationsForReturn(tx, {
+    companyId: input.companyId,
+    docId: src.id,
+    side: "PURCHASE",
+    returnTotal: totals.grandTotal,
+    isFull,
+  });
   for (const [id, qtyReturned] of returnedById) {
     await tx.update(purchaseDocItems).set({ qtyReturned }).where(eq(purchaseDocItems.id, id));
   }
@@ -435,4 +462,88 @@ export async function createPurchaseReturn(
 
 function withStock(items: ComputedItem[], tsMap: Map<string, boolean>) {
   return items.map((i) => ({ ...i, trackStock: i.productId ? tsMap.get(i.productId) ?? false : false }));
+}
+
+/**
+ * Half-up scaled line discount for a partial return: the source line's
+ * discount spread across the returned quantity (M8 — was truncating).
+ */
+function scaledReturnDiscount(discount: bigint, qty: bigint, retQty: bigint): bigint {
+  if (qty <= 0n) return 0n;
+  return (discount * retQty + qty / 2n) / qty;
+}
+
+/**
+ * M3: after a return is posted, repair the source document's money state.
+ * - returnedTotal grows by the return's grand total, so aging and balances
+ *   (grandTotal - amountPaid - returnedTotal) stay correct without rewriting
+ *   the original invoice.
+ * - Allocations that now exceed the collectible balance are released, newest
+ *   first, across payment allocations and set-off allocations. Freed receipt
+ *   money automatically becomes advance credit again, because advance
+ *   consumption is always computed from unallocated receipt amounts.
+ * - Status becomes RETURNED on a full return, else PAID / PARTIAL / POSTED.
+ */
+async function releaseAllocationsForReturn(
+  tx: Tx,
+  input: { companyId: string; docId: string; side: "SALES" | "PURCHASE"; returnTotal: bigint; isFull: boolean }
+): Promise<void> {
+  const table = input.side === "SALES" ? salesDocs : purchaseDocs;
+  const [doc] = await tx.select().from(table)
+    .where(and(eq(table.id, input.docId), eq(table.companyId, input.companyId))).limit(1);
+  if (!doc) return;
+  const gt = BigInt(doc.grandTotal);
+  // On a full (quantity-wise) return, snap returnedTotal to the grand total so
+  // discount-scaling paisa dust can't leave a phantom 1-paisa outstanding.
+  const newReturned = input.isFull ? gt : BigInt(doc.returnedTotal) + input.returnTotal;
+  const collectible = gt - newReturned;
+  let amountPaid = BigInt(doc.amountPaid);
+  let releasable = amountPaid - collectible;
+
+  if (releasable > 0n) {
+    const payCol = input.side === "SALES" ? paymentAllocations.salesDocId : paymentAllocations.purchaseDocId;
+    const payRows = await tx
+      .select({ id: paymentAllocations.id, amount: paymentAllocations.amount, createdAt: paymentAllocations.createdAt })
+      .from(paymentAllocations)
+      .where(eq(payCol, doc.id))
+      .orderBy(desc(paymentAllocations.createdAt));
+    const soCol = input.side === "SALES" ? setoffAllocations.salesDocId : setoffAllocations.purchaseDocId;
+    const soRows = await tx
+      .select({ id: setoffAllocations.id, amount: setoffAllocations.amount, createdAt: setoffAllocations.createdAt })
+      .from(setoffAllocations)
+      .where(eq(soCol, doc.id))
+      .orderBy(desc(setoffAllocations.createdAt));
+    type Rel = { id: string; amount: bigint; createdAt: Date; kind: "pay" | "setoff" };
+    const all: Rel[] = [
+      ...payRows.map((r) => ({ id: r.id, amount: BigInt(r.amount), createdAt: r.createdAt, kind: "pay" as const })),
+      ...soRows.map((r) => ({ id: r.id, amount: BigInt(r.amount), createdAt: r.createdAt, kind: "setoff" as const })),
+    ].sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+    for (const r of all) {
+      if (releasable <= 0n) break;
+      if (r.amount <= releasable) {
+        if (r.kind === "pay") await tx.delete(paymentAllocations).where(eq(paymentAllocations.id, r.id));
+        else await tx.delete(setoffAllocations).where(eq(setoffAllocations.id, r.id));
+        releasable -= r.amount;
+        amountPaid -= r.amount;
+      } else {
+        const left = r.amount - releasable;
+        if (r.kind === "pay") await tx.update(paymentAllocations).set({ amount: left }).where(eq(paymentAllocations.id, r.id));
+        else await tx.update(setoffAllocations).set({ amount: left }).where(eq(setoffAllocations.id, r.id));
+        amountPaid -= releasable;
+        releasable = 0n;
+      }
+    }
+  }
+
+  const status =
+    input.isFull ? "RETURNED"
+    : amountPaid >= collectible ? "PAID"
+    : amountPaid > 0n ? "PARTIAL"
+    : "POSTED";
+  await tx.update(table).set({
+    returnedTotal: newReturned,
+    amountPaid,
+    status,
+    updatedAt: new Date(),
+  }).where(eq(table.id, doc.id));
 }

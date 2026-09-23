@@ -1,6 +1,6 @@
 import { NextRequest } from "next/server";
 import { eq, and, inArray } from "drizzle-orm";
-import { salesDocs, salesDocItems, parties, products, bankAccounts } from "@/db/schema";
+import { salesDocs, salesDocItems, parties, products, bankAccounts, productBatches } from "@/db/schema";
 import { posCheckoutSchema } from "@/lib/validators";
 import { computeTotals, type DocItemInput } from "@/lib/totals";
 import { parseMoney } from "@/lib/money";
@@ -64,6 +64,23 @@ export async function POST(req: NextRequest) {
   if (belowFloor.length > 0 && !b.priceOverride) {
     return err(floorErrorMessage(belowFloor), 422);
  }
+
+  // Batch choices: the chosen batch must belong to this company and to the line's product.
+  const wantedBatches = b.items
+    .map((i) => ({ batchId: (i.batchId || "").trim(), productId: i.productId || "" }))
+    .filter((x) => x.batchId && x.productId);
+  if (wantedBatches.length > 0) {
+    const ids = [...new Set(wantedBatches.map((x) => x.batchId))];
+    const rows = await db
+      .select({ id: productBatches.id, productId: productBatches.productId })
+      .from(productBatches)
+      .where(and(eq(productBatches.companyId, companyId), inArray(productBatches.id, ids)));
+    const ownerOf = new Map(rows.map((r) => [r.id, r.productId]));
+    for (const w of wantedBatches) {
+      if (ownerOf.get(w.batchId) !== w.productId)
+        return err("The selected batch is not valid for this product.", 422);
+    }
+  }
 
   // Cash/bank accounts must belong to this company.
   const bankIds = [...new Set(b.payments.map((p) => p.bankAccountId))];
@@ -154,9 +171,10 @@ export async function POST(req: NextRequest) {
         docNo,
         docType: "INVOICE",
         date,
-        items: totals.items.map((i) => ({
+        items: totals.items.map((i, idx) => ({
           ...i,
           trackStock: i.productId ? prodMap.get(i.productId)?.trackStock ?? false : false,
+          batchId: (b.items[idx]?.batchId || "").trim() || null,
  })),
         discountTotal: parseMoney(b.discountTotal),
         taxTotal: totals.taxTotal,

@@ -5,19 +5,23 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { ArrowLeft, ArrowRightLeft, MessageCircle, Printer, Undo2, Wallet } from "lucide-react";
 import { PageHeader, StatusPill } from "@/components/ui";
-import { api, fmtMoney, fmtMoneyPlain, fmtQty, fmtDate } from "@/lib/format";
+import { api, fmtMoney, fmtMoneyPlain, fmtQty, fmtDate, toBig } from "@/lib/format";
 import { brand } from "@/lib/brand";
 import { useLang } from "@/components/lang-provider";
+import { useBusinessProfile } from "@/components/business-type";
+import { tr, type Lang } from "@/lib/i18n";
 
 type Item = {
   id: string; description: string; qty: string; qtyReturned?: string | null; rate: string; discount: string; lineTotal: string;
-  extraCost?: string | null; unit?: string | null;
+  extraCost?: string | null; unit?: string | null; sku?: string | null;
+  taxBps?: number | null; taxAmount?: string | null;
+  batches?: { batchNo: string; expiryDate: string | null }[] | null;
 };
 type Doc = {
   id: string; docNo: string; docType: string; date: number; dueDate: number | null;
   status: string; subtotal: string; discountTotal: string; taxTotal: string; grandTotal: string;
-  amountPaid: string;
-  notes: string | null; refNo: string | null; partyName: string | null; partyId: string | null;
+  amountPaid: string; returnedTotal?: string | null;
+  notes: string | null; terms: string | null; refNo: string | null; partyName: string | null; partyId: string | null;
   partyPhone: string | null; sourceDocId: string | null;
   items: Item[];
 };
@@ -28,8 +32,61 @@ type Company = {
 
 type PrintFormat = "a4" | "80mm" | "challan";
 
-export function DocDetail({ mode, id }: { mode: "SALES" | "PURCHASE"; id: string }) {
+/** "1600" bps -> "16%". taxBps is stored as basis points (1600 = 16%). */
+function bpsLabel(bps: number | null | undefined): string {
+  if (!bps) return "";
+  return `${bps / 100}%`;
+}
+
+/**
+ * Business-type-aware document title ("Sale Invoice" / "Treatment Bill" / "Bill"
+ * / "Invoice"), translated through the bp.* dictionary with an English fallback.
+ */
+function bpTitle(lang: Lang, type: string, field: "docTitle" | "billTitle", fallback: string): string {
+  const key = `bp.${type}.${field}`;
+  const v = tr(lang, key);
+  return v === key ? fallback : v;
+}
+
+/**
+ * Data-driven per-line extras printed under the item description:
+ * SKU (wholesale/distribution/manufacturing), batch no + expiry (pharmacy),
+ * per-line discount and GST — only when the profile asks for them and the
+ * data is actually present.
+ */
+function ItemSubLines({ it, className }: { it: Item; className?: string }) {
   const { t } = useLang();
+  const bp = useBusinessProfile();
+  const lines: string[] = [];
+  if (bp.showSku && it.sku) lines.push(`SKU: ${it.sku}`);
+  if (bp.showBatchExpiry && it.batches?.length) {
+    lines.push(
+      it.batches
+        .map((b) =>
+          `${t("docdetail.batch")}: ${b.batchNo}${b.expiryDate ? ` · ${t("docdetail.expiry")}: ${fmtDate(b.expiryDate)}` : ""}`
+        )
+        .join(" | ")
+    );
+  }
+  if (toBig(it.discount) > 0n) lines.push(`${t("docdetail.discount")}: ${fmtMoneyPlain(it.discount)}`);
+  const taxAmt = toBig(it.taxAmount);
+  if ((it.taxBps ?? 0) > 0 || taxAmt > 0n) {
+    const ratePart = (it.taxBps ?? 0) > 0 ? ` ${bpsLabel(it.taxBps)}` : "";
+    lines.push(`${t("docdetail.gst")}${ratePart}: ${fmtMoneyPlain(taxAmt)}`);
+  }
+  if (lines.length === 0) return null;
+  return (
+    <div className={className}>
+      {lines.map((l, i) => (
+        <div key={i}>{l}</div>
+      ))}
+    </div>
+  );
+}
+
+export function DocDetail({ mode, id }: { mode: "SALES" | "PURCHASE"; id: string }) {
+  const { t, lang } = useLang();
+  const bp = useBusinessProfile();
   const [doc, setDoc] = useState<Doc | null>(null);
   const [company, setCompany] = useState<Company | null>(null);
   const [formatSel, setFormatSel] = useState<PrintFormat | null>(null);
@@ -55,16 +112,26 @@ export function DocDetail({ mode, id }: { mode: "SALES" | "PURCHASE"; id: string
   if (error) return <PageHeader title={t("docdetail.notFound")} subtitle={error} actions={<Link href={isSales ? "/sales" : "/purchases"} className="btn btn-ghost text-sm"><ArrowLeft size={15} /> {t("docdetail.printBack")}</Link>} />;
   if (!doc) return <div className="card h-64 animate-pulse" />;
 
+  // Business-type-adapted titles: a clinic prints "Treatment Bill" for its
+  // patients, a restaurant prints "Bill" for its guests — same document, own words.
+  const salesTitle = bpTitle(lang, bp.type, "docTitle", bp.docTitle);
+  const purchTitle = bpTitle(lang, bp.type, "billTitle", bp.billTitle);
   const typeLabel: Record<string, string> = isSales
-    ? { INVOICE: t("docdetail.typeSaleInvoice"), RETURN: t("docdetail.typeSalesReturn"), QUOTATION: t("docdetail.typeQuotation"), ORDER: t("docdetail.typeSaleOrder"), CHALLAN: t("docdetail.typeChallan") }
-    : { BILL: t("docdetail.typePurchaseBill"), RETURN: t("docdetail.typePurchaseReturn"), ORDER: t("docdetail.typePurchaseOrder"), GRN: t("docdetail.typeGrn") };
+    ? { INVOICE: salesTitle, RETURN: t("docdetail.typeSalesReturn"), QUOTATION: t("docdetail.typeQuotation"), ORDER: t("docdetail.typeSaleOrder"), CHALLAN: t("docdetail.typeChallan") }
+    : { BILL: purchTitle, RETURN: t("docdetail.typePurchaseReturn"), ORDER: t("docdetail.typePurchaseOrder"), GRN: t("docdetail.typeGrn") };
   const docTitle = typeLabel[doc.docType] ?? doc.docType;
+  const partyLabel = isSales ? bp.partyOne : t("docdetail.supplier");
+  const itemColLabel = isSales ? bp.productOne : t("docdetail.colItem");
   const sellerName = company?.name ?? brand.name;
   const sellerLines = [company?.address, company?.city, company?.phone ? `Ph: ${company.phone}` : null]
     .filter(Boolean)
     .join(" · ");
   const paidTotal = doc.amountPaid ?? "0";
-  const balanceTotal = (BigInt(doc.grandTotal) - BigInt(paidTotal)).toString();
+  // Balance nets off returns (M3): a returned invoice must not show the
+  // returned amount as still outstanding.
+  const balanceTotal = (BigInt(doc.grandTotal) - BigInt(paidTotal) - BigInt(doc.returnedTotal ?? "0")).toString();
+  const extraCostTotal = doc.items.reduce((a, it) => a + toBig(it.extraCost), 0n).toString();
+  const hasExtraCosts = toBig(extraCostTotal) > 0n;
 
   function waText(d: Doc): string {
     if (format === "challan") {
@@ -208,29 +275,45 @@ export function DocDetail({ mode, id }: { mode: "SALES" | "PURCHASE"; id: string
 
           <div className="mt-6 grid gap-4 rounded-2xl bg-muted/60 p-4 sm:grid-cols-2">
             <div>
-              <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground">{isSales ? t("docdetail.billedTo") : t("docdetail.supplier")}</p>
+              <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground">{partyLabel}</p>
               <p className="mt-1 font-bold">{doc.partyName ?? "—"}</p>
+              {doc.partyPhone && <p className="mt-0.5 text-sm text-muted-foreground">{doc.partyPhone}</p>}
             </div>
             <div>
-              {doc.refNo && (<><p className="text-xs font-bold uppercase tracking-wider text-muted-foreground">{t("docdetail.supplierBillNo")}</p><p className="mt-1 font-bold">{doc.refNo}</p></>)}
-              {doc.notes && (<><p className="mt-2 text-xs font-bold uppercase tracking-wider text-muted-foreground">{t("docdetail.notes")}</p><p className="mt-1 text-sm">{doc.notes}</p></>)}
+              {doc.refNo && (<><p className="text-xs font-bold uppercase tracking-wider text-muted-foreground">{isSales ? t("docdetail.refNo") : t("docdetail.supplierBillNo")}</p><p className="mt-1 font-bold">{doc.refNo}</p></>)}
             </div>
           </div>
 
           <div className="mt-6 overflow-x-auto print:overflow-visible">
-          <table className="tbl min-w-[540px]">
-            <thead><tr><th>{t("docdetail.colNum")}</th><th>{t("docdetail.colItem")}</th><th className="num">{t("docdetail.colQty")}</th><th className="num">{t("docdetail.colRate")}</th><th className="num">{t("docdetail.colDisc")}</th><th className="num">{t("docdetail.colAmount")}</th></tr></thead>
+          <table className="tbl min-w-[640px]">
+            <thead><tr><th>{t("docdetail.colNum")}</th><th>{itemColLabel}</th><th className="num">{t("docdetail.colUnit")}</th><th className="num">{t("docdetail.colQty")}</th><th className="num">{t("docdetail.colRate")}</th><th className="num">{t("docdetail.colDisc")}</th><th className="num">{t("docdetail.colTax")}</th><th className="num">{t("docdetail.colAmount")}</th></tr></thead>
             <tbody>
-              {doc.items.map((it, i) => (
-                <tr key={it.id}>
-                  <td className="text-muted-foreground">{i + 1}</td>
-                  <td className="font-semibold">{it.description}</td>
-                  <td className="num">{fmtQty(it.qty)}</td>
-                  <td className="num">{fmtMoney(it.rate)}</td>
-                  <td className="num">{fmtMoney(it.discount)}</td>
-                  <td className="num font-bold">{fmtMoney(it.lineTotal)}</td>
-                </tr>
-              ))}
+              {doc.items.map((it, i) => {
+                const taxAmt = toBig(it.taxAmount);
+                const showTax = (it.taxBps ?? 0) > 0 || taxAmt > 0n;
+                return (
+                  <tr key={it.id}>
+                    <td className="text-muted-foreground">{i + 1}</td>
+                    <td className="font-semibold [overflow-wrap:anywhere]">
+                      {it.description}
+                      <ItemSubLines it={it} className="mt-0.5 text-xs font-normal text-muted-foreground" />
+                    </td>
+                    <td className="num">{it.unit ?? "—"}</td>
+                    <td className="num">{fmtQty(it.qty)}</td>
+                    <td className="num">{fmtMoney(it.rate)}</td>
+                    <td className="num">{toBig(it.discount) > 0n ? fmtMoney(it.discount) : "—"}</td>
+                    <td className="num">
+                      {showTax ? (
+                        <>
+                          {(it.taxBps ?? 0) > 0 && <div className="whitespace-nowrap">{bpsLabel(it.taxBps)} {t("docdetail.gst")}</div>}
+                          {taxAmt > 0n && <div className="whitespace-nowrap text-muted-foreground">{fmtMoneyPlain(taxAmt)}</div>}
+                        </>
+                      ) : "—"}
+                    </td>
+                    <td className="num font-bold">{fmtMoney(it.lineTotal)}</td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
           </div>
@@ -238,26 +321,51 @@ export function DocDetail({ mode, id }: { mode: "SALES" | "PURCHASE"; id: string
           <div className="mt-6 flex justify-end">
             <div className="w-full max-w-xs space-y-2 text-sm">
               <div className="flex justify-between"><span className="text-muted-foreground">{t("docdetail.subtotal")}</span><span className="font-bold">{fmtMoney(doc.subtotal)}</span></div>
-              {BigInt(doc.discountTotal) > 0n && (
+              {toBig(doc.discountTotal) > 0n && (
                 <div className="flex justify-between"><span className="text-muted-foreground">{t("docdetail.discount")}</span><span className="font-bold">− {fmtMoney(doc.discountTotal)}</span></div>
               )}
-              {BigInt(doc.taxTotal) > 0n && (
-                <div className="flex justify-between"><span className="text-muted-foreground">{t("docdetail.tax")}</span><span className="font-bold">{fmtMoney(doc.taxTotal)}</span></div>
+              {toBig(doc.taxTotal) > 0n && (
+                <div className="flex justify-between"><span className="text-muted-foreground">{t("docdetail.gst")}</span><span className="font-bold">{fmtMoney(doc.taxTotal)}</span></div>
               )}
-              {doc.items.some((it) => it.extraCost && BigInt(it.extraCost) > 0n) && (
+              {hasExtraCosts && (
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">{t("docdetail.extraCostsStock")}</span>
-                  <span className="font-bold">{fmtMoney(doc.items.reduce((a, it) => a + BigInt(it.extraCost ?? "0"), 0n).toString())}</span>
+                  <span className="font-bold">{fmtMoney(extraCostTotal)}</span>
                 </div>
               )}
               <div className="flex justify-between border-t border-border pt-2 text-base">
                 <span className="font-extrabold">{t("docdetail.total")}</span>
                 <span className="font-extrabold text-primary">{fmtMoney(doc.grandTotal)}</span>
               </div>
+              <div className="flex justify-between"><span className="text-muted-foreground">{t("docdetail.paid")}</span><span className="font-bold">{fmtMoney(paidTotal)}</span></div>
+              <div className="flex justify-between"><span className="text-muted-foreground">{t("docdetail.invoiceBalance")}</span><span className="font-bold">{fmtMoney(balanceTotal)}</span></div>
             </div>
           </div>
 
-          <p className="mt-10 text-center text-xs text-muted-foreground">{t("docdetail.generatedBy", { brand: brand.name, tagline: brand.tagline })}</p>
+          {doc.notes && (
+            <div className="mt-6">
+              <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground">{t("docdetail.notes")}</p>
+              <p className="mt-1 whitespace-pre-wrap text-sm">{doc.notes}</p>
+            </div>
+          )}
+          {doc.terms && (
+            <div className="mt-4">
+              <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground">{t("docdetail.terms")}</p>
+              <p className="mt-1 whitespace-pre-wrap text-sm">{doc.terms}</p>
+            </div>
+          )}
+          {company?.bankInfo && (
+            <div className="mt-6 rounded-2xl bg-muted/60 p-4">
+              <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground">{t("docdetail.bankDetails")}</p>
+              {company.bankInfo.split("\n").map((line, i) => (
+                line.trim() ? <p key={i} className="mt-1 text-sm font-semibold">{line.trim()}</p> : null
+              ))}
+            </div>
+          )}
+
+          {company?.invoiceFooter && <p className="mt-6 text-sm">{company.invoiceFooter}</p>}
+          <p className="mt-2 text-center text-sm font-semibold">{t("docdetail.thankYou")}</p>
+          <p className="mt-4 text-center text-xs text-muted-foreground">{t("docdetail.generatedBy", { brand: brand.name, tagline: brand.tagline })}</p>
         </div>
       ) : (
         <div className="thermal mx-auto bg-white p-3 text-black print:shadow-none">
@@ -278,13 +386,15 @@ export function DocDetail({ mode, id }: { mode: "SALES" | "PURCHASE"; id: string
           {/* customer / meta block */}
           <div className="mt-1 flex items-start justify-between gap-2 text-[11px]">
             <div className="min-w-0">
-              <p className="font-extrabold">{isSales ? t("docdetail.customer") : t("docdetail.supplier")}</p>
+              <p className="font-extrabold">{partyLabel}</p>
               <p className="mt-0.5 break-words"><span className="font-bold">{t("docdetail.customerName")}</span> {doc.partyName ?? "—"}</p>
               {doc.partyPhone && <p className="break-words"><span className="font-bold">{t("docdetail.customerMobile")}:</span> {doc.partyPhone}</p>}
             </div>
             <div className="shrink-0 text-right">
               <p><span className="font-bold">{t("docdetail.invNo")}</span> {doc.docNo}</p>
               <p className="mt-0.5"><span className="font-bold">{t("docdetail.invDate")}</span> {fmtDate(doc.date)}</p>
+              {doc.refNo && <p className="mt-0.5 break-words"><span className="font-bold">{isSales ? t("docdetail.refNo") : t("docdetail.supplierBillNo")}</span> {doc.refNo}</p>}
+              {doc.dueDate && <p className="mt-0.5">{t("docdetail.dueOn", { date: fmtDate(doc.dueDate) })}</p>}
             </div>
           </div>
 
@@ -295,7 +405,7 @@ export function DocDetail({ mode, id }: { mode: "SALES" | "PURCHASE"; id: string
             <thead>
               <tr>
                 <th className="whitespace-nowrap border border-black px-1 py-0.5">{t("docdetail.colSrNo")}</th>
-                <th className="border border-black px-1 py-0.5 text-left">{t("docdetail.colItem")}</th>
+                <th className="border border-black px-1 py-0.5 text-left">{itemColLabel}</th>
                 <th className="whitespace-nowrap border border-black px-1 py-0.5">{t("docdetail.colUnit")}</th>
                 <th className="whitespace-nowrap border border-black px-1 py-0.5">{t("docdetail.colQty")}</th>
                 <th className="whitespace-nowrap border border-black px-1 py-0.5">{t("docdetail.colRate")}</th>
@@ -306,7 +416,10 @@ export function DocDetail({ mode, id }: { mode: "SALES" | "PURCHASE"; id: string
               {doc.items.map((it, i) => (
                 <tr key={it.id}>
                   <td className="whitespace-nowrap border border-black px-1 py-0.5 text-center">{i + 1}</td>
-                  <td className="border border-black px-1 py-0.5 [overflow-wrap:anywhere]">{it.description}</td>
+                  <td className="border border-black px-1 py-0.5 [overflow-wrap:anywhere]">
+                    {it.description}
+                    <ItemSubLines it={it} className="text-[9px] font-normal text-neutral-700" />
+                  </td>
                   <td className="whitespace-nowrap border border-black px-1 py-0.5 text-center">{it.unit ?? "—"}</td>
                   <td className="whitespace-nowrap border border-black px-1 py-0.5 text-right">{fmtQty(it.qty)}</td>
                   <td className="whitespace-nowrap border border-black px-1 py-0.5 text-right">{fmtMoneyPlain(it.rate)}</td>
@@ -322,15 +435,15 @@ export function DocDetail({ mode, id }: { mode: "SALES" | "PURCHASE"; id: string
               <span>{t("docdetail.subtotal")}:</span>
               <span>{fmtMoneyPlain(doc.subtotal)}</span>
             </div>
-            {BigInt(doc.discountTotal) > 0n && (
+            {toBig(doc.discountTotal) > 0n && (
               <div className="flex justify-between py-0.5">
                 <span>{t("docdetail.discount")}:</span>
                 <span>− {fmtMoneyPlain(doc.discountTotal)}</span>
               </div>
             )}
-            {BigInt(doc.taxTotal) > 0n && (
+            {toBig(doc.taxTotal) > 0n && (
               <div className="flex justify-between py-0.5">
-                <span>{t("docdetail.tax")}:</span>
+                <span>{t("docdetail.gst")}:</span>
                 <span>{fmtMoneyPlain(doc.taxTotal)}</span>
               </div>
             )}
@@ -348,12 +461,25 @@ export function DocDetail({ mode, id }: { mode: "SALES" | "PURCHASE"; id: string
             </div>
           </div>
 
-          {/* notes */}
-          {(doc.notes || company?.invoiceFooter) && (
+          {/* notes + terms + footer print together (never XOR) */}
+          {doc.notes && (
             <div className="mt-2 text-[11px]">
               <p className="font-extrabold">{t("docdetail.notes")}</p>
               <div className="border-t border-black" />
-              <p className="mt-1 break-words">{doc.notes || company?.invoiceFooter}</p>
+              <p className="mt-1 break-words whitespace-pre-wrap">{doc.notes}</p>
+            </div>
+          )}
+          {doc.terms && (
+            <div className="mt-2 text-[11px]">
+              <p className="font-extrabold">{t("docdetail.terms")}</p>
+              <div className="border-t border-black" />
+              <p className="mt-1 break-words whitespace-pre-wrap">{doc.terms}</p>
+            </div>
+          )}
+          {company?.invoiceFooter && (
+            <div className="mt-2 text-[11px]">
+              <div className="border-t border-black" />
+              <p className="mt-1 break-words">{company.invoiceFooter}</p>
             </div>
           )}
 
@@ -369,6 +495,7 @@ export function DocDetail({ mode, id }: { mode: "SALES" | "PURCHASE"; id: string
           main { padding: 0 !important; }
           body { background: white; }
           .thermal { width: 72mm; margin: 0 auto; box-shadow: none !important; }
+          thead { display: table-header-group; }
           @page { margin: ${format === "80mm" ? "4mm" : "12mm"}; }
         }
       `}</style>
@@ -444,7 +571,7 @@ function DocActions({ doc, isSales }: { doc: Doc; isSales: boolean }) {
   }, [doc.sourceDocId, isSales]);
 
   const canConvert = doc.status !== "CONVERTED" && (isSales ? doc.docType === "QUOTATION" || doc.docType === "ORDER" : doc.docType === "ORDER");
-  const canReturn = doc.status === "POSTED" && (isSales ? doc.docType === "INVOICE" : doc.docType === "BILL");
+  const canReturn = ["POSTED", "PARTIAL", "PAID"].includes(doc.status) && (isSales ? doc.docType === "INVOICE" : doc.docType === "BILL");
 
   async function run(action: "convert" | "return", priceOverride = false) {
     if (busy) return;

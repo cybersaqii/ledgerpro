@@ -237,6 +237,47 @@ export const productBatches = sqliteTable(
   ]
 );
 
+// Per-document batch lineage: which batches a document moved, so returns
+// restore/deduct the exact batches the source document touched.
+// qtyThousandths is signed: negative = deducted from the batch (sales),
+// positive = created/topped-up into the batch (purchase).
+export const docBatchUsage = sqliteTable(
+  "doc_batch_usage",
+  {
+    id: id(),
+    companyId: text("company_id").notNull(),
+    docId: text("doc_id").notNull(),
+    productId: text("product_id").notNull(),
+    batchId: text("batch_id").notNull(),
+    qtyThousandths: qty("qty_thousandths"),
+    createdAt: createdAt(),
+  },
+  (t) => [
+    index("doc_batch_usage_doc").on(t.docId),
+    index("doc_batch_usage_batch").on(t.batchId),
+  ]
+);
+
+// Which documents a contra/set-off settled (links to the SETOFF journal
+// entry — a set-off has no payment row). Keeps aging/ledger consistent.
+export const setoffAllocations = sqliteTable(
+  "setoff_allocations",
+  {
+    id: id(),
+    companyId: text("company_id").notNull(),
+    setoffEntryId: text("setoff_entry_id").notNull(),
+    partyId: text("party_id").notNull(),
+    salesDocId: text("sales_doc_id"),
+    purchaseDocId: text("purchase_doc_id"),
+    amount: money("amount"),
+    createdAt: createdAt(),
+  },
+  (t) => [
+    index("setoff_allocations_entry").on(t.setoffEntryId),
+    index("setoff_allocations_doc").on(t.salesDocId, t.purchaseDocId),
+  ]
+);
+
 // ─── Price lists (multiple price levels per product) ──────────
 
 export const priceLists = sqliteTable(
@@ -301,6 +342,8 @@ export const salesDocs = sqliteTable(
     partyId: text("party_id").notNull(),
     docType: text("doc_type").notNull(), // INVOICE | QUOTATION | ORDER | CHALLAN | RETURN
     docNo: text("doc_no").notNull(),
+    refNo: text("ref_no"),
+    terms: text("terms"),
     date: ts("date").notNull(),
     dueDate: ts("due_date"),
     status: text("status").notNull().default("DRAFT"),
@@ -309,6 +352,7 @@ export const salesDocs = sqliteTable(
     taxTotal: money("tax_total"),
     grandTotal: money("grand_total"),
     amountPaid: money("amount_paid"),
+    returnedTotal: money("returned_total"), // sum of linked RETURN docs' grand totals
     notes: text("notes"),
     journalEntryId: text("journal_entry_id").unique(),
     sourceDocId: text("source_doc_id"), // quotation/order this invoice was converted from
@@ -347,6 +391,7 @@ export const purchaseDocs = sqliteTable(
     docType: text("doc_type").notNull(), // BILL | ORDER | GRN | RETURN
     docNo: text("doc_no").notNull(),
     refNo: text("ref_no"),
+    terms: text("terms"),
     date: ts("date").notNull(),
     dueDate: ts("due_date"),
     status: text("status").notNull().default("DRAFT"),
@@ -355,6 +400,7 @@ export const purchaseDocs = sqliteTable(
     taxTotal: money("tax_total"),
     grandTotal: money("grand_total"),
     amountPaid: money("amount_paid"),
+    returnedTotal: money("returned_total"), // sum of linked RETURN docs' grand totals
     notes: text("notes"),
     journalEntryId: text("journal_entry_id").unique(),
     sourceDocId: text("source_doc_id"), // order this bill was converted from
@@ -415,7 +461,53 @@ export const paymentAllocations = sqliteTable("payment_allocations", {
   salesDocId: text("sales_doc_id"),
   purchaseDocId: text("purchase_doc_id"),
   amount: money("amount"),
+  createdAt: createdAt(),
 });
+
+// ─── Post-dated cheques ────────────────────────────────────────
+// RECEIVED: customer PDC held by us. ISSUED: our PDC held by a supplier.
+// PENDING -> CLEARED | BOUNCED | CANCELLED (see lib/pdc.ts for journals).
+export const pdcCheques = sqliteTable(
+  "pdc_cheques",
+  {
+    id: id(),
+    companyId: text("company_id").notNull(),
+    branchId: text("branch_id").notNull(),
+    kind: text("kind").notNull(), // RECEIVED | ISSUED
+    partyId: text("party_id").notNull(),
+    chequeNo: text("cheque_no").notNull(),
+    bankName: text("bank_name"),
+    amount: money("amount"),
+    chequeDate: ts("cheque_date").notNull(),
+    refNo: text("ref_no"),
+    status: text("status").notNull().default("PENDING"), // PENDING | CLEARED | BOUNCED | CANCELLED
+    bankAccountId: text("bank_account_id"),
+    journalEntryId: text("journal_entry_id").unique(),
+    clearedAt: ts("cleared_at"),
+    notes: text("notes"),
+    createdById: text("created_by_id").notNull(),
+    createdAt: createdAt(),
+    updatedAt: updatedAt(),
+  },
+  (t) => [
+    index("pdc_company_kind_status").on(t.companyId, t.kind, t.status),
+    index("pdc_company_party").on(t.companyId, t.partyId),
+  ]
+);
+
+// ─── Report favorites ──────────────────────────────────────────
+
+export const reportFavorites = sqliteTable(
+  "report_favorites",
+  {
+    id: id(),
+    companyId: text("company_id").notNull(),
+    userId: text("user_id").notNull(),
+    reportKey: text("report_key").notNull(),
+    createdAt: createdAt(),
+  },
+  (t) => [uniqueIndex("report_fav_unique").on(t.companyId, t.userId, t.reportKey)]
+);
 
 export const expenses = sqliteTable(
   "expenses",

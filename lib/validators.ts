@@ -83,6 +83,8 @@ export const salesDocSchema = z.object({
   branchId: z.string().min(1).optional(),
   date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Invalid date"),
   dueDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional().or(z.literal("")),
+  refNo: z.string().trim().max(60).optional().or(z.literal("")),
+  terms: z.string().trim().max(500).optional().or(z.literal("")),
   discountTotal: moneyStr.default("0"),
   notes: z.string().trim().max(500).optional().or(z.literal("")),
   items: z.array(docItemSchema).min(1, "Add at least one item"),
@@ -184,4 +186,31 @@ export const syncEnrollSchema = z.object({
   password: z.string().min(1),
   deviceName: z.string().max(80).default(""),
   deviceModel: z.string().max(80).default(""),
+});
+
+// POST /api/pdc — record a post-dated cheque.
+export const pdcSchema = z.object({
+  kind: z.enum(["RECEIVED", "ISSUED"]),
+  partyId: z.string().min(1),
+  branchId: z.string().min(1).optional(),
+  chequeNo: z.string().trim().min(1).max(40),
+  bankName: z.string().trim().max(80).optional().or(z.literal("")),
+  amount: moneyStr,
+  chequeDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Invalid date"),
+  refNo: z.string().trim().max(60).optional().or(z.literal("")),
+  notes: z.string().trim().max(500).optional().or(z.literal("")),
+});
+
+// POST /api/pdc/[id]/clear — clear a pending PDC into a bank account.
+export const pdcClearSchema = z.object({
+  bankAccountId: z.string().min(1),
+  branchId: z.string().min(1).optional(),
+  date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Invalid date"),
+});
+
+// POST /api/pdc/[id]/bounce|/cancel — reverse a pending PDC.
+export const pdcReverseSchema = z.object({
+  branchId: z.string().min(1).optional(),
+  date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Invalid date"),
+  reason: z.string().trim().max(200).optional().or(z.literal("")),
 });

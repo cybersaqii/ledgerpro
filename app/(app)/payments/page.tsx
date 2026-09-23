@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useState, Fragment } from "react";
 import { Plus, CalendarDays, Wallet } from "lucide-react";
 import { PageHeader, EmptyState, FilterBar, SummaryChips, Pagination } from "@/components/ui";
 import { api, fmtMoney, fmtDate, toBig } from "@/lib/format";
@@ -10,6 +10,17 @@ import { useLang } from "@/components/lang-provider";
 type Pay = {
   id: string; kind: string; date: number; amount: string; method: string;
   reference: string | null; partyName: string | null; bankName: string | null;
+};
+
+type AllocRow = {
+  docId: string | null; docNo: string; docType: string | null; docKind: string;
+  date: string | null; docTotal: string; adjusted: string; balance: string;
+};
+
+type PayDetail = {
+  id: string; kind: string; date: string; amount: string; method: string;
+  reference: string | null; notes: string | null;
+  partyName: string | null; bankName: string | null; allocations: AllocRow[];
 };
 
 const PER_PAGE = 20;
@@ -25,6 +36,9 @@ export default function PaymentsPage() {
   const [sumR, setSumR] = useState("0");
   const [sumP, setSumP] = useState("0");
   const [loading, setLoading] = useState(true);
+  const [expanded, setExpanded] = useState<string | null>(null);
+  const [details, setDetails] = useState<Record<string, PayDetail>>({});
+  const [detailLoading, setDetailLoading] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -49,6 +63,18 @@ export default function PaymentsPage() {
   useEffect(() => { setPage(1); }, [kind, from, to]);
 
   const hasFilter = kind !== "" || from !== "" || to !== "";
+
+  async function toggleDetail(id: string) {
+    if (expanded === id) { setExpanded(null); return; }
+    setExpanded(id);
+    if (details[id]) return;
+    setDetailLoading(id);
+    try {
+      const d = await api<{ data: PayDetail }>(`/api/payments/${id}`);
+      setDetails((m) => ({ ...m, [id]: d.data }));
+    } catch { /* ignore: expand just shows no breakdown */ }
+    finally { setDetailLoading(null); }
+  }
 
   return (
     <div>
@@ -105,21 +131,44 @@ export default function PaymentsPage() {
         ) : (
           <div className="overflow-x-auto">
             <table className="tbl">
-              <thead><tr><th>{t("payments.colType")}</th><th>{t("payments.colParty")}</th><th>{t("payments.colAccount")}</th><th>{t("payments.colDate")}</th><th>{t("payments.colMethod")}</th><th className="num">{t("payments.colAmount")}</th></tr></thead>
+              <thead><tr><th>{t("payments.colType")}</th><th>{t("payments.colParty")}</th><th>{t("payments.colAccount")}</th><th>{t("payments.colDate")}</th><th>{t("payments.colMethod")}</th><th className="num">{t("payments.colAmount")}</th><th /></tr></thead>
               <tbody>
                 {rows.map((p) => (
-                  <tr key={p.id}>
-                    <td>
-                      <span className={`badge ${p.kind === "RECEIPT" ? "bg-primary-soft text-primary" : "bg-accent-soft text-accent"}`}>
-                        {p.kind === "RECEIPT" ? t("payments.typeReceived") : t("payments.typePaid")}
-                      </span>
-                    </td>
-                    <td className="font-bold">{p.partyName ?? "—"}</td>
-                    <td className="text-muted-foreground">{p.bankName ?? "—"}</td>
-                    <td className="whitespace-nowrap text-muted-foreground">{fmtDate(p.date)}</td>
-                    <td className="text-muted-foreground">{p.method}{p.reference ? ` · ${p.reference}` : ""}</td>
-                    <td className={`num font-extrabold ${p.kind === "RECEIPT" ? "text-primary" : "text-accent"}`}>{fmtMoney(p.amount)}</td>
-                  </tr>
+                  <Fragment key={p.id}>
+                    <tr>
+                      <td>
+                        <span className={`badge ${p.kind === "RECEIPT" ? "bg-primary-soft text-primary" : "bg-accent-soft text-accent"}`}>
+                          {p.kind === "RECEIPT" ? t("payments.typeReceived") : t("payments.typePaid")}
+                        </span>
+                      </td>
+                      <td className="font-bold">{p.partyName ?? "—"}</td>
+                      <td className="text-muted-foreground">{p.bankName ?? "—"}</td>
+                      <td className="whitespace-nowrap text-muted-foreground">{fmtDate(p.date)}</td>
+                      <td className="text-muted-foreground">{p.method}{p.reference ? ` · ${p.reference}` : ""}</td>
+                      <td className={`num font-extrabold ${p.kind === "RECEIPT" ? "text-primary" : "text-accent"}`}>{fmtMoney(p.amount)}</td>
+                      <td className="text-right">
+                        <button className="btn btn-ghost !px-2.5 !py-1.5 text-xs font-bold text-primary"
+                          onClick={() => toggleDetail(p.id)}>
+                          {expanded === p.id ? t("payments.hideAllocations") : t("payments.viewAllocations")}
+                        </button>
+                      </td>
+                    </tr>
+                    {expanded === p.id && (
+                      <tr key={`${p.id}-detail`}>
+                        <td colSpan={7} className="!bg-muted/40 !p-0">
+                          <div className="px-4 py-4 sm:px-6">
+                            {detailLoading === p.id ? (
+                              <div className="skeleton h-16 rounded-xl" />
+                            ) : details[p.id] ? (
+                              <PaymentBreakdown detail={details[p.id]} />
+                            ) : (
+                              <p className="text-sm text-muted-foreground">{t("payments.noAllocations")}</p>
+                            )}
+                          </div>
+                        </td>
+                      </tr>
+                    )}
+                  </Fragment>
                 ))}
               </tbody>
             </table>
@@ -128,6 +177,50 @@ export default function PaymentsPage() {
       </div>
 
       <Pagination page={page} perPage={PER_PAGE} total={total} onPage={setPage} />
+    </div>
+  );
+}
+
+/** Allocation breakdown shown inside an expanded payment row. */
+function PaymentBreakdown({ detail }: { detail: PayDetail }) {
+  const { t } = useLang();
+  return (
+    <div>
+      {(detail.reference || detail.notes) && (
+        <p className="mb-3 text-xs text-muted-foreground">
+          {detail.reference ? <span className="font-bold text-foreground">{detail.reference}</span> : null}
+          {detail.reference && detail.notes ? " · " : null}
+          {detail.notes}
+        </p>
+      )}
+      {detail.allocations.length === 0 ? (
+        <p className="text-sm text-muted-foreground">{t("payments.noAllocations")}</p>
+      ) : (
+        <div className="overflow-x-auto rounded-xl border border-border bg-card">
+          <table className="tbl !text-xs">
+            <thead><tr>
+              <th>{t("payments.allocColDoc")}</th>
+              <th>{t("payments.allocColDate")}</th>
+              <th className="num">{t("payments.allocColTotal")}</th>
+              <th className="num">{t("payments.allocColAdjusted")}</th>
+              <th className="num">{t("payments.allocColBalance")}</th>
+            </tr></thead>
+            <tbody>
+              {detail.allocations.map((a, i) => (
+                <tr key={a.docId ?? i}>
+                  <td className="font-bold whitespace-nowrap">{a.docNo}</td>
+                  <td className="whitespace-nowrap text-muted-foreground">{a.date ? fmtDate(a.date) : "—"}</td>
+                  <td className="num">{fmtMoney(a.docTotal)}</td>
+                  <td className="num font-bold text-primary">{fmtMoney(a.adjusted)}</td>
+                  <td className={`num font-bold ${toBig(a.balance) > 0n ? "text-accent" : "text-muted-foreground"}`}>
+                    {fmtMoney(a.balance)}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
     </div>
   );
 }

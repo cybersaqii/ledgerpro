@@ -16,9 +16,12 @@ const companyId = crypto.randomUUID();
 const userId = crypto.randomUUID();
 let branchId = "";
 let customerId = "";
+let supplierId = "";
 let productId = "";
 let cashAccountId = "";
 let invoiceId = "";
+let invoice2Id = "";
+let billId = "";
 
 beforeAll(async () => {
   ({ db, cleanup } = await createTestDb());
@@ -118,6 +121,128 @@ beforeAll(async () => {
     });
     await tx.update(s.salesDocs).set({ journalEntryId: entryId }).where(eq(s.salesDocs.id, invoiceId));
   });
+
+  // Wave 2 print data: ref no, terms, per-line GST + discount, SKU, batch lineage.
+  await db.transaction(async (tx) => {
+    supplierId = crypto.randomUUID();
+    await tx.insert(s.parties).values([
+      { id: supplierId, companyId, kind: "SUPPLIER", name: "Receipt Supplier", phone: "03001234567" },
+    ]);
+
+    // 2 x 35000, Rs 500 line discount, 16% GST, ref no + terms.
+    const totals2 = computeTotals(
+      [
+        {
+          productId,
+          description: "10kw china Invater",
+          qtyMilli: parseQty("2"),
+          ratePaisa: parseMoney("35000"),
+          discountPaisa: parseMoney("500"),
+          taxBps: 1600,
+        },
+      ],
+      0n
+    );
+    const docNo2 = await nextDocNo(tx, companyId, "INVOICE");
+    invoice2Id = crypto.randomUUID();
+    await tx.insert(s.salesDocs).values({
+      id: invoice2Id,
+      companyId,
+      branchId,
+      partyId: customerId,
+      docType: "INVOICE",
+      docNo: docNo2,
+      refNo: "PO-7788",
+      terms: "Payment due within 15 days.",
+      date: new Date(),
+      status: "POSTED",
+      subtotal: totals2.subtotal,
+      discountTotal: totals2.itemDiscount,
+      taxTotal: totals2.taxTotal,
+      grandTotal: totals2.grandTotal,
+      createdById: userId,
+    });
+    await tx.insert(s.salesDocItems).values(
+      totals2.items.map((i) => ({
+        id: crypto.randomUUID(),
+        docId: invoice2Id,
+        productId: i.productId,
+        description: i.description,
+        qty: i.qtyMilli,
+        rate: i.ratePaisa,
+        discount: i.discountPaisa,
+        taxBps: i.taxBps,
+        taxAmount: i.taxAmountPaisa,
+        lineTotal: i.lineTotalPaisa,
+      }))
+    );
+    // one batch consumed on this invoice -> batch no + expiry on the printout
+    const batchId = crypto.randomUUID();
+    await tx.insert(s.productBatches).values({
+      id: batchId,
+      companyId,
+      productId,
+      batchNo: "B-2026-001",
+      expiryDate: "2027-06-30",
+      qtyThousandths: parseQty("100"),
+    });
+    await tx.insert(s.docBatchUsage).values({
+      id: crypto.randomUUID(),
+      companyId,
+      docId: invoice2Id,
+      productId,
+      batchId,
+      qtyThousandths: parseQty("2"),
+    });
+
+    // purchase bill with ref no + terms
+    const bTotals = computeTotals(
+      [
+        {
+          productId,
+          description: "10kw china Invater",
+          qtyMilli: parseQty("1"),
+          ratePaisa: parseMoney("30000"),
+          discountPaisa: 0n,
+          taxBps: 0,
+        },
+      ],
+      0n
+    );
+    const billNo = await nextDocNo(tx, companyId, "BILL");
+    billId = crypto.randomUUID();
+    await tx.insert(s.purchaseDocs).values({
+      id: billId,
+      companyId,
+      branchId,
+      partyId: supplierId,
+      docType: "BILL",
+      docNo: billNo,
+      refNo: "SUP-9941",
+      terms: "Net 30.",
+      date: new Date(),
+      status: "POSTED",
+      subtotal: bTotals.subtotal,
+      discountTotal: 0n,
+      taxTotal: 0n,
+      grandTotal: bTotals.grandTotal,
+      createdById: userId,
+    });
+    await tx.insert(s.purchaseDocItems).values(
+      bTotals.items.map((i) => ({
+        id: crypto.randomUUID(),
+        docId: billId,
+        productId: i.productId,
+        description: i.description,
+        qty: i.qtyMilli,
+        rate: i.ratePaisa,
+        discount: i.discountPaisa,
+        taxBps: i.taxBps,
+        taxAmount: i.taxAmountPaisa,
+        lineTotal: i.lineTotalPaisa,
+      }))
+    );
+  });
 });
 
 afterAll(() => cleanup());
@@ -176,5 +301,42 @@ describe("invoice receipt data (migration 0018 + doc detail)", () => {
     const other = crypto.randomUUID();
     expect(await getSalesDocDetail(db, other, invoiceId)).toBeNull();
     expect(await getPurchaseDocDetail(db, other, invoiceId)).toBeNull();
+  });
+});
+
+describe("invoice print data (Wave 2: ref no, terms, GST, SKU, batches)", () => {
+  it("returns refNo, terms, per-line tax and tax/discount totals", async () => {
+    const d = await getSalesDocDetail(db, companyId, invoice2Id);
+    expect(d).not.toBeNull();
+    expect(d!.refNo).toBe("PO-7788");
+    expect(d!.terms).toBe("Payment due within 15 days.");
+    expect(d!.items).toHaveLength(1);
+    const it = d!.items[0]!;
+    expect(it.taxBps).toBe(1600);
+    // 16% of (2 x 35000 - 500) = 16% of 69500 = 11120
+    expect(it.taxAmount).toBe(parseMoney("11120"));
+    expect(d!.taxTotal).toBe(parseMoney("11120"));
+    expect(d!.discountTotal).toBe(parseMoney("500"));
+  });
+
+  it("returns SKU and resolves batch no + expiry per line", async () => {
+    const d = await getSalesDocDetail(db, companyId, invoice2Id);
+    const it = d!.items[0]!;
+    expect(it.sku).toBe("INV-10KW");
+    expect(it.batches).toEqual([{ batchNo: "B-2026-001", expiryDate: "2027-06-30" }]);
+  });
+
+  it("returns empty batches when no batch usage was recorded", async () => {
+    const d = await getSalesDocDetail(db, companyId, invoiceId);
+    expect(d!.items[0]!.batches).toEqual([]);
+    expect(d!.items[0]!.sku).toBe("INV-10KW");
+  });
+
+  it("returns refNo, terms and SKU on purchase bills", async () => {
+    const d = await getPurchaseDocDetail(db, companyId, billId);
+    expect(d).not.toBeNull();
+    expect(d!.refNo).toBe("SUP-9941");
+    expect(d!.terms).toBe("Net 30.");
+    expect(d!.items[0]!.sku).toBe("INV-10KW");
   });
 });

@@ -1,16 +1,16 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
-  ArrowLeft, Banknote, CheckCircle2, CreditCard, Minus, Plus,
+  ArrowLeft, Banknote, CheckCircle2, CreditCard, Minus, Plus, Printer,
   ReceiptText, ScanLine, Search, Trash2, Users, X, PauseCircle,
   SplitSquareHorizontal,
 } from "lucide-react";
 import { ErrorNote } from "@/components/ui";
-import { api, ApiError, fmtMoney, fmtDateInput } from "@/lib/format";
+import { api, ApiError, fmtMoney, fmtQty, fmtDate, fmtDateInput } from "@/lib/format";
 import {
-  addToCart, addAsNewLine, cartTotals, lineTotalPaisa, toDocItems, validateCart, priceWarnings,
+  addToCart, addAsNewLine, cartTotals, lineTotalPaisa, paisaToRupees, toDocItems, validateCart, priceWarnings,
   type PosLine, type PosProduct,
 } from "@/lib/pos";
 import { useBusinessProfile } from "@/components/business-type";
@@ -24,8 +24,10 @@ type Stage = "billing" | "cash" | "bank" | "split" | "khata" | "done";
 
 interface Tender { key: number; bankId: string; amount: string; }
 interface ParkedBill { id: string; at: number; lines: PosLine[]; discount: string; } // offline fallback only
-interface HeldLine { productId: string | null; name: string; sku: string; unit: string; qty: string; rate: string; discount: string; }
+interface HeldLine { productId: string | null; name: string; sku: string; unit: string; qty: string; rate: string; discount: string; batchId?: string; }
 interface HeldBillDto { id: string; userId: string; userName: string | null; label: string; lines: HeldLine[]; discount: string; createdAt: string; }
+
+type BatchOpt = { id: string; batchNo: string; expiryDate: string | null; qtyThousandths: string };
 
 interface DoneInfo {
   docId: string;
@@ -46,6 +48,7 @@ export default function PosPage() {
   // cart
   const [lines, setLines] = useState<PosLine[]>([]);
   const [discount, setDiscount] = useState("");
+  const [notes, setNotes] = useState("");
   const keyRef = useRef(0);
 
   // search
@@ -57,6 +60,21 @@ export default function PosPage() {
 
   // duplicate-item protection
   const [dupProduct, setDupProduct] = useState<ApiProduct | null>(null);
+
+  // customer price-list rates (productId -> rate in paisa), set when a khata customer is chosen
+  const [plRates, setPlRates] = useState<Record<string, string>>({});
+  const [plName, setPlName] = useState<string | null>(null);
+
+  // batch rows per product (undefined = not loaded yet), doc-form pattern
+  const [batchCache, setBatchCache] = useState<Record<string, BatchOpt[] | undefined>>({});
+  const batchLoadingRef = useRef(new Set<string>());
+  const loadBatches = useCallback((productId: string) => {
+    if (!productId || batchLoadingRef.current.has(productId)) return;
+    batchLoadingRef.current.add(productId);
+    api<{ data: BatchOpt[] }>(`/api/products/${productId}/batches`)
+      .then((d) => setBatchCache((m) => ({ ...m, [productId]: d.data })))
+      .catch(() => setBatchCache((m) => ({ ...m, [productId]: [] })));
+  }, []);
 
   // minimum-price cache + override confirm
   const productCache = useRef(new Map<string, ApiProduct>());
@@ -166,6 +184,58 @@ export default function PosPage() {
     return () => window.removeEventListener("keydown", fn);
   }, [dupProduct, priceWarn]);
 
+  // price-list rule, same as doc-form's resolveListRate: nonzero list rate wins,
+  // else the standard sale price. Inline here — @/lib/price-lists pulls
+  // drizzle-orm into the client bundle and must not be imported.
+  function standardRate(productId: string): string {
+    const p = productCache.current.get(productId);
+    return p ? paisaToRupees(p.salePrice) : "";
+  }
+
+  // re-price existing cart lines against a rates record (nonzero list rate wins,
+  // else the standard sale price)
+  function repriceLines(rates: Record<string, string>) {
+    setLines((ls) => ls.map((l) => {
+      if (!l.productId) return l;
+      const r = rates[l.productId];
+      return { ...l, rate: r && r !== "0" ? paisaToRupees(r) : standardRate(l.productId) };
+    }));
+  }
+
+  // when a khata customer is chosen (khata stage or split-stage remainder),
+  // load their price list: explicit list, else the default list
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      const applyRates = (rates: Record<string, string>, name: string | null) => {
+        if (cancelled) return;
+        setPlRates(rates);
+        setPlName(name);
+        repriceLines(rates);
+      };
+      if (!khataId) { applyRates({}, null); return; }
+      try {
+        const party = await api<{ data: { priceListId: string | null } }>(`/api/parties/${khataId}`);
+        const ls = await api<{ data: { id: string; name: string; isDefault: boolean }[] }>("/api/price-lists");
+        if (cancelled) return;
+        const byId = new Map(ls.data.map((l) => [l.id, l.name]));
+        const listId = party.data.priceListId ?? ls.data.find((l) => l.isDefault)?.id ?? null;
+        if (!listId) { applyRates({}, null); return; }
+        const r = await api<{ rates: Record<string, string> }>(`/api/price-lists/rates?priceListId=${listId}`);
+        applyRates(r.rates, byId.get(listId) ?? "price list");
+      } catch { applyRates({}, null); }
+    })();
+    return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- repriceLines/standardRate only read refs
+  }, [khataId]);
+
+  // lazy-load batch rows once per product in the cart
+  useEffect(() => {
+    for (const l of lines) {
+      if (l.productId && batchCache[l.productId] === undefined) loadBatches(l.productId);
+    }
+  }, [lines, batchCache, loadBatches]);
+
   function pickMethod(s: Stage) {
     setError(null);
     if (s === "cash") setTendered((totals.grand / 100).toFixed(2));
@@ -186,7 +256,10 @@ export default function PosPage() {
     }
     keyRef.current += 1;
     const fn = mode === "newline" ? addAsNewLine : addToCart;
-    const { lines: next } = fn(lines, p, keyRef.current);
+    // customer price list: nonzero list rate wins, else the standard sale price
+    const r = p.id ? plRates[p.id] : undefined;
+    const priced = r && r !== "0" ? { ...p, salePrice: r } : p;
+    const { lines: next } = fn(lines, priced, keyRef.current);
     setLines(next);
     setQ("");
     setResults([]);
@@ -229,6 +302,31 @@ export default function PosPage() {
 
   function patchLine(key: number, patch: Partial<PosLine>) {
     setLines((ls) => ls.map((l) => (l.key === key ? { ...l, ...patch } : l)));
+  }
+
+  // per-line batch dropdown (FIFO default). Hidden when the product has no batches.
+  function batchSelect(l: PosLine) {
+    if (!l.productId) return null;
+    const batches = batchCache[l.productId];
+    if (!batches) return null; // not loaded yet
+    const avail = batches.filter((b) => { try { return BigInt(b.qtyThousandths) > 0n; } catch { return false; } });
+    if (avail.length === 0) return null;
+    return (
+      <select
+        className="field mt-1.5 !w-auto !max-w-full !py-1 !text-xs"
+        value={l.batchId ?? ""}
+        aria-label={t("pos.batch")}
+        title={t("pos.batchAuto")}
+        onChange={(e) => patchLine(l.key, { batchId: e.target.value })}
+      >
+        <option value="">{t("pos.batchAuto")}</option>
+        {avail.map((b) => (
+          <option key={b.id} value={b.id}>
+            {b.batchNo} · {fmtQty(b.qtyThousandths, l.unit)}{b.expiryDate ? ` · ${fmtDate(b.expiryDate)}` : ""}
+          </option>
+        ))}
+      </select>
+    );
   }
 
   async function ensureWalkIn(): Promise<string> {
@@ -313,7 +411,7 @@ export default function PosPage() {
           partyId,
           date,
           discountTotal: discount || "0",
-          notes: "POS sale",
+          notes: notes.trim() || "POS sale",
           items: toDocItems(lines),
           payments,
           tendered: tenderedVal,
@@ -353,6 +451,7 @@ export default function PosPage() {
   function newBill() {
     setLines([]);
     setDiscount("");
+    setNotes("");
     setTendered("");
     setTenders([]);
     setSplitKhata(false);
@@ -374,7 +473,7 @@ export default function PosPage() {
           discount,
           lines: lines.map((l) => ({
             productId: l.productId, name: l.name, sku: l.sku, unit: l.unit,
-            qty: l.qty, rate: l.rate, discount: l.discount,
+            qty: l.qty, rate: l.rate, discount: l.discount, batchId: l.batchId || "",
           })),
         }),
       });
@@ -399,6 +498,7 @@ export default function PosPage() {
       qty: l.qty,
       rate: l.rate,
       discount: l.discount,
+      batchId: l.batchId ?? "",
     }));
   }
 
@@ -413,6 +513,7 @@ export default function PosPage() {
       qty: l.qty,
       rate: l.rate,
       discount: l.discount,
+      batchId: l.batchId ?? "",
     }));
   }
 
@@ -487,6 +588,9 @@ export default function PosPage() {
             <ReceiptText size={18} /> {t("pos.newBill")} <kbd className="ml-1 rounded bg-white/20 px-1.5 text-xs">Enter</kbd>
           </button>
           <Link href={`/sales/${done.docId}`} className="btn flex-1 !py-3.5 text-base">{t("pos.viewBill")}</Link>
+          <a href={`/sales/${done.docId}`} target="_blank" rel="noopener" className="btn flex-1 !py-3.5 text-base">
+            <Printer size={18} /> {t("pos.printReceipt")}
+          </a>
         </div>
         <p className="mt-4 text-xs text-muted-foreground">{t("pos.pressEnter")}</p>
       </div>
@@ -639,6 +743,7 @@ export default function PosPage() {
                     <div className="min-w-0 flex-1">
                       <p className="truncate text-sm font-bold">{l.name}</p>
                       <p className="text-xs text-muted-foreground">{l.sku}</p>
+                      {batchSelect(l)}
                     </div>
                     <div className="flex items-center justify-between gap-2 sm:justify-end sm:gap-3">
                     <div className="flex shrink-0 items-center gap-1">
@@ -664,6 +769,15 @@ export default function PosPage() {
                       aria-label={t("pos.rateFor", { name: l.name })}
                       title={t("pos.rateTitle")}
                     />
+                    <input
+                      className="field !w-16 !px-1.5 !py-1.5 text-right text-sm"
+                      inputMode="decimal"
+                      value={l.discount}
+                      placeholder="0"
+                      onChange={(e) => patchLine(l.key, { discount: e.target.value.replace(/[^0-9.]/g, "") })}
+                      aria-label={t("pos.lineDiscountFor", { name: l.name })}
+                      title={t("pos.lineDiscount")}
+                    />
                     <span className="hidden w-24 shrink-0 text-right text-sm font-extrabold sm:block">
                       {fmtMoney(lineTotalPaisa(l))}
                     </span>
@@ -687,6 +801,11 @@ export default function PosPage() {
               <span className="font-bold tabular-nums">{fmtMoney(totals.subtotal)}</span>
             </div>
             <div className="mt-3 flex items-center justify-between gap-3">
+              <label className="text-sm text-muted-foreground" htmlFor="pos-notes">{t("pos.notes")}</label>
+              <input id="pos-notes" className="field !w-44 !py-1.5 text-sm" placeholder={t("pos.notesPh")}
+                value={notes} onChange={(e) => setNotes(e.target.value)} maxLength={200} />
+            </div>
+            <div className="mt-3 flex items-center justify-between gap-3">
               <label className="text-sm text-muted-foreground" htmlFor="pos-discount">{t("pos.billDiscount")}</label>
               <input id="pos-discount" className="field !w-28 !py-1.5 text-right text-sm" inputMode="decimal"
                 placeholder="0.00" value={discount}
@@ -696,6 +815,9 @@ export default function PosPage() {
               <span className="text-sm font-bold uppercase tracking-wide text-muted-foreground">{t("pos.total")}</span>
               <span className="text-gradient text-3xl font-extrabold tabular-nums tracking-tight">{fmtMoney(totals.grand)}</span>
             </div>
+            {plName && (
+              <p className="mt-2 text-center text-xs font-bold text-primary">{t("pos.priceList", { name: plName })}</p>
+            )}
           </div>
 
           <div className="card card-gloss p-4 sm:p-5">

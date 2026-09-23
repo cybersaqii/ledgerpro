@@ -5,6 +5,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { Plus, Search, Trash2 } from "lucide-react";
 import { PageHeader, Field, ErrorNote } from "@/components/ui";
 import { api, ApiError, fmtMoney, fmtQty, fmtDateInput, fmtDate } from "@/lib/format";
+import { lineMath, docMath, taxBpsOf } from "@/lib/doc-math";
 import { resolveListRate } from "@/lib/price-lists";
 import { useBusinessProfile } from "@/components/business-type";
 import { useLang } from "@/components/lang-provider";
@@ -22,6 +23,8 @@ type Line = {
   qty: string;
   rate: string;
   discount: string;
+  /** per-line tax percent as typed, e.g. "17" or "17.5" → written as taxBps on save. */
+  taxPct: string;
   availQty: string | null;
   isBundle: boolean;
   /** sales: chosen batch to deduct from ("" = FIFO). purchase return: batch to deduct. sales return: batch to restore. */
@@ -120,6 +123,9 @@ function BatchControls({ line, isSales, docType, batches, t, onChange }: {
   );
 }
 
+type RowFieldName = "desc" | "qty" | "rate" | "discount" | "tax";
+const ROW_FIELD_ORDER: RowFieldName[] = ["desc", "qty", "rate", "discount", "tax"];
+
 export function DocForm({ mode }: { mode: "SALES" | "PURCHASE" }) {
   const bp = useBusinessProfile();
   const { t } = useLang();
@@ -136,11 +142,14 @@ export function DocForm({ mode }: { mode: "SALES" | "PURCHASE" }) {
   const [discountTotal, setDiscountTotal] = useState("");
   const [notes, setNotes] = useState("");
   const [refNo, setRefNo] = useState("");
+  const [terms, setTerms] = useState("");
   const [docType, setDocType] = useState(isSales ? "INVOICE" : "BILL");
   const [lines, setLines] = useState<Line[]>([]);
   const [prodQ, setProdQ] = useState("");
   const [prodResults, setProdResults] = useState<Product[]>([]);
   const [showProdList, setShowProdList] = useState(false);
+  /** keyboard nav index in the product dropdown; prodResults.length = the "custom line" option. */
+  const [activeIdx, setActiveIdx] = useState(-1);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [creatingParty, setCreatingParty] = useState(false);
@@ -153,8 +162,16 @@ export function DocForm({ mode }: { mode: "SALES" | "PURCHASE" }) {
   const [extraPaidFrom, setExtraPaidFrom] = useState<"CASH" | "SUPPLIER">("CASH");
   const [extraAccountId, setExtraAccountId] = useState("");
   const [bankAccounts, setBankAccounts] = useState<{ id: string; name: string }[]>([]);
+  // transient UI: toast + row flash (barcode / keyboard adds)
+  const [toast, setToast] = useState<string | null>(null);
+  const [flashKey, setFlashKey] = useState<number | null>(null);
   const keyRef = useRef(0);
   const prodBoxRef = useRef<HTMLDivElement>(null);
+  const searchInputRef = useRef<HTMLInputElement>(null);
+  const optionRefs = useRef(new Map<number, HTMLLIElement>());
+  const lineFieldRefs = useRef(new Map<number, Record<RowFieldName, HTMLInputElement | null>>());
+  const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const flashTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const productCache = useRef(new Map<string, Product>());
   // batch rows per product (undefined = not loaded yet)
   const [batchCache, setBatchCache] = useState<Record<string, BatchOpt[] | undefined>>({});
@@ -166,6 +183,43 @@ export function DocForm({ mode }: { mode: "SALES" | "PURCHASE" }) {
       .then((d) => setBatchCache((m) => ({ ...m, [productId]: d.data })))
       .catch(() => setBatchCache((m) => ({ ...m, [productId]: [] })));
   }, []);
+
+  function showToast(msg: string) {
+    setToast(msg);
+    if (toastTimer.current) clearTimeout(toastTimer.current);
+    toastTimer.current = setTimeout(() => setToast(null), 2200);
+  }
+  function flashRow(key: number) {
+    setFlashKey(key);
+    if (flashTimer.current) clearTimeout(flashTimer.current);
+    flashTimer.current = setTimeout(() => setFlashKey(null), 1200);
+  }
+  useEffect(() => () => {
+    if (toastTimer.current) clearTimeout(toastTimer.current);
+    if (flashTimer.current) clearTimeout(flashTimer.current);
+  }, []);
+
+  /** Ref callback factory for the keyboard focus chain inside a row. */
+  function setRowRef(key: number, field: RowFieldName) {
+    return (el: HTMLInputElement | null) => {
+      let rec = lineFieldRefs.current.get(key);
+      if (!rec) { rec = { desc: null, qty: null, rate: null, discount: null, tax: null }; lineFieldRefs.current.set(key, rec); }
+      rec[field] = el;
+    };
+  }
+  /** Enter inside a row: qty → rate → discount → tax% → back to product search for the next line. */
+  function rowKeyDown(e: React.KeyboardEvent, key: number, field: RowFieldName) {
+    if (e.key !== "Enter") return;
+    e.preventDefault();
+    const i = ROW_FIELD_ORDER.indexOf(field);
+    if (i >= 0 && i < ROW_FIELD_ORDER.length - 1) {
+      const next = lineFieldRefs.current.get(key)?.[ROW_FIELD_ORDER[i + 1]];
+      next?.focus();
+      next?.select();
+    } else {
+      searchInputRef.current?.focus();
+    }
+  }
 
   // parties search
   useEffect(() => {
@@ -215,41 +269,51 @@ export function DocForm({ mode }: { mode: "SALES" | "PURCHASE" }) {
     setExtraCosts((s) => s.filter((c) => c.key !== key));
   }
 
-  // products search
-  const searchProducts = useCallback(async (query: string) => {
+  // products search (returns the rows so Enter can commit immediately, skipping the debounce)
+  const searchProducts = useCallback(async (query: string): Promise<Product[]> => {
+    const q = query.trim();
+    if (!q) { setProdResults([]); return []; }
     try {
-      const d = await api<{ data: Product[] }>(`/api/products?q=${encodeURIComponent(query)}&perPage=20`);
+      const d = await api<{ data: Product[] }>(`/api/products?q=${encodeURIComponent(q)}&perPage=20`);
       setProdResults(d.data);
-    } catch { /* ignore */ }
+      return d.data;
+    } catch { return []; }
   }, []);
 
   useEffect(() => {
     if (!showProdList) return;
-    const t = setTimeout(() => searchProducts(prodQ), 250);
+    const t = setTimeout(() => { void searchProducts(prodQ); }, 250);
     return () => clearTimeout(t);
   }, [prodQ, showProdList, searchProducts]);
 
+  // keep the highlighted dropdown option visible while arrowing
+  useEffect(() => {
+    if (activeIdx >= 0) optionRefs.current.get(activeIdx)?.scrollIntoView({ block: "nearest" });
+  }, [activeIdx]);
+
   useEffect(() => {
     const fn = (e: MouseEvent) => {
-      if (prodBoxRef.current && !prodBoxRef.current.contains(e.target as Node)) setShowProdList(false);
+      if (prodBoxRef.current && !prodBoxRef.current.contains(e.target as Node)) { setShowProdList(false); setActiveIdx(-1); }
     };
     document.addEventListener("mousedown", fn);
     return () => document.removeEventListener("mousedown", fn);
   }, []);
 
-  function addLine(p: Product) {
+  function addLine(p: Product, opts: { focusQty?: boolean; viaBarcode?: boolean } = {}) {
     productCache.current.set(p.id, p);
     keyRef.current += 1;
+    const key = keyRef.current;
     // customer price-list rate wins over the standard sale price (nonzero entries only)
     const price = resolveListRate(isSales ? plRates[p.id] : undefined, isSales ? p.salePrice : p.purchasePrice);
     setLines((ls) => [...ls, {
-      key: keyRef.current,
+      key,
       productId: p.id,
       description: p.name,
       unit: p.unit,
       qty: "1",
       rate: (Number(BigInt(price)) / 100).toString(),
       discount: "",
+      taxPct: "",
       availQty: p.totalQty,
       isBundle: p.isBundle ?? false,
       batchId: "",
@@ -259,19 +323,46 @@ export function DocForm({ mode }: { mode: "SALES" | "PURCHASE" }) {
     loadBatches(p.id);
     setProdQ("");
     setShowProdList(false);
+    setActiveIdx(-1);
+    flashRow(key);
+    if (opts.viaBarcode) showToast(t("docform.barcodeAdded", { name: p.name }));
+    if (opts.focusQty) {
+      // let the new row render, then jump straight to qty for the keyboard flow
+      setTimeout(() => {
+        const el = lineFieldRefs.current.get(key)?.qty;
+        el?.focus();
+        el?.select();
+      }, 60);
+    }
   }
 
-  function addCustomLine() {
+  function addCustomLine(desc = "") {
     keyRef.current += 1;
-    setLines((ls) => [...ls, { key: keyRef.current, productId: "", description: "", unit: "", qty: "1", rate: "", discount: "", availQty: null, isBundle: false, batchId: "", batchNo: "", expiryDate: "" }]);
+    const key = keyRef.current;
+    setLines((ls) => [...ls, { key, productId: "", description: desc, unit: "", qty: "1", rate: "", discount: "", taxPct: "", availQty: null, isBundle: false, batchId: "", batchNo: "", expiryDate: "" }]);
+    flashRow(key);
+    setTimeout(() => lineFieldRefs.current.get(key)?.desc?.focus(), 60);
   }
 
   function updateLine(key: number, patch: Partial<Line>) {
     setLines((ls) => ls.map((l) => (l.key === key ? { ...l, ...patch } : l)));
   }
 
+  // Barcode flow: when the typed text exactly matches a product's SKU, add it immediately.
+  // Scanners type the whole code in a burst then pause, so the debounced search landing
+  // on an exact SKU match is the reliable signal (works with or without a trailing Enter).
+  // addLine clears the query on add, so this cannot double-add.
+  useEffect(() => {
+    const q = prodQ.trim().toLowerCase();
+    if (!q || prodResults.length === 0) return;
+    const hit = prodResults.find((p) => p.sku.trim().toLowerCase() === q);
+    if (hit) addLine(hit, { viaBarcode: true, focusQty: true });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [prodQ, prodResults]);
+
   function removeLine(key: number) {
     setLines((ls) => ls.filter((l) => l.key !== key));
+    lineFieldRefs.current.delete(key);
   }
 
   /** Inline quick-add: create the party without leaving the bill form. */
@@ -297,17 +388,50 @@ export function DocForm({ mode }: { mode: "SALES" | "PURCHASE" }) {
     }
   }
 
-  // live totals (mirrors server math for display)
-  const lineTotals = lines.map((l) => {
-    const q = Math.round(parseFloat(l.qty || "0") * 1000);
-    const r = Math.round(parseFloat(l.rate || "0") * 100);
-    const d = Math.round(parseFloat(l.discount || "0") * 100);
-    const gross = Math.round((q * r) / 1000);
-    return Math.max(0, gross - d);
-  });
-  const subtotal = lineTotals.reduce((a, b) => a + b, 0);
-  const discTotal = Math.round(parseFloat(discountTotal || "0") * 100);
-  const grand = Math.max(0, subtotal - discTotal);
+  // Keyboard flow for the product search box:
+  // typing filters · ↑/↓ moves (last option = "add as custom line") · Enter adds ·
+  // Enter with no highlight prefers an exact SKU match, else the first result · Esc closes.
+  async function onSearchKeyDown(e: React.KeyboardEvent<HTMLInputElement>) {
+    const q = prodQ.trim();
+    const customIdx = prodResults.length; // index of the "custom line" option when q is non-empty
+    const lastIdx = q ? customIdx : prodResults.length - 1;
+    if (e.key === "ArrowDown" || e.key === "ArrowUp") {
+      e.preventDefault();
+      if (!showProdList) { setShowProdList(true); return; }
+      if (lastIdx < 0) return;
+      setActiveIdx((i) => {
+        if (e.key === "ArrowDown") return i >= lastIdx ? 0 : i + 1;
+        return i <= 0 ? lastIdx : i - 1;
+      });
+    } else if (e.key === "Enter") {
+      e.preventDefault();
+      if (!q) return;
+      let results = prodResults;
+      if (results.length === 0) results = await searchProducts(q);
+      const last = q ? results.length : results.length - 1;
+      const idx = activeIdx >= 0 && activeIdx <= last ? activeIdx : -1;
+      if (idx >= 0 && idx < results.length) {
+        addLine(results[idx], { focusQty: true });
+      } else if (idx === results.length && q) {
+        addCustomLine(q);
+        setProdQ("");
+        setShowProdList(false);
+        setActiveIdx(-1);
+      } else if (results.length > 0) {
+        const hit = results.find((p) => p.sku.trim().toLowerCase() === q.toLowerCase());
+        addLine(hit ?? results[0], { focusQty: true, viaBarcode: hit ? true : undefined });
+      }
+      // no results at all: leave the dropdown open on the "add as custom line" option
+    } else if (e.key === "Escape") {
+      setShowProdList(false);
+      setActiveIdx(-1);
+    }
+  }
+
+  // live totals — exact BigInt math mirroring the server (computeTotals):
+  // gross = qty×rate (half-up) · taxable = gross − discount · tax = half-up(taxable × bps)
+  const computed = lines.map((l) => lineMath(l.qty, l.rate, l.discount, l.taxPct));
+  const { subtotal, itemDisc: itemDiscTotal, taxTotal, grand } = docMath(computed, discountTotal);
 
   async function submit(e: React.FormEvent, opts: { priceOverride?: boolean; creditOverride?: boolean } = {}) {
     const { priceOverride = false, creditOverride = false } = opts;
@@ -318,6 +442,7 @@ export function DocForm({ mode }: { mode: "SALES" | "PURCHASE" }) {
     for (const l of lines) {
       if (!l.description.trim()) { setError(t("docform.errNoDescription")); return; }
       if (!(parseFloat(l.qty || "0") > 0)) { setError(t("docform.errQty")); return; }
+      if (taxBpsOf(l.taxPct) === null) { setError(t("docform.errTaxRange")); return; }
       // purchase bill: expiry must at least look like YYYY-MM-DD (server checks it's a real date)
       if (!isSales && docType === "BILL" && l.expiryDate && !/^\d{4}-\d{2}-\d{2}$/.test(l.expiryDate)) {
         setError(t("batches.errInvalidExpiry")); return;
@@ -349,16 +474,18 @@ export function DocForm({ mode }: { mode: "SALES" | "PURCHASE" }) {
         dueDate: dueDate || undefined,
         discountTotal: discountTotal || "0",
         notes: notes || undefined,
+        refNo: refNo.trim() || undefined,
+        terms: terms.trim() || undefined,
         items: lines.map((l) => ({
           productId: l.productId || undefined,
           description: l.description.trim(),
           qty: l.qty, rate: l.rate, discount: l.discount || "0",
+          taxBps: taxBpsOf(l.taxPct) ?? 0,
           batchId: l.batchId || undefined,
           batchNo: l.batchNo || undefined,
           expiryDate: l.expiryDate || undefined,
         })),
       };
-      if (!isSales && refNo) body.refNo = refNo;
       if (!isSales && docType === "BILL") {
         const costs = extraCosts
           .filter((c) => c.label.trim() && parseFloat(c.amount) > 0)
@@ -395,6 +522,7 @@ export function DocForm({ mode }: { mode: "SALES" | "PURCHASE" }) {
   }
 
   const selectedParty = parties.find((p) => p.id === partyId);
+  const showCustomOption = showProdList && prodQ.trim().length > 0;
 
   return (
     <div>
@@ -479,13 +607,18 @@ export function DocForm({ mode }: { mode: "SALES" | "PURCHASE" }) {
             <Field label={t("docform.date")}><input type="date" className="field" required value={date} onChange={(e) => setDate(e.target.value)} /></Field>
             <Field label={t("docform.dueDate")}><input type="date" className="field" value={dueDate} onChange={(e) => setDueDate(e.target.value)} /></Field>
           </div>
-          {!isSales && (
-            <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-              <Field label={t("docform.refNo")}>
-                <input className="field" value={refNo} onChange={(e) => setRefNo(e.target.value)} placeholder={t("docform.refPlaceholder")} />
-              </Field>
-            </div>
-          )}
+          <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            <Field label={isSales ? t("docform.refNoSales") : t("docform.refNo")}>
+              <input className="field" value={refNo} maxLength={60}
+                onChange={(e) => setRefNo(e.target.value)}
+                placeholder={isSales ? t("docform.refPlaceholderSales") : t("docform.refPlaceholder")} />
+            </Field>
+            <Field label={t("docform.terms")}>
+              <input className="field" value={terms} maxLength={500}
+                onChange={(e) => setTerms(e.target.value)}
+                placeholder={t("docform.termsPlaceholder")} />
+            </Field>
+          </div>
         </div>
 
         <div className="card card-gloss rise p-5 sm:p-6">
@@ -494,16 +627,31 @@ export function DocForm({ mode }: { mode: "SALES" | "PURCHASE" }) {
             <div className="relative" ref={prodBoxRef}>
               <div className="relative">
                 <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
-                <input className="field !pl-9 sm:w-72" placeholder={t("docform.searchProduct", { product: bp.productOne.toLowerCase() })}
-                  value={prodQ} onChange={(e) => { setProdQ(e.target.value); setShowProdList(true); }}
-                  onFocus={() => setShowProdList(true)} />
+                <input
+                  ref={searchInputRef}
+                  className="field !pl-9 sm:w-72"
+                  placeholder={t("docform.searchProduct", { product: bp.productOne.toLowerCase() })}
+                  value={prodQ}
+                  onChange={(e) => { setProdQ(e.target.value); setShowProdList(true); setActiveIdx(-1); }}
+                  onFocus={() => setShowProdList(true)}
+                  onKeyDown={onSearchKeyDown}
+                  role="combobox"
+                  aria-expanded={showProdList}
+                  aria-controls="docform-product-listbox"
+                  aria-autocomplete="list"
+                  autoComplete="off"
+                />
               </div>
+              <p className="mt-1 hidden text-[11px] text-muted-foreground sm:block">{t("docform.searchKbdHint")}</p>
               {showProdList && (
-                <ul className="absolute z-20 mt-1 max-h-64 w-full overflow-y-auto rounded-xl border border-border bg-card py-1 shadow-xl sm:w-80">
-                  {prodResults.map((p) => (
-                    <li key={p.id}>
-                      <button type="button" className="flex w-full items-center justify-between px-4 py-2.5 text-left hover:bg-muted"
-                        onClick={() => addLine(p)}>
+                <ul id="docform-product-listbox" role="listbox" className="absolute z-20 mt-1 max-h-64 w-full overflow-y-auto rounded-xl border border-border bg-card py-1 shadow-xl sm:w-80">
+                  {prodResults.map((p, i) => (
+                    <li key={p.id} role="option" aria-selected={i === activeIdx}
+                      ref={(el) => { if (el) optionRefs.current.set(i, el); else optionRefs.current.delete(i); }}>
+                      <button type="button"
+                        className={`flex w-full items-center justify-between px-4 py-2.5 text-left ${i === activeIdx ? "bg-muted" : "hover:bg-muted"}`}
+                        onMouseEnter={() => setActiveIdx(i)}
+                        onClick={() => addLine(p, { focusQty: true })}>
                         <span>
                           <span className="block text-sm font-bold">{p.name}</span>
                           <span className="block text-xs text-muted-foreground">{p.sku} · {fmtMoney(isSales ? p.salePrice : p.purchasePrice)}</span>
@@ -512,15 +660,14 @@ export function DocForm({ mode }: { mode: "SALES" | "PURCHASE" }) {
                       </button>
                     </li>
                   ))}
-                  {prodResults.length === 0 && prodQ.trim() && (
-                    <li className="border-t border-border">
-                      <button type="button" className="flex w-full items-center gap-2 px-4 py-2.5 text-left text-sm hover:bg-muted"
-                        onClick={() => {
-                          keyRef.current += 1;
-                          setLines((ls) => [...ls, { key: keyRef.current, productId: "", description: prodQ.trim(), unit: "", qty: "1", rate: "", discount: "", availQty: null, isBundle: false, batchId: "", batchNo: "", expiryDate: "" }]);
-                          setProdQ("");
-                          setShowProdList(false);
-                        }}>
+                  {showCustomOption && (
+                    <li role="option" aria-selected={activeIdx === prodResults.length}
+                      ref={(el) => { if (el) optionRefs.current.set(prodResults.length, el); else optionRefs.current.delete(prodResults.length); }}
+                      className="border-t border-border">
+                      <button type="button"
+                        className={`flex w-full items-center gap-2 px-4 py-2.5 text-left text-sm ${activeIdx === prodResults.length ? "bg-muted" : "hover:bg-muted"}`}
+                        onMouseEnter={() => setActiveIdx(prodResults.length)}
+                        onClick={() => { addCustomLine(prodQ.trim()); setProdQ(""); setShowProdList(false); setActiveIdx(-1); }}>
                         <Plus size={16} className="shrink-0 text-primary" />
                         <span>{t("docform.addAsCustomLine", { name: prodQ.trim() })}</span>
                       </button>
@@ -536,85 +683,119 @@ export function DocForm({ mode }: { mode: "SALES" | "PURCHASE" }) {
             <div className="rounded-2xl border border-dashed border-border px-6 py-10 text-center">
               <p className="text-sm font-semibold">{t("docform.noItems")}</p>
               <p className="mt-1 text-sm text-muted-foreground">{t("docform.noItemsHint")}</p>
-              <button type="button" className="btn btn-ghost mt-4 text-sm" onClick={addCustomLine}><Plus size={15} /> {t("docform.customLine")}</button>
+              <button type="button" className="btn btn-ghost mt-4 text-sm" onClick={() => addCustomLine()}><Plus size={15} /> {t("docform.customLine")}</button>
             </div>
           ) : (
             <>
               {/* Desktop: classic grid like pro accounting apps */}
-              <div className="hidden overflow-x-auto md:block">
+              <div className="hidden overflow-x-auto sm:block">
                 <table className="tbl">
-                  <thead><tr><th className="w-8">#</th><th>{t("docform.colItem")}</th><th className="num w-24">{t("docform.colQty")}</th><th className="w-20">{t("docform.colUnit")}</th><th className="num w-28">{t("docform.colRate")}</th><th className="num w-24">{t("docform.colDisc")}</th><th className="num w-28">{t("docform.colAmount")}</th><th className="w-10"></th></tr></thead>
+                  <thead><tr><th className="w-8">#</th><th>{t("docform.colItem")}</th><th className="num w-24">{t("docform.colQty")}</th><th className="w-20">{t("docform.colUnit")}</th><th className="num w-28">{t("docform.colRate")}</th><th className="num w-24">{t("docform.colDisc")}</th><th className="num w-20">{t("docform.colTax")}</th><th className="num w-28">{t("docform.colAmount")}</th><th className="w-10"></th></tr></thead>
                   <tbody>
-                    {lines.map((l, idx) => (
-                      <tr key={l.key}>
-                        <td className="text-muted-foreground">{idx + 1}</td>
-                        <td className="min-w-44">
-                          <input className="field !border-transparent !bg-transparent !px-1 !py-1.5 font-semibold hover:!border-border focus:!border-primary focus:!bg-card" placeholder={t("docform.itemPlaceholder")} value={l.description}
+                    {lines.map((l, idx) => {
+                      const c = computed[idx];
+                      return (
+                        <tr key={l.key} className={flashKey === l.key ? "row-flash" : ""}>
+                          <td className="text-muted-foreground">{idx + 1}</td>
+                          <td className="min-w-44">
+                            <input
+                              ref={setRowRef(l.key, "desc")}
+                              onKeyDown={(e) => rowKeyDown(e, l.key, "desc")}
+                              className="field !border-transparent !bg-transparent !px-1 !py-1.5 font-semibold hover:!border-border focus:!border-primary focus:!bg-card" placeholder={t("docform.itemPlaceholder")} value={l.description}
+                              onChange={(e) => updateLine(l.key, { description: e.target.value })} />
+                            {l.availQty !== null && (
+                              <p className="px-1 text-xs text-muted-foreground">
+                                {t("docform.inStock", { qty: (Number(BigInt(l.availQty)) / 1000).toLocaleString(), unit: l.unit })}
+                              </p>
+                            )}
+                            <BatchControls line={l} isSales={isSales} docType={docType} batches={batchCache[l.productId]} t={t} onChange={(patch) => updateLine(l.key, patch)} />
+                          </td>
+                          <td><input ref={setRowRef(l.key, "qty")} onKeyDown={(e) => rowKeyDown(e, l.key, "qty")}
+                            className="field num !px-2 !py-1.5" type="number" min="0" step="0.001" value={l.qty}
+                            onChange={(e) => updateLine(l.key, { qty: e.target.value })} /></td>
+                          <td className="text-sm text-muted-foreground">{l.unit || "—"}</td>
+                          <td><input ref={setRowRef(l.key, "rate")} onKeyDown={(e) => rowKeyDown(e, l.key, "rate")}
+                            className="field num !px-2 !py-1.5" type="number" min="0" step="0.01" placeholder="0.00" value={l.rate}
+                            onChange={(e) => updateLine(l.key, { rate: e.target.value })} /></td>
+                          <td><input ref={setRowRef(l.key, "discount")} onKeyDown={(e) => rowKeyDown(e, l.key, "discount")}
+                            className="field num !px-2 !py-1.5" type="number" min="0" step="0.01" placeholder="0.00" value={l.discount}
+                            onChange={(e) => updateLine(l.key, { discount: e.target.value })} /></td>
+                          <td><input ref={setRowRef(l.key, "tax")} onKeyDown={(e) => rowKeyDown(e, l.key, "tax")}
+                            className="field num !px-2 !py-1.5" type="number" min="0" max="100" step="0.01" placeholder="0" value={l.taxPct}
+                            aria-label={t("docform.colTax")}
+                            onChange={(e) => updateLine(l.key, { taxPct: e.target.value })} /></td>
+                          <td className="num whitespace-nowrap text-sm font-extrabold">
+                            {fmtMoney(c.total)}
+                            {c.tax > 0n && (
+                              <span className="block text-[11px] font-normal text-muted-foreground">{t("docform.inclTax", { amt: fmtMoney(c.tax) })}</span>
+                            )}
+                          </td>
+                          <td>
+                            <button type="button" onClick={() => removeLine(l.key)} className="rounded-lg p-1.5 text-danger hover:bg-danger-soft" aria-label={t("docform.removeItem")}>
+                              <Trash2 size={16} />
+                            </button>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+                <button type="button" className="btn btn-ghost mt-3 text-sm" onClick={() => addCustomLine()}><Plus size={15} /> {t("docform.addCustomLine")}</button>
+              </div>
+
+              {/* Mobile: stacked cards */}
+              <div className="space-y-3 sm:hidden">
+                {lines.map((l, idx) => {
+                  const c = computed[idx];
+                  return (
+                    <div key={l.key} className={`rounded-2xl border border-border bg-muted/40 p-3 ${flashKey === l.key ? "row-flash" : ""}`}>
+                      <div className="flex items-start justify-between gap-2">
+                        <p className="text-xs font-bold text-muted-foreground">{t("docform.itemCard", { n: idx + 1 })}</p>
+                        <button type="button" onClick={() => removeLine(l.key)} className="rounded-lg p-1.5 text-danger hover:bg-danger-soft" aria-label={t("docform.removeItem")}>
+                          <Trash2 size={16} />
+                        </button>
+                      </div>
+                      <div className="mt-2 grid gap-3">
+                        <div>
+                          <input ref={setRowRef(l.key, "desc")} onKeyDown={(e) => rowKeyDown(e, l.key, "desc")}
+                            className="field" placeholder={t("docform.itemPlaceholder")} value={l.description}
                             onChange={(e) => updateLine(l.key, { description: e.target.value })} />
                           {l.availQty !== null && (
-                            <p className="px-1 text-xs text-muted-foreground">
+                            <p className="mt-1 text-xs text-muted-foreground">
                               {t("docform.inStock", { qty: (Number(BigInt(l.availQty)) / 1000).toLocaleString(), unit: l.unit })}
                             </p>
                           )}
                           <BatchControls line={l} isSales={isSales} docType={docType} batches={batchCache[l.productId]} t={t} onChange={(patch) => updateLine(l.key, patch)} />
-                        </td>
-                        <td><input className="field num !px-2 !py-1.5" type="number" min="0" step="0.001" value={l.qty}
-                          onChange={(e) => updateLine(l.key, { qty: e.target.value })} /></td>
-                        <td className="text-sm text-muted-foreground">{l.unit || "—"}</td>
-                        <td><input className="field num !px-2 !py-1.5" type="number" min="0" step="0.01" placeholder="0.00" value={l.rate}
-                          onChange={(e) => updateLine(l.key, { rate: e.target.value })} /></td>
-                        <td><input className="field num !px-2 !py-1.5" type="number" min="0" step="0.01" placeholder="0.00" value={l.discount}
-                          onChange={(e) => updateLine(l.key, { discount: e.target.value })} /></td>
-                        <td className="num whitespace-nowrap text-sm font-extrabold">Rs {(lineTotals[idx] / 100).toLocaleString()}</td>
-                        <td>
-                          <button type="button" onClick={() => removeLine(l.key)} className="rounded-lg p-1.5 text-danger hover:bg-danger-soft" aria-label={t("docform.removeItem")}>
-                            <Trash2 size={16} />
-                          </button>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-                <button type="button" className="btn btn-ghost mt-3 text-sm" onClick={addCustomLine}><Plus size={15} /> {t("docform.addCustomLine")}</button>
-              </div>
-
-              {/* Mobile: stacked cards */}
-              <div className="space-y-3 md:hidden">
-                {lines.map((l, idx) => (
-                  <div key={l.key} className="rounded-2xl border border-border bg-muted/40 p-3">
-                    <div className="flex items-start justify-between gap-2">
-                      <p className="text-xs font-bold text-muted-foreground">{t("docform.itemCard", { n: idx + 1 })}</p>
-                      <button type="button" onClick={() => removeLine(l.key)} className="rounded-lg p-1.5 text-danger hover:bg-danger-soft" aria-label={t("docform.removeItem")}>
-                        <Trash2 size={16} />
-                      </button>
-                    </div>
-                    <div className="mt-2 grid gap-3">
-                      <div>
-                        <input className="field" placeholder={t("docform.itemPlaceholder")} value={l.description}
-                          onChange={(e) => updateLine(l.key, { description: e.target.value })} />
-                        {l.availQty !== null && (
-                          <p className="mt-1 text-xs text-muted-foreground">
-                            {t("docform.inStock", { qty: (Number(BigInt(l.availQty)) / 1000).toLocaleString(), unit: l.unit })}
-                          </p>
-                        )}
-                        <BatchControls line={l} isSales={isSales} docType={docType} batches={batchCache[l.productId]} t={t} onChange={(patch) => updateLine(l.key, patch)} />
-                      </div>
-                      <div className="grid grid-cols-3 gap-3">
-                        <div>
-                          <input className="field num" type="number" min="0" step="0.001" placeholder={t("docform.colQty")} value={l.qty}
-                            onChange={(e) => updateLine(l.key, { qty: e.target.value })} />
-                          {l.unit && <p className="mt-1 text-xs text-muted-foreground">{l.unit}</p>}
                         </div>
-                        <input className="field num" type="number" min="0" step="0.01" placeholder={t("docform.colRate")} value={l.rate}
-                          onChange={(e) => updateLine(l.key, { rate: e.target.value })} />
-                        <input className="field num" type="number" min="0" step="0.01" placeholder={t("docform.colDisc")} value={l.discount}
-                          onChange={(e) => updateLine(l.key, { discount: e.target.value })} />
+                        <div className="grid grid-cols-4 gap-2">
+                          <input ref={setRowRef(l.key, "qty")} onKeyDown={(e) => rowKeyDown(e, l.key, "qty")}
+                            className="field num !px-2" type="number" min="0" step="0.001" placeholder={t("docform.colQty")} value={l.qty}
+                            aria-label={t("docform.colQty")}
+                            onChange={(e) => updateLine(l.key, { qty: e.target.value })} />
+                          <input ref={setRowRef(l.key, "rate")} onKeyDown={(e) => rowKeyDown(e, l.key, "rate")}
+                            className="field num !px-2" type="number" min="0" step="0.01" placeholder={t("docform.colRate")} value={l.rate}
+                            aria-label={t("docform.colRate")}
+                            onChange={(e) => updateLine(l.key, { rate: e.target.value })} />
+                          <input ref={setRowRef(l.key, "discount")} onKeyDown={(e) => rowKeyDown(e, l.key, "discount")}
+                            className="field num !px-2" type="number" min="0" step="0.01" placeholder={t("docform.colDisc")} value={l.discount}
+                            aria-label={t("docform.colDisc")}
+                            onChange={(e) => updateLine(l.key, { discount: e.target.value })} />
+                          <input ref={setRowRef(l.key, "tax")} onKeyDown={(e) => rowKeyDown(e, l.key, "tax")}
+                            className="field num !px-2" type="number" min="0" max="100" step="0.01" placeholder={t("docform.colTax")} value={l.taxPct}
+                            aria-label={t("docform.colTax")}
+                            onChange={(e) => updateLine(l.key, { taxPct: e.target.value })} />
+                        </div>
+                        <p className="text-right text-sm font-extrabold">
+                          {fmtMoney(c.total)}
+                          {c.tax > 0n && (
+                            <span className="block text-[11px] font-normal text-muted-foreground">{t("docform.inclTax", { amt: fmtMoney(c.tax) })}</span>
+                          )}
+                        </p>
                       </div>
-                      <p className="text-right text-sm font-extrabold">Rs {(lineTotals[idx] / 100).toLocaleString()}</p>
                     </div>
-                  </div>
-                ))}
-                <button type="button" className="btn btn-ghost w-full text-sm" onClick={addCustomLine}><Plus size={15} /> {t("docform.addCustomLine")}</button>
+                  );
+                })}
+                <button type="button" className="btn btn-ghost w-full text-sm" onClick={() => addCustomLine()}><Plus size={15} /> {t("docform.addCustomLine")}</button>
               </div>
             </>
           )}
@@ -675,15 +856,19 @@ export function DocForm({ mode }: { mode: "SALES" | "PURCHASE" }) {
           </div>
           <div className="card card-gloss p-5 sm:p-6">
             <div className="space-y-2.5 text-sm">
-              <div className="flex justify-between"><span className="text-muted-foreground">{t("docform.subtotal")}</span><span className="font-bold">Rs {(subtotal / 100).toLocaleString()}</span></div>
+              <div className="flex justify-between"><span className="text-muted-foreground">{t("docform.subtotal")}</span><span className="font-bold">{fmtMoney(subtotal)}</span></div>
+              {itemDiscTotal > 0n && (
+                <div className="flex justify-between"><span className="text-muted-foreground">{t("docform.itemDiscounts")}</span><span className="font-bold">−{fmtMoney(itemDiscTotal)}</span></div>
+              )}
               <div className="flex items-center justify-between gap-4">
                 <span className="text-muted-foreground">{t("docform.billDiscount")}</span>
                 <input className="field num !w-32 !py-1.5" type="number" min="0" step="0.01" placeholder="0.00" value={discountTotal}
                   onChange={(e) => setDiscountTotal(e.target.value)} />
               </div>
+              <div className="flex justify-between"><span className="text-muted-foreground">{t("docform.taxTotal")}</span><span className="font-bold">{fmtMoney(taxTotal)}</span></div>
               <div className="flex justify-between border-t border-border pt-3 text-base">
                 <span className="font-extrabold">{t("docform.total")}</span>
-                <span className="text-xl font-extrabold text-primary">Rs {(grand / 100).toLocaleString()}</span>
+                <span className="text-xl font-extrabold text-primary">{fmtMoney(grand)}</span>
               </div>
             </div>
             <button className="btn btn-primary mt-5 w-full !py-3.5 !text-base" disabled={saving}>
@@ -692,6 +877,13 @@ export function DocForm({ mode }: { mode: "SALES" | "PURCHASE" }) {
           </div>
         </div>
       </form>
+
+      {/* barcode/keyboard add toast */}
+      {toast && (
+        <div role="status" className="modal-pop fixed bottom-6 left-1/2 z-50 -translate-x-1/2 whitespace-nowrap rounded-full bg-foreground px-4 py-2 text-sm font-semibold text-background shadow-xl">
+          {toast}
+        </div>
+      )}
     </div>
   );
 }

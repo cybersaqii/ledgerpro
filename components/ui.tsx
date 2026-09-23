@@ -145,7 +145,7 @@ export function StatusPill({ status }: { status: string }) {
   const cls =
     s === "DRAFT" ? "bg-accent-soft text-accent"
     : s === "POSTED" || s === "APPROVED" || s === "PAID" ? "bg-primary-soft text-primary"
-    : s === "RETURN" || s === "REJECTED" || s === "CANCELLED" ? "bg-danger-soft text-danger"
+    : s === "RETURN" || s === "RETURNED" || s === "REJECTED" || s === "CANCELLED" ? "bg-danger-soft text-danger"
     : "bg-muted text-muted-foreground";
   return <span className={`badge ${cls}`}>{s.charAt(0) + s.slice(1).toLowerCase()}</span>;
 }

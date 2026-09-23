@@ -1,17 +1,19 @@
 import { UserError } from "./errors";
+import { parseDecimalToPaisa } from "./decimal";
+export { qtyRateTotal } from "./decimal";
 // Money helpers — ALL money is stored and computed as BigInt in minor units (paisa).
 // No floats anywhere. Every rounding is explicit half-up.
+// The exact parsing core lives in lib/decimal (dependency-free, client-safe);
+// this wrapper only converts failures into UserError for API responses.
 
 export function parseMoney(input: string | number | bigint): bigint {
   if (typeof input === "bigint") return input;
   const s = String(input).trim().replace(/,/g, "");
-  if (!/^-?\d+(\.\d{1,2})?$/.test(s)) throw new UserError(`Invalid money value: ${String(input)}`);
-  const neg = s.startsWith("-");
-  const core = neg ? s.slice(1) : s;
-  const [w, f = ""] = core.split(".");
-  const frac = (f + "00").slice(0, 2);
-  const v = BigInt(w === "" ? "0" : w) * 100n + BigInt(frac);
-  return neg ? -v : v;
+  try {
+    return parseDecimalToPaisa(s);
+  } catch {
+    throw new UserError(`Invalid money value: ${String(input)}`);
+  }
 }
 
 export function formatMoney(paisa: bigint | string | number, symbol = ""): string {
@@ -31,14 +33,6 @@ export function percentOf(amount: bigint, bps: number): bigint {
   const a = amount < 0n ? -amount : amount;
   const bb = b < 0n ? -b : b;
   return sign * ((a * bb + 5000n) / 10000n);
-}
-
-/** qty (milli-units) × rate (paisa per unit) → paisa, half-up rounding */
-export function qtyRateTotal(qtyMilli: bigint, ratePaisa: bigint): bigint {
-  const sign = (qtyMilli < 0n) !== (ratePaisa < 0n) ? -1n : 1n;
-  const q = qtyMilli < 0n ? -qtyMilli : qtyMilli;
-  const r = ratePaisa < 0n ? -ratePaisa : ratePaisa;
-  return sign * ((q * r + 500n) / 1000n);
 }
 
 export function add(...vals: bigint[]): bigint {

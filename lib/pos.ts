@@ -3,6 +3,7 @@
  * Money is mirrored in paisa integers and qty in thousandths,
  * exactly like the server-side document math.
  */
+import { parseDecimalToPaisa, parseDecimalToMilli, qtyRateTotal } from "./decimal";
 
 export interface PosProduct {
   id: string;
@@ -24,6 +25,8 @@ export interface PosLine {
   qty: string; // decimal string, e.g. "2" or "0.5"
   rate: string; // rupees decimal string
   discount: string; // rupees decimal string, per line
+  /** chosen batch for FIFO override ("" = auto/FIFO). Optional for backward compat with parked bills. */
+  batchId?: string;
 }
 
 export function paisaToRupees(paisa: string | number | bigint): string {
@@ -33,20 +36,44 @@ export function paisaToRupees(paisa: string | number | bigint): string {
   return `${neg ? "-" : ""}${abs / 100n}.${(abs % 100n).toString().padStart(2, "0")}`;
 }
 
-function parseQty(qty: string): number {
-  return Math.round(parseFloat(qty || "0") * 1000);
+/**
+ * Lenient cart parsing (M7): inputs are half-typed while the user types, so
+ * empty/invalid values parse as 0 instead of throwing. Exact BigInt math —
+ * the old parseFloat path could drift a paisa from the server's totals.
+ */
+function parseQtyMilli(qty: string): bigint {
+  try {
+    return parseDecimalToMilli(qty.trim() === "" ? "0" : qty);
+  } catch {
+    return 0n;
+  }
 }
 
-function parseMoney(v: string): number {
-  return Math.round(parseFloat(v || "0") * 100);
+function parsePaisa(v: string): bigint {
+  try {
+    return parseDecimalToPaisa(v.trim() === "" ? "0" : v);
+  } catch {
+    return 0n;
+  }
+}
+
+/** milli-units → plain decimal string ("2500" → "2.5"), no grouping. */
+function milliToDecimal(q: bigint): string {
+  const neg = q < 0n;
+  const a = neg ? -q : q;
+  const w = a / 1000n;
+  const f = (a % 1000n).toString().padStart(3, "0").replace(/0+$/, "");
+  return `${neg ? "-" : ""}${w}${f ? "." + f : ""}`;
+}
+
+function lineTotalBigint(l: PosLine): bigint {
+  const t = qtyRateTotal(parseQtyMilli(l.qty), parsePaisa(l.rate)) - parsePaisa(l.discount);
+  return t > 0n ? t : 0n;
 }
 
 /** Line total in paisa: qty × rate − discount, floored at zero. */
 export function lineTotalPaisa(l: PosLine): number {
-  const q = parseQty(l.qty);
-  const r = parseMoney(l.rate);
-  const d = parseMoney(l.discount);
-  return Math.max(0, Math.round((q * r) / 1000) - d);
+  return Number(lineTotalBigint(l));
 }
 
 export interface CartTotals {
@@ -58,14 +85,16 @@ export interface CartTotals {
 }
 
 export function cartTotals(lines: PosLine[], discountTotal: string): CartTotals {
-  const subtotal = lines.reduce((a, l) => a + lineTotalPaisa(l), 0);
-  const discount = Math.min(subtotal, Math.max(0, parseMoney(discountTotal)));
+  const subtotal = lines.reduce((a, l) => a + lineTotalBigint(l), 0n);
+  const raw = parsePaisa(discountTotal);
+  const discount = raw < 0n ? 0n : raw > subtotal ? subtotal : raw;
+  const grand = subtotal - discount;
   return {
-    subtotal,
-    discount,
-    grand: Math.max(0, subtotal - discount),
+    subtotal: Number(subtotal),
+    discount: Number(discount),
+    grand: Number(grand > 0n ? grand : 0n),
     itemCount: lines.length,
-    qtyCount: lines.reduce((a, l) => a + parseQty(l.qty), 0),
+    qtyCount: Number(lines.reduce((a, l) => a + parseQtyMilli(l.qty), 0n)),
   };
 }
 
@@ -81,9 +110,9 @@ export function addToCart(
 ): { lines: PosLine[]; touchedKey: number } {
   const existing = lines.find((l) => l.productId === product.id);
   if (existing) {
-    const q = parseQty(existing.qty) + 1000;
+    const q = parseQtyMilli(existing.qty) + 1000n;
     const lines2 = lines.map((l) =>
-      l.productId === product.id ? { ...l, qty: (q / 1000).toString() } : l
+      l.productId === product.id ? { ...l, qty: milliToDecimal(q) } : l
     );
     return { lines: lines2, touchedKey: existing.key };
   }
@@ -105,6 +134,7 @@ export function addAsNewLine(
     qty: "1",
     rate: paisaToRupees(product.salePrice),
     discount: "",
+    batchId: "",
   };
   return { lines: [...lines, line], touchedKey: nextKey };
 }
@@ -117,6 +147,7 @@ export function toDocItems(lines: PosLine[]) {
     qty: l.qty,
     rate: l.rate,
     discount: l.discount || "0",
+    batchId: l.batchId || "",
   }));
 }
 
@@ -127,7 +158,7 @@ export function priceWarnings(lines: PosLine[], products: PosProduct[]): { line:
   for (const l of lines) {
     const p = l.productId ? byId.get(l.productId) : undefined;
     const floor = p?.minSalePrice != null ? BigInt(p.minSalePrice) : 0n;
-    if (floor > 0n && BigInt(Math.round(parseFloat(l.rate || "0") * 100)) < floor) {
+    if (floor > 0n && parsePaisa(l.rate || "0") < floor) {
       out.push({ line: l, floor: paisaToRupees(floor) });
     }
   }
@@ -139,8 +170,8 @@ export function validateCart(lines: PosLine[]): string | null {
   if (lines.length === 0) return "Add at least one item.";
   for (const l of lines) {
     if (!l.name.trim()) return "Every item needs a name.";
-    if (!(parseFloat(l.qty || "0") > 0)) return "Quantities must be positive.";
-    if (!(parseFloat(l.rate || "0") >= 0)) return "Rates cannot be negative.";
+    if (!(parseQtyMilli(l.qty || "0") > 0n)) return "Quantities must be positive.";
+    if (!(parsePaisa(l.rate || "0") >= 0n)) return "Rates cannot be negative.";
   }
   return null;
 }

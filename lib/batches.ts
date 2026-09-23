@@ -1,5 +1,5 @@
-import { eq, and, gt } from "drizzle-orm";
-import { productBatches, products } from "@/db/schema";
+import { eq, and, gt, asc } from "drizzle-orm";
+import { productBatches, products, docBatchUsage } from "@/db/schema";
 import type { Db, DbTx } from "./db";
 import { UserError } from "./errors";
 
@@ -75,8 +75,8 @@ export async function addBatchStock(
   batchNoRaw: string,
   expiryRaw: string | null | undefined,
   qtyMilli: bigint
-): Promise<void> {
-  if (qtyMilli <= 0n) return;
+): Promise<string | null> {
+  if (qtyMilli <= 0n) return null;
   const batchNo = batchNoRaw.trim().slice(0, 40);
   if (!batchNo) throw new UserError("Batch number cannot be empty.");
   const expiryDate = normalizeExpiry(expiryRaw); // throws on invalid format
@@ -100,15 +100,18 @@ export async function addBatchStock(
         ...(existing.expiryDate == null && expiryDate != null ? { expiryDate } : {}),
       })
       .where(eq(productBatches.id, existing.id));
+    return existing.id;
   } else {
+    const batchId = crypto.randomUUID();
     await tx.insert(productBatches).values({
-      id: crypto.randomUUID(),
+      id: batchId,
       companyId,
       productId,
       batchNo,
       expiryDate,
       qtyThousandths: qtyMilli,
     });
+    return batchId;
   }
 }
 
@@ -121,6 +124,9 @@ export async function addBatchStock(
  *   from unbatched stock; the stock_levels check in applyStock still guards
  *   the overall total.
  * Products with no batch rows are untouched (plain stock flow).
+ *
+ * Returns the per-batch deductions so callers can record lineage
+ * (doc_batch_usage) for exact restoration on returns.
  */
 export async function deductBatchStock(
   tx: DbTx,
@@ -128,8 +134,8 @@ export async function deductBatchStock(
   productId: string,
   qtyMilli: bigint,
   batchId: string | null
-): Promise<void> {
-  if (qtyMilli <= 0n) return;
+): Promise<Array<{ batchId: string; qtyMilli: bigint }>> {
+  if (qtyMilli <= 0n) return [];
   if (batchId) {
     const b = await findBatch(tx, companyId, batchId);
     if (!b || b.productId !== productId) {
@@ -145,7 +151,7 @@ export async function deductBatchStock(
       .update(productBatches)
       .set({ qtyThousandths: b.qtyThousandths - qtyMilli })
       .where(eq(productBatches.id, b.id));
-    return;
+    return [{ batchId: b.id, qtyMilli }];
   }
   const rows = await tx
     .select()
@@ -158,6 +164,7 @@ export async function deductBatchStock(
         (a.expiryDate === null ? 1 : 0) - (b.expiryDate === null ? 1 : 0) ||
         (a.expiryDate ?? "").localeCompare(b.expiryDate ?? "")
     );
+  const used: Array<{ batchId: string; qtyMilli: bigint }> = [];
   let remaining = qtyMilli;
   for (const r of fifo) {
     if (remaining <= 0n) break;
@@ -166,8 +173,10 @@ export async function deductBatchStock(
       .update(productBatches)
       .set({ qtyThousandths: r.qtyThousandths - take })
       .where(eq(productBatches.id, r.id));
+    used.push({ batchId: r.id, qtyMilli: take });
     remaining -= take;
   }
+  return used;
 }
 
 /**
@@ -191,6 +200,132 @@ export async function restoreBatchStock(
     .update(productBatches)
     .set({ qtyThousandths: b.qtyThousandths + qtyMilli })
     .where(eq(productBatches.id, b.id));
+}
+
+/**
+ * Record one batch movement for a document (lineage for returns).
+ * qtyMilli is signed: negative = deducted from the batch (sales),
+ * positive = received into the batch (purchase).
+ */
+export async function recordBatchUsage(
+  tx: DbTx,
+  companyId: string,
+  docId: string,
+  productId: string,
+  batchId: string,
+  qtyMilli: bigint
+): Promise<void> {
+  if (qtyMilli === 0n) return;
+  await tx.insert(docBatchUsage).values({
+    id: crypto.randomUUID(),
+    companyId,
+    docId,
+    productId,
+    batchId,
+    qtyThousandths: qtyMilli,
+  });
+}
+
+/**
+ * Restore `qtyMilli` of a product into the batches recorded in doc_batch_usage
+ * for `sourceDocId` (M4). Distributes pro-rata across the originally deducted
+ * batches so the batch ledger round-trips exactly. Batches that no longer
+ * exist are skipped (their share stays in unbatched stock, which applyStock
+ * already restored). Returns the amount actually restored into batches.
+ * Documents posted before lineage existed restore 0 (stock_levels only).
+ */
+export async function restoreLineageBatches(
+  tx: DbTx,
+  companyId: string,
+  sourceDocId: string,
+  productId: string,
+  qtyMilli: bigint
+): Promise<bigint> {
+  if (qtyMilli <= 0n) return 0n;
+  const rows = await tx
+    .select({ batchId: docBatchUsage.batchId, qty: docBatchUsage.qtyThousandths })
+    .from(docBatchUsage)
+    .where(
+      and(
+        eq(docBatchUsage.companyId, companyId),
+        eq(docBatchUsage.docId, sourceDocId),
+        eq(docBatchUsage.productId, productId)
+      )
+    )
+    .orderBy(asc(docBatchUsage.createdAt));
+  // Sales lineage rows are negative (deducted); purchase rows are positive.
+  const used = rows.filter((r) => BigInt(r.qty) < 0n);
+  const totalUsed = used.reduce((a, r) => a + -BigInt(r.qty), 0n);
+  if (totalUsed <= 0n) return 0n;
+  const target = qtyMilli < totalUsed ? qtyMilli : totalUsed;
+  let remaining = target;
+  let restored = 0n;
+  for (let i = 0; i < used.length && remaining > 0n; i++) {
+    const u = used[i]!;
+    const deducted = -BigInt(u.qty);
+    const share = i === used.length - 1 ? remaining : (deducted * target) / totalUsed;
+    if (share <= 0n) continue;
+    const b = await findBatch(tx, companyId, u.batchId);
+    if (!b || b.productId !== productId) continue; // batch gone: leave in unbatched stock
+    await tx
+      .update(productBatches)
+      .set({ qtyThousandths: b.qtyThousandths + share })
+      .where(eq(productBatches.id, b.id));
+    restored += share;
+    remaining -= share;
+  }
+  return restored;
+}
+
+/**
+ * Deduct `qtyMilli` of a product from the batches recorded in doc_batch_usage
+ * for `sourceDocId` (purchase returns: take back from the batches the source
+ * bill received). Distributes pro-rata; never drives a batch negative — any
+ * shortfall stays as unbatched stock movement (applyStock already moved the
+ * total). Returns the amount actually deducted from batches.
+ */
+export async function deductLineageBatches(
+  tx: DbTx,
+  companyId: string,
+  sourceDocId: string,
+  productId: string,
+  qtyMilli: bigint
+): Promise<bigint> {
+  if (qtyMilli <= 0n) return 0n;
+  const rows = await tx
+    .select({ batchId: docBatchUsage.batchId, qty: docBatchUsage.qtyThousandths })
+    .from(docBatchUsage)
+    .where(
+      and(
+        eq(docBatchUsage.companyId, companyId),
+        eq(docBatchUsage.docId, sourceDocId),
+        eq(docBatchUsage.productId, productId)
+      )
+    )
+    .orderBy(asc(docBatchUsage.createdAt));
+  const received = rows.filter((r) => BigInt(r.qty) > 0n);
+  const totalReceived = received.reduce((a, r) => a + BigInt(r.qty), 0n);
+  if (totalReceived <= 0n) return 0n;
+  const target = qtyMilli < totalReceived ? qtyMilli : totalReceived;
+  let remaining = target;
+  let deducted = 0n;
+  for (let i = 0; i < received.length && remaining > 0n; i++) {
+    const u = received[i]!;
+    const got = BigInt(u.qty);
+    const share = i === received.length - 1 ? remaining : (got * target) / totalReceived;
+    if (share <= 0n) continue;
+    const b = await findBatch(tx, companyId, u.batchId);
+    if (!b || b.productId !== productId) continue;
+    const take = share < b.qtyThousandths ? share : b.qtyThousandths;
+    if (take <= 0n) continue;
+    await tx
+      .update(productBatches)
+      .set({ qtyThousandths: b.qtyThousandths - take })
+      .where(eq(productBatches.id, b.id));
+    deducted += take;
+    remaining -= take;
+  }
+  return deducted;
 }
 
 /** All batches of a product, FIFO order (earliest expiry first, NULLs last). */

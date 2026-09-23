@@ -1,4 +1,4 @@
-import { auditLogs } from "@/db/schema";
+import { auditLogs, errorLogs } from "@/db/schema";
 import type { Db, DbTx } from "./db";
 
 /** Audit/activity log retention: entries are kept for 10 years and are never
@@ -30,7 +30,22 @@ export async function logAudit(
       entityId: input.entityId ?? null,
       detail: input.detail ?? null,
     });
-  } catch {
-    /* audit is best-effort */
+  } catch (err) {
+    // Audit is best-effort and never throws — but a failed audit write is a
+    // compliance signal, so it is recorded in the server error log (M9)
+    // instead of being silently swallowed. The insert is inlined (not via
+    // reportError) because this module is also imported by client components
+    // and lib/errors pulls next/headers into the browser bundle.
+    try {
+      const e = err instanceof Error ? err : new Error(String(err));
+      await dbx.insert(errorLogs).values({
+        companyId: input.companyId,
+        route: "logAudit",
+        message: `audit write failed for action ${input.action}: ${e.message}`.slice(0, 500),
+        stack: e.stack ? e.stack.slice(0, 2000) : null,
+      });
+    } catch {
+      console.error("logAudit: error-log write also failed");
+    }
   }
 }

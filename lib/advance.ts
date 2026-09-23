@@ -42,7 +42,8 @@ export async function applyCustomerAdvance(
   if (unpaid <= 0n) return 0n;
   let toApply = creditBefore < unpaid ? creditBefore : unpaid;
 
-  // oldest unallocated receipts first
+  // oldest unallocated receipts first; ties broken by creation order
+  // (deterministic — payments.id is random, so it must NOT be the tiebreaker)
   const receipts = await tx
     .select({ id: payments.id, amount: payments.amount, date: payments.date })
     .from(payments)
@@ -53,7 +54,7 @@ export async function applyCustomerAdvance(
         eq(payments.kind, "RECEIPT")
       )
     )
-    .orderBy(asc(payments.date), asc(payments.id));
+    .orderBy(asc(payments.date), asc(payments.createdAt), asc(payments.id));
 
   let applied = 0n;
   for (const r of receipts) {

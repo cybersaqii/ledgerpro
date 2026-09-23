@@ -18,7 +18,7 @@ import type { DbTx } from "./db";
 import type { ComputedItem } from "./totals";
 import { UserError } from "./errors";
 import { explodeSalesStockMoves } from "./bundles";
-import { addBatchStock, deductBatchStock, restoreBatchStock } from "./batches";
+import { addBatchStock, deductBatchStock, restoreBatchStock, restoreLineageBatches, deductLineageBatches, recordBatchUsage } from "./batches";
 
 type JournalLineInput = {
   accountId: string;
@@ -115,9 +115,11 @@ async function applyStock(
     }
     let newAvg = avg;
     if (m.qtyMilli > 0n && m.unitCostPaisa !== undefined) {
-      const currentValue = (current * avg) / 1000n;
-      const inValue = (m.qtyMilli * m.unitCostPaisa) / 1000n;
-      newAvg = next > 0n ? ((currentValue + inValue) * 1000n) / next : avg;
+      // Half-up everywhere (matches COGS rounding below): sub-paisa fractions
+      // round to the nearest paisa instead of truncating down.
+      const currentValue = (current * avg + 500n) / 1000n;
+      const inValue = (m.qtyMilli * m.unitCostPaisa + 500n) / 1000n;
+      newAvg = next > 0n ? ((currentValue + inValue) * 1000n + next / 2n) / next : avg;
     }
     if (m.qtyMilli < 0n) {
       cogsOut += ((-m.qtyMilli * avg + 500n) / 1000n); // half-up
@@ -161,6 +163,8 @@ export type PostSalesInput = {
   taxTotal: bigint;
   grandTotal: bigint;
   createdById: string;
+  /** RETURN docs: the source INVOICE id, used to restore its exact batches. */
+  sourceDocId?: string;
 };
 
 export async function postSalesDoc(tx: DbTx, input: PostSalesInput): Promise<string> {
@@ -198,13 +202,22 @@ export async function postSalesDoc(tx: DbTx, input: PostSalesInput): Promise<str
     m.avgCostPaisa = rows[0]?.avgCost ?? 0n;
   }
 
-  // Batch-tracked products: invoices deduct (explicit batch, or FIFO by
-  // expiry); returns restore the chosen batch. Runs inside the same
-  // transaction, so a batch error rolls the whole document back.
+  // Batch-tracked products, inside the same transaction as stock + journal:
+  // - INVOICE deducts (explicit batch, or FIFO by expiry) and records the
+  //   per-batch lineage in doc_batch_usage so returns can restore exactly.
+  // - RETURN restores against the source invoice's lineage (M4). Documents
+  //   posted before lineage existed restore stock_levels only (legacy path).
   for (const m of stockMoves) {
     if (input.docType === "INVOICE") {
-      await deductBatchStock(tx, input.companyId, m.productId, -m.qtyMilli, m.batchId);
+      const used = await deductBatchStock(tx, input.companyId, m.productId, -m.qtyMilli, m.batchId);
+      for (const u of used) {
+        await recordBatchUsage(tx, input.companyId, input.docId, m.productId, u.batchId, -u.qtyMilli);
+      }
+    } else if (input.sourceDocId) {
+      await restoreLineageBatches(tx, input.companyId, input.sourceDocId, m.productId, m.qtyMilli);
     } else if (m.batchId) {
+      // Legacy path: a RETURN posted directly (no source doc, e.g. pre-lineage
+      // documents) restores the explicitly chosen batch, as before.
       await restoreBatchStock(tx, input.companyId, m.productId, m.batchId, m.qtyMilli);
     }
   }
@@ -283,6 +296,8 @@ export type PostPurchaseInput = {
   /** How the extra costs were paid: cash/bank account, or added to the supplier bill. */
   extraCostPaidFrom?: "CASH" | "SUPPLIER";
   extraCostAccountId?: string;
+  /** RETURN docs: the source BILL id, used to deduct from its exact batches. */
+  sourceDocId?: string;
 };
 
 /** Per-line landed extra cost allocation (same order as input.items). */
@@ -346,21 +361,28 @@ export async function postPurchaseDoc(tx: DbTx, input: PostPurchaseInput): Promi
         productId: i.productId,
         qtyMilli: input.docType === "BILL" ? i.qtyMilli : -i.qtyMilli,
         avgCostPaisa: 0n,
-        unitCostPaisa: i.qtyMilli > 0n ? (net * 1000n) / i.qtyMilli : 0n,
+        unitCostPaisa: i.qtyMilli > 0n ? (net * 1000n + i.qtyMilli / 2n) / i.qtyMilli : 0n, // half-up
       });
     }
   }
 
   // Batch tracking, inside the same transaction as the stock + journal writes:
   // - BILL with a batch_no: create the batch row or top it up (expiry format
-  //   validated inside addBatchStock — a bad date aborts the whole bill).
-  // - RETURN with a chosen batch: deduct the returned qty from that batch.
+  //   validated inside addBatchStock — a bad date aborts the whole bill), and
+  //   record the lineage in doc_batch_usage so returns deduct the same batches.
+  // - RETURN: deduct from the source bill's batches via lineage (M4). Without
+  //   lineage (pre-migration docs) fall back to an explicitly chosen batch.
   for (const i of input.items) {
     if (!i.productId || !i.trackStock) continue;
     if (input.docType === "BILL") {
       if (i.batchNo && i.batchNo.trim()) {
-        await addBatchStock(tx, input.companyId, i.productId, i.batchNo, i.expiryDate ?? null, i.qtyMilli);
+        const newBatchId = await addBatchStock(tx, input.companyId, i.productId, i.batchNo, i.expiryDate ?? null, i.qtyMilli);
+        if (newBatchId) {
+          await recordBatchUsage(tx, input.companyId, input.docId, i.productId, newBatchId, i.qtyMilli);
+        }
       }
+    } else if (input.sourceDocId) {
+      await deductLineageBatches(tx, input.companyId, input.sourceDocId, i.productId, i.qtyMilli);
     } else if (i.batchId) {
       await deductBatchStock(tx, input.companyId, i.productId, i.qtyMilli, i.batchId);
     }
@@ -468,6 +490,70 @@ export type PostPaymentInput = {
   createdById: string;
 };
 
+/** Allocate part of a payment to one document: bumps amountPaid, flips
+ *  POSTED/PARTIAL → PARTIAL/PAID, and writes the payment_allocations row.
+ *  Shared by postPayment and PDC auto-allocation on clear. */
+export async function allocatePaymentToDoc(
+  tx: DbTx,
+  opts: {
+    companyId: string;
+    paymentId: string;
+    partyId: string;
+    docKind: "SALES" | "PURCHASE";
+    docId: string;
+    amount: bigint;
+  }
+): Promise<void> {
+  if (opts.amount <= 0n) throw new UserError("Allocation amounts must be positive");
+  if (opts.docKind === "SALES") {
+    const rows = await tx
+      .select()
+      .from(salesDocs)
+      .where(and(eq(salesDocs.id, opts.docId), eq(salesDocs.companyId, opts.companyId)))
+      .limit(1);
+    const doc = rows[0];
+    if (!doc || doc.partyId !== opts.partyId) throw new UserError("Invalid sales document for allocation");
+    const remaining = doc.grandTotal - doc.amountPaid - doc.returnedTotal;
+    if (opts.amount > remaining) throw new UserError(`Allocation exceeds remaining balance of ${doc.docNo}`);
+    const paid = doc.amountPaid + opts.amount;
+    const netTotal = doc.grandTotal - doc.returnedTotal;
+    await tx
+      .update(salesDocs)
+      .set({ amountPaid: paid, status: paid >= netTotal ? "PAID" : "PARTIAL", updatedAt: new Date() })
+      .where(eq(salesDocs.id, doc.id));
+    await tx.insert(paymentAllocations).values({
+      id: crypto.randomUUID(),
+      paymentId: opts.paymentId,
+      partyId: opts.partyId,
+      salesDocId: doc.id,
+      amount: opts.amount,
+    });
+  } else {
+    const rows = await tx
+      .select()
+      .from(purchaseDocs)
+      .where(and(eq(purchaseDocs.id, opts.docId), eq(purchaseDocs.companyId, opts.companyId)))
+      .limit(1);
+    const doc = rows[0];
+    if (!doc || doc.partyId !== opts.partyId) throw new UserError("Invalid purchase document for allocation");
+    const remaining = doc.grandTotal - doc.amountPaid - doc.returnedTotal;
+    if (opts.amount > remaining) throw new UserError(`Allocation exceeds remaining balance of ${doc.docNo}`);
+    const paid = doc.amountPaid + opts.amount;
+    const netTotal = doc.grandTotal - doc.returnedTotal;
+    await tx
+      .update(purchaseDocs)
+      .set({ amountPaid: paid, status: paid >= netTotal ? "PAID" : "PARTIAL", updatedAt: new Date() })
+      .where(eq(purchaseDocs.id, doc.id));
+    await tx.insert(paymentAllocations).values({
+      id: crypto.randomUUID(),
+      paymentId: opts.paymentId,
+      partyId: opts.partyId,
+      purchaseDocId: doc.id,
+      amount: opts.amount,
+    });
+  }
+}
+
 export async function postPayment(tx: DbTx, input: PostPaymentInput): Promise<string> {
   if (input.amount <= 0n) throw new UserError("Payment amount must be positive");
   const ac = await accountMap(tx, input.companyId);
@@ -480,13 +566,43 @@ export async function postPayment(tx: DbTx, input: PostPaymentInput): Promise<st
   const bank = bankRows[0];
   if (!bank) throw new UserError("Bank/cash account not found");
 
+  // M1: the PARTY's kind decides the subsidiary ledger (AR vs AP) — cash
+  // direction comes from the payment kind. A customer cash refund (PAYMENT)
+  // must hit AR, and a supplier refund received (RECEIPT) must hit AP;
+  // deriving AR/AP from RECEIPT-vs-PAYMENT alone mis-posts both cases.
+  const partyRows = await tx
+    .select({ kind: parties.kind })
+    .from(parties)
+    .where(and(eq(parties.id, input.partyId), eq(parties.companyId, input.companyId)))
+    .limit(1);
+  const party = partyRows[0];
+  if (!party) throw new UserError("Party not found");
+  const isCustomer = party.kind === "CUSTOMER";
+  const arApAccount = isCustomer ? ac[SYS.AR] : ac[SYS.AP];
+  const isReceipt = input.kind === "RECEIPT";
+
   const allocTotal = input.allocations.reduce((a, x) => a + x.amount, 0n);
   if (allocTotal > input.amount) throw new UserError("Allocated amount exceeds payment amount");
+  // M1b: allocations may only settle the party's own document side — a
+  // customer payment can never allocate to a purchase bill, and vice versa.
+  // Refunds (customer PAYMENT, supplier RECEIPT) can never be allocated at
+  // all: they are plain ledger movements, and allocating one would both move
+  // cash and mark a document paid.
+  const wantDocKind = isCustomer ? "SALES" : "PURCHASE";
+  const isRefundFlow = isCustomer ? !isReceipt : isReceipt;
+  if (isRefundFlow && input.allocations.length > 0) {
+    throw new UserError("Refunds cannot be allocated to documents.");
+  }
   for (const a of input.allocations) {
     if (a.amount <= 0n) throw new UserError("Allocation amounts must be positive");
+    if (a.docKind !== wantDocKind)
+      throw new UserError(
+        isCustomer
+          ? "Customer receipts/payments can only be allocated to sales invoices"
+          : "Supplier receipts/payments can only be allocated to purchase bills"
+      );
   }
 
-  const isReceipt = input.kind === "RECEIPT";
   const entryId = await createJournal(tx, {
     companyId: input.companyId,
     branchId: input.branchId,
@@ -498,10 +614,10 @@ export async function postPayment(tx: DbTx, input: PostPaymentInput): Promise<st
     lines: isReceipt
       ? [
           { accountId: bank.accountId, debit: input.amount, credit: 0n },
-          { accountId: ac[SYS.AR], debit: 0n, credit: input.amount, partyId: input.partyId },
+          { accountId: arApAccount, debit: 0n, credit: input.amount, partyId: input.partyId },
         ]
       : [
-          { accountId: ac[SYS.AP], debit: input.amount, credit: 0n, partyId: input.partyId },
+          { accountId: arApAccount, debit: input.amount, credit: 0n, partyId: input.partyId },
           { accountId: bank.accountId, debit: 0n, credit: input.amount },
         ],
   });
@@ -524,54 +640,22 @@ export async function postPayment(tx: DbTx, input: PostPaymentInput): Promise<st
   });
 
   for (const a of input.allocations) {
-    if (a.docKind === "SALES") {
-      const rows = await tx
-        .select()
-        .from(salesDocs)
-        .where(and(eq(salesDocs.id, a.docId), eq(salesDocs.companyId, input.companyId)))
-        .limit(1);
-      const doc = rows[0];
-      if (!doc || doc.partyId !== input.partyId) throw new UserError("Invalid sales document for allocation");
-      const remaining = doc.grandTotal - doc.amountPaid;
-      if (a.amount > remaining) throw new UserError(`Allocation exceeds remaining balance of ${doc.docNo}`);
-      const paid = doc.amountPaid + a.amount;
-      await tx
-        .update(salesDocs)
-        .set({ amountPaid: paid, status: paid >= doc.grandTotal ? "PAID" : "PARTIAL", updatedAt: new Date() })
-        .where(eq(salesDocs.id, doc.id));
-      await tx.insert(paymentAllocations).values({
-        id: crypto.randomUUID(),
-        paymentId,
-        partyId: input.partyId,
-        salesDocId: doc.id,
-        amount: a.amount,
-      });
-    } else {
-      const rows = await tx
-        .select()
-        .from(purchaseDocs)
-        .where(and(eq(purchaseDocs.id, a.docId), eq(purchaseDocs.companyId, input.companyId)))
-        .limit(1);
-      const doc = rows[0];
-      if (!doc || doc.partyId !== input.partyId) throw new UserError("Invalid purchase document for allocation");
-      const remaining = doc.grandTotal - doc.amountPaid;
-      if (a.amount > remaining) throw new UserError(`Allocation exceeds remaining balance of ${doc.docNo}`);
-      const paid = doc.amountPaid + a.amount;
-      await tx
-        .update(purchaseDocs)
-        .set({ amountPaid: paid, status: paid >= doc.grandTotal ? "PAID" : "PARTIAL", updatedAt: new Date() })
-        .where(eq(purchaseDocs.id, doc.id));
-      await tx.insert(paymentAllocations).values({
-        id: crypto.randomUUID(),
-        paymentId,
-        partyId: input.partyId,
-        purchaseDocId: doc.id,
-        amount: a.amount,
-      });
-    }
+    await allocatePaymentToDoc(tx, {
+      companyId: input.companyId,
+      paymentId,
+      partyId: input.partyId,
+      docKind: a.docKind,
+      docId: a.docId,
+      amount: a.amount,
+    });
   }
 
-  await bumpPartyBalance(tx, input.partyId, -input.amount);
+  // Party balance convention: positive = outstanding (customer owes us /
+  // we owe the supplier). Receiving money moves the balance toward us,
+  // paying out moves it away — on BOTH sides of the ledger:
+  //   RECEIPT from customer → they owe less (−); from supplier → we owe more (+)
+  //   PAYMENT to customer (refund) → they owe more (+); to supplier → we owe less (−)
+  await bumpPartyBalance(tx, input.partyId, isCustomer === isReceipt ? -input.amount : input.amount);
   await tx
     .update(bankAccounts)
     .set({ balance: sql`${bankAccounts.balance} + ${isReceipt ? input.amount : -input.amount}` })

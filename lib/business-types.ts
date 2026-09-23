@@ -41,6 +41,21 @@ export interface BusinessProfile {
   receivables: string;
   /** Stock module label: Stock / Medicine stock */
   stock: string;
+  /** Printed title for sales invoices: "Sale Invoice" / "Treatment Bill" / "Bill" / "Invoice" */
+  docTitle: string;
+  /** Printed title for purchase bills (usually "Purchase Bill"). */
+  billTitle: string;
+  /** Print batch no + expiry under each invoice line (pharmacy). */
+  showBatchExpiry: boolean;
+  /** Print SKU under each invoice line (wholesale / distribution / manufacturing). */
+  showSku: boolean;
+}
+
+interface DocVocab {
+  docTitle?: string;
+  billTitle?: string;
+  showBatchExpiry?: boolean;
+  showSku?: boolean;
 }
 
 const profile = (
@@ -49,17 +64,24 @@ const profile = (
   productOne: string, productMany: string,
   salesNav: string, newSale: string, saveSale: string,
   receivables: string, stock: string,
-): BusinessProfile => ({ type, partyOne, partyMany, productOne, productMany, salesNav, newSale, saveSale, receivables, stock });
+  doc?: DocVocab,
+): BusinessProfile => ({
+  type, partyOne, partyMany, productOne, productMany, salesNav, newSale, saveSale, receivables, stock,
+  docTitle: doc?.docTitle ?? "Sale Invoice",
+  billTitle: doc?.billTitle ?? "Purchase Bill",
+  showBatchExpiry: doc?.showBatchExpiry ?? false,
+  showSku: doc?.showSku ?? false,
+});
 
 export const BUSINESS_PROFILES: Record<BusinessType, BusinessProfile> = {
-  WHOLESALE: profile("WHOLESALE", "Customer", "Customers", "Product", "Products", "Sales", "New sale bill", "Save sale bill", "Receivables", "Stock"),
-  RETAIL: profile("RETAIL", "Customer", "Customers", "Product", "Products", "Billing", "New counter bill", "Save counter bill", "Receivables", "Stock"),
-  DISTRIBUTION: profile("DISTRIBUTION", "Customer", "Customers", "Product", "Products", "Sales", "New sale bill", "Save sale bill", "Receivables", "Stock"),
-  PHARMACY: profile("PHARMACY", "Customer", "Customers", "Medicine", "Medicines", "Sales", "New sale bill", "Save sale bill", "Receivables", "Medicine stock"),
-  CLINIC: profile("CLINIC", "Patient", "Patients", "Treatment", "Treatments", "Treatments", "New treatment bill", "Save treatment bill", "Patient dues", "Medicine stock"),
-  RESTAURANT: profile("RESTAURANT", "Guest", "Guests", "Menu item", "Menu items", "Billing", "New bill", "Save bill", "Receivables", "Stock"),
-  SERVICES: profile("SERVICES", "Client", "Clients", "Service", "Services", "Invoices", "New invoice", "Save invoice", "Receivables", "Stock"),
-  MANUFACTURING: profile("MANUFACTURING", "Customer", "Customers", "Product", "Products", "Sales", "New sale bill", "Save sale bill", "Receivables", "Stock"),
+  WHOLESALE: profile("WHOLESALE", "Customer", "Customers", "Product", "Products", "Sales", "New sale bill", "Save sale bill", "Receivables", "Stock", { showSku: true }),
+  RETAIL: profile("RETAIL", "Customer", "Customers", "Product", "Products", "Billing", "New counter bill", "Save counter bill", "Receivables", "Stock", { docTitle: "Sale Bill" }),
+  DISTRIBUTION: profile("DISTRIBUTION", "Customer", "Customers", "Product", "Products", "Sales", "New sale bill", "Save sale bill", "Receivables", "Stock", { showSku: true }),
+  PHARMACY: profile("PHARMACY", "Customer", "Customers", "Medicine", "Medicines", "Sales", "New sale bill", "Save sale bill", "Receivables", "Medicine stock", { showBatchExpiry: true }),
+  CLINIC: profile("CLINIC", "Patient", "Patients", "Treatment", "Treatments", "Treatments", "New treatment bill", "Save treatment bill", "Patient dues", "Medicine stock", { docTitle: "Treatment Bill" }),
+  RESTAURANT: profile("RESTAURANT", "Guest", "Guests", "Menu item", "Menu items", "Billing", "New bill", "Save bill", "Receivables", "Stock", { docTitle: "Bill" }),
+  SERVICES: profile("SERVICES", "Client", "Clients", "Service", "Services", "Invoices", "New invoice", "Save invoice", "Receivables", "Stock", { docTitle: "Invoice" }),
+  MANUFACTURING: profile("MANUFACTURING", "Customer", "Customers", "Product", "Products", "Sales", "New sale bill", "Save sale bill", "Receivables", "Stock", { showSku: true }),
   OTHER: profile("OTHER", "Customer", "Customers", "Product", "Products", "Sales", "New sale bill", "Save sale bill", "Receivables", "Stock"),
 };
 
