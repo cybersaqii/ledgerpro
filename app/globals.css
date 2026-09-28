@@ -248,6 +248,7 @@ body {
 .tbl tbody tr:last-child td { border-bottom: none; }
 .tbl tbody tr:hover { background: color-mix(in srgb, var(--muted) 55%, transparent); }
 .num { text-align: right; font-variant-numeric: tabular-nums; }
+.tbl th.num { text-align: right; }
 
 /* Badge */
 .badge {
