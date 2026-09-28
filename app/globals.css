@@ -279,7 +279,11 @@ html[lang="ur"] body {
   from { opacity: 0; transform: translateY(14px); }
   to { opacity: 1; transform: translateY(0); }
 }
-.rise { animation: rise 0.5s cubic-bezier(0.22, 1, 0.36, 1) both; }
+.rise { animation: rise 0.5s cubic-bezier(0.22, 1, 0.36, 1) backwards; }
+/* NOTE: fill is `backwards` (not `both`) on purpose — `both` would keep
+   transform: translateY(0) forever, creating a permanent stacking context on
+   every card, which traps absolutely-positioned dropdowns (z-20) underneath
+   later sibling cards. */
 .rise-1 { animation-delay: 0.06s; }
 .rise-2 { animation-delay: 0.12s; }
 .rise-3 { animation-delay: 0.18s; }
