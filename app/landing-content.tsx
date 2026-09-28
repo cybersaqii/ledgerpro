@@ -109,7 +109,6 @@ export default function LandingContent() {
           <div className="absolute -top-32 left-1/4 h-[420px] w-[620px] rounded-full bg-emerald-400/20 blur-[130px]" />
           <div className="absolute top-1/3 -right-32 h-96 w-96 rounded-full bg-teal-300/15 blur-[110px]" />
           <div className="absolute inset-0 opacity-[0.06]" style={{ backgroundImage: "radial-gradient(circle at 1px 1px, #fff 1px, transparent 0)", backgroundSize: "30px 30px" }} />
-          <div className="absolute inset-x-0 bottom-0 h-24 bg-gradient-to-t from-background to-transparent" />
         </div>
         <div className="relative grid items-center gap-12 px-4 pb-16 pt-32 sm:px-8 sm:pt-40 lg:grid-cols-2 lg:gap-12 lg:px-12 lg:pb-20">
           <div className="text-center lg:text-left">
@@ -193,13 +192,15 @@ export default function LandingContent() {
             </div>
           </div>
         </div>
-        {/* Business-type marquee */}
-        <div className="relative z-10 border-t border-white/10 py-6">
-          <div className="overflow-hidden [mask-image:linear-gradient(to_right,transparent,black_8%,black_92%,transparent)]">
-            <div className="animate-marquee flex w-max items-center gap-10 pr-10">
+        {/* Business-type marquee — solid band, crisp text */}
+        <div className="relative z-10 border-y border-white/10 bg-[#082a21]">
+          <div className="overflow-hidden py-5 [mask-image:linear-gradient(to_right,transparent,black_8%,black_92%,transparent)]">
+            <div className="animate-marquee flex w-max items-center gap-12 pr-12">
               {[...businessTypes, ...businessTypes].map((bt, i) => (
-                <span key={i} className="flex items-center gap-2 text-sm font-semibold tracking-wide text-emerald-50">
-                  <bt.icon size={16} className="text-emerald-300" />
+                <span key={i} className="flex items-center gap-2.5 text-sm font-bold tracking-wide text-white">
+                  <span className="grid h-8 w-8 place-items-center rounded-lg bg-white/10">
+                    <bt.icon size={15} className="text-emerald-300" />
+                  </span>
                   {L(bt.l)}
                 </span>
               ))}
