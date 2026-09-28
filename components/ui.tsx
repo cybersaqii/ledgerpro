@@ -64,7 +64,7 @@ export function LangToggle() {
 
 export function PageHeader({ title, subtitle, actions, icon }: { title: ReactNode; subtitle?: ReactNode; actions?: ReactNode; icon?: ReactNode }) {
   return (
-    <div className="rise mb-6 flex flex-wrap items-center justify-between gap-4">
+    <div className="rise mb-5 flex flex-wrap items-center justify-between gap-4">
       <div className="flex items-center gap-3.5">
         {icon && (
           <span className="tile tile-primary h-12 w-12 shrink-0 ring-1 ring-white/20">
@@ -159,9 +159,9 @@ export function SummaryChips({ items }: { items: Array<{ label: string; value: s
     neutral: "text-foreground",
   };
   return (
-    <div className="mb-4 flex flex-wrap gap-3">
+    <div className="mb-3 flex flex-wrap gap-2.5">
       {items.map((it) => (
-        <div key={it.label} className="card card-lift flex items-center gap-3 px-4 py-2.5">
+        <div key={it.label} className="card card-lift flex items-center gap-3 px-3.5 py-2">
           <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">{it.label}</span>
           <span className={`text-base font-extrabold tabular-nums ${tones[it.tone ?? "neutral"]}`}>{it.value}</span>
         </div>
@@ -173,7 +173,7 @@ export function SummaryChips({ items }: { items: Array<{ label: string; value: s
 /** Card wrapper for a filter row: search + selects + date inputs. */
 export function FilterBar({ children }: { children: ReactNode }) {
   return (
-    <div className="card mb-4 flex flex-wrap items-center gap-3 p-3 sm:p-4">
+    <div className="card mb-3 flex flex-wrap items-center gap-2.5 p-2.5 sm:p-3">
       {children}
     </div>
   );

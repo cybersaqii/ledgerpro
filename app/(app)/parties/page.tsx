@@ -11,12 +11,11 @@ import { useLang } from "@/components/lang-provider";
 
 type Party = {
   id: string; kind: string; name: string; phone: string | null; city: string | null;
-  balance: string; creditLimit: string; filerStatus: string; priceListId: string | null;
+  balance: string; creditLimit: string; filerStatus: string;
 };
 
-type PList = { id: string; name: string; isDefault: boolean };
 
-const emptyForm = { name: "", phone: "", email: "", address: "", city: "", ntn: "", filerStatus: "NA", creditLimit: "", notes: "", priceListId: "" };
+const emptyForm = { name: "", phone: "", email: "", address: "", city: "", ntn: "", filerStatus: "NA", creditLimit: "", notes: "" };
 
 export default function PartiesPage() {
   const bp = useBusinessProfile();
@@ -30,7 +29,6 @@ export default function PartiesPage() {
   const [form, setForm] = useState(emptyForm);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [plists, setPlists] = useState<PList[]>([]);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -49,7 +47,6 @@ export default function PartiesPage() {
   }, [load, q]);
 
   useEffect(() => {
-    api<{ data: PList[] }>("/api/price-lists").then((d) => setPlists(d.data)).catch(() => setPlists([]));
   }, []);
 
   function openAdd() { setForm(emptyForm); setError(null); setModal({ mode: "add" }); }
@@ -57,7 +54,6 @@ export default function PartiesPage() {
     setForm({
       name: p.name, phone: p.phone ?? "", email: "", address: "", city: p.city ?? "",
       ntn: "", filerStatus: p.filerStatus, creditLimit: (Number(BigInt(p.creditLimit)) / 100).toString(), notes: "",
-      priceListId: p.priceListId ?? "",
     });
     setError(null);
     setModal({ mode: "edit", party: p });
@@ -162,16 +158,6 @@ export default function PartiesPage() {
                   <option value="NON_FILER">{t("parties.filerNo")}</option>
                 </select>
               </Field>
-              {(modal?.mode === "add" ? kind === "CUSTOMER" : modal?.party.kind === "CUSTOMER") && (
-                <Field label={t("parties.priceList")}>
-                  <select className="field" value={form.priceListId} onChange={set("priceListId")}>
-                    <option value="">{t("parties.standardPrices")}</option>
-                    {plists.map((pl) => (
-                      <option key={pl.id} value={pl.id}>{pl.name}{pl.isDefault ? t("parties.defaultSuffix") : ""}</option>
-                    ))}
-                  </select>
-                </Field>
-              )}
             </div>
             <div className="flex justify-end gap-2 pt-2">
               <button type="button" className="btn btn-ghost" onClick={() => setModal(null)}>{t("common.cancel")}</button>

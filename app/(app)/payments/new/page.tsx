@@ -3,6 +3,7 @@
 import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useRef, useState, Suspense } from "react";
 import { PageHeader, Field, ErrorNote } from "@/components/ui";
+import { ReceiptText } from "lucide-react";
 import { api, fmtMoney, fmtDate, fmtDateInput } from "@/lib/format";
 import { parseDecimalToPaisa } from "@/lib/decimal";
 import { useLang } from "@/components/lang-provider";
@@ -137,7 +138,7 @@ function PaymentFormInner() {
     <div>
       <PageHeader title={isReceipt ? t("payform.receiveTitle") : t("payform.payTitle")}
         subtitle={isReceipt ? t("payform.receiveSub") : t("payform.paySub")} />
-      <form onSubmit={submit} className={outstanding.length > 0 ? "grid items-start gap-5 lg:grid-cols-[minmax(0,1fr)_380px]" : "mx-auto max-w-2xl"}>
+      <form onSubmit={submit} className="grid items-start gap-5 lg:grid-cols-[minmax(0,1fr)_380px]">
         <div className="min-w-0 space-y-5">
         <ErrorNote message={error} />
 
@@ -220,9 +221,10 @@ function PaymentFormInner() {
         </button>
         </div>
 
-        {outstanding.length > 0 && (
-          <div className="card p-5 sm:p-6 lg:sticky lg:top-20">
+        <div className="card p-5 sm:p-6 lg:sticky lg:top-20">
             <h2 className="text-base font-bold">{t("payform.allocateTitle")}</h2>
+            {outstanding.length > 0 ? (
+            <>
             <p className="mt-0.5 text-sm text-muted-foreground">
               {t("payform.allocateSummary", { count: outstanding.length, allocated: `Rs ${(allocTotal / 100).toLocaleString()}`, total: `Rs ${(amountPaisa / 100).toLocaleString() || "0"}` })}
             </p>
@@ -244,8 +246,20 @@ function PaymentFormInner() {
                 </li>
               ))}
             </ul>
+            </>
+            ) : (
+            <div className="mt-4 flex flex-col items-center gap-2 rounded-xl border border-dashed border-border px-4 py-10 text-center">
+              <span className="grid h-11 w-11 place-items-center rounded-full bg-muted">
+                <ReceiptText size={20} className="text-muted-foreground" />
+              </span>
+              <p className="max-w-[26ch] text-sm text-muted-foreground">
+                {!partyId
+                  ? t("payform.allocEmpty", { party: t(partyKind === "CUSTOMER" ? "payform.customer" : "payform.supplier").toLowerCase() })
+                  : t("payform.allocClear", { party: t(partyKind === "CUSTOMER" ? "payform.customer" : "payform.supplier").toLowerCase() })}
+              </p>
+            </div>
+            )}
           </div>
-        )}
 
       </form>
     </div>

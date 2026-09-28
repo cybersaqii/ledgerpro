@@ -22,8 +22,6 @@ import {
   products,
   stockLevels,
   productBatches,
-  priceLists,
-  priceListItems,
   bundleComponents,
   salesDocs,
   salesDocItems,
@@ -197,24 +195,6 @@ async function pullProducts(companyId: string, cursor: number, limit: number): P
     createdAt: ms(r.createdAt),
     updatedAt: ms(r.updatedAt),
   }));
-}
-
-async function pullPriceLists(companyId: string, cursor: number, limit: number): Promise<TablePage> {
-  const page = await pullDelta(
-    companyId,
-    priceLists,
-    priceLists.updatedAt,
-    "updatedAt",
-    cursor,
-    limit,
-    undefined,
-    (r) => ({ ...r, createdAt: ms(r.createdAt), updatedAt: ms(r.updatedAt) }),
-  );
-  const ids = page.rows.map((r) => r.id as string);
-  const items: Row[] = ids.length
-    ? await db.select().from(priceListItems).where(inArray(priceListItems.priceListId, ids))
-    : [];
-  return { ...page, rows: nest(page.rows, items, "id", "priceListId", "items") };
 }
 
 async function pullBundleComponents(companyId: string, serverTime: number): Promise<TablePage> {
@@ -425,7 +405,6 @@ export async function GET(req: NextRequest) {
   // Permission-gated — tables the device may not see are omitted entirely.
   if (can("parties")) tables.parties = await pullParties(companyId, cur("parties"), limit);
   if (can("products")) tables.products = await pullProducts(companyId, cur("products"), limit);
-  if (can("price_lists")) tables.price_lists = await pullPriceLists(companyId, cur("price_lists"), limit);
   if (can("products")) tables.bundle_components = await pullBundleComponents(companyId, serverTime);
   if (can("sales")) tables.sales_docs = await pullSalesDocs(companyId, cur("sales_docs"), limit);
   if (can("purchases")) tables.purchase_docs = await pullPurchaseDocs(companyId, cur("purchase_docs"), limit);

@@ -10,7 +10,7 @@ import {
 import { ErrorNote } from "@/components/ui";
 import { api, ApiError, fmtMoney, fmtQty, fmtDate, fmtDateInput } from "@/lib/format";
 import {
-  addToCart, addAsNewLine, cartTotals, lineTotalPaisa, paisaToRupees, toDocItems, validateCart, priceWarnings,
+  addToCart, addAsNewLine, cartTotals, lineTotalPaisa, toDocItems, validateCart, priceWarnings,
   type PosLine, type PosProduct,
 } from "@/lib/pos";
 import { useBusinessProfile } from "@/components/business-type";
@@ -61,9 +61,6 @@ export default function PosPage() {
   // duplicate-item protection
   const [dupProduct, setDupProduct] = useState<ApiProduct | null>(null);
 
-  // customer price-list rates (productId -> rate in paisa), set when a khata customer is chosen
-  const [plRates, setPlRates] = useState<Record<string, string>>({});
-  const [plName, setPlName] = useState<string | null>(null);
 
   // batch rows per product (undefined = not loaded yet), doc-form pattern
   const [batchCache, setBatchCache] = useState<Record<string, BatchOpt[] | undefined>>({});
@@ -184,51 +181,6 @@ export default function PosPage() {
     return () => window.removeEventListener("keydown", fn);
   }, [dupProduct, priceWarn]);
 
-  // price-list rule, same as doc-form's resolveListRate: nonzero list rate wins,
-  // else the standard sale price. Inline here — @/lib/price-lists pulls
-  // drizzle-orm into the client bundle and must not be imported.
-  function standardRate(productId: string): string {
-    const p = productCache.current.get(productId);
-    return p ? paisaToRupees(p.salePrice) : "";
-  }
-
-  // re-price existing cart lines against a rates record (nonzero list rate wins,
-  // else the standard sale price)
-  function repriceLines(rates: Record<string, string>) {
-    setLines((ls) => ls.map((l) => {
-      if (!l.productId) return l;
-      const r = rates[l.productId];
-      return { ...l, rate: r && r !== "0" ? paisaToRupees(r) : standardRate(l.productId) };
-    }));
-  }
-
-  // when a khata customer is chosen (khata stage or split-stage remainder),
-  // load their price list: explicit list, else the default list
-  useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      const applyRates = (rates: Record<string, string>, name: string | null) => {
-        if (cancelled) return;
-        setPlRates(rates);
-        setPlName(name);
-        repriceLines(rates);
-      };
-      if (!khataId) { applyRates({}, null); return; }
-      try {
-        const party = await api<{ data: { priceListId: string | null } }>(`/api/parties/${khataId}`);
-        const ls = await api<{ data: { id: string; name: string; isDefault: boolean }[] }>("/api/price-lists");
-        if (cancelled) return;
-        const byId = new Map(ls.data.map((l) => [l.id, l.name]));
-        const listId = party.data.priceListId ?? ls.data.find((l) => l.isDefault)?.id ?? null;
-        if (!listId) { applyRates({}, null); return; }
-        const r = await api<{ rates: Record<string, string> }>(`/api/price-lists/rates?priceListId=${listId}`);
-        applyRates(r.rates, byId.get(listId) ?? "price list");
-      } catch { applyRates({}, null); }
-    })();
-    return () => { cancelled = true; };
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- repriceLines/standardRate only read refs
-  }, [khataId]);
-
   // lazy-load batch rows once per product in the cart
   useEffect(() => {
     for (const l of lines) {
@@ -256,10 +208,7 @@ export default function PosPage() {
     }
     keyRef.current += 1;
     const fn = mode === "newline" ? addAsNewLine : addToCart;
-    // customer price list: nonzero list rate wins, else the standard sale price
-    const r = p.id ? plRates[p.id] : undefined;
-    const priced = r && r !== "0" ? { ...p, salePrice: r } : p;
-    const { lines: next } = fn(lines, priced, keyRef.current);
+    const { lines: next } = fn(lines, p, keyRef.current);
     setLines(next);
     setQ("");
     setResults([]);
@@ -815,9 +764,6 @@ export default function PosPage() {
               <span className="text-sm font-bold uppercase tracking-wide text-muted-foreground">{t("pos.total")}</span>
               <span className="text-gradient text-3xl font-extrabold tabular-nums tracking-tight">{fmtMoney(totals.grand)}</span>
             </div>
-            {plName && (
-              <p className="mt-2 text-center text-xs font-bold text-primary">{t("pos.priceList", { name: plName })}</p>
-            )}
           </div>
 
           <div className="card card-gloss p-4 sm:p-5">

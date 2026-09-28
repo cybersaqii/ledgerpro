@@ -236,12 +236,12 @@ body {
   font-size: 0.72rem;
   text-transform: uppercase;
   letter-spacing: 0.06em;
-  padding: 0.6rem 0.9rem;
+  padding: 0.5rem 0.9rem;
   border-bottom: 1px solid var(--border);
   white-space: nowrap;
 }
 .tbl td {
-  padding: 0.7rem 0.9rem;
+  padding: 0.55rem 0.9rem;
   border-bottom: 1px solid var(--border);
   vertical-align: middle;
 }

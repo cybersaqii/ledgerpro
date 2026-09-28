@@ -232,7 +232,7 @@ export default function ProductsPage() {
                           {[p.category, p.location].filter(Boolean).join(" · ")}
                         </span>
                       </td>
-                      <td className="text-muted-foreground">{p.sku}</td>
+                      <td><span className="rounded-md bg-muted px-1.5 py-0.5 font-mono text-xs text-muted-foreground">{p.sku}</span></td>
                       <td className="num font-bold">{p.trackStock && !p.isBundle ? fmtQty(p.totalQty, p.unit) : "—"}</td>
                       <td className="num">{fmtMoney(p.purchasePrice)}</td>
                       <td className="num">{fmtMoney(p.salePrice)}</td>

@@ -6,7 +6,7 @@ import { useEffect, useRef, useState, type ReactNode } from "react";
 import {
   LayoutDashboard, ShoppingCart, Truck, Wallet, ReceiptText, Users, Package,
   BarChart3, Menu, X, LogOut, Boxes, Plus, Settings, Crown, ShieldCheck,
-  LifeBuoy, ArrowRight, Sparkles, Tags,
+  LifeBuoy, ArrowRight, Sparkles,
 } from "lucide-react";
 import { Logo, ThemeToggle, LangToggle } from "./ui";
 import { api } from "@/lib/format";
@@ -77,7 +77,6 @@ export function AppShell({ children }: { children: ReactNode }) {
     { href: "/expenses", label: t("nav.expenses"), icon: ReceiptText, perm: "expenses" },
     { href: "/parties", label: bp.partyMany, icon: Users, perm: "parties" },
     { href: "/products", label: bp.productMany, icon: Package, perm: "products" },
-    { href: "/price-lists", label: t("nav.priceLists"), icon: Tags, perm: "price_lists" },
     { href: "/stock", label: bp.stock, icon: Boxes, perm: "stock" },
     { href: "/reports", label: t("nav.reports"), icon: BarChart3, perm: "reports_basic" },
     { href: "/settings", label: t("nav.settings"), icon: Settings, perm: "" },

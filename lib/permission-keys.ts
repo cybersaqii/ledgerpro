@@ -11,7 +11,6 @@ export const PERMISSIONS = [
   "parties",
   "products",
   "stock",
-  "price_lists",
   "documents",
   "reports_basic",
   "reports_accounting",
@@ -46,7 +45,6 @@ export const STAFF_DEFAULT_PERMISSIONS: readonly Permission[] = [
   "parties",
   "products",
   "stock",
-  "price_lists",
   "documents",
   "reports_basic",
   "held_bills",
@@ -55,7 +53,7 @@ export const STAFF_DEFAULT_PERMISSIONS: readonly Permission[] = [
 /** UI grouping for the team permission editor (i18n keys: perms.group.<key>). */
 export const PERMISSION_GROUPS: { key: string; permissions: Permission[] }[] = [
   { key: "daily", permissions: ["sales", "purchases", "pos", "payments", "expenses", "held_bills"] },
-  { key: "masters", permissions: ["parties", "products", "stock", "price_lists", "documents"] },
+  { key: "masters", permissions: ["parties", "products", "stock", "documents"] },
   { key: "insights", permissions: ["reports_basic", "reports_accounting", "audit"] },
   { key: "admin", permissions: ["settings", "team", "import_export", "backups", "period_lock"] },
 ];

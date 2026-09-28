@@ -6,11 +6,10 @@ import { Plus, Printer, Search, Trash2 } from "lucide-react";
 import { PageHeader, Field, ErrorNote } from "@/components/ui";
 import { api, ApiError, fmtMoney, fmtQty, fmtDateInput, fmtDate } from "@/lib/format";
 import { lineMath, docMath, taxBpsOf } from "@/lib/doc-math";
-import { resolveListRate } from "@/lib/price-lists";
 import { useBusinessProfile } from "@/components/business-type";
 import { useLang } from "@/components/lang-provider";
 
-type Party = { id: string; name: string; phone: string | null; priceListId: string | null };
+type Party = { id: string; name: string; phone: string | null };
 type Product = { id: string; sku: string; name: string; unit: string; salePrice: string; purchasePrice: string; totalQty: string; minSalePrice?: string | null; isBundle?: boolean };
 
 type BatchOpt = { id: string; batchNo: string; expiryDate: string | null; qtyThousandths: string };
@@ -167,9 +166,6 @@ export function DocForm({ mode }: { mode: "SALES" | "PURCHASE" }) {
   const [rcptMethod, setRcptMethod] = useState("CASH");
   const [rcptRef, setRcptRef] = useState("");
   const [rcptAmount, setRcptAmount] = useState("");
-  // customer price-list rates: productId -> rate in paisa (sales only)
-  const [plRates, setPlRates] = useState<Record<string, string>>({});
-  const [plName, setPlName] = useState<string | null>(null);
   // Landed extra costs (freight, labour…) — purchase bills only
   const [extraCosts, setExtraCosts] = useState<{ key: number; label: string; amount: string }[]>([]);
   const [extraPaidFrom, setExtraPaidFrom] = useState<"CASH" | "SUPPLIER">("CASH");
@@ -285,25 +281,6 @@ export function DocForm({ mode }: { mode: "SALES" | "PURCHASE" }) {
       .catch(() => setLastRates((m) => ({ ...m, [productId]: null })));
   }, [isSales, partyId]);
 
-  // sales: load the selected customer's price-list rates (explicit list, else the default list)
-  useEffect(() => {
-    const party = parties.find((p) => p.id === partyId);
-    let cancelled = false;
-    (async () => {
-      if (!isSales || !partyId) { if (!cancelled) { setPlRates({}); setPlName(null); } return; }
-      try {
-        const ls = await api<{ data: { id: string; name: string; isDefault: boolean }[] }>("/api/price-lists");
-        if (cancelled) return;
-        const byId = new Map(ls.data.map((l) => [l.id, l.name]));
-        const listId = party?.priceListId ?? ls.data.find((l) => l.isDefault)?.id ?? null;
-        if (!listId) { setPlRates({}); setPlName(null); return; }
-        const r = await api<{ rates: Record<string, string> }>(`/api/price-lists/rates?priceListId=${listId}`);
-        if (!cancelled) { setPlRates(r.rates); setPlName(byId.get(listId) ?? "price list"); }
-      } catch { if (!cancelled) { setPlRates({}); setPlName(null); } }
-    })();
-    return () => { cancelled = true; };
-  }, [partyId, parties, isSales]);
-
   function addExtraCost() {
     setExtraCosts((s) => [...s, { key: ++keyRef.current, label: s.length === 0 ? t("docform.freight") : t("docform.labour"), amount: "" }]);
   }
@@ -348,8 +325,7 @@ export function DocForm({ mode }: { mode: "SALES" | "PURCHASE" }) {
     productCache.current.set(p.id, p);
     keyRef.current += 1;
     const key = keyRef.current;
-    // customer price-list rate wins over the standard sale price (nonzero entries only)
-    const price = resolveListRate(isSales ? plRates[p.id] : undefined, isSales ? p.salePrice : p.purchasePrice);
+    const price = isSales ? p.salePrice : p.purchasePrice;
     setLines((ls) => [...ls, {
       key,
       productId: p.id,
@@ -422,7 +398,7 @@ export function DocForm({ mode }: { mode: "SALES" | "PURCHASE" }) {
         method: "POST",
         body: JSON.stringify({ kind: partyKind, name, phone: quickPhone.trim() }),
       });
-      setParties((ps) => [{ id: d.data.id, name: d.data.name, phone: d.data.phone, priceListId: null }, ...ps]);
+      setParties((ps) => [{ id: d.data.id, name: d.data.name, phone: d.data.phone }, ...ps]);
       setPartyId(d.data.id);
       setPartyQ("");
       setQuickPhone("");
@@ -663,11 +639,6 @@ export function DocForm({ mode }: { mode: "SALES" | "PURCHASE" }) {
                   </div>
                 )}
               </div>
-              {isSales && plName && Object.keys(plRates).length > 0 && (
-                <p className="mt-1.5 text-xs font-semibold text-primary">
-                  {t("docform.plHint", { name: plName })}
-                </p>
-              )}
             </Field>
             <Field label={t("docform.typeLabel")}>
               <select className="field" value={docType} onChange={(e) => setDocType(e.target.value)}>
