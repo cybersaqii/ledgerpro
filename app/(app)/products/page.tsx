@@ -236,13 +236,15 @@ export default function ProductsPage() {
                       <td className="num font-bold">{p.trackStock && !p.isBundle ? fmtQty(p.totalQty, p.unit) : "—"}</td>
                       <td className="num">{fmtMoney(p.purchasePrice)}</td>
                       <td className="num">{fmtMoney(p.salePrice)}</td>
-                      <td className="whitespace-nowrap text-right">
+                      <td className="whitespace-nowrap">
+                        <div className="flex items-center justify-end gap-1.5">
                         {!p.isBundle && p.trackStock && (
                           <button className="btn btn-ghost !px-2 !py-1.5 text-xs font-bold text-primary" onClick={() => toggleBatches(p)}>
                             {expanded ? t("batches.hideBatches") : t("batches.viewBatches")}
                           </button>
                         )}
                         <button className="btn btn-ghost !p-2" onClick={() => openEdit(p)} aria-label={t("common.edit")}><Pencil size={15} /></button>
+                        </div>
                       </td>
                     </tr>
                     {expanded && (

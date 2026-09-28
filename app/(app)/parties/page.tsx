@@ -123,11 +123,13 @@ export default function PartiesPage() {
                     <td className="text-muted-foreground">{p.phone ? <span className="inline-flex items-center gap-1.5"><Phone size={13} />{p.phone}</span> : "—"}</td>
                     <td className="text-muted-foreground">{p.city ?? "—"}</td>
                     <td className={`num font-extrabold ${BigInt(p.balance) > 0n ? "text-accent" : ""}`}>{fmtMoney(p.balance)}</td>
-                    <td className="text-right whitespace-nowrap">
+                    <td className="whitespace-nowrap">
+                      <div className="flex items-center justify-end gap-1.5">
                       <Link href={`/reports/party-ledger?party=${p.id}`} className="btn btn-ghost !p-2" aria-label={t("parties.view360")} title={t("parties.view360")}>
                         <Eye size={15} />
                       </Link>
                       <button className="btn btn-ghost !p-2" onClick={() => openEdit(p)} aria-label={t("common.edit")}><Pencil size={15} /></button>
+                      </div>
                     </td>
                   </tr>
                 ))}
