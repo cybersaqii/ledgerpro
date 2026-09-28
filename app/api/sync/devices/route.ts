@@ -1,21 +1,17 @@
 // List enrolled sync devices. Owners see every device in the company;
 // staff see only their own. Token hashes are never exposed.
+// Auth: cookie session (web) or device token (requireCompanyOrDevice) —
+// the Bearer path is PRO/trial-gated via requireDevice().
+import { NextRequest } from "next/server";
 import { eq, and } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { deviceTokens, users } from "@/db/schema";
 import { json } from "@/lib/api";
-import { requireCompany } from "@/lib/route-helpers";
+import { requireCompanyOrDevice } from "@/lib/sync-auth";
 
-export async function GET() {
-  const gate = await requireCompany();
+export async function GET(req: NextRequest) {
+  const gate = await requireCompanyOrDevice(req);
   if (!gate.ok) return gate.response;
-
-  const [u] = await db
-    .select({ role: users.role })
-    .from(users)
-    .where(eq(users.id, gate.session.uid))
-    .limit(1);
-  const isOwner = u?.role === "OWNER";
 
   const rows = await db
     .select({
@@ -31,9 +27,9 @@ export async function GET() {
     .from(deviceTokens)
     .innerJoin(users, eq(users.id, deviceTokens.userId))
     .where(
-      isOwner
+      gate.isOwner
         ? eq(deviceTokens.companyId, gate.companyId)
-        : and(eq(deviceTokens.companyId, gate.companyId), eq(deviceTokens.userId, gate.session.uid))
+        : and(eq(deviceTokens.companyId, gate.companyId), eq(deviceTokens.userId, gate.userId))
     )
     .orderBy(deviceTokens.createdAt);
 

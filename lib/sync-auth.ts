@@ -11,6 +11,7 @@ import { eq } from "drizzle-orm";
 import { deviceTokens, users } from "@/db/schema";
 import { db } from "./db";
 import { json } from "./api";
+import { requireCompany } from "./route-helpers";
 import { getUserPermissions, type Permission } from "./permissions";
 import { PERMISSIONS } from "./permission-keys";
 import { billingStatusFor, type BillingStatus } from "./billing-guards";
@@ -145,6 +146,89 @@ export async function requireDevice(req: NextRequest): Promise<DeviceGate> {
       grants,
       billing,
     },
+    response: null,
+  };
+}
+
+/**
+ * Dual auth for the sync device-management endpoints (/api/sync/devices*),
+ * which must serve both the web Settings screen (cookie session) and the
+ * offline device itself (device token, e.g. its "Log out this device" button).
+ *
+ * Decision semantics:
+ * - The request carries an `Authorization: Bearer <token>` header → it is a
+ *   device-token attempt: authenticate via requireDevice(). Its 401/403
+ *   responses (invalid, revoked, PRO-gated) stand as-is — no cookie fallback.
+ * - No Bearer credential → fall back to requireCompany() (cookie session),
+ *   exactly the pre-existing web behavior.
+ */
+export type CompanyOrDeviceGate =
+  | {
+      ok: true;
+      companyId: string;
+      userId: string;
+      userName: string;
+      isOwner: boolean;
+      response: null;
+    }
+  | {
+      ok: false;
+      companyId: null;
+      userId: null;
+      userName: null;
+      isOwner: false;
+      response: NextResponse;
+    };
+
+export async function requireCompanyOrDevice(req: NextRequest): Promise<CompanyOrDeviceGate> {
+  const auth = (req.headers.get("authorization") || "").trim();
+  if (/^Bearer\s+\S+/.test(auth)) {
+    const dg = await requireDevice(req);
+    if (!dg.ok) {
+      return {
+        ok: false,
+        companyId: null,
+        userId: null,
+        userName: null,
+        isOwner: false,
+        response: dg.response,
+      };
+    }
+    const ds = dg.ds;
+    return {
+      ok: true,
+      companyId: ds.companyId,
+      userId: ds.userId,
+      userName: ds.userName,
+      isOwner: ds.isOwner,
+      response: null,
+    };
+  }
+
+  const cg = await requireCompany();
+  if (!cg.ok) {
+    return {
+      ok: false,
+      companyId: null,
+      userId: null,
+      userName: null,
+      isOwner: false,
+      response: cg.response,
+    };
+  }
+  // Live role + name re-read (the same query the endpoints did before), so
+  // demotions and renames take effect on the next call.
+  const [u] = await db
+    .select({ role: users.role, name: users.name })
+    .from(users)
+    .where(eq(users.id, cg.session.uid))
+    .limit(1);
+  return {
+    ok: true,
+    companyId: cg.companyId,
+    userId: cg.session.uid,
+    userName: u?.name ?? cg.session.name,
+    isOwner: u?.role === "OWNER",
     response: null,
   };
 }
