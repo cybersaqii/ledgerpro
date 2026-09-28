@@ -137,7 +137,8 @@ function PaymentFormInner() {
     <div>
       <PageHeader title={isReceipt ? t("payform.receiveTitle") : t("payform.payTitle")}
         subtitle={isReceipt ? t("payform.receiveSub") : t("payform.paySub")} />
-      <form onSubmit={submit} className="mx-auto max-w-2xl space-y-5">
+      <form onSubmit={submit} className={outstanding.length > 0 ? "grid items-start gap-5 lg:grid-cols-[minmax(0,1fr)_380px]" : "mx-auto max-w-2xl"}>
+        <div className="min-w-0 space-y-5">
         <ErrorNote message={error} />
 
         <div className="card p-5 sm:p-6">
@@ -214,13 +215,18 @@ function PaymentFormInner() {
           </div>
         </div>
 
+        <button className="btn btn-primary w-full !py-3.5 !text-base" disabled={saving}>
+          {saving ? t("payform.saving") : isReceipt ? t("payform.saveReceipt") : t("payform.savePayment")}
+        </button>
+        </div>
+
         {outstanding.length > 0 && (
-          <div className="card p-5 sm:p-6">
+          <div className="card p-5 sm:p-6 lg:sticky lg:top-20">
             <h2 className="text-base font-bold">{t("payform.allocateTitle")}</h2>
             <p className="mt-0.5 text-sm text-muted-foreground">
               {t("payform.allocateSummary", { count: outstanding.length, allocated: `Rs ${(allocTotal / 100).toLocaleString()}`, total: `Rs ${(amountPaisa / 100).toLocaleString() || "0"}` })}
             </p>
-            <ul className="mt-4 space-y-2">
+            <ul className="mt-4 max-h-[52vh] space-y-2 overflow-y-auto pr-1">
               {outstanding.map((o) => (
                 <li key={o.id} className={`flex items-center gap-3 rounded-xl border p-3 ${alloc[o.id] ? "border-primary bg-primary-soft/40" : "border-border"}`}>
                   <input type="checkbox" checked={!!alloc[o.id]} onChange={() => toggleAlloc(o.id, o.balance)}
@@ -241,9 +247,6 @@ function PaymentFormInner() {
           </div>
         )}
 
-        <button className="btn btn-primary w-full !py-3.5 !text-base" disabled={saving}>
-          {saving ? t("payform.saving") : isReceipt ? t("payform.saveReceipt") : t("payform.savePayment")}
-        </button>
       </form>
     </div>
   );
