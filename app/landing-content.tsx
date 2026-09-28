@@ -24,23 +24,21 @@ const features = [
 ];
 
 const businessTypes = [
-  { icon: Boxes, l: "mq0", grad: "from-emerald-500 to-teal-600", glow: "group-hover:shadow-emerald-500/30" },
-  { icon: Store, l: "mq1", grad: "from-amber-500 to-orange-600", glow: "group-hover:shadow-amber-500/30" },
-  { icon: Truck, l: "mq2", grad: "from-blue-500 to-indigo-600", glow: "group-hover:shadow-blue-500/30" },
-  { icon: Pill, l: "mq3", grad: "from-cyan-500 to-sky-600", glow: "group-hover:shadow-cyan-500/30" },
-  { icon: Stethoscope, l: "mq4", grad: "from-rose-500 to-pink-600", glow: "group-hover:shadow-rose-500/30" },
-  { icon: UtensilsCrossed, l: "mq5", grad: "from-orange-500 to-red-500", glow: "group-hover:shadow-orange-500/30" },
-  { icon: Briefcase, l: "mq6", grad: "from-violet-500 to-purple-600", glow: "group-hover:shadow-violet-500/30" },
-  { icon: Factory, l: "mq7", grad: "from-slate-500 to-slate-700", glow: "group-hover:shadow-slate-500/30" },
+  { icon: Boxes, l: "mq0", d: "bd0" },
+  { icon: Store, l: "mq1", d: "bd1" },
+  { icon: Truck, l: "mq2", d: "bd2" },
+  { icon: Pill, l: "mq3", d: "bd3" },
+  { icon: Stethoscope, l: "mq4", d: "bd4" },
+  { icon: UtensilsCrossed, l: "mq5", d: "bd5" },
+  { icon: Briefcase, l: "mq6", d: "bd6" },
+  { icon: Factory, l: "mq7", d: "bd7" },
 ];
 
-const featureGrads = [
-  "from-emerald-500 to-teal-600",
-  "from-amber-500 to-orange-600",
-  "from-blue-500 to-indigo-600",
-  "from-cyan-500 to-sky-600",
-  "from-rose-500 to-pink-600",
-  "from-violet-500 to-purple-600",
+const stats = [
+  { v: "stat0v", l: "stat0l" },
+  { v: "stat1v", l: "stat1l" },
+  { v: "stat2v", l: "stat2l" },
+  { v: "stat3v", l: "stat3l" },
 ];
 
 const steps = [
@@ -58,9 +56,9 @@ const faqs = [
 ];
 
 const trust = [
-  { t: "tr0t", d: "tr0d", icon: Landmark, grad: "from-emerald-500 to-teal-600" },
-  { t: "tr1t", d: "tr1d", icon: Users, grad: "from-amber-500 to-orange-600" },
-  { t: "tr2t", d: "tr2d", icon: ShieldCheck, grad: "from-blue-500 to-indigo-600" },
+  { t: "tr0t", d: "tr0d", icon: Landmark },
+  { t: "tr1t", d: "tr1d", icon: Users },
+  { t: "tr2t", d: "tr2d", icon: ShieldCheck },
 ];
 
 const heroPoints = ["hp0", "hp1", "hp2", "hp3"];
@@ -208,27 +206,26 @@ export default function LandingContent() {
             </div>
           </div>
         </div>
-        <div className="relative h-14" />
       </section>
 
       {/* Paper vs LedgerPro */}
       <section className="relative overflow-hidden">
         <div className="pointer-events-none absolute inset-0">
-          <div className="absolute -left-24 top-10 h-72 w-72 rounded-full bg-emerald-300/25 blur-[100px]" />
-          <div className="absolute -right-24 bottom-10 h-72 w-72 rounded-full bg-amber-200/40 blur-[100px]" />
+          <div className="absolute -left-24 top-10 h-72 w-72 rounded-full bg-emerald-200/40 blur-[110px] dark:bg-emerald-400/10" />
+          <div className="absolute -right-24 bottom-10 h-72 w-72 rounded-full bg-amber-100/60 blur-[110px] dark:bg-amber-400/10" />
         </div>
-        <div className="relative mx-auto max-w-[1400px] px-4 py-16 sm:px-8 sm:py-24">
+        <div className="relative mx-auto max-w-[1400px] px-4 py-16 sm:px-8 sm:py-24 lg:px-12">
           <div className="text-center">
-            <span className="inline-flex items-center gap-1.5 rounded-full bg-red-500/10 px-4 py-1.5 text-xs font-bold uppercase tracking-wider text-red-600">
+            <span className="inline-flex items-center gap-1.5 rounded-full bg-amber-500/10 px-4 py-1.5 text-xs font-bold uppercase tracking-wider text-amber-700 dark:text-amber-300">
               <TriangleAlert size={13} /> {L("paperKicker")}
             </span>
             <h2 className="mt-4 text-3xl font-extrabold tracking-tight sm:text-4xl">{L("paperTitle")}</h2>
             <p className="mx-auto mt-3 max-w-xl text-muted-foreground">{L("paperSub")}</p>
           </div>
-          <div className="mx-auto mt-10 grid max-w-4xl gap-5 md:grid-cols-2 md:gap-6">
-            <div className="rounded-3xl border border-border bg-card/80 p-7 shadow-sm backdrop-blur transition hover:shadow-md sm:p-8">
+          <div className="mx-auto mt-10 grid max-w-5xl gap-5 md:grid-cols-2 md:gap-8">
+            <div className="rounded-3xl border border-border bg-card/80 p-8 shadow-sm backdrop-blur transition hover:shadow-md sm:p-10">
               <p className="text-sm font-bold uppercase tracking-wider text-muted-foreground">{L("paperColT")}</p>
-              <ul className="mt-5 space-y-3.5">
+              <ul className="mt-6 space-y-4">
                 {paperBad.map((k) => (
                   <li key={k} className="flex items-start gap-2.5 text-sm text-muted-foreground">
                     <XCircle size={17} className="mt-0.5 shrink-0 text-red-400" /> {L(k)}
@@ -237,10 +234,10 @@ export default function LandingContent() {
               </ul>
             </div>
             <div className="rounded-3xl bg-gradient-to-br from-emerald-500 via-teal-500 to-emerald-600 p-[2px] shadow-xl shadow-emerald-500/20 transition hover:shadow-2xl hover:shadow-emerald-500/30">
-              <div className="relative h-full rounded-[calc(1.5rem-2px)] bg-card p-7 sm:p-8">
-                <span className="absolute -top-3.5 left-6 rounded-full bg-gradient-to-r from-emerald-600 to-teal-600 px-3.5 py-1 text-[0.68rem] font-extrabold uppercase tracking-wider text-white shadow-md">{L("recommended")}</span>
+              <div className="relative h-full rounded-[calc(1.5rem-2px)] bg-card p-8 sm:p-10">
+                <span className="absolute -top-3.5 left-8 rounded-full bg-gradient-to-r from-emerald-600 to-teal-600 px-3.5 py-1 text-[0.68rem] font-extrabold uppercase tracking-wider text-white shadow-md">{L("recommended")}</span>
                 <p className="bg-gradient-to-r from-emerald-600 to-teal-600 bg-clip-text text-sm font-extrabold uppercase tracking-wider text-transparent">{b}</p>
-                <ul className="mt-5 space-y-3.5">
+                <ul className="mt-6 space-y-4">
                   {paperGood.map((k) => (
                     <li key={k} className="flex items-start gap-2.5 text-sm font-medium">
                       <CheckCircle2 size={17} className="mt-0.5 shrink-0 text-emerald-600" /> {L(k)}
@@ -259,26 +256,39 @@ export default function LandingContent() {
         </div>
       </section>
 
-      {/* Businesses */}
-      <section id="businesses" className="relative overflow-hidden">
-        <div className="pointer-events-none absolute inset-0">
-          <div className="absolute left-1/2 top-0 h-64 w-[42rem] -translate-x-1/2 rounded-full bg-emerald-200/30 blur-[110px]" />
+      {/* Stats band */}
+      <section className="relative border-y border-border/60 bg-muted/40">
+        <div className="mx-auto grid max-w-[1400px] grid-cols-2 gap-6 px-4 py-10 sm:px-8 sm:py-12 lg:grid-cols-4 lg:px-12">
+          {stats.map((s) => (
+            <div key={s.v} className="text-center">
+              <p className="bg-gradient-to-r from-emerald-600 to-teal-600 bg-clip-text text-3xl font-extrabold tracking-tight text-transparent sm:text-4xl">{L(s.v)}</p>
+              <p className="mt-1.5 text-xs font-semibold uppercase tracking-wider text-muted-foreground sm:text-sm sm:normal-case sm:tracking-normal">{L(s.l)}</p>
+            </div>
+          ))}
         </div>
-        <div className="relative mx-auto max-w-[1400px] px-4 py-16 sm:px-8 sm:py-24">
+      </section>
+
+      {/* Businesses */}
+      <section id="businesses" className="relative overflow-hidden border-b border-border/40 bg-gradient-to-b from-emerald-50/70 via-emerald-50/30 to-background dark:from-emerald-950/25 dark:via-emerald-950/10 dark:to-background">
+        <div className="pointer-events-none absolute inset-0">
+          <div className="absolute left-1/2 top-0 h-64 w-[42rem] -translate-x-1/2 rounded-full bg-emerald-200/40 blur-[110px] dark:bg-emerald-400/10" />
+        </div>
+        <div className="relative mx-auto max-w-[1400px] px-4 py-16 sm:px-8 sm:py-24 lg:px-12">
           <div className="text-center">
             <span className="inline-flex items-center gap-1.5 rounded-full bg-primary/10 px-4 py-1.5 text-xs font-bold uppercase tracking-wider text-primary">
               <Sparkles size={13} /> {L("bizKicker")}
             </span>
             <h2 className="mt-4 text-3xl font-extrabold tracking-tight sm:text-4xl">{L("bizTitle")}</h2>
-            <p className="mx-auto mt-3 max-w-xl text-muted-foreground">{L("bizSub")}</p>
+            <p className="mx-auto mt-3 max-w-2xl text-muted-foreground">{L("bizSub")}</p>
           </div>
-          <div className="mt-10 grid grid-cols-2 gap-3 sm:grid-cols-4 sm:gap-4">
+          <div className="mt-10 grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
             {businessTypes.map((bt) => (
-              <div key={bt.l} className={`card group flex items-center gap-2 p-3 transition duration-300 hover:-translate-y-1 hover:shadow-xl ${bt.glow} sm:gap-3 sm:p-5`}>
-                <span className={`grid h-9 w-9 shrink-0 place-items-center rounded-2xl bg-gradient-to-br ${bt.grad} text-white shadow-md sm:h-12 sm:w-12`}>
-                  <bt.icon size={16} className="sm:h-[21px] sm:w-[21px]" />
+              <div key={bt.l} className="card group p-4 transition duration-300 hover:-translate-y-1 hover:border-primary/40 hover:shadow-xl hover:shadow-primary/10 sm:p-6">
+                <span className="grid h-11 w-11 place-items-center rounded-2xl bg-primary/10 text-primary transition group-hover:scale-110 group-hover:bg-primary group-hover:text-white sm:h-12 sm:w-12">
+                  <bt.icon size={20} />
                 </span>
-                <p className="min-w-0 flex-1 break-words text-[0.72rem] font-bold leading-tight sm:text-sm">{L(bt.l)}</p>
+                <p className="mt-3.5 text-sm font-bold sm:text-base">{L(bt.l)}</p>
+                <p className="mt-1 text-xs leading-relaxed text-muted-foreground sm:text-[0.83rem]">{L(bt.d)}</p>
               </div>
             ))}
           </div>
@@ -286,22 +296,22 @@ export default function LandingContent() {
       </section>
 
       {/* Features */}
-      <section id="features" className="relative overflow-hidden bg-gradient-to-b from-background via-emerald-50/50 to-background dark:via-emerald-950/20">
-        <div className="relative mx-auto max-w-[1400px] px-4 py-16 sm:px-8 sm:py-24">
+      <section id="features" className="relative overflow-hidden">
+        <div className="relative mx-auto max-w-[1400px] px-4 py-16 sm:px-8 sm:py-24 lg:px-12">
           <div className="text-center">
             <span className="inline-flex items-center gap-1.5 rounded-full bg-primary/10 px-4 py-1.5 text-xs font-bold uppercase tracking-wider text-primary">
               <Boxes size={13} /> {L("featKicker")}
             </span>
             <h2 className="mt-4 text-3xl font-extrabold tracking-tight sm:text-4xl">{L("featTitle")}</h2>
-            <p className="mx-auto mt-3 max-w-xl text-muted-foreground">{L("featSub", { brand: b })}</p>
+            <p className="mx-auto mt-3 max-w-2xl text-muted-foreground">{L("featSub", { brand: b })}</p>
           </div>
-          <div className="mt-10 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {features.map((f, i) => (
-              <div key={f.t} className="card card-gloss group p-6 transition duration-300 hover:-translate-y-1 hover:shadow-xl hover:shadow-primary/10">
-                <span className={`grid h-12 w-12 place-items-center rounded-2xl bg-gradient-to-br ${featureGrads[i % featureGrads.length]} text-white shadow-md transition group-hover:scale-110`}>
+          <div className="mt-10 grid gap-4 sm:grid-cols-2 lg:grid-cols-3 lg:gap-5">
+            {features.map((f) => (
+              <div key={f.t} className="card group p-6 transition duration-300 hover:-translate-y-1 hover:border-primary/40 hover:shadow-xl hover:shadow-primary/10 sm:p-7">
+                <span className="grid h-12 w-12 place-items-center rounded-2xl bg-primary/10 text-primary transition group-hover:scale-110 group-hover:bg-primary group-hover:text-white">
                   <f.icon size={22} />
                 </span>
-                <h3 className="mt-4 text-base font-bold">{L(f.t)}</h3>
+                <h3 className="mt-4 text-base font-bold sm:text-lg">{L(f.t)}</h3>
                 <p className="mt-1.5 text-sm leading-relaxed text-muted-foreground">{L(f.d)}</p>
               </div>
             ))}
@@ -321,7 +331,7 @@ export default function LandingContent() {
           <div className="absolute -bottom-24 right-1/4 h-72 w-[36rem] rounded-full bg-teal-300/10 blur-[110px]" />
           <div className="absolute inset-0 opacity-[0.05]" style={{ backgroundImage: "radial-gradient(circle at 1px 1px, #fff 1px, transparent 0)", backgroundSize: "28px 28px" }} />
         </div>
-        <div className="relative mx-auto max-w-[1400px] px-4 py-16 sm:px-8 sm:py-24">
+        <div className="relative mx-auto max-w-[1400px] px-4 py-16 sm:px-8 sm:py-24 lg:px-12">
           <div className="text-center">
             <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-4 py-1.5 text-xs font-bold uppercase tracking-wider text-emerald-100">
               <Smartphone size={13} /> {L("stepsKicker")}
@@ -332,9 +342,9 @@ export default function LandingContent() {
           <div className="relative mx-auto mt-12 grid max-w-5xl gap-5 md:grid-cols-3">
             <div className="pointer-events-none absolute left-[16%] right-[16%] top-10 hidden border-t-2 border-dashed border-white/15 md:block" aria-hidden />
             {steps.map((s) => (
-              <div key={s.n} className="relative rounded-3xl border border-white/10 bg-white/[0.06] p-7 text-center backdrop-blur transition hover:bg-white/[0.09]">
-                <span className="relative mx-auto grid h-14 w-14 place-items-center rounded-2xl bg-gradient-to-br from-amber-300 to-emerald-400 text-xl font-extrabold text-[#0a2e25] shadow-lg shadow-black/20">{s.n}</span>
-                <h3 className="mt-5 text-base font-bold text-white">{L(s.t)}</h3>
+              <div key={s.n} className="relative rounded-3xl border border-white/10 bg-white/[0.06] p-7 text-center backdrop-blur transition hover:bg-white/[0.09] sm:p-8">
+                <span className="relative mx-auto grid h-14 w-14 place-items-center rounded-2xl bg-amber-400 text-xl font-extrabold text-emerald-950 shadow-lg shadow-black/25">{s.n}</span>
+                <h3 className="mt-5 text-base font-bold text-white sm:text-lg">{L(s.t)}</h3>
                 <p className="mt-1.5 text-sm leading-relaxed text-emerald-100/70">{L(s.d)}</p>
               </div>
             ))}
@@ -344,16 +354,16 @@ export default function LandingContent() {
 
       {/* Trust strip */}
       <section className="relative overflow-hidden">
-        <div className="relative mx-auto max-w-[1400px] px-4 py-14 sm:px-8">
+        <div className="relative mx-auto max-w-[1400px] px-4 py-14 sm:px-8 lg:px-12">
           <div className="grid gap-4 sm:grid-cols-3">
             {trust.map((x) => (
-              <div key={x.t} className="group flex items-start gap-4 rounded-3xl border border-border bg-card p-6 transition duration-300 hover:-translate-y-1 hover:shadow-xl">
-                <span className={`grid h-12 w-12 shrink-0 place-items-center rounded-2xl bg-gradient-to-br ${x.grad} text-white shadow-md transition group-hover:scale-110`}>
+              <div key={x.t} className="group flex items-start gap-4 rounded-3xl border border-border bg-card p-6 transition duration-300 hover:-translate-y-1 hover:border-primary/40 hover:shadow-xl hover:shadow-primary/10 sm:p-7">
+                <span className="grid h-12 w-12 shrink-0 place-items-center rounded-2xl bg-primary/10 text-primary transition group-hover:scale-110 group-hover:bg-primary group-hover:text-white">
                   <x.icon size={21} />
                 </span>
                 <div>
                   <p className="font-bold">{L(x.t)}</p>
-                  <p className="mt-1 text-sm text-muted-foreground">{L(x.d)}</p>
+                  <p className="mt-1 text-sm leading-relaxed text-muted-foreground">{L(x.d)}</p>
                 </div>
               </div>
             ))}
@@ -363,7 +373,7 @@ export default function LandingContent() {
 
       {/* FAQ */}
       <section id="faq" className="relative overflow-hidden bg-gradient-to-b from-background via-emerald-50/40 to-background dark:via-emerald-950/10">
-        <div className="relative mx-auto grid max-w-[1400px] gap-10 px-4 py-16 sm:px-8 sm:py-24 lg:grid-cols-[1fr_1.5fr]">
+        <div className="relative mx-auto grid max-w-[1400px] gap-10 px-4 py-16 sm:px-8 sm:py-24 lg:grid-cols-[1fr_1.5fr] lg:px-12">
           <div className="lg:sticky lg:top-24 lg:self-start">
             <span className="inline-flex items-center gap-1.5 rounded-full bg-primary/10 px-4 py-1.5 text-xs font-bold uppercase tracking-wider text-primary">
               <CheckCircle2 size={13} /> {L("navFaq")}
@@ -389,7 +399,7 @@ export default function LandingContent() {
       </section>
 
       {/* CTA */}
-      <section className="mx-auto max-w-[1400px] px-4 pb-20 sm:px-8">
+      <section className="mx-auto max-w-[1400px] px-4 pb-20 sm:px-8 lg:px-12">
         <div className="relative overflow-hidden rounded-3xl p-10 text-center sm:p-14">
           <div className="absolute inset-0 bg-gradient-to-br from-[#0a2e25] via-[#0d4a3a] to-[#0d7a5f]" />
           <div className="pointer-events-none absolute inset-0">
