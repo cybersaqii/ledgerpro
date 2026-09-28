@@ -79,6 +79,11 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 
+/* Urdu mode: clean Naskh-style font so beginners can read easily */
+html[lang="ur"] body {
+  font-family: var(--font-urdu), var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
+}
+
 /* Glossy card */
 .card {
   background: var(--card);
