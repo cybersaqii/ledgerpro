@@ -95,13 +95,15 @@ html[lang="ur"] body {
 
 .card-gloss {
   position: relative;
-  overflow: hidden;
+  /* NOTE: no overflow:hidden here — it clips absolutely-positioned dropdowns
+     (party/product pickers) inside cards. The gloss layer rounds its own corners. */
 }
 .card-gloss::before {
   content: "";
   position: absolute;
   inset: 0 0 auto 0;
   height: 48%;
+  border-radius: inherit;
   background: linear-gradient(to bottom, rgb(255 255 255 / 0.10), transparent);
   pointer-events: none;
 }
