@@ -572,3 +572,14 @@ body::before {
   .card-lift, .tbl tbody tr, .kpi-tile-go { transition: none !important; }
   .btn-primary:hover, .btn-accent:hover, .btn-ghost:hover, .card-lift:hover { transform: none !important; }
 }
+
+/* Hide number-input spinner arrows everywhere (Chrome/Safari/Firefox) */
+input[type="number"]::-webkit-outer-spin-button,
+input[type="number"]::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+input[type="number"] {
+  -moz-appearance: textfield;
+  appearance: textfield;
+}
