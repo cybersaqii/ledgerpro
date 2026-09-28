@@ -81,7 +81,7 @@ export async function POST(req: NextRequest) {
   if (lockErr) return err(lockErr, 422);
 
   try {
-    const paymentId = await db.transaction(async (tx) => {
+    const paymentResult = await db.transaction(async (tx) => {
       const branchId = b.branchId || (await defaultBranchId(tx, companyId));
       await assertBranch(tx, companyId, branchId);
 
@@ -97,7 +97,7 @@ export async function POST(req: NextRequest) {
         partyId = pr[0].id;
  }
 
-      return postPayment(tx, {
+      const { id: pid, docNo } = await postPayment(tx, {
         companyId,
         branchId,
         kind: b.kind,
@@ -115,13 +115,15 @@ export async function POST(req: NextRequest) {
  })),
         createdById: session.uid,
  });
+      return { id: pid, docNo };
  });
+    const { id: paymentId, docNo } = paymentResult;
     await logAudit(db, {
       companyId, userId: session.uid, userName: session.name,
       action: "payment.created", entity: "payment", entityId: paymentId,
-      detail: `Payment ${paymentId.slice(0, 8)}`,
+      detail: `Payment ${docNo}`,
  });
-    return json({ data: { id: paymentId } }, { status: 201 });
+    return json({ data: { id: paymentId, docNo } }, { status: 201 });
  } catch (e) {
     return toApiError(e, { route: "/api/payments", companyId });
  }

@@ -68,6 +68,7 @@ export async function GET(req: NextRequest) {
       memo: journalEntries.memo,
       reference: journalEntries.reference,
       source: journalEntries.source,
+      sourceId: journalEntries.sourceId,
       debit: journalLines.debit,
       credit: journalLines.credit,
     })
@@ -90,6 +91,7 @@ export async function GET(req: NextRequest) {
       memo: l.memo,
       reference: l.reference,
       source: l.source,
+      sourceId: l.sourceId,
       debit: l.debit.toString(),
       credit: l.credit.toString(),
       balance: running.toString(),

@@ -9,6 +9,8 @@ import {
   products,
   docBatchUsage,
   productBatches,
+  paymentAllocations,
+  payments,
 } from "@/db/schema";
 import type { Db } from "@/lib/db";
 
@@ -32,6 +34,36 @@ async function batchInfoForDoc(db: Db, companyId: string, docId: string) {
   return map;
 }
 
+/** Payments/receipts allocated against one document (for the doc print screen). */
+async function paymentsForDoc(
+  db: Db,
+  docId: string,
+  side: "SALES" | "PURCHASE"
+) {
+  const cond =
+    side === "SALES"
+      ? eq(paymentAllocations.salesDocId, docId)
+      : eq(paymentAllocations.purchaseDocId, docId);
+  const rows = await db
+    .select({
+      paymentId: payments.id,
+      docNo: payments.docNo,
+      kind: payments.kind,
+      date: payments.date,
+      amount: paymentAllocations.amount,
+    })
+    .from(paymentAllocations)
+    .innerJoin(payments, eq(paymentAllocations.paymentId, payments.id))
+    .where(cond)
+    .orderBy(payments.date);
+  return rows.map((r) => ({
+    id: r.paymentId,
+    docNo: r.docNo,
+    kind: r.kind,
+    date: (r.date as unknown as Date).getTime(),
+    amount: r.amount.toString(),
+  }));
+}
 /**
  * Invoice/bill detail for the print screen (components/doc-detail.tsx).
  * Includes the party phone, each line's product unit + SKU (for the item
@@ -69,7 +101,7 @@ export async function getSalesDocDetail(db: Db, companyId: string, id: string) {
       .limit(1);
     journal = je[0] ?? null;
   }
-  return { ...row.doc, partyName: row.partyName, partyPhone: row.partyPhone, items, journal };
+  return { ...row.doc, partyName: row.partyName, partyPhone: row.partyPhone, items, journal, payments: await paymentsForDoc(db, id, "SALES") };
 }
 
 export async function getPurchaseDocDetail(db: Db, companyId: string, id: string) {
@@ -93,5 +125,5 @@ export async function getPurchaseDocDetail(db: Db, companyId: string, id: string
     sku: r.sku,
     batches: r.item.productId ? batches.get(r.item.productId) ?? [] : [],
   }));
-  return { ...row.doc, partyName: row.partyName, partyPhone: row.partyPhone, items };
+  return { ...row.doc, partyName: row.partyName, partyPhone: row.partyPhone, items, payments: await paymentsForDoc(db, id, "PURCHASE") };
 }

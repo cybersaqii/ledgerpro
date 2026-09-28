@@ -6,9 +6,10 @@ import { PageHeader, Field, ExportCsv } from "@/components/ui";
 import { csvMoney } from "@/lib/csv";
 import { useLang } from "@/components/lang-provider";
 import { api, fmtMoney, fmtDate, fmtDateInput } from "@/lib/format";
+import { DocRefLink } from "@/components/doc-link";
 
 type Line = { accountCode: string; accountName: string; partyName: string | null; debit: string; credit: string };
-type Voucher = { id: string; date: number | string; memo: string; reference: string | null; source: string; lines: Line[] };
+type Voucher = { id: string; date: number | string; memo: string; reference: string | null; source: string; sourceId: string | null; lines: Line[] };
 
 export default function DayBookPage() {
   const { t } = useLang();
@@ -76,7 +77,7 @@ export default function DayBookPage() {
           {entries.map((v) => (
             <div key={v.id} className="card overflow-hidden">
               <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border bg-muted/50 px-5 py-3">
-                <p className="font-extrabold">{v.reference || v.source}</p>
+                <DocRefLink source={v.source} sourceId={v.sourceId} label={<p className="font-extrabold">{v.reference || v.source}</p>} className="hover:underline" />
                 <p className="text-xs text-muted-foreground">{fmtDate(v.date)} · {v.source}</p>
               </div>
               <p className="px-5 pt-3 text-sm text-muted-foreground">{v.memo}</p>

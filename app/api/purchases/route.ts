@@ -5,13 +5,14 @@ import { purchaseDocSchema } from "@/lib/validators";
 import { computeTotals, type DocItemInput } from "@/lib/totals";
 import { parseMoney } from "@/lib/money";
 import { parseQty } from "@/lib/qty";
-import { postPurchaseDoc, distributeExtraCost } from "@/lib/posting";
+import { postPurchaseDoc, distributeExtraCost, postPayment } from "@/lib/posting";
 import { periodLockError } from "@/lib/period";
 import { nextDocNo } from "@/lib/setup";
 import { json, err } from "@/lib/api";
 import { toApiError } from "@/lib/errors";
 import { requirePermission, db, parseDateOnly, defaultBranchId, assertBranch } from "@/lib/route-helpers";
 import { logAudit } from "@/lib/audit";
+import { userHasPermission } from "@/lib/permissions";
 import type { Permission } from "@/lib/permissions";
 
 const POSTED_TYPES = ["BILL", "RETURN"] as const;
@@ -78,6 +79,13 @@ export async function POST(req: NextRequest) {
   if (!gate.ok) return gate.response;
   const { session, companyId } = gate;
   const b = parsed.data;
+
+  // A payment moves money, so paying with the bill needs the payments
+  // permission on top of the purchases permission.
+  if (b.receipt && b.docType === "BILL") {
+    const canPay = await userHasPermission(db, session.uid, "payments");
+    if (!canPay) return err("You don't have permission to record payments.", 403);
+  }
 
   const partyRows = await db
     .select()
@@ -204,6 +212,7 @@ export async function POST(req: NextRequest) {
       );
 
       let entryId: string | null = null;
+      let paymentDocNo: string | null = null;
       if (isPosted) {
         entryId = await postPurchaseDoc(tx, {
           companyId,
@@ -229,8 +238,36 @@ export async function POST(req: NextRequest) {
           extraCostAccountId: b.extraCostAccountId || undefined,
         });
         await tx.update(purchaseDocs).set({ journalEntryId: entryId }).where(eq(purchaseDocs.id, docId));
+        // Add Payment: posted in the same transaction, allocated to this bill.
+        if (b.docType === "BILL" && b.receipt) {
+          const r = b.receipt;
+          const rDate = parseDateOnly(r.date);
+          const rLock = await periodLockError(tx, companyId, rDate);
+          if (rLock) throw new Error(rLock);
+          const rAmount = parseMoney(r.amount);
+          if (rAmount <= 0n) throw new Error("Payment amount must be positive.");
+          const remaining = totals.grandTotal;
+          if (remaining <= 0n) throw new Error("Bill is already fully settled; no payment needed.");
+          // Overpayment stays unallocated on the payment → becomes supplier credit.
+          const alloc = rAmount > remaining ? remaining : rAmount;
+          const rp = await postPayment(tx, {
+            companyId,
+            branchId,
+            kind: "PAYMENT",
+            partyId: party.id,
+            bankAccountId: r.bankAccountId,
+            date: rDate,
+            amount: rAmount,
+            method: r.method || "CASH",
+            reference: r.reference || undefined,
+            notes: `Payment against ${docNo}`,
+            allocations: [{ docId, docKind: "PURCHASE", amount: alloc }],
+            createdById: session.uid,
+          });
+          paymentDocNo = rp.docNo;
+        }
       }
-      return { docId, docNo, entryId };
+      return { docId, docNo, entryId, paymentDocNo };
     });
     await logAudit(db, {
       companyId, userId: session.uid, userName: session.name,
@@ -238,6 +275,14 @@ export async function POST(req: NextRequest) {
       entity: "purchase", entityId: result.docId,
       detail: `${b.docType} ${result.docNo}${totalExtra > 0n ? ` (+ extra costs Rs ${(totalExtra / 100n).toLocaleString()})` : ""}`,
     });
+    if (result.paymentDocNo) {
+      await logAudit(db, {
+        companyId, userId: session.uid, userName: session.name,
+        action: "purchase.payment.created",
+        entity: "purchase", entityId: result.docId,
+        detail: `Payment ${result.paymentDocNo} recorded with ${result.docNo}`,
+      });
+    }
     return json({ data: result }, { status: 201 });
   } catch (e) {
     return toApiError(e, { route: "/api/purchases", companyId });

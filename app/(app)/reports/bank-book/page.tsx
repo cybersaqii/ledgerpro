@@ -6,9 +6,10 @@ import { PageHeader, Field, ExportCsv } from "@/components/ui";
 import { csvMoney } from "@/lib/csv";
 import { useLang } from "@/components/lang-provider";
 import { api, fmtMoney, fmtDate, fmtDateInput } from "@/lib/format";
+import { DocRefLink } from "@/components/doc-link";
 
 type Bank = { id: string; name: string; kind: string };
-type Entry = { date: number | string; memo: string; reference: string | null; source: string; partyName: string | null; debit: string; credit: string; balance: string };
+type Entry = { date: number | string; memo: string; reference: string | null; source: string; sourceId: string | null; partyName: string | null; debit: string; credit: string; balance: string };
 
 export default function BankBookPage() {
   const { t } = useLang();
@@ -115,7 +116,7 @@ export default function BankBookPage() {
                     <tr key={i}>
                       <td className="whitespace-nowrap text-muted-foreground">{fmtDate(e.date)}</td>
                       <td className="max-w-64 truncate">{e.partyName ? `${e.memo} — ${e.partyName}` : e.memo}</td>
-                      <td className="text-muted-foreground">{e.reference ?? e.source}</td>
+                      <td className="text-muted-foreground"><DocRefLink source={e.source} sourceId={e.sourceId} label={e.reference ?? e.source} className="hover:underline" /></td>
                       <td className="num">{BigInt(e.debit) ? fmtMoney(e.debit) : "—"}</td>
                       <td className="num">{BigInt(e.credit) ? fmtMoney(e.credit) : "—"}</td>
                       <td className="num font-bold">{fmtMoney(e.balance)}</td>

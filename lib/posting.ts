@@ -13,7 +13,7 @@ import {
   stockLevels,
   expenses,
 } from "@/db/schema";
-import { SYS, accountMap } from "./setup";
+import { SYS, accountMap, nextDocNo } from "./setup";
 import type { DbTx } from "./db";
 import type { ComputedItem } from "./totals";
 import { UserError } from "./errors";
@@ -486,6 +486,12 @@ export type PostPaymentInput = {
   method: string;
   reference?: string;
   notes?: string;
+  /**
+   * Proposed voucher number (REC-0001 / PAY-0001). Only the sync path sets
+   * this, after resolving availability; every other caller gets a fresh
+   * number from nextDocNo().
+   */
+  docNo?: string;
   allocations: AllocationInput[];
   createdById: string;
 };
@@ -554,7 +560,7 @@ export async function allocatePaymentToDoc(
   }
 }
 
-export async function postPayment(tx: DbTx, input: PostPaymentInput): Promise<string> {
+export async function postPayment(tx: DbTx, input: PostPaymentInput): Promise<{ id: string; docNo: string }> {
   if (input.amount <= 0n) throw new UserError("Payment amount must be positive");
   const ac = await accountMap(tx, input.companyId);
 
@@ -580,6 +586,12 @@ export async function postPayment(tx: DbTx, input: PostPaymentInput): Promise<st
   const isCustomer = party.kind === "CUSTOMER";
   const arApAccount = isCustomer ? ac[SYS.AR] : ac[SYS.AP];
   const isReceipt = input.kind === "RECEIPT";
+
+  // Receipt/voucher number (REC-0001 / PAY-0001) + journal deep-link id, both
+  // known before the journal is written. The sync path may propose the
+  // device's number (already availability-resolved); otherwise allocate fresh.
+  const paymentId = input.id ?? crypto.randomUUID();
+  const docNo = input.docNo ?? (await nextDocNo(tx, input.companyId, isReceipt ? "RECEIPT" : "PAYMENT"));
 
   const allocTotal = input.allocations.reduce((a, x) => a + x.amount, 0n);
   if (allocTotal > input.amount) throw new UserError("Allocated amount exceeds payment amount");
@@ -610,6 +622,7 @@ export async function postPayment(tx: DbTx, input: PostPaymentInput): Promise<st
     memo: `${isReceipt ? "Receipt" : "Payment"}${input.reference ? ` ${input.reference}` : ""}`,
     reference: input.reference,
     source: "PAYMENT",
+    sourceId: paymentId,
     createdById: input.createdById,
     lines: isReceipt
       ? [
@@ -622,12 +635,12 @@ export async function postPayment(tx: DbTx, input: PostPaymentInput): Promise<st
         ],
   });
 
-  const paymentId = input.id ?? crypto.randomUUID();
   await tx.insert(payments).values({
     id: paymentId,
     companyId: input.companyId,
     branchId: input.branchId,
     kind: input.kind,
+    docNo,
     date: input.date,
     partyId: input.partyId,
     bankAccountId: input.bankAccountId,
@@ -661,7 +674,7 @@ export async function postPayment(tx: DbTx, input: PostPaymentInput): Promise<st
     .set({ balance: sql`${bankAccounts.balance} + ${isReceipt ? input.amount : -input.amount}` })
     .where(eq(bankAccounts.id, bank.id));
 
-  return paymentId;
+  return { id: paymentId, docNo };
 }
 
 // ─── Expenses ──────────────────────────────────────────────────

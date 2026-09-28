@@ -439,6 +439,7 @@ export const payments = sqliteTable(
     companyId: text("company_id").notNull(),
     branchId: text("branch_id").notNull(),
     kind: text("kind").notNull(), // RECEIPT | PAYMENT
+    docNo: text("doc_no"), // REC-0001 / PAY-0001 (migration 0022 backfills)
     date: ts("date").notNull(),
     partyId: text("party_id"),
     bankAccountId: text("bank_account_id").notNull(),

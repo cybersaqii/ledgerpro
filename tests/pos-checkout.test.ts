@@ -113,14 +113,14 @@ async function atomicCheckout(opts: {
     for (const p of opts.payWith) {
       const alloc = p.amount > remaining ? remaining : p.amount;
       if (alloc <= 0n) continue;
-      const pid = await postPayment(tx, {
+      const pr = await postPayment(tx, {
         companyId, branchId, kind: "RECEIPT", partyId: opts.customer,
         bankAccountId: p.bankAccountId, date: new Date(), amount: p.amount, method: "CASH",
         notes: "POS sale",
         allocations: [{ docId, docKind: "SALES", amount: alloc }],
         createdById: userId,
       });
-      paymentIds.push(pid);
+      paymentIds.push(pr.id);
       remaining -= alloc;
     }
     return { docId, docNo, paymentIds, grandTotal: totals.grandTotal, paidTotal: totals.grandTotal - remaining };

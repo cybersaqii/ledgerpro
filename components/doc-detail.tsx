@@ -1,7 +1,7 @@
 "use client";
 
-import { use, useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
+import { use, useEffect, useRef, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { ArrowLeft, ArrowRightLeft, MessageCircle, Printer, Undo2, Wallet } from "lucide-react";
 import { PageHeader, StatusPill } from "@/components/ui";
@@ -24,6 +24,7 @@ type Doc = {
   notes: string | null; terms: string | null; refNo: string | null; partyName: string | null; partyId: string | null;
   partyPhone: string | null; sourceDocId: string | null;
   items: Item[];
+  payments?: { id: string; docNo: string | null; kind: string; date: number; amount: string }[] | null;
 };
 type Company = {
   name: string; phone: string | null; address: string | null; city: string | null; ntn: string | null;
@@ -92,6 +93,22 @@ export function DocDetail({ mode, id }: { mode: "SALES" | "PURCHASE"; id: string
   const [formatSel, setFormatSel] = useState<PrintFormat | null>(null);
   const [error, setError] = useState<string | null>(null);
   const isSales = mode === "SALES";
+  const searchParams = useSearchParams();
+  const router = useRouter();
+  const printedRef = useRef(false);
+
+  // Save & Print: the form redirects here with ?print=1 — print once the doc
+  // has loaded, then drop the param so a refresh doesn't print again.
+  useEffect(() => {
+    if (doc && searchParams.get("print") === "1" && !printedRef.current) {
+      printedRef.current = true;
+      const tm = setTimeout(() => {
+        window.print();
+        router.replace(isSales ? `/sales/${id}` : `/purchases/${id}`);
+      }, 500);
+      return () => clearTimeout(tm);
+    }
+  }, [doc, searchParams, id, isSales, router]);
 
   useEffect(() => {
     Promise.all([
@@ -485,6 +502,31 @@ export function DocDetail({ mode, id }: { mode: "SALES" | "PURCHASE"; id: string
 
           <p className="mt-3 text-center text-[11px]">{t("docdetail.thankYou")}</p>
           <p className="mt-1 text-center text-[10px] text-neutral-500">{t("docdetail.poweredBy", { brand: brand.name })}</p>
+        </div>
+      )}
+
+      {/* Payments allocated against this document (screen only — hidden in print) */}
+      {doc.payments && doc.payments.length > 0 && (
+        <div className="card mx-auto mt-5 max-w-3xl p-5 print:hidden sm:p-6">
+          <h2 className="font-extrabold">{t("docdetail.paymentsTitle")}</h2>
+          <div className="mt-3 overflow-x-auto">
+            <table className="tbl">
+              <thead><tr><th>{t("payments.colVoucher")}</th><th>{t("payments.colDate")}</th><th className="num">{t("payments.colAmount")}</th></tr></thead>
+              <tbody>
+                {doc.payments.map((p) => (
+                  <tr key={p.id}>
+                    <td className="whitespace-nowrap">
+                      <Link href={`/payments/${p.id}`} className="font-bold text-primary hover:underline">
+                        {p.docNo ?? "—"}
+                      </Link>
+                    </td>
+                    <td className="whitespace-nowrap text-muted-foreground">{fmtDate(p.date)}</td>
+                    <td className="num font-bold">{fmtMoney(p.amount)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </div>
       )}
 

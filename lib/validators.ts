@@ -91,6 +91,16 @@ export const salesDocSchema = z.object({
   priceOverride: z.boolean().default(false), // explicit override of minimum sale price
   applyAdvance: z.boolean().default(true), // auto-consume customer's unallocated advance on invoices
   overrideCreditLimit: z.boolean().default(false), // owner-confirmed: post even if udhaar crosses the credit limit
+  // Add Receipt / Add Payment: collected with the doc, posted in the same
+  // transaction (INVOICE → RECEIPT allocated to the new invoice,
+  // BILL → PAYMENT allocated to the new bill).
+  receipt: z.object({
+    date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Invalid date"),
+    bankAccountId: z.string().min(1),
+    method: z.string().trim().max(20).default("CASH"),
+    reference: z.string().trim().max(60).optional().or(z.literal("")),
+    amount: moneyStr,
+  }).optional(),
 });
 
 export const purchaseDocSchema = salesDocSchema.extend({
@@ -115,6 +125,8 @@ export const paymentSchema = z.object({
   method: z.enum(["CASH", "BANK", "CHEQUE", "ONLINE"]).default("CASH"),
   reference: z.string().trim().max(80).optional().or(z.literal("")),
   notes: z.string().trim().max(500).optional().or(z.literal("")),
+  /** Sync-only: the voucher number the device assigned (REC-0001 / PAY-0001). */
+  docNo: z.string().trim().min(1).max(40).optional(),
   allocations: z
     .array(
       z.object({

@@ -558,3 +558,210 @@ describe("report account mappings", () => {
     expect(netProfit).toBe(parseMoney("-90"));
   });
 });
+
+describe("payment voucher numbers", () => {
+  const c2 = crypto.randomUUID();
+  let br2 = "";
+  let cust2 = "";
+  let cash2 = "";
+
+  beforeAll(async () => {
+    const res = await setupCompany(db, c2);
+    br2 = res.branchId;
+    cust2 = crypto.randomUUID();
+    await db.insert(s.parties).values({ id: cust2, companyId: c2, kind: "CUSTOMER", name: "Voucher Customer" });
+    const cash = await db
+      .select({ id: s.bankAccounts.id })
+      .from(s.bankAccounts)
+      .where(and(eq(s.bankAccounts.companyId, c2), eq(s.bankAccounts.kind, "CASH")))
+      .limit(1);
+    cash2 = cash[0]!.id;
+  });
+
+  async function receipt(amount: string, docNo?: string) {
+    return db.transaction((tx) =>
+      postPayment(tx, {
+        companyId: c2, branchId: br2, kind: "RECEIPT", partyId: cust2, bankAccountId: cash2,
+        date: new Date(), amount: parseMoney(amount), method: "CASH",
+        ...(docNo ? { docNo } : {}),
+        allocations: [],
+        createdById: userId,
+      })
+    );
+  }
+
+  it("numbers receipts REC-0001, REC-0002… and payments PAY-0001… per company", async () => {
+    const r1 = await receipt("100");
+    const r2 = await receipt("200");
+    expect(r1.docNo).toBe("REC-0001");
+    expect(r2.docNo).toBe("REC-0002");
+    expect(r1.id).not.toBe(r2.id);
+
+    const p1 = await db.transaction((tx) =>
+      postPayment(tx, {
+        companyId: c2, branchId: br2, kind: "PAYMENT", partyId: cust2, bankAccountId: cash2,
+        date: new Date(), amount: parseMoney("50"), method: "CASH",
+        allocations: [],
+        createdById: userId,
+      })
+    );
+    expect(p1.docNo).toBe("PAY-0001");
+  });
+
+  it("honors a proposed docNo and deep-links the journal via sourceId", async () => {
+    const r = await receipt("75", "REC-0099");
+    expect(r.docNo).toBe("REC-0099");
+
+    const entries = await db
+      .select()
+      .from(s.journalEntries)
+      .where(and(eq(s.journalEntries.companyId, c2), eq(s.journalEntries.sourceId, r.id)))
+      .limit(1);
+    expect(entries).toHaveLength(1);
+    expect(entries[0]!.source).toBe("PAYMENT");
+
+    // next allocation continues the sequence, not the proposed number
+    const r2 = await receipt("10");
+    expect(r2.docNo).toBe("REC-0003");
+  });
+
+  it("isolates numbering per company", async () => {
+    // the shared company from the top-level beforeAll has its own sequence
+    const r = await db.transaction((tx) =>
+      postPayment(tx, {
+        companyId, branchId, kind: "RECEIPT", partyId: customerId, bankAccountId: cashAccountId,
+        date: new Date(), amount: parseMoney("5"), method: "CASH",
+        allocations: [],
+        createdById: userId,
+      })
+    );
+    // earlier describes posted 1 successful receipt in the main company
+    // (the over-allocation attempt rolled back) → REC-0002
+    expect(r.docNo).toBe("REC-0002");
+  });
+});
+
+describe("atomic invoice + receipt (mirrors POST /api/sales Add Receipt)", () => {
+  const c3 = crypto.randomUUID();
+  let br3 = "";
+  let cust3 = "";
+  let cash3 = "";
+  let prod3 = "";
+
+  beforeAll(async () => {
+    const res = await setupCompany(db, c3);
+    br3 = res.branchId;
+    cust3 = crypto.randomUUID();
+    prod3 = crypto.randomUUID();
+    await db.insert(s.parties).values({ id: cust3, companyId: c3, kind: "CUSTOMER", name: "Atomic Customer" });
+    await db.insert(s.products).values({
+      id: prod3, companyId: c3, sku: "ATOMIC-1", name: "Atomic Item", unit: "PCS",
+      purchasePrice: parseMoney("80"), salePrice: parseMoney("100"),
+    });
+    const cash = await db
+      .select({ id: s.bankAccounts.id })
+      .from(s.bankAccounts)
+      .where(and(eq(s.bankAccounts.companyId, c3), eq(s.bankAccounts.kind, "CASH")))
+      .limit(1);
+    cash3 = cash[0]!.id;
+    // opening stock for the test product
+    await db.insert(s.stockLevels).values({
+      branchId: br3, productId: prod3,
+      qty: parseQty("100"), avgCost: parseMoney("80"),
+    });
+  });
+
+  /** Mirrors the route: post INVOICE, then the receipt block with capped allocation. */
+  async function invoiceWithReceipt(receiptAmount: string, opts: { bankAccountId?: string } = {}) {
+    return db.transaction(async (tx) => {
+      const totals = computeTotals(
+        [{ productId: prod3, description: "Atomic Item", qtyMilli: parseQty("10"), ratePaisa: parseMoney("100"), discountPaisa: 0n, taxBps: 0 }],
+        0n
+      ); // grand 1000
+      const docNo = await nextDocNo(tx, c3, "INVOICE");
+      const docId = crypto.randomUUID();
+      await tx.insert(s.salesDocs).values({
+        id: docId, companyId: c3, branchId: br3, partyId: cust3, docType: "INVOICE", docNo,
+        date: new Date(), status: "POSTED",
+        subtotal: totals.subtotal, discountTotal: 0n, taxTotal: 0n, grandTotal: totals.grandTotal,
+        createdById: userId,
+      });
+      const entryId = await postSalesDoc(tx, {
+        companyId: c3, branchId: br3, partyId: cust3, docId, docNo, docType: "INVOICE",
+        date: new Date(),
+        items: totals.items.map((i) => ({ ...i, trackStock: true })),
+        discountTotal: 0n, taxTotal: 0n, grandTotal: totals.grandTotal, createdById: userId,
+      });
+      await tx.update(s.salesDocs).set({ journalEntryId: entryId }).where(eq(s.salesDocs.id, docId));
+
+      // route's Add Receipt block
+      const rAmount = parseMoney(receiptAmount);
+      if (rAmount <= 0n) throw new Error("Receipt amount must be positive.");
+      const remaining = totals.grandTotal; // no advance in this test
+      if (remaining <= 0n) throw new Error("Invoice is already fully settled; no receipt needed.");
+      const alloc = rAmount > remaining ? remaining : rAmount;
+      const rp = await postPayment(tx, {
+        companyId: c3, branchId: br3, kind: "RECEIPT", partyId: cust3,
+        bankAccountId: opts.bankAccountId ?? cash3,
+        date: new Date(), amount: rAmount, method: "CASH",
+        notes: `Receipt against ${docNo}`,
+        allocations: [{ docId, docKind: "SALES", amount: alloc }],
+        createdById: userId,
+      });
+      return { docId, docNo, receiptDocNo: rp.docNo, receiptId: rp.id, grandTotal: totals.grandTotal };
+    });
+  }
+
+  it("posts invoice + full receipt atomically: invoice PAID, cash up, udhaar cleared", async () => {
+    const r = await invoiceWithReceipt("1000");
+    expect(r.receiptDocNo).toMatch(/^REC-\d{4}$/);
+
+    const inv = await db.select().from(s.salesDocs).where(eq(s.salesDocs.id, r.docId)).limit(1);
+    expect(inv[0]!.amountPaid).toBe(parseMoney("1000"));
+    expect(inv[0]!.status).toBe("PAID");
+
+    const allocs = await db.select().from(s.paymentAllocations).where(eq(s.paymentAllocations.paymentId, r.receiptId));
+    expect(allocs).toHaveLength(1);
+    expect(allocs[0]!.amount).toBe(parseMoney("1000"));
+    expect(allocs[0]!.salesDocId).toBe(r.docId);
+
+    // invoice 1000 up, receipt 1000 down → customer balance back to 0
+    const bal = await db.select({ b: s.parties.balance }).from(s.parties).where(eq(s.parties.id, cust3)).limit(1);
+    expect(bal[0]!.b).toBe(0n);
+    const cash = await db.select({ b: s.bankAccounts.balance }).from(s.bankAccounts).where(eq(s.bankAccounts.id, cash3)).limit(1);
+    expect(cash[0]!.b).toBe(parseMoney("1000"));
+  });
+
+  it("caps allocation on overpayment: invoice PAID, excess stays as customer credit", async () => {
+    const r = await invoiceWithReceipt("1250"); // invoice is 1000
+    const inv = await db.select().from(s.salesDocs).where(eq(s.salesDocs.id, r.docId)).limit(1);
+    expect(inv[0]!.amountPaid).toBe(parseMoney("1000"));
+    expect(inv[0]!.status).toBe("PAID");
+
+    const allocs = await db.select().from(s.paymentAllocations).where(eq(s.paymentAllocations.paymentId, r.receiptId));
+    expect(allocs).toHaveLength(1);
+    expect(allocs[0]!.amount).toBe(parseMoney("1000")); // capped
+
+    const pay = await db.select().from(s.payments).where(eq(s.payments.id, r.receiptId)).limit(1);
+    expect(pay[0]!.amount).toBe(parseMoney("1250")); // full amount recorded
+
+    // 1000 (invoice) - 1250 (receipt) = -250 → Rs.250 customer credit
+    const bal = await db.select({ b: s.parties.balance }).from(s.parties).where(eq(s.parties.id, cust3)).limit(1);
+    expect(bal[0]!.b).toBe(parseMoney("-250"));
+  });
+
+  it("rolls back the invoice when the receipt fails (bad bank account)", async () => {
+    const before = await db
+      .select({ id: s.salesDocs.id })
+      .from(s.salesDocs)
+      .where(eq(s.salesDocs.companyId, c3));
+    await expect(invoiceWithReceipt("500", { bankAccountId: "no-such-bank" })).rejects.toThrow();
+    const after = await db
+      .select({ id: s.salesDocs.id })
+      .from(s.salesDocs)
+      .where(eq(s.salesDocs.companyId, c3));
+    expect(after.length).toBe(before.length); // invoice rolled back too
+    const pays = await db.select({ id: s.payments.id }).from(s.payments).where(eq(s.payments.companyId, c3));
+    expect(pays.length).toBe(2); // only the two successful receipts above
+  });
+});

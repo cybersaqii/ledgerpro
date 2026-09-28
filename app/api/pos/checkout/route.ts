@@ -190,7 +190,7 @@ export async function POST(req: NextRequest) {
         const p = b.payments[k];
         const alloc = payAmounts[k] > remaining ? remaining : payAmounts[k];
         if (alloc <= 0n) continue;
-        const pid = await postPayment(tx, {
+        const { id: pid } = await postPayment(tx, {
           companyId,
           branchId,
           kind: "RECEIPT",

@@ -5,7 +5,7 @@ import { salesDocSchema } from "@/lib/validators";
 import { computeTotals, type DocItemInput } from "@/lib/totals";
 import { parseMoney } from "@/lib/money";
 import { parseQty } from "@/lib/qty";
-import { postSalesDoc } from "@/lib/posting";
+import { postSalesDoc, postPayment } from "@/lib/posting";
 import { periodLockError } from "@/lib/period";
 import { nextDocNo } from "@/lib/setup";
 import { json, err } from "@/lib/api";
@@ -15,6 +15,7 @@ import { logAudit } from "@/lib/audit";
 import { belowMinPrice, floorErrorMessage } from "@/lib/min-price";
 import { applyCustomerAdvance } from "@/lib/advance";
 import { enforceCreditLimit, CreditLimitError } from "@/lib/credit-limit";
+import { userHasPermission } from "@/lib/permissions";
 import type { Permission } from "@/lib/permissions";
 
 const POSTED_TYPES = ["INVOICE", "RETURN"] as const;
@@ -86,6 +87,13 @@ export async function POST(req: NextRequest) {
   if (!gate.ok) return gate.response;
   const { session, companyId } = gate;
   const b = parsed.data;
+
+  // A receipt moves money, so recording one with the invoice needs the
+  // payments permission on top of the sales permission.
+  if (b.receipt && b.docType === "INVOICE") {
+    const canPay = await userHasPermission(db, session.uid, "payments");
+    if (!canPay) return err("You don't have permission to record receipts.", 403);
+  }
 
   // party must belong to company
   const partyRows = await db
@@ -202,6 +210,7 @@ export async function POST(req: NextRequest) {
 
       let entryId: string | null = null;
       let advanceApplied = 0n;
+      let receiptDocNo: string | null = null;
       if (isPosted) {
         entryId = await postSalesDoc(tx, {
           companyId,
@@ -231,13 +240,42 @@ export async function POST(req: NextRequest) {
             grandTotal: totals.grandTotal,
           });
         }
+        // Add Receipt: posted in the same transaction, allocated to this invoice.
+        // Runs before the credit-limit check so the receipt already lowers udhaar.
+        if (b.docType === "INVOICE" && b.receipt) {
+          const r = b.receipt;
+          const rDate = parseDateOnly(r.date);
+          const rLock = await periodLockError(tx, companyId, rDate);
+          if (rLock) throw new Error(rLock);
+          const rAmount = parseMoney(r.amount);
+          if (rAmount <= 0n) throw new Error("Receipt amount must be positive.");
+          const remaining = totals.grandTotal - advanceApplied;
+          if (remaining <= 0n) throw new Error("Invoice is already fully settled; no receipt needed.");
+          // Overpayment stays unallocated on the receipt → becomes customer credit.
+          const alloc = rAmount > remaining ? remaining : rAmount;
+          const rp = await postPayment(tx, {
+            companyId,
+            branchId,
+            kind: "RECEIPT",
+            partyId: party.id,
+            bankAccountId: r.bankAccountId,
+            date: rDate,
+            amount: rAmount,
+            method: r.method || "CASH",
+            reference: r.reference || undefined,
+            notes: `Receipt against ${docNo}`,
+            allocations: [{ docId, docKind: "SALES", amount: alloc }],
+            createdById: session.uid,
+          });
+          receiptDocNo = rp.docNo;
+        }
         // udhaar control: block posted invoices that cross the credit limit
         // (checked after posting so payments/advances are already reflected)
         if (b.docType === "INVOICE" && !b.overrideCreditLimit) {
           await enforceCreditLimit(tx, { companyId, partyId: party.id, newCreditPaisa: totals.grandTotal - advanceApplied });
         }
       }
-      return { docId, docNo, entryId, advanceApplied };
+      return { docId, docNo, entryId, advanceApplied, receiptDocNo };
     });
     await logAudit(db, {
       companyId, userId: session.uid, userName: session.name,
@@ -259,6 +297,14 @@ export async function POST(req: NextRequest) {
         action: "sale.advance_applied",
         entity: "sale", entityId: result.docId,
         detail: `Advance Rs ${(result.advanceApplied / 100n).toLocaleString()} auto-applied to ${result.docNo}`,
+      });
+    }
+    if (result.receiptDocNo) {
+      await logAudit(db, {
+        companyId, userId: session.uid, userName: session.name,
+        action: "sale.receipt.created",
+        entity: "sale", entityId: result.docId,
+        detail: `Receipt ${result.receiptDocNo} recorded with ${result.docNo}`,
       });
     }
     if (b.overrideCreditLimit) {

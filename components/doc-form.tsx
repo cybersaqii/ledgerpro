@@ -2,7 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Plus, Search, Trash2 } from "lucide-react";
+import { Plus, Printer, Search, Trash2 } from "lucide-react";
 import { PageHeader, Field, ErrorNote } from "@/components/ui";
 import { api, ApiError, fmtMoney, fmtQty, fmtDateInput, fmtDate } from "@/lib/format";
 import { lineMath, docMath, taxBpsOf } from "@/lib/doc-math";
@@ -139,6 +139,8 @@ export function DocForm({ mode }: { mode: "SALES" | "PURCHASE" }) {
   const [showPartyList, setShowPartyList] = useState(false);
   const [date, setDate] = useState(fmtDateInput());
   const [dueDate, setDueDate] = useState("");
+  /** Term days: typing here auto-computes the due date from the invoice date. */
+  const [termDays, setTermDays] = useState("");
   const [discountTotal, setDiscountTotal] = useState("");
   const [notes, setNotes] = useState("");
   const [refNo, setRefNo] = useState("");
@@ -154,6 +156,17 @@ export function DocForm({ mode }: { mode: "SALES" | "PURCHASE" }) {
   const [error, setError] = useState<string | null>(null);
   const [creatingParty, setCreatingParty] = useState(false);
   const [quickPhone, setQuickPhone] = useState("");
+  /** FA-style: "+ Add New" quick-create row is always visible in the party dropdown. */
+  const [showQuickAdd, setShowQuickAdd] = useState(false);
+  /** last posted rate per product: productId -> paisa string (null = none yet). */
+  const [lastRates, setLastRates] = useState<Record<string, string | null>>({});
+  // Add Receipt (sales invoice) / Add Payment (purchase bill): collected with the doc,
+  // posted atomically in the same transaction on the server.
+  const [rcptDate, setRcptDate] = useState(fmtDateInput());
+  const [rcptAccountId, setRcptAccountId] = useState("");
+  const [rcptMethod, setRcptMethod] = useState("CASH");
+  const [rcptRef, setRcptRef] = useState("");
+  const [rcptAmount, setRcptAmount] = useState("");
   // customer price-list rates: productId -> rate in paisa (sales only)
   const [plRates, setPlRates] = useState<Record<string, string>>({});
   const [plName, setPlName] = useState<string | null>(null);
@@ -232,13 +245,45 @@ export function DocForm({ mode }: { mode: "SALES" | "PURCHASE" }) {
     return () => clearTimeout(t);
   }, [partyQ, partyKind]);
 
-  // bank/cash accounts for landed-cost payment (purchase bills)
+  // bank/cash accounts: landed-cost payment (purchase bills) + Add Receipt/Payment section
   useEffect(() => {
-    if (isSales) return;
     api<{ data: { id: string; name: string }[] }>("/api/bank-accounts?perPage=30")
       .then((d) => setBankAccounts(d.data))
       .catch(() => {});
-  }, [isSales]);
+  }, []);
+
+  /** Term days → due date: typing N sets due = invoice date + N days. */
+  function dueFromTerm(dateStr: string, termStr: string): string | null {
+    const n = parseInt(termStr, 10);
+    if (termStr.trim() === "" || Number.isNaN(n) || n < 0 || !dateStr) return null;
+    const d = new Date(`${dateStr}T00:00:00`);
+    d.setDate(d.getDate() + n);
+    return fmtDateInput(d);
+  }
+  function onTermDays(v: string) {
+    setTermDays(v);
+    const due = dueFromTerm(date, v);
+    if (v.trim() === "") setDueDate("");
+    else if (due) setDueDate(due);
+  }
+  function onDateChange(v: string) {
+    setDate(v);
+    if (termDays.trim() !== "") {
+      const due = dueFromTerm(v, termDays);
+      if (due) setDueDate(due);
+    }
+  }
+
+  /** Fetch the product's last posted rate (this party preferred, else anyone). */
+  const loadLastRate = useCallback((productId: string) => {
+    if (!productId) return;
+    setLastRates((m) => (m[productId] !== undefined ? m : { ...m, [productId]: null }));
+    api<{ rate: string | null }>(
+      `/api/products/${productId}/last-rate?side=${isSales ? "SALE" : "PURCHASE"}${partyId ? `&partyId=${partyId}` : ""}`
+    )
+      .then((d) => setLastRates((m) => ({ ...m, [productId]: d.rate })))
+      .catch(() => setLastRates((m) => ({ ...m, [productId]: null })));
+  }, [isSales, partyId]);
 
   // sales: load the selected customer's price-list rates (explicit list, else the default list)
   useEffect(() => {
@@ -321,6 +366,7 @@ export function DocForm({ mode }: { mode: "SALES" | "PURCHASE" }) {
       expiryDate: "",
     }]);
     loadBatches(p.id);
+    loadLastRate(p.id);
     setProdQ("");
     setShowProdList(false);
     setActiveIdx(-1);
@@ -381,6 +427,7 @@ export function DocForm({ mode }: { mode: "SALES" | "PURCHASE" }) {
       setPartyQ("");
       setQuickPhone("");
       setShowPartyList(false);
+      setShowQuickAdd(false);
     } catch (err) {
       setError(err instanceof Error ? err.message : t("docform.errCreateParty"));
     } finally {
@@ -433,8 +480,8 @@ export function DocForm({ mode }: { mode: "SALES" | "PURCHASE" }) {
   const computed = lines.map((l) => lineMath(l.qty, l.rate, l.discount, l.taxPct));
   const { subtotal, itemDisc: itemDiscTotal, taxTotal, grand } = docMath(computed, discountTotal);
 
-  async function submit(e: React.FormEvent, opts: { priceOverride?: boolean; creditOverride?: boolean } = {}) {
-    const { priceOverride = false, creditOverride = false } = opts;
+  async function submit(e: React.FormEvent, opts: { priceOverride?: boolean; creditOverride?: boolean; printAfter?: boolean } = {}) {
+    const { priceOverride = false, creditOverride = false, printAfter = false } = opts;
     e.preventDefault();
     setError(null);
     if (!partyId) { setError(t("docform.errSelectParty", { party: isSales ? bp.partyOne.toLowerCase() : t("docs.supplier").toLowerCase() })); return; }
@@ -463,7 +510,7 @@ export function DocForm({ mode }: { mode: "SALES" | "PURCHASE" }) {
       if (low.length > 0) {
         const names = low.slice(0, 3).map((l) => l.description).join(", ") + (low.length > 3 ? "…" : "");
         if (!window.confirm(t("docform.minPriceConfirm", { names }))) return;
-        return submit(e, { priceOverride: true });
+        return submit(e, { priceOverride: true, printAfter });
       }
     }
     setSaving(true);
@@ -500,8 +547,23 @@ export function DocForm({ mode }: { mode: "SALES" | "PURCHASE" }) {
         body.priceOverride = priceOverride;
         body.overrideCreditLimit = creditOverride;
       }
+      // Add Receipt / Add Payment: posted together with the doc in one transaction.
+      if ((isSales && docType === "INVOICE") || (!isSales && docType === "BILL")) {
+        const rcptAmt = parseFloat(rcptAmount || "0");
+        if (rcptAmt > 0) {
+          if (!rcptAccountId) { setError(t("docform.errReceiptAccount")); return; }
+          body.receipt = {
+            date: rcptDate,
+            bankAccountId: rcptAccountId,
+            method: rcptMethod,
+            reference: rcptRef.trim() || undefined,
+            amount: rcptAmount,
+          };
+        }
+      }
       const d = await api<{ data: { docId: string } }>(endpoint, { method: "POST", body: JSON.stringify(body) });
-      router.push(isSales ? `/sales/${d.data.docId}` : `/purchases/${d.data.docId}`);
+      const dest = isSales ? `/sales/${d.data.docId}` : `/purchases/${d.data.docId}`;
+      router.push(printAfter ? `${dest}?print=1` : dest);
     } catch (err) {
       // udhaar control: limit crossed → one confirm, then retry with override
       if (!creditOverride && err instanceof ApiError && err.code === "CREDIT_LIMIT_EXCEEDED") {
@@ -513,7 +575,7 @@ export function DocForm({ mode }: { mode: "SALES" | "PURCHASE" }) {
           balance: paisa(det.balancePaisa),
         }))) {
           setSaving(false);
-          return submit(e, { priceOverride, creditOverride: true });
+          return submit(e, { priceOverride, creditOverride: true, printAfter });
         }
       }
       setError(err instanceof Error ? err.message : t("docform.errSave"));
@@ -532,7 +594,7 @@ export function DocForm({ mode }: { mode: "SALES" | "PURCHASE" }) {
         <ErrorNote message={error} />
 
         <div className="card card-gloss rise p-5 sm:p-6">
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
             <Field label={isSales ? bp.partyOne : t("docs.supplier")}>
               <div className="relative">
                 <button type="button" onClick={() => setShowPartyList((s) => !s)}
@@ -548,6 +610,29 @@ export function DocForm({ mode }: { mode: "SALES" | "PURCHASE" }) {
                         onChange={(e) => setPartyQ(e.target.value)} />
                     </div>
                     <ul className="max-h-56 overflow-y-auto py-1">
+                      <li className="border-b border-border">
+                        <button type="button"
+                          className="flex w-full items-center gap-2 px-4 py-2.5 text-left text-sm font-bold text-primary hover:bg-muted"
+                          onClick={() => setShowQuickAdd((s) => !s)}>
+                          <Plus size={15} /> {isSales ? t("docform.addCustomer") : t("docform.addSupplier")}
+                        </button>
+                      </li>
+                      {showQuickAdd && (
+                        <li className="border-b border-border bg-muted/40 px-4 py-3">
+                          <div className="flex flex-col gap-2">
+                            <input className="field !py-2 text-sm" placeholder={t("docform.quickNamePlaceholder")}
+                              value={partyQ} onChange={(e) => setPartyQ(e.target.value)} />
+                            <div className="flex gap-2">
+                              <input className="field !py-2 text-sm" placeholder={t("docform.phoneOptional")}
+                                value={quickPhone} onChange={(e) => setQuickPhone(e.target.value)} />
+                              <button type="button" className="btn btn-primary shrink-0 !py-2 text-sm"
+                                disabled={creatingParty || partyQ.trim().length < 2} onClick={createPartyInline}>
+                                {creatingParty ? t("common.adding") : t("common.add")}
+                              </button>
+                            </div>
+                          </div>
+                        </li>
+                      )}
                       {parties.map((p) => (
                         <li key={p.id}>
                           <button type="button"
@@ -604,8 +689,12 @@ export function DocForm({ mode }: { mode: "SALES" | "PURCHASE" }) {
                 )}
               </select>
             </Field>
-            <Field label={t("docform.date")}><input type="date" className="field" required value={date} onChange={(e) => setDate(e.target.value)} /></Field>
-            <Field label={t("docform.dueDate")}><input type="date" className="field" value={dueDate} onChange={(e) => setDueDate(e.target.value)} /></Field>
+            <Field label={t("docform.date")}><input type="date" className="field" required value={date} onChange={(e) => onDateChange(e.target.value)} /></Field>
+            <Field label={t("docform.termDays")}>
+              <input type="number" min="0" max="3650" className="field" placeholder="0"
+                value={termDays} onChange={(e) => onTermDays(e.target.value)} />
+            </Field>
+            <Field label={t("docform.dueDate")}><input type="date" className="field" value={dueDate} onChange={(e) => { setDueDate(e.target.value); setTermDays(""); }} /></Field>
           </div>
           <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
             <Field label={isSales ? t("docform.refNoSales") : t("docform.refNo")}>
@@ -716,7 +805,13 @@ export function DocForm({ mode }: { mode: "SALES" | "PURCHASE" }) {
                           <td className="text-sm text-muted-foreground">{l.unit || "—"}</td>
                           <td><input ref={setRowRef(l.key, "rate")} onKeyDown={(e) => rowKeyDown(e, l.key, "rate")}
                             className="field num !px-2 !py-1.5" type="number" min="0" step="0.01" placeholder="0.00" value={l.rate}
-                            onChange={(e) => updateLine(l.key, { rate: e.target.value })} /></td>
+                            onChange={(e) => updateLine(l.key, { rate: e.target.value })} />
+                            {l.productId && lastRates[l.productId] != null && (
+                              <p className="px-1 pt-0.5 text-[11px] text-muted-foreground">
+                                {t("docform.lastRate", { amt: fmtMoney(BigInt(lastRates[l.productId] as string)) })}
+                              </p>
+                            )}
+                          </td>
                           <td><input ref={setRowRef(l.key, "discount")} onKeyDown={(e) => rowKeyDown(e, l.key, "discount")}
                             className="field num !px-2 !py-1.5" type="number" min="0" step="0.01" placeholder="0.00" value={l.discount}
                             onChange={(e) => updateLine(l.key, { discount: e.target.value })} /></td>
@@ -776,6 +871,11 @@ export function DocForm({ mode }: { mode: "SALES" | "PURCHASE" }) {
                             className="field num !px-2" type="number" min="0" step="0.01" placeholder={t("docform.colRate")} value={l.rate}
                             aria-label={t("docform.colRate")}
                             onChange={(e) => updateLine(l.key, { rate: e.target.value })} />
+                          {l.productId && lastRates[l.productId] != null && (
+                            <p className="col-span-4 -mt-1 text-[11px] text-muted-foreground">
+                              {t("docform.lastRate", { amt: fmtMoney(BigInt(lastRates[l.productId] as string)) })}
+                            </p>
+                          )}
                           <input ref={setRowRef(l.key, "discount")} onKeyDown={(e) => rowKeyDown(e, l.key, "discount")}
                             className="field num !px-2" type="number" min="0" step="0.01" placeholder={t("docform.colDisc")} value={l.discount}
                             aria-label={t("docform.colDisc")}
@@ -848,6 +948,42 @@ export function DocForm({ mode }: { mode: "SALES" | "PURCHASE" }) {
           </div>
         )}
 
+        {((isSales && docType === "INVOICE") || (!isSales && docType === "BILL")) && (
+          <div className="card card-gloss rise p-5 sm:p-6">
+            <div>
+              <h3 className="font-extrabold">{isSales ? t("docform.addReceipt") : t("docform.addPaymentTitle")}</h3>
+              <p className="text-xs text-muted-foreground">{t("docform.addReceiptHint")}</p>
+            </div>
+            <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
+              <Field label={t("payform.date")}>
+                <input type="date" className="field" value={rcptDate} onChange={(e) => setRcptDate(e.target.value)} />
+              </Field>
+              <Field label={t("payform.account")}>
+                <select className="field" value={rcptAccountId} onChange={(e) => setRcptAccountId(e.target.value)}>
+                  <option value="">{t("payform.selectAccount")}</option>
+                  {bankAccounts.map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}
+                </select>
+              </Field>
+              <Field label={t("payform.method")}>
+                <select className="field" value={rcptMethod} onChange={(e) => setRcptMethod(e.target.value)}>
+                  <option value="CASH">{t("payform.methodCash")}</option>
+                  <option value="BANK">{t("payform.methodBank")}</option>
+                  <option value="CHEQUE">{t("payform.methodCheque")}</option>
+                  <option value="ONLINE">{t("payform.methodOnline")}</option>
+                </select>
+              </Field>
+              <Field label={t("docform.rcptRef")}>
+                <input className="field" value={rcptRef} maxLength={60}
+                  onChange={(e) => setRcptRef(e.target.value)} placeholder={t("docform.rcptRefPlaceholder")} />
+              </Field>
+              <Field label={t("payform.amount")}>
+                <input type="number" min="0" step="0.01" className="field num" placeholder="0.00"
+                  value={rcptAmount} onChange={(e) => setRcptAmount(e.target.value)} />
+              </Field>
+            </div>
+          </div>
+        )}
+
         <div className="grid gap-5 lg:grid-cols-2">
           <div className="card card-gloss rise rise-1 h-fit p-5 sm:p-6">
             <Field label={t("docform.notes")}>
@@ -871,9 +1007,15 @@ export function DocForm({ mode }: { mode: "SALES" | "PURCHASE" }) {
                 <span className="text-xl font-extrabold text-primary">{fmtMoney(grand)}</span>
               </div>
             </div>
-            <button className="btn btn-primary mt-5 w-full !py-3.5 !text-base" disabled={saving}>
-              {saving ? t("docform.saving") : isSales ? bp.saveSale : t("docform.savePurchase")}
-            </button>
+            <div className="mt-5 flex gap-2">
+              <button type="button" className="btn btn-ghost flex-1 !py-3.5 !text-base" disabled={saving}
+                onClick={(e) => submit(e, { printAfter: true })}>
+                <Printer size={17} /> {t("docform.saveAndPrint")}
+              </button>
+              <button className="btn btn-primary flex-1 !py-3.5 !text-base" disabled={saving}>
+                {saving ? t("docform.saving") : isSales ? bp.saveSale : t("docform.savePurchase")}
+              </button>
+            </div>
           </div>
         </div>
       </form>

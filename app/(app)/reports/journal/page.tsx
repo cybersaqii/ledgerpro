@@ -5,10 +5,11 @@ import { BookOpen, ChevronDown, Search } from "lucide-react";
 import { PageHeader, ErrorNote, ExportCsv } from "@/components/ui";
 import { csvMoney } from "@/lib/csv";
 import { api, fmtMoney, fmtDate } from "@/lib/format";
+import { DocRefLink } from "@/components/doc-link";
 import { useLang } from "@/components/lang-provider";
 
 type JLine = { accountCode: string; accountName: string; partyName: string | null; debit: string; credit: string };
-type Entry = { id: string; date: number | string; memo: string; reference: string | null; source: string; lines: JLine[] };
+type Entry = { id: string; date: number | string; memo: string; reference: string | null; source: string; sourceId: string | null; lines: JLine[] };
 
 export default function JournalPage() {
   const { t } = useLang();
@@ -105,6 +106,11 @@ export default function JournalPage() {
                   </button>
                   {isOpen && (
                     <div className="border-t border-border bg-muted/40 px-4 py-3 sm:px-5">
+                      <p className="mb-2 text-xs text-muted-foreground">
+                        <DocRefLink source={e.source} sourceId={e.sourceId}
+                          label={e.reference ? `${SOURCE_LABEL[e.source] ?? e.source} · ${e.reference}` : (SOURCE_LABEL[e.source] ?? e.source)}
+                          className="font-bold text-primary hover:underline" />
+                      </p>
                       <table className="tbl !bg-transparent">
                         <thead><tr><th>{t("journal.colAccount")}</th><th className="num">{t("journal.colDebit")}</th><th className="num">{t("journal.colCredit")}</th></tr></thead>
                         <tbody>

@@ -141,12 +141,12 @@ describe("M1 postPayment party-kind ledger", () => {
   it("customer RECEIPT credits AR and lowers the balance", async () => {
     const invId = await makeInvoice(customerId, parseMoney("2000"), "INV-M1-1");
     const before = await bankBalance(cashAccountId);
-    const pid = await db.transaction((tx) => postPayment(tx, {
+    const pid = (await db.transaction((tx) => postPayment(tx, {
       companyId, branchId, kind: "RECEIPT", partyId: customerId, bankAccountId: cashAccountId,
       date: new Date(), amount: parseMoney("800"), method: "CASH",
       allocations: [{ docId: invId, docKind: "SALES", amount: parseMoney("800") }],
       createdById: userId,
-    }));
+    }))).id;
     const ar = await sysAccountId(SYS.AR);
     const lines = await paymentJournalLines(pid);
     const arLine = lines.find((l) => l.accountId === ar)!;
@@ -159,11 +159,11 @@ describe("M1 postPayment party-kind ledger", () => {
   it("customer PAYMENT (cash refund) debits AR and raises the balance", async () => {
     // customer currently at 1200; give them a 500 cash refund
     const before = await bankBalance(cashAccountId);
-    const pid = await db.transaction((tx) => postPayment(tx, {
+    const pid = (await db.transaction((tx) => postPayment(tx, {
       companyId, branchId, kind: "PAYMENT", partyId: customerId, bankAccountId: cashAccountId,
       date: new Date(), amount: parseMoney("500"), method: "CASH",
       allocations: [], createdById: userId,
-    }));
+    }))).id;
     const ar = await sysAccountId(SYS.AR);
     const ap = await sysAccountId(SYS.AP);
     const lines = await paymentJournalLines(pid);
@@ -178,11 +178,11 @@ describe("M1 postPayment party-kind ledger", () => {
 
   it("supplier RECEIPT (refund received) credits AP and raises the balance", async () => {
     const before = await bankBalance(cashAccountId);
-    const pid = await db.transaction((tx) => postPayment(tx, {
+    const pid = (await db.transaction((tx) => postPayment(tx, {
       companyId, branchId, kind: "RECEIPT", partyId: supplierId, bankAccountId: cashAccountId,
       date: new Date(), amount: parseMoney("700"), method: "BANK",
       allocations: [], createdById: userId,
-    }));
+    }))).id;
     const ar = await sysAccountId(SYS.AR);
     const ap = await sysAccountId(SYS.AP);
     const lines = await paymentJournalLines(pid);
@@ -198,12 +198,12 @@ describe("M1 postPayment party-kind ledger", () => {
     const billId = await makeBill(supplierId, parseMoney("3000"), "BIL-M1-1");
     expect(await partyBalance(supplierId)).toBe(parseMoney("3700")); // 700 + 3000
     const before = await bankBalance(cashAccountId);
-    const pid = await db.transaction((tx) => postPayment(tx, {
+    const pid = (await db.transaction((tx) => postPayment(tx, {
       companyId, branchId, kind: "PAYMENT", partyId: supplierId, bankAccountId: cashAccountId,
       date: new Date(), amount: parseMoney("1000"), method: "CASH",
       allocations: [{ docId: billId, docKind: "PURCHASE", amount: parseMoney("1000") }],
       createdById: userId,
-    }));
+    }))).id;
     const ap = await sysAccountId(SYS.AP);
     const lines = await paymentJournalLines(pid);
     const apLine = lines.find((l) => l.accountId === ap)!;

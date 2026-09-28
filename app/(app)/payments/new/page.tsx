@@ -116,7 +116,7 @@ function PaymentFormInner() {
     if (allocTotal > amountPaisa) { setError(t("payform.errAlloc")); return; }
     setSaving(true);
     try {
-      await api("/api/payments", {
+      const d = await api<{ data: { id: string } }>("/api/payments", {
         method: "POST",
         body: JSON.stringify({
           kind, partyId, bankAccountId: bankId, date, amount,
@@ -126,7 +126,7 @@ function PaymentFormInner() {
             .map(([docId, v]) => ({ docId, docKind: isReceipt ? "SALES" : "PURCHASE", amount: v })),
         }),
       });
-      router.push("/payments");
+      router.push(`/payments/${d.data.id}`);
     } catch (err) {
       setError(err instanceof Error ? err.message : t("payform.errSave"));
       setSaving(false);

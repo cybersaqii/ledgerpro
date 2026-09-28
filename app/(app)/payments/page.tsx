@@ -10,6 +10,7 @@ import { useLang } from "@/components/lang-provider";
 type Pay = {
   id: string; kind: string; date: number; amount: string; method: string;
   reference: string | null; partyName: string | null; bankName: string | null;
+  docNo: string | null;
 };
 
 type AllocRow = {
@@ -131,11 +132,16 @@ export default function PaymentsPage() {
         ) : (
           <div className="overflow-x-auto">
             <table className="tbl">
-              <thead><tr><th>{t("payments.colType")}</th><th>{t("payments.colParty")}</th><th>{t("payments.colAccount")}</th><th>{t("payments.colDate")}</th><th>{t("payments.colMethod")}</th><th className="num">{t("payments.colAmount")}</th><th /></tr></thead>
+              <thead><tr><th>{t("payments.colVoucher")}</th><th>{t("payments.colType")}</th><th>{t("payments.colParty")}</th><th>{t("payments.colAccount")}</th><th>{t("payments.colDate")}</th><th>{t("payments.colMethod")}</th><th className="num">{t("payments.colAmount")}</th><th /></tr></thead>
               <tbody>
                 {rows.map((p) => (
                   <Fragment key={p.id}>
                     <tr>
+                      <td className="whitespace-nowrap">
+                        <Link href={`/payments/${p.id}`} className="font-bold text-primary hover:underline">
+                          {p.docNo ?? "—"}
+                        </Link>
+                      </td>
                       <td>
                         <span className={`badge ${p.kind === "RECEIPT" ? "bg-primary-soft text-primary" : "bg-accent-soft text-accent"}`}>
                           {p.kind === "RECEIPT" ? t("payments.typeReceived") : t("payments.typePaid")}
@@ -155,7 +161,7 @@ export default function PaymentsPage() {
                     </tr>
                     {expanded === p.id && (
                       <tr key={`${p.id}-detail`}>
-                        <td colSpan={7} className="!bg-muted/40 !p-0">
+                        <td colSpan={8} className="!bg-muted/40 !p-0">
                           <div className="px-4 py-4 sm:px-6">
                             {detailLoading === p.id ? (
                               <div className="skeleton h-16 rounded-xl" />
@@ -208,7 +214,18 @@ function PaymentBreakdown({ detail }: { detail: PayDetail }) {
             <tbody>
               {detail.allocations.map((a, i) => (
                 <tr key={a.docId ?? i}>
-                  <td className="font-bold whitespace-nowrap">{a.docNo}</td>
+                  <td className="font-bold whitespace-nowrap">
+                    {a.docId ? (
+                      <Link
+                        href={a.docKind === "SALES" ? `/sales/${a.docId}` : `/purchases/${a.docId}`}
+                        className="text-primary hover:underline"
+                      >
+                        {a.docNo}
+                      </Link>
+                    ) : (
+                      a.docNo
+                    )}
+                  </td>
                   <td className="whitespace-nowrap text-muted-foreground">{a.date ? fmtDate(a.date) : "—"}</td>
                   <td className="num">{fmtMoney(a.docTotal)}</td>
                   <td className="num font-bold text-primary">{fmtMoney(a.adjusted)}</td>

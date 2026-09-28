@@ -1391,7 +1391,7 @@ async function applyPosCheckout(db: Db, ds: DeviceSession, op: SyncOp): Promise<
       const p = b.payments[k];
       const alloc = payAmounts[k] > remaining ? remaining : payAmounts[k];
       if (alloc <= 0n) continue;
-      const pid = await postPayment(tx, {
+      const { id: pid } = await postPayment(tx, {
         companyId,
         branchId,
         kind: "RECEIPT",
@@ -1499,11 +1499,11 @@ async function applyPaymentCreate(db: Db, ds: DeviceSession, op: SyncOp): Promis
 
   const paymentId = await db.transaction(async (tx) => {
     const [dup] = await tx
-      .select({ id: payments.id })
+      .select({ id: payments.id, docNo: payments.docNo })
       .from(payments)
       .where(and(eq(payments.id, op.refId), eq(payments.companyId, companyId)))
       .limit(1);
-    if (dup) return dup.id; // idempotent create
+    if (dup) return { id: dup.id, docNo: dup.docNo, reassigned: false }; // idempotent create
 
     const date = parseDateOnly(b.date);
     const lockMsg = await periodLockError(tx, companyId, date);
@@ -1520,9 +1520,28 @@ async function applyPaymentCreate(db: Db, ds: DeviceSession, op: SyncOp): Promis
       .limit(1);
     if (!pr) fail("DEPENDENCY_NOT_FOUND", "Selected party is invalid.");
 
+    // Device voucher number (REC-0001 / PAY-0001): accept when free in this
+    // company, otherwise reallocate — same rule as document numbers.
+    let paymentDocNo: string | undefined;
+    let reassigned = false;
+    const proposed = b.docNo?.trim();
+    if (proposed) {
+      const [taken] = await tx
+        .select({ id: payments.id })
+        .from(payments)
+        .where(and(eq(payments.companyId, companyId), eq(payments.docNo, proposed)))
+        .limit(1);
+      if (taken) {
+        paymentDocNo = await nextDocNo(tx, companyId, b.kind);
+        reassigned = true;
+      } else {
+        paymentDocNo = proposed;
+      }
+    }
+
     // postPayment re-validates the bank account and allocations (company +
     // party scoping) and throws UserError on violations → mapped by caller.
-    return postPayment(tx, {
+    const { id, docNo } = await postPayment(tx, {
       id: op.refId,
       companyId,
       branchId,
@@ -1534,6 +1553,7 @@ async function applyPaymentCreate(db: Db, ds: DeviceSession, op: SyncOp): Promis
       method: b.method,
       reference: b.reference || undefined,
       notes: b.notes || undefined,
+      docNo: paymentDocNo,
       allocations: b.allocations.map((a) => ({
         docId: a.docId,
         docKind: a.docKind,
@@ -1541,26 +1561,29 @@ async function applyPaymentCreate(db: Db, ds: DeviceSession, op: SyncOp): Promis
       })),
       createdById: userId,
     });
+    return { id, docNo, reassigned };
   });
 
   await logAudit(db, {
     companyId, userId, userName,
     action: "payment.created",
-    entity: "payment", entityId: paymentId,
-    detail: `Payment ${paymentId.slice(0, 8)} via sync`,
+    entity: "payment", entityId: paymentId.id,
+    detail: `Payment ${paymentId.id.slice(0, 8)} via sync`,
   });
 
-  const [pay] = await db.select().from(payments).where(eq(payments.id, paymentId)).limit(1);
+  const [pay] = await db.select().from(payments).where(eq(payments.id, paymentId.id)).limit(1);
   const allocs = await db
     .select()
     .from(paymentAllocations)
-    .where(eq(paymentAllocations.paymentId, paymentId));
+    .where(eq(paymentAllocations.paymentId, paymentId.id));
   const serverRow = serializeWire({ ...pay, allocations: allocs });
   return {
     status: "accepted",
     refId: op.refId,
     serverRow,
     serverUpdatedAt: (serverRow as { updatedAt?: number })?.updatedAt ?? Date.now(),
+    docNo: paymentId.docNo ?? undefined,
+    docNoReassigned: paymentId.reassigned,
   };
 }
 

@@ -361,4 +361,97 @@ describe("POST /api/sync/push", () => {
     expect(body.results[0].status).toBe("rejected");
     expect(body.results[0].error.code).toBe("VALIDATION_ERROR");
   });
+
+  it("payment.create keeps the device's voucher number when free and links the journal", async () => {
+    const cash = await db
+      .select({ id: s.bankAccounts.id })
+      .from(s.bankAccounts)
+      .where(and(eq(s.bankAccounts.companyId, companyId), eq(s.bankAccounts.kind, "CASH")))
+      .limit(1);
+    const refId = crypto.randomUUID();
+    const { status, body } = await push(ownerToken, [
+      mkOp("payment.create", refId, {
+        kind: "RECEIPT",
+        partyId: customerId,
+        bankAccountId: cash[0]!.id,
+        date: "2026-09-28",
+        amount: "500",
+        method: "CASH",
+        docNo: "REC-0042",
+      }),
+    ]);
+    expect(status).toBe(200);
+    const r = body.results[0];
+    expect(r.status).toBe("accepted");
+    expect(r.docNo).toBe("REC-0042");
+    expect(r.docNoReassigned).toBe(false);
+
+    const rows = await db.select().from(s.payments).where(eq(s.payments.id, refId));
+    expect(rows).toHaveLength(1);
+    expect(rows[0].docNo).toBe("REC-0042");
+
+    const entries = await db
+      .select()
+      .from(s.journalEntries)
+      .where(eq(s.journalEntries.sourceId, refId));
+    expect(entries).toHaveLength(1);
+    expect(entries[0].source).toBe("PAYMENT");
+  });
+
+  it("payment.create reallocates the voucher number when the proposed one is taken", async () => {
+    const cash = await db
+      .select({ id: s.bankAccounts.id })
+      .from(s.bankAccounts)
+      .where(and(eq(s.bankAccounts.companyId, companyId), eq(s.bankAccounts.kind, "CASH")))
+      .limit(1);
+    const refId = crypto.randomUUID();
+    const { status, body } = await push(ownerToken, [
+      mkOp("payment.create", refId, {
+        kind: "RECEIPT",
+        partyId: customerId,
+        bankAccountId: cash[0]!.id,
+        date: "2026-09-28",
+        amount: "100",
+        method: "CASH",
+        docNo: "REC-0042", // taken by the previous test
+      }),
+    ]);
+    expect(status).toBe(200);
+    const r = body.results[0];
+    expect(r.status).toBe("accepted");
+    expect(r.docNoReassigned).toBe(true);
+    expect(r.docNo).not.toBe("REC-0042");
+    expect(r.docNo).toMatch(/^REC-\d{4}$/);
+
+    const rows = await db.select().from(s.payments).where(eq(s.payments.id, refId));
+    expect(rows).toHaveLength(1);
+    expect(rows[0].docNo).toBe(r.docNo);
+  });
+
+  it("rejects payment.create for staff without the payments grant (FORBIDDEN_PERMISSION)", async () => {
+    const cash = await db
+      .select({ id: s.bankAccounts.id })
+      .from(s.bankAccounts)
+      .where(and(eq(s.bankAccounts.companyId, companyId), eq(s.bankAccounts.kind, "CASH")))
+      .limit(1);
+    const { status, body } = await push(staffToken, [
+      mkOp("payment.create", crypto.randomUUID(), {
+        kind: "RECEIPT",
+        partyId: customerId,
+        bankAccountId: cash[0]!.id,
+        date: "2026-09-28",
+        amount: "10",
+        method: "CASH",
+        docNo: "REC-0099",
+      }),
+    ]);
+    expect(status).toBe(200);
+    const r = body.results[0];
+    expect(r.status).toBe("rejected");
+    expect(r.error.code).toBe("FORBIDDEN_PERMISSION");
+
+    // the rejected payment was never posted
+    const rows = await db.select().from(s.payments).where(eq(s.payments.docNo, "REC-0099"));
+    expect(rows).toHaveLength(0);
+  });
 });

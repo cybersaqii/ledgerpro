@@ -5,6 +5,7 @@ import { useCallback, useEffect, useState } from "react";
 import { Plus, Search, CalendarDays, ShoppingCart, Truck, Zap } from "lucide-react";
 import { PageHeader, EmptyState, FilterBar, SummaryChips, Pagination, StatusPill } from "@/components/ui";
 import { api, fmtMoney, fmtDate, toBig } from "@/lib/format";
+import { paymentStatusOf } from "@/lib/payment-status";
 import { useBusinessProfile } from "@/components/business-type";
 import { useLang } from "@/components/lang-provider";
 import { useCan } from "@/components/permissions";
@@ -13,6 +14,7 @@ type Doc = {
   id: string; docNo: string; docType: string; date: number; status: string;
   grandTotal: string; partyName: string | null;
   partyId: string; amountPaid: string; returnedTotal: string;
+  dueDate: number | string | null;
 };
 
 const typeBadge: Record<string, string> = {
@@ -39,12 +41,37 @@ function docBalance(d: Doc): bigint {
   return toBig(d.grandTotal) - toBig(d.amountPaid) - toBig(d.returnedTotal);
 }
 
+/** Payment-status badge for invoice/bill rows; null for non-payable doc types. */
+function PayStatusBadge({ d, t, nowMs }: { d: Doc; t: (k: string, v?: Record<string, string | number>) => string; nowMs: number }) {
+  if (d.docType !== "INVOICE" && d.docType !== "BILL") return <span className="text-muted-foreground">—</span>;
+  const dueMs = d.dueDate == null ? null : new Date(d.dueDate).getTime();
+  const s = paymentStatusOf({
+    grandTotal: toBig(d.grandTotal),
+    amountPaid: toBig(d.amountPaid),
+    returnedTotal: toBig(d.returnedTotal),
+    dueDateMs: Number.isNaN(dueMs) ? null : dueMs,
+    nowMs,
+  });
+  const tone =
+    s.key === "paid" ? "bg-primary-soft text-primary"
+    : s.key === "overdue" ? "bg-danger-soft text-danger"
+    : s.key === "part" ? "bg-accent-soft text-accent"
+    : "bg-muted text-muted-foreground";
+  const label =
+    s.key === "overdue" ? t("docs.payOverdue", { days: s.daysOverdue })
+    : t(`docs.pay${s.key === "paid" ? "Paid" : s.key === "part" ? "Part" : "Unpaid"}`);
+  return <span className={`badge whitespace-nowrap ${tone}`}>{label}</span>;
+}
+
 export function DocList({ mode }: { mode: "SALES" | "PURCHASE" }) {
   const bp = useBusinessProfile();
   const { t } = useLang();
   const canPos = useCan("pos");
   const canPay = useCan("payments");
   const isSales = mode === "SALES";
+  // "now" for the overdue computation — lazy useState initializer so it is
+  // computed once and the render stays pure (react-hooks/purity).
+  const [nowMs] = useState(() => Date.now());
   const [rows, setRows] = useState<Doc[]>([]);
   const [total, setTotal] = useState(0);
   const [sum, setSum] = useState("0");
@@ -154,7 +181,7 @@ export function DocList({ mode }: { mode: "SALES" | "PURCHASE" }) {
         ) : (
           <div className="overflow-x-auto">
             <table className="tbl">
-              <thead><tr><th>{t("docs.colBillNo")}</th><th>{t("docs.colType")}</th><th>{isSales ? bp.partyOne : t("docs.supplier")}</th><th>{t("docs.colDate")}</th><th>{t("docs.colStatus")}</th><th className="num">{t("docs.colTotal")}</th><th /></tr></thead>
+              <thead><tr><th>{t("docs.colBillNo")}</th><th>{t("docs.colType")}</th><th>{isSales ? bp.partyOne : t("docs.supplier")}</th><th>{t("docs.colDate")}</th><th>{t("docs.colStatus")}</th><th className="num">{t("docs.colTotal")}</th><th className="num">{t("docs.colBalance")}</th><th>{t("docs.colPayStatus")}</th><th /></tr></thead>
               <tbody>
                 {rows.map((d) => (
                   <tr key={d.id}>
@@ -168,6 +195,8 @@ export function DocList({ mode }: { mode: "SALES" | "PURCHASE" }) {
                     <td className="whitespace-nowrap text-muted-foreground">{fmtDate(d.date)}</td>
                     <td><StatusPill status={d.status} /></td>
                     <td className="num font-extrabold">{fmtMoney(d.grandTotal)}</td>
+                    <td className="num font-bold">{fmtMoney(docBalance(d))}</td>
+                    <td><PayStatusBadge d={d} t={t} nowMs={nowMs} /></td>
                     <td className="text-right">
                       {canPay && (d.docType === "INVOICE" || d.docType === "BILL") && docBalance(d) > 0n && d.partyId ? (
                         <Link
