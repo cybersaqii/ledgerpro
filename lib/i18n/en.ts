@@ -903,7 +903,9 @@ export const en = {
     p2d: "P&L, stock and ledgers in one click.",
     p3t: "Safe for up to 10 years",
     p3d: "Balanced books, secure and permanent.",
-    footer: "© 2026 {brand} · Built for every business"
+    footer: "© 2026 {brand} · Built for every business",
+    tp0: "Complete hisaab-kitab for every business.",
+    tp1: "Bills, udhaar and profit — in seconds."
   },
   landing: {
     navFeatures: "Features",
@@ -926,6 +928,8 @@ export const en = {
     heroCtaStart: "Start free today",
     heroCtaLogin: "Log in",
     heroMicro: "Set up in 2 minutes · Free to start · No credit card needed",
+    tp0: "Wholesalers, retailers, pharmacies — one app.",
+    tp1: "Udhaar, stock and profit — always live.",
     mockToday: "Today's business",
     mockWeek: "+18% this week",
     mockReceive: "To receive",

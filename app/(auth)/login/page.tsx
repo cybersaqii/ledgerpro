@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState, useEffect } from "react";
-import { LogIn, Eye, EyeOff, ShieldCheck, Zap, Lock } from "lucide-react";
+import { LogIn, Eye, EyeOff } from "lucide-react";
 import { AuthLayout } from "@/components/auth-layout";
 import { Field, ErrorNote } from "@/components/ui";
 import { api } from "@/lib/format";
@@ -203,11 +203,6 @@ export default function LoginPage() {
           <Link href="/signup" className="font-bold text-primary hover:underline">{t("auth.createAccount")}</Link>
         </p>
         </div>
-      </div>
-      <div className="rise rise-1 mt-6 flex flex-wrap items-center justify-center gap-x-5 gap-y-2 text-xs text-muted-foreground">
-        <span className="inline-flex items-center gap-1.5"><ShieldCheck size={14} className="text-primary" /> {t("auth.secureLogin")}</span>
-        <span className="inline-flex items-center gap-1.5"><Zap size={14} className="text-primary" /> {t("auth.freeToStart")}</span>
-        <span className="inline-flex items-center gap-1.5"><Lock size={14} className="text-primary" /> {t("auth.dataPrivate")}</span>
       </div>
     </AuthLayout>
   );

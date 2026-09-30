@@ -9,8 +9,11 @@ import {
 } from "lucide-react";
 import { ThemeToggle, LangToggle } from "@/components/ui";
 import { BrandLockup, BrandMark } from "@/components/brand-logo";
+import { Typewriter, type TwPhrase } from "@/components/typewriter";
 import { brand } from "@/lib/brand";
 import { useLang } from "@/components/lang-provider";
+import { en } from "@/lib/i18n/en";
+import { ur } from "@/lib/i18n/ur";
 
 const features = [
   { icon: FileText, t: "f0t", d: "f0d" },
@@ -72,6 +75,12 @@ export default function LandingContent() {
   const { t } = useLang();
   const b = brand.name;
   const L = (k: string, vars?: Record<string, string | number>) => t(`landing.${k}`, vars);
+  const typePhrases: TwPhrase[] = [
+    { text: en.landing.tp0 },
+    { text: ur.landing?.tp0 ?? en.landing.tp0, rtl: true },
+    { text: en.landing.tp1 },
+    { text: ur.landing?.tp1 ?? en.landing.tp1, rtl: true },
+  ];
   return (
     <div className="min-h-screen overflow-x-clip bg-background">
       {/* Nav */}
@@ -119,6 +128,14 @@ export default function LandingContent() {
               <span className="bg-gradient-to-r from-amber-300 to-emerald-300 bg-clip-text text-transparent">{L("heroTitleMid")}</span>
               {L("heroTitleB")}
             </h1>
+            <div className="rise rise-1 mt-5 flex min-h-[2.5rem] items-center justify-center gap-2 lg:justify-start" aria-hidden="true">
+              <Sparkles size={18} className="shrink-0 text-amber-300" />
+              <Typewriter
+                phrases={typePhrases}
+                caretClassName="text-amber-200"
+                className="bg-gradient-to-r from-amber-200 via-emerald-100 to-amber-200 bg-clip-text text-lg font-bold text-transparent sm:text-xl"
+              />
+            </div>
             <p className="rise rise-2 mt-5 max-w-xl text-base text-emerald-50/80 sm:text-lg lg:mx-0">
               {L("heroSubA")} <span className="font-semibold text-white">{L("heroSubU")}</span> {L("heroSubB", { brand: b })}
             </p>

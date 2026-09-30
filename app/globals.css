@@ -579,10 +579,25 @@ body::before {
   .rise, .rise-1, .rise-2, .rise-3, .rise-4, .float-slow, .marquee-track, .pos-scroll,
   .skeleton::after, .modal-pop, .pulse-dot, .banner-shine::after, .trial-cta,
   .btn-primary::after, .btn-accent::after, .auth-pan, .orb-drift, .orb-drift-rev,
-  .auth-medallion { animation: none !important; }
+  .auth-medallion, .tw-caret { animation: none !important; }
   .btn, .btn-primary, .btn-accent, .btn-ghost, a, button, input, select, textarea,
   .card-lift, .tbl tbody tr, .kpi-tile-go { transition: none !important; }
   .btn-primary:hover, .btn-accent:hover, .btn-ghost:hover, .card-lift:hover { transform: none !important; }
+}
+
+/* Blinking caret for the bilingual typewriter */
+.tw-caret {
+  display: inline-block;
+  width: 3px;
+  height: 1em;
+  margin-inline-start: 4px;
+  border-radius: 2px;
+  vertical-align: -0.14em;
+  background: currentColor;
+  animation: tw-blink 1.06s steps(2, start) infinite;
+}
+@keyframes tw-blink {
+  50% { opacity: 0; }
 }
 
 /* Hide number-input spinner arrows everywhere (Chrome/Safari/Firefox) */
