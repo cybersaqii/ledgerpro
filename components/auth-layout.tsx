@@ -69,13 +69,14 @@ export function AuthLayout({
       </div>
 
       {/* Card */}
-      <div className="relative z-10 grid w-full max-w-5xl overflow-hidden rounded-[1.75rem] bg-white shadow-2xl shadow-emerald-950/15 md:grid-cols-[1fr_1.05fr]">
+      <div className="relative z-10 grid min-h-[80vh] w-full max-w-6xl overflow-hidden rounded-[1.75rem] bg-white shadow-2xl shadow-emerald-950/15 md:grid-cols-[1fr_1.05fr]">
         {/* Left — form side */}
         <div className="flex flex-col p-6 sm:p-10 lg:px-12">
           <Link href="/" aria-label={brand.name} className="self-start">
             <BrandLockup markSize={34} wordClass="font-display text-[1.05rem] leading-none" tagline />
           </Link>
 
+          <div className="flex flex-1 flex-col justify-center py-6">
           {heading ? (
             <h1 className="font-display mt-8 text-[1.65rem] font-extrabold tracking-tight text-slate-900">{heading}</h1>
           ) : null}
@@ -110,9 +111,10 @@ export function AuthLayout({
             </div>
           )}
 
-          <div className="mt-6 flex-1">{children}</div>
+          <div className="mt-6">{children}</div>
+          </div>
 
-          <p className="mt-8 text-center text-xs text-slate-400">{L("footer", { brand: brand.name })}</p>
+          <p className="text-center text-xs text-slate-400">{L("footer", { brand: brand.name })}</p>
         </div>
 
         {/* Right — showcase side */}

@@ -84,7 +84,7 @@ export default function LandingContent() {
     <div className="min-h-screen overflow-x-clip bg-background">
       {/* Nav — floating pill */}
       <header className="fixed inset-x-0 top-3 z-40 px-3 sm:top-4 sm:px-6">
-        <div className="mx-auto flex h-14 max-w-6xl items-center justify-between gap-2 rounded-full border border-white/15 bg-[#071f19]/80 py-1.5 pl-4 pr-1.5 shadow-2xl shadow-black/30 backdrop-blur-xl sm:h-16 sm:pl-5 sm:pr-2">
+        <div className="mx-auto flex h-14 max-w-[1600px] items-center justify-between gap-2 rounded-full border border-white/15 bg-[#071f19]/80 py-1.5 pl-4 pr-1.5 shadow-2xl shadow-black/30 backdrop-blur-xl sm:h-16 sm:pl-5 sm:pr-2">
           <Link href="/" className="flex min-w-0 items-center gap-2.5" aria-label={b}>
             <BrandLockup markSize={34} wordClass="font-display text-[1.02rem] leading-none text-white hidden min-[420px]:block" tagline dark />
           </Link>
@@ -108,14 +108,14 @@ export default function LandingContent() {
       {/* Hero — rounded emerald frame, floating collage */}
       <section className="relative pt-24 sm:pt-28">
         <div className="px-3 sm:px-5">
-          <div className="relative mx-auto max-w-[1400px] overflow-hidden rounded-[2rem] sm:rounded-[2.5rem]">
+          <div className="relative mx-auto max-w-[1600px] overflow-hidden rounded-[2rem] sm:rounded-[2.5rem]">
             <div className="absolute inset-0 bg-gradient-to-br from-[#052b21] via-[#0a4634] to-[#062b22]" />
             <div className="pointer-events-none absolute inset-0">
               <div className="absolute -top-24 left-[12%] h-[380px] w-[560px] rounded-full bg-emerald-400/25 blur-[130px]" />
               <div className="absolute bottom-0 right-[8%] h-80 w-80 rounded-full bg-teal-300/20 blur-[110px]" />
               <div className="absolute inset-0 opacity-[0.07]" style={{ backgroundImage: "radial-gradient(circle at 1px 1px, #fff 1px, transparent 0)", backgroundSize: "28px 28px" }} />
             </div>
-            <div className="relative grid items-center gap-14 px-6 pb-16 pt-12 sm:px-10 lg:grid-cols-[1.02fr_0.98fr] lg:gap-6 lg:px-14 lg:pb-24 lg:pt-16">
+            <div className="relative grid items-center gap-14 px-6 pb-16 pt-12 sm:px-10 lg:grid-cols-[1.02fr_0.98fr] lg:gap-6 lg:px-14 lg:pb-16 lg:pt-14">
           <div className="text-center lg:text-left">
             <div className="rise inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/10 px-4 py-1.5 text-xs font-semibold text-emerald-50 shadow-sm backdrop-blur">
               <BadgeCheck size={14} className="text-amber-300" />
@@ -151,77 +151,80 @@ export default function LandingContent() {
             <p className="rise rise-4 mt-4 text-xs text-emerald-100/60">{L("heroMicro")}</p>
           </div>
 
-          {/* Collage — dashboard centerpiece + floating glass cards */}
-          <div className="rise rise-2 relative mx-auto w-full max-w-[500px]">
-            <div className="pointer-events-none absolute -inset-8 rounded-[2.5rem] bg-emerald-400/15 blur-3xl" />
-            {/* P&L sparkline card */}
-            <div className="floaty absolute -top-9 -left-4 z-10 hidden w-52 rounded-2xl border border-white/15 bg-white/10 p-4 shadow-xl backdrop-blur-xl sm:block" style={{ animationDelay: "-2s" }} aria-hidden="true">
-              <p className="text-[0.68rem] font-semibold uppercase tracking-wider text-emerald-100/70">{L("fcPlT")}</p>
-              <p className="font-display mt-1 text-2xl font-extrabold tracking-tight text-white">Rs 1,84,500</p>
+          {/* Collage — dashboard centerpiece + floating cards in fixed zones (no collisions) */}
+          <div className="rise rise-2 relative mx-auto w-full max-w-[560px] lg:h-[560px]">
+            <div className="pointer-events-none absolute -inset-8 rounded-[2.5rem] bg-emerald-400/15 blur-3xl" aria-hidden="true" />
+            {/* Dashboard — in flow on small screens, centered stage on lg */}
+            <div className="relative lg:absolute lg:left-1/2 lg:top-1/2 lg:w-[400px] lg:-translate-x-1/2 lg:-translate-y-1/2">
+              <div className="floaty card card-gloss p-5 text-left shadow-2xl sm:p-7">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">{L("mockToday")}</p>
+                    <p className="mt-1 text-3xl font-extrabold tracking-tight">Rs 1,84,500</p>
+                  </div>
+                  <span className="badge bg-primary-soft text-primary"><TrendingUp size={13} /> {L("mockWeek")}</span>
+                </div>
+                <div className="mt-6 grid grid-cols-3 gap-3">
+                  {[
+                    { l: L("mockReceive"), v: "Rs 96,200" },
+                    { l: L("mockPay"), v: "Rs 41,750" },
+                    { l: L("mockStock"), v: "Rs 5,20,000" },
+                  ].map((s) => (
+                    <div key={s.l} className="rounded-xl bg-muted/70 p-3 sm:p-4">
+                      <p className="text-[0.68rem] font-semibold uppercase tracking-wider text-muted-foreground">{s.l}</p>
+                      <p className="mt-1 text-sm font-extrabold sm:text-lg">{s.v}</p>
+                    </div>
+                  ))}
+                </div>
+                <div className="mt-4 flex items-end gap-1.5" aria-hidden>
+                  {[35, 55, 40, 70, 52, 88, 64, 95, 74, 100, 82, 92].map((h, i) => (
+                    <div key={i} className="flex-1 rounded-t-md bg-gradient-to-t from-primary/70 to-primary/25" style={{ height: `${h * 0.9}px` }} />
+                  ))}
+                </div>
+              </div>
+            </div>
+            {/* P&L sparkline card — top-left zone, solid for readability */}
+            <div className="floaty absolute left-0 top-0 z-10 hidden w-44 rounded-2xl bg-white p-4 text-left shadow-2xl shadow-black/25 lg:block" style={{ animationDelay: "-2s" }} aria-hidden="true">
+              <p className="text-[0.68rem] font-bold uppercase tracking-wider text-slate-400">{L("fcPlT")}</p>
+              <p className="font-display mt-1 text-[1.4rem] font-extrabold tracking-tight text-slate-900">Rs 1,84,500</p>
               <svg viewBox="0 0 120 36" className="mt-2 h-9 w-full" aria-hidden="true">
-                <polyline points="0,28 15,24 30,26 45,18 60,21 75,13 90,16 105,8 120,10" fill="none" stroke="#6ee7b7" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
+                <polyline points="0,28 15,24 30,26 45,18 60,21 75,13 90,16 105,8 120,10" fill="none" stroke="#10b981" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
               </svg>
-              <p className="mt-1 text-[0.7rem] font-bold text-emerald-300">{L("fcPlD")}</p>
+              <p className="mt-1 text-[0.7rem] font-bold text-emerald-600">{L("fcPlD")}</p>
             </div>
-            {/* New invoice card */}
-            <div className="floaty absolute -top-7 -right-4 z-10 hidden w-56 rounded-2xl border border-white/15 bg-white/10 p-4 shadow-xl backdrop-blur-xl md:block" style={{ animationDelay: "-4.2s" }} aria-hidden="true">
+            {/* New invoice card — top-right zone */}
+            <div className="floaty absolute right-0 top-8 z-10 hidden w-48 rounded-2xl bg-white p-4 text-left shadow-2xl shadow-black/25 lg:block" style={{ animationDelay: "-4.2s" }} aria-hidden="true">
               <div className="flex items-center justify-between">
-                <p className="text-xs font-bold text-white">{L("fcInvT")}</p>
-                <span className="rounded-md bg-white/15 px-2 py-0.5 text-[0.65rem] font-bold text-emerald-100">INV-0104</span>
+                <p className="text-xs font-bold text-slate-900">{L("fcInvT")}</p>
+                <span className="rounded-md bg-emerald-50 px-2 py-0.5 text-[0.65rem] font-bold text-emerald-700">INV-0104</span>
               </div>
-              <div className="mt-3 flex items-center justify-between rounded-xl bg-black/25 px-3 py-2.5">
-                <span className="text-sm font-bold text-white/90">Rs 25,000</span>
-                <span className="h-4 w-px animate-pulse bg-emerald-300" />
+              <div className="mt-3 flex items-center justify-between rounded-xl bg-slate-100 px-3 py-2.5">
+                <span className="text-sm font-extrabold text-slate-900">Rs 25,000</span>
+                <span className="h-4 w-px animate-pulse bg-emerald-500" />
               </div>
-              <div className="mt-3 rounded-full bg-white py-2 text-center text-xs font-extrabold text-[#0a2e25]">{L("fcInvB")}</div>
+              <div className="mt-3 rounded-full bg-emerald-600 py-2 text-center text-xs font-extrabold text-white">{L("fcInvB")}</div>
             </div>
-            {/* Payment received toasts */}
-            <div className="absolute top-[36%] -right-7 z-10 hidden flex-col gap-2.5 lg:flex" aria-hidden="true">
+            {/* Payment received toasts — bottom-right zone */}
+            <div className="absolute bottom-16 right-0 z-10 hidden flex-col gap-2.5 lg:flex" aria-hidden="true">
               {[{ n: "fcRecN0", init: "AT", d: "-1.2s" }, { n: "fcRecN1", init: "SK", d: "-3.4s" }].map((r) => (
-                <div key={r.n} className="floaty flex items-center gap-2.5 rounded-2xl border border-white/15 bg-white/10 py-2.5 pl-2.5 pr-4 shadow-lg backdrop-blur-xl" style={{ animationDelay: r.d }}>
+                <div key={r.n} className="floaty flex items-center gap-2.5 rounded-2xl bg-white py-2.5 pl-2.5 pr-4 text-left shadow-2xl shadow-black/25" style={{ animationDelay: r.d }}>
                   <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-gradient-to-br from-amber-300 to-emerald-400 text-[0.7rem] font-extrabold text-[#0a2e25]">{r.init}</span>
                   <span>
-                    <span className="block text-[0.72rem] font-extrabold text-white">Rs 10,000</span>
-                    <span className="block text-[0.65rem] text-emerald-100/75">{L("fcRecT")} · {L("fcRecD", { name: L(r.n) })}</span>
+                    <span className="block text-[0.72rem] font-extrabold text-slate-900">Rs 10,000</span>
+                    <span className="block text-[0.65rem] font-medium text-slate-500">{L("fcRecT")} · {L("fcRecD", { name: L(r.n) })}</span>
                   </span>
                 </div>
               ))}
             </div>
-            {/* Low stock glass card */}
-            <div className="floaty absolute -bottom-9 -left-5 z-10 hidden items-center gap-3 rounded-2xl border border-white/15 bg-white/10 p-3 pr-5 shadow-xl backdrop-blur-xl md:flex" style={{ animationDelay: "-5.6s" }} aria-hidden="true">
-              <span className="grid h-10 w-10 place-items-center rounded-full bg-amber-400/20 text-amber-300">
+            {/* Low stock card — bottom-left zone */}
+            <div className="floaty absolute bottom-0 left-2 z-10 hidden items-center gap-3 rounded-2xl bg-white p-3 pr-5 text-left shadow-2xl shadow-black/25 lg:flex" style={{ animationDelay: "-5.6s" }} aria-hidden="true">
+              <span className="grid h-10 w-10 place-items-center rounded-full bg-amber-100 text-amber-600">
                 <TriangleAlert size={20} />
               </span>
               <span>
-                <span className="block text-xs font-bold text-white">{L("mockAlertTitle")}</span>
-                <span className="block text-[0.7rem] text-emerald-100/70">{L("mockAlertSub")}</span>
+                <span className="block text-xs font-bold text-slate-900">{L("mockAlertTitle")}</span>
+                <span className="block text-[0.7rem] text-slate-500">{L("mockAlertSub")}</span>
               </span>
-            </div>
-            <div className="floaty card card-gloss relative p-5 text-left shadow-2xl sm:p-7">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">{L("mockToday")}</p>
-                  <p className="mt-1 text-3xl font-extrabold tracking-tight">Rs 1,84,500</p>
-                </div>
-                <span className="badge bg-primary-soft text-primary"><TrendingUp size={13} /> {L("mockWeek")}</span>
-              </div>
-              <div className="mt-6 grid grid-cols-3 gap-3">
-                {[
-                  { l: L("mockReceive"), v: "Rs 96,200" },
-                  { l: L("mockPay"), v: "Rs 41,750" },
-                  { l: L("mockStock"), v: "Rs 5,20,000" },
-                ].map((s) => (
-                  <div key={s.l} className="rounded-xl bg-muted/70 p-3 sm:p-4">
-                    <p className="text-[0.68rem] font-semibold uppercase tracking-wider text-muted-foreground">{s.l}</p>
-                    <p className="mt-1 text-sm font-extrabold sm:text-lg">{s.v}</p>
-                  </div>
-                ))}
-              </div>
-              <div className="mt-4 flex items-end gap-1.5" aria-hidden>
-                {[35, 55, 40, 70, 52, 88, 64, 95, 74, 100, 82, 92].map((h, i) => (
-                  <div key={i} className="flex-1 rounded-t-md bg-gradient-to-t from-primary/70 to-primary/25" style={{ height: `${h * 0.9}px` }} />
-                ))}
-              </div>
             </div>
           </div>
             </div>
@@ -250,7 +253,7 @@ export default function LandingContent() {
           <div className="absolute -left-24 top-10 h-72 w-72 rounded-full bg-emerald-200/40 blur-[110px] dark:bg-emerald-400/10" />
           <div className="absolute -right-24 bottom-10 h-72 w-72 rounded-full bg-amber-100/60 blur-[110px] dark:bg-amber-400/10" />
         </div>
-        <div className="relative mx-auto max-w-[1400px] px-4 py-16 sm:px-8 sm:py-24 lg:px-12">
+        <div className="relative mx-auto max-w-[1400px] px-4 py-12 sm:px-8 sm:py-16 lg:px-12">
           <div className="text-center">
             <span className="inline-flex items-center gap-1.5 rounded-full bg-amber-500/10 px-4 py-1.5 text-xs font-bold uppercase tracking-wider text-amber-700 dark:text-amber-300">
               <TriangleAlert size={13} /> {L("paperKicker")}
