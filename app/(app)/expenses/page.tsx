@@ -7,7 +7,6 @@ import { Modal } from "@/components/modal";
 import { api, fmtMoney, fmtDate, fmtDateInput, toBig } from "@/lib/format";
 import { useLang } from "@/components/lang-provider";
 import { usePermissions } from "@/components/permissions";
-import { fx } from "@/components/fix3-lang";
 
 type Expense = {
   id: string; date: number; amount: string; taxAmount: string; notes: string | null;
@@ -20,7 +19,7 @@ const PER_PAGE = 20;
 
 export default function ExpensesPage() {
   const { t } = useLang();
-  const f = (k: string, vars?: Record<string, string | number>) => fx(t, k, vars);
+  const f = (k: string, vars?: Record<string, string | number>) => t(k, vars);
   const { permissions } = usePermissions();
   const canVoid = permissions.includes("expenses");
   const [rows, setRows] = useState<Expense[]>([]);

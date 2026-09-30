@@ -114,7 +114,19 @@ type AdminGate =
 export async function requirePlatformAdmin(): Promise<AdminGate> {
   const { session, response } = await requireAuth();
   if (!session) return { ok: false, session: null, response };
-  if (!isPlatformAdminEmail(session.email || "")) {
+  // M5 fix: re-read the user's CURRENT email from the DB instead of trusting
+  // the JWT claim — a changed/removed admin email must lose access immediately,
+  // not when the 7-day token expires.
+  const rows = await db
+    .select({ email: users.email, isActive: users.isActive })
+    .from(users)
+    .where(eq(users.id, session.uid))
+    .limit(1);
+  const user = rows[0];
+  if (!user || !user.isActive) {
+    return { ok: false, session: null, response: json({ error: "Not authorized." }, { status: 403 }) };
+  }
+  if (!isPlatformAdminEmail(user.email || "")) {
     return { ok: false, session: null, response: json({ error: "Not authorized." }, { status: 403 }) };
   }
   return { ok: true, session, response: null };
@@ -214,6 +226,14 @@ export async function activatePro(
   } catch (e) {
     console.error("[activatePro] pro-activated email failed", e);
   }
+  // Referral growth loop: a PRO purchase qualifies a pending referral and can
+  // unlock the referrer's monthly reward. Best effort — never breaks activation.
+  try {
+    const { qualifyReferralOnProActivation } = await import("@/lib/referrals");
+    await qualifyReferralOnProActivation(dbc, companyId, now);
+  } catch (e) {
+    console.error("[activatePro] referral qualification failed", e);
+  }
   return expires;
 }
 
@@ -226,6 +246,8 @@ export async function createBillingPayment(
     method: string;
     reference: string;
     months: number;
+    couponId?: string | null;
+    discountPaisa?: number;
   },
   dbc: Db | DbTx = db
 ): Promise<string> {
@@ -238,6 +260,8 @@ export async function createBillingPayment(
     method: input.method,
     reference: input.reference,
     months: input.months,
+    couponId: input.couponId ?? null,
+    discountPaisa: input.discountPaisa ?? 0,
     status: "PENDING",
     createdAt: new Date(),
   });

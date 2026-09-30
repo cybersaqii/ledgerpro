@@ -6,7 +6,6 @@ import { ArrowLeft, Boxes } from "lucide-react";
 import { PageHeader } from "@/components/ui";
 import { api, fmtMoney, fmtDate, fmtQty, toBig } from "@/lib/format";
 import { useLang } from "@/components/lang-provider";
-import { fx } from "@/components/fix3-lang";
 
 type Line = {
   id: string; productId: string; qtyMilli: string; costPaisa: string;
@@ -23,7 +22,7 @@ function reasonLabel(f: (k: string) => string, r: string): string {
 
 export default function AdjustmentDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { t } = useLang();
-  const f = (k: string, vars?: Record<string, string | number>) => fx(t, k, vars);
+  const f = (k: string, vars?: Record<string, string | number>) => t(k, vars);
   const [adj, setAdj] = useState<Adj | null>(null);
   const [error, setError] = useState<string | null>(null);
 

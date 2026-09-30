@@ -7,13 +7,14 @@ import { Modal } from "@/components/modal";
 import { api, fmtMoney, fmtQty } from "@/lib/format";
 import { paisaToRupees } from "@/lib/pos";
 import { useBusinessProfile } from "@/components/business-type";
+import { ProductImage } from "@/components/product-image";
 import { useLang } from "@/components/lang-provider";
 
 type Product = {
   id: string; sku: string; name: string; unit: string; category: string | null;
   purchasePrice: string; salePrice: string; trackStock: boolean;
   reorderLevel: string; totalQty: string; minSalePrice: string; isBundle: boolean;
-  location: string | null;
+  location: string | null; imageUrl: string | null;
 };
 
 type BatchInfo = {
@@ -29,14 +30,14 @@ type ProductPick = { id: string; name: string; sku: string; unit: string };
 const emptyForm = {
   sku: "", name: "", barcode: "", category: "", unit: "PCS",
   purchasePrice: "", salePrice: "", trackStock: true, reorderLevel: "", minSalePrice: "",
-  location: "",
+  location: "", imageUrl: "",
 };
 
 type ProductDetail = {
   id: string; sku: string; name: string; barcode: string | null;
   unit: string; category: string | null; purchasePrice: string; salePrice: string;
   trackStock: boolean; reorderLevel: string; minSalePrice: string | null;
-  location: string | null; isBundle: boolean;
+  location: string | null; imageUrl: string | null; isBundle: boolean;
 };
 
 const UNITS = ["PCS", "KG", "G", "LTR", "ML", "MTR", "BOX", "CTN", "DOZ", "BAG"];
@@ -108,6 +109,7 @@ export default function ProductsPage() {
         reorderLevel: thousandthsToStr(full.reorderLevel),
         minSalePrice: paisaToRupees(full.minSalePrice ?? "0"),
         location: full.location ?? "",
+        imageUrl: full.imageUrl ?? "",
       });
       setComponents([]); setComponentsLoaded(false);
       setCompQuery(""); setCompResults([]);
@@ -243,11 +245,16 @@ export default function ProductsPage() {
                     <Fragment key={p.id}>
                     <tr key={p.id}>
                       <td>
-                        <span className="font-bold">{p.name}</span>
-                        {p.isBundle && <span className="badge ml-2 bg-primary-soft text-primary">{t("bundles.badge")}</span>}
-                        {low && <span className="badge ml-2 bg-danger-soft text-danger"><TriangleAlert size={11} /> {t("products.lowBadge")}</span>}
-                        <span className="block text-xs text-muted-foreground">
-                          {[p.category, p.location].filter(Boolean).join(" · ")}
+                        <span className="flex items-center gap-2.5">
+                          <ProductImage name={p.name} imageUrl={p.imageUrl} businessType={bp.type} size={36} />
+                          <span>
+                            <span className="font-bold">{p.name}</span>
+                            {p.isBundle && <span className="badge ml-2 bg-primary-soft text-primary">{t("bundles.badge")}</span>}
+                            {low && <span className="badge ml-2 bg-danger-soft text-danger"><TriangleAlert size={11} /> {t("products.lowBadge")}</span>}
+                            <span className="block text-xs text-muted-foreground">
+                              {[p.category, p.location].filter(Boolean).join(" · ")}
+                            </span>
+                          </span>
                         </span>
                       </td>
                       <td><span className="rounded-md bg-muted px-1.5 py-0.5 font-mono text-xs text-muted-foreground">{p.sku}</span></td>
@@ -326,6 +333,12 @@ export default function ProductsPage() {
               </Field>
             </div>
             <Field label={t("batches.location")}><input className="field" value={form.location} onChange={set("location")} placeholder={t("batches.locationPlaceholder")} maxLength={60} /></Field>
+            <Field label={t("products.imageUrl")} hint={t("products.imageUrlHint")}>
+              <div className="flex items-center gap-3">
+                <ProductImage name={form.name || "?"} imageUrl={form.imageUrl.trim() || null} businessType={bp.type} size={44} />
+                <input className="field" type="url" inputMode="url" dir="ltr" value={form.imageUrl} onChange={set("imageUrl")} placeholder="https://…" maxLength={500} />
+              </div>
+            </Field>
             <div className="grid gap-4 sm:grid-cols-3">
               <Field label={t("products.buyPrice")}><input className="field" type="number" min="0" step="0.01" placeholder="0.00" value={form.purchasePrice} onChange={set("purchasePrice")} /></Field>
               <Field label={t("products.salePrice")}><input className="field" type="number" min="0" step="0.01" placeholder="0.00" value={form.salePrice} onChange={set("salePrice")} /></Field>

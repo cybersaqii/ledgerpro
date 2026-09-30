@@ -14,6 +14,8 @@ export interface PosProduct {
   salePrice: string | number | bigint;
   /** floor price in paisa; selling below needs an override (optional) */
   minSalePrice?: string | number | bigint | null;
+  /** external image URL (optional) */
+  imageUrl?: string | null;
 }
 
 export interface PosLine {

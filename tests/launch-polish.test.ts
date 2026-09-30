@@ -2,7 +2,6 @@ import { describe, it, expect, beforeAll, afterAll } from "vitest";
 import { eq, and, isNull } from "drizzle-orm";
 import { getTableColumns, type Column } from "drizzle-orm";
 import { createTestDb, type TestDb } from "./helpers";
-import { hasRecoveryCode } from "@/lib/recovery";
 import { hashPassword } from "@/lib/auth";
 import {
   validateSupportInput,
@@ -28,26 +27,16 @@ beforeAll(async () => {
 
 afterAll(() => cleanup());
 
-async function makeUser(companyId: string, email: string, withCode: boolean): Promise<string> {
-  const id = crypto.randomUUID();
-  await db.insert(s.users).values({
-    id, companyId, name: "Test User", email,
-    passwordHash: await hashPassword("password123"),
-    role: "OWNER",
-    recoveryCodeHash: withCode ? await hashPassword("ABCDEFGHJKLMNPQR") : null,
-  });
-  return id;
-}
-
-describe("recovery-status", () => {
-  it("hasRecoveryCode is true only when a code hash is stored", async () => {
-    const cid = crypto.randomUUID();
-    await db.insert(s.companies).values({ id: cid, name: "Recovery Co" });
-    const withCode = await makeUser(cid, "with-code@example.com", true);
-    const withoutCode = await makeUser(cid, "without-code@example.com", false);
-    expect(await hasRecoveryCode(db, withCode)).toBe(true);
-    expect(await hasRecoveryCode(db, withoutCode)).toBe(false);
-    expect(await hasRecoveryCode(db, crypto.randomUUID())).toBe(false);
+describe("otp purposes", () => {
+  it("accepts the reset purpose for password-reset codes", async () => {
+    const { issueOtp, checkOtp } = await import("@/lib/otp");
+    const email = "reset-flow@example.com";
+    const { code } = await issueOtp(db, { email, purpose: "reset", ip: "127.0.0.1" });
+    expect(code).toMatch(/^\d{6}$/);
+    expect((await checkOtp(db, { email, code, purpose: "reset" })).ok).toBe(true);
+    // A signup-purpose code is not valid for the reset purpose.
+    const second = await issueOtp(db, { email, purpose: "signup", ip: "127.0.0.1" });
+    expect((await checkOtp(db, { email, code: second.code, purpose: "reset" })).ok).toBe(false);
   });
 });
 

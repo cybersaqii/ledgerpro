@@ -1,11 +1,10 @@
 // Edge-safe session check for proxy.ts — imports ONLY jose (edge-compatible).
 import { jwtVerify } from "jose";
+import { authSecretBytes } from "./auth-secret";
 
 export const SESSION_COOKIE = "ledgerpro_session";
 
-const secret = new TextEncoder().encode(
-  process.env.AUTH_SECRET || "dev-only-secret-change-me-32-chars-min"
-);
+const secret = authSecretBytes();
 
 export async function verifySessionToken(token: string): Promise<boolean> {
   try {

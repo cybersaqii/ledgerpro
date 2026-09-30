@@ -14,10 +14,21 @@ import { rateLimits } from "@/db/schema";
  * can never lock users out of auth.
  */
 
-/** Best-effort client IP behind proxies (Vercel sets x-forwarded-for). */
+/**
+ * Best-effort client IP behind proxies.
+ *
+ * Proxies APPEND the real client IP at the END of x-forwarded-for, so the
+ * LAST entry is the only one a downstream proxy added — earlier entries are
+ * fully attacker-controlled. Take the last entry (H1 fix); forensics value
+ * only, defense still relies on per-email/per-account limits too.
+ */
 export function clientIp(req: Request): string {
   const fwd = req.headers.get("x-forwarded-for");
-  if (fwd) return fwd.split(",")[0].trim();
+  if (fwd) {
+    const parts = fwd.split(",").map((p) => p.trim()).filter(Boolean);
+    const last = parts[parts.length - 1];
+    if (last) return last;
+  }
   return req.headers.get("x-real-ip")?.trim() || "unknown";
 }
 

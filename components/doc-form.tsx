@@ -243,7 +243,7 @@ export function DocForm({ mode }: { mode: "SALES" | "PURCHASE" }) {
 
   // bank/cash accounts: landed-cost payment (purchase bills) + Add Receipt/Payment section
   useEffect(() => {
-    api<{ data: { id: string; name: string }[] }>("/api/bank-accounts?perPage=30")
+    api<{ data: { id: string; name: string }[] }>("/api/banks")
       .then((d) => setBankAccounts(d.data))
       .catch(() => {});
   }, []);

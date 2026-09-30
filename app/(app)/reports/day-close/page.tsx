@@ -6,7 +6,6 @@ import { PageHeader, ExportCsv, SummaryChips, EmptyState } from "@/components/ui
 import { api, fmtMoney, fmtDateInput } from "@/lib/format";
 import { csvMoney } from "@/lib/csv";
 import { useLang } from "@/components/lang-provider";
-import { fx } from "@/components/fix3-lang";
 
 type Bucket = { count: number; total: string };
 type Data = {
@@ -27,7 +26,7 @@ type Data = {
 
 export default function DayClosePage() {
   const { t } = useLang();
-  const f = (k: string) => fx(t, k);
+  const f = (k: string) => t(k);
   const [date, setDate] = useState(fmtDateInput());
   const [d, setD] = useState<Data | null>(null);
   const [loading, setLoading] = useState(true);

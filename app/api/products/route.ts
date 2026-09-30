@@ -5,6 +5,7 @@ import { productSchema } from "@/lib/validators";
 import { parseMoney } from "@/lib/money";
 import { parseQty } from "@/lib/qty";
 import { bundleProductIds } from "@/lib/bundles";
+import { validateImageUrl, ImageUrlError } from "@/lib/product-image";
 import { json, err } from "@/lib/api";
 import { requireCompany, db, defaultBranchId, requirePermission } from "@/lib/route-helpers";
 import { logAudit } from "@/lib/audit";
@@ -70,6 +71,13 @@ export async function POST(req: NextRequest) {
   const parsed = productSchema.safeParse(body);
   if (!parsed.success) return err("Please check the form and try again.", 422);
   const p = parsed.data;
+  let imageUrl: string | null = null;
+  try {
+    imageUrl = validateImageUrl(p.imageUrl);
+  } catch (e) {
+    if (e instanceof ImageUrlError) return err(e.message, 422);
+    throw e;
+  }
 
   const dup = await db
     .select({ id: products.id })
@@ -94,6 +102,7 @@ export async function POST(req: NextRequest) {
     reorderLevel: parseQty(p.reorderLevel),
     minSalePrice: parseMoney(p.minSalePrice || "0"),
     location: p.location?.trim() ? p.location.trim().slice(0, 60) : null,
+    imageUrl,
  });
   await logAudit(db, {
     companyId, userId: session.uid, userName: session.name,

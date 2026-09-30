@@ -9,6 +9,7 @@ import {
 import { requireCompany, requirePermission, db } from "@/lib/route-helpers";
 import { requirePro } from "@/lib/billing-guards";
 import { buildBackupPayload, serializeBackup } from "@/lib/backup";
+import { rowsToCsv, csvMoney, csvQty, csvDate } from "@/lib/csv";
 
 
 // GET /api/export?kind=backup|parties|products|sales|purchases|payments|expenses|stock
@@ -17,30 +18,6 @@ import { buildBackupPayload, serializeBackup } from "@/lib/backup";
 
 const CSV_KINDS = ["parties", "products", "sales", "purchases", "payments", "expenses", "stock"] as const;
 
-function csvCell(v: unknown): string {
-  const s = v === null || v === undefined ? "" : String(v);
-  return /[",\n\r]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
-}
-function toCSV(headers: string[], rows: unknown[][]): string {
-  return [headers.map(csvCell).join(","), ...rows.map((r) => r.map(csvCell).join(","))].join("\r\n");
-}
-function rupees(paisa: bigint | number | string | null | undefined): string {
-  if (paisa === null || paisa === undefined) return "";
-  const n = typeof paisa === "bigint" ? paisa : BigInt(paisa);
-  return (n / 100n).toString() + "." + (n % 100n).toString().padStart(2, "0");
-}
-function qtyStr(milli: bigint | number | string | null | undefined): string {
-  if (milli === null || milli === undefined) return "";
-  const n = typeof milli === "bigint" ? milli : BigInt(milli);
-  const whole = n / 1000n;
-  const frac = (n % 1000n).toString().padStart(3, "0").replace(/0+$/, "");
-  return whole.toString() + (frac ? "." + frac : "");
-}
-function dateStr(v: Date | number | string | null | undefined): string {
-  if (!v) return "";
-  const d = v instanceof Date ? v : new Date(typeof v === "string" && !/^\d+$/.test(v) ? v : Number(v));
-  return isNaN(d.getTime()) ? "" : d.toISOString().slice(0, 10);
-}
 
 export async function GET(req: NextRequest) {
   const kind = req.nextUrl.searchParams.get("kind") ?? "";
@@ -58,7 +35,7 @@ export async function GET(req: NextRequest) {
     return new NextResponse(body, {
       headers: {
         "content-type": "application/json",
-        "content-disposition": `attachment; filename="ledgerpro-backup-${dateStr(new Date())}.json"`,
+        "content-disposition": `attachment; filename="ledgerpro-backup-${csvDate(new Date())}.json"`,
  },
  });
  }
@@ -68,19 +45,19 @@ export async function GET(req: NextRequest) {
  }
 
   let csv = "";
-  const name = `ledgerpro-${kind}-${dateStr(new Date())}.csv`;
+  const name = `ledgerpro-${kind}-${csvDate(new Date())}.csv`;
 
   if (kind === "parties") {
     const rows = await db.select().from(parties).where(eq(parties.companyId, companyId));
-    csv = toCSV(
+    csv = rowsToCsv(
       ["Name", "Type", "Phone", "Email", "Address", "City", "Credit Limit (Rs)", "Balance (Rs)", "Active"],
-      rows.map((p) => [p.name, p.kind, p.phone, p.email, p.address, p.city, rupees(p.creditLimit), rupees(p.balance), p.isActive ? "Yes" : "No"])
+      rows.map((p) => [p.name, p.kind, p.phone, p.email, p.address, p.city, csvMoney(p.creditLimit), csvMoney(p.balance), p.isActive ? "Yes" : "No"])
     );
  } else if (kind === "products") {
     const rows = await db.select().from(products).where(eq(products.companyId, companyId));
-    csv = toCSV(
+    csv = rowsToCsv(
       ["SKU", "Barcode", "Name", "Category", "Unit", "Purchase Price (Rs)", "Sale Price (Rs)", "Min Sale Price (Rs)", "Track Stock", "Location", "Active"],
-      rows.map((p) => [p.sku, p.barcode, p.name, p.category, p.unit, rupees(p.purchasePrice), rupees(p.salePrice), rupees(p.minSalePrice), p.trackStock ? "Yes" : "No", p.location, p.isActive ? "Yes" : "No"])
+      rows.map((p) => [p.sku, p.barcode, p.name, p.category, p.unit, csvMoney(p.purchasePrice), csvMoney(p.salePrice), csvMoney(p.minSalePrice), p.trackStock ? "Yes" : "No", p.location, p.isActive ? "Yes" : "No"])
     );
  } else if (kind === "sales") {
     const rows = await db
@@ -89,9 +66,9 @@ export async function GET(req: NextRequest) {
       .leftJoin(parties, eq(salesDocs.partyId, parties.id))
       .where(and(eq(salesDocs.companyId, companyId), eq(salesDocs.docType, "INVOICE")))
       .orderBy(desc(salesDocs.date));
-    csv = toCSV(
+    csv = rowsToCsv(
       ["Invoice No", "Date", "Customer", "Subtotal (Rs)", "Discount (Rs)", "Tax (Rs)", "Total (Rs)", "Paid (Rs)", "Status", "Notes"],
-      rows.map((r) => [r.d.docNo, dateStr(r.d.date), r.partyName, rupees(r.d.subtotal), rupees(r.d.discountTotal), rupees(r.d.taxTotal), rupees(r.d.grandTotal), rupees(r.d.amountPaid), r.d.status, r.d.notes])
+      rows.map((r) => [r.d.docNo, csvDate(r.d.date), r.partyName, csvMoney(r.d.subtotal), csvMoney(r.d.discountTotal), csvMoney(r.d.taxTotal), csvMoney(r.d.grandTotal), csvMoney(r.d.amountPaid), r.d.status, r.d.notes])
     );
  } else if (kind === "purchases") {
     const rows = await db
@@ -100,9 +77,9 @@ export async function GET(req: NextRequest) {
       .leftJoin(parties, eq(purchaseDocs.partyId, parties.id))
       .where(and(eq(purchaseDocs.companyId, companyId), eq(purchaseDocs.docType, "BILL")))
       .orderBy(desc(purchaseDocs.date));
-    csv = toCSV(
+    csv = rowsToCsv(
       ["Bill No", "Date", "Supplier", "Subtotal (Rs)", "Discount (Rs)", "Tax (Rs)", "Total (Rs)", "Paid (Rs)", "Status"],
-      rows.map((r) => [r.d.docNo, dateStr(r.d.date), r.partyName, rupees(r.d.subtotal), rupees(r.d.discountTotal), rupees(r.d.taxTotal), rupees(r.d.grandTotal), rupees(r.d.amountPaid), r.d.status])
+      rows.map((r) => [r.d.docNo, csvDate(r.d.date), r.partyName, csvMoney(r.d.subtotal), csvMoney(r.d.discountTotal), csvMoney(r.d.taxTotal), csvMoney(r.d.grandTotal), csvMoney(r.d.amountPaid), r.d.status])
     );
  } else if (kind === "payments") {
     const rows = await db
@@ -112,9 +89,9 @@ export async function GET(req: NextRequest) {
       .leftJoin(bankAccounts, eq(payments.bankAccountId, bankAccounts.id))
       .where(eq(payments.companyId, companyId))
       .orderBy(desc(payments.date));
-    csv = toCSV(
+    csv = rowsToCsv(
       ["Date", "Type", "Party", "Cash/Bank Account", "Method", "Amount (Rs)", "Reference", "Notes"],
-      rows.map((r) => [dateStr(r.p.date), r.p.kind, r.partyName, r.bankName, r.p.method, rupees(r.p.amount), r.p.reference, r.p.notes])
+      rows.map((r) => [csvDate(r.p.date), r.p.kind, r.partyName, r.bankName, r.p.method, csvMoney(r.p.amount), r.p.reference, r.p.notes])
     );
  } else if (kind === "expenses") {
     const rows = await db
@@ -124,9 +101,9 @@ export async function GET(req: NextRequest) {
       .leftJoin(bankAccounts, eq(expenses.bankAccountId, bankAccounts.id))
       .where(eq(expenses.companyId, companyId))
       .orderBy(desc(expenses.date));
-    csv = toCSV(
+    csv = rowsToCsv(
       ["Date", "Expense Head", "Paid From", "Amount (Rs)", "Tax (Rs)", "Notes"],
-      rows.map((r) => [dateStr(r.e.date), r.accName, r.bankName, rupees(r.e.amount), rupees(r.e.taxAmount), r.e.notes])
+      rows.map((r) => [csvDate(r.e.date), r.accName, r.bankName, csvMoney(r.e.amount), csvMoney(r.e.taxAmount), r.e.notes])
     );
  } else if (kind === "stock") {
     const rows = await db
@@ -134,9 +111,9 @@ export async function GET(req: NextRequest) {
       .from(stockLevels)
       .innerJoin(products, eq(stockLevels.productId, products.id))
       .where(eq(products.companyId, companyId));
-    csv = toCSV(
+    csv = rowsToCsv(
       ["SKU", "Product", "Unit", "Quantity", "Avg Cost (Rs)", "Value (Rs)"],
-      rows.map((r) => [r.p.sku, r.p.name, r.p.unit, qtyStr(r.s.qty), rupees(r.s.avgCost), rupees((r.s.qty * r.s.avgCost) / 1000n)])
+      rows.map((r) => [r.p.sku, r.p.name, r.p.unit, csvQty(r.s.qty), csvMoney(r.s.avgCost), csvMoney((r.s.qty * r.s.avgCost) / 1000n)])
     );
  }
 

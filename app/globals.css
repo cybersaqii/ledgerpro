@@ -362,7 +362,7 @@ body::before {
 .kpi-tile { border-radius: var(--radius); }
 .kpi-tile:focus-visible { outline: 2px solid var(--primary); outline-offset: 3px; }
 .kpi-tile-go {
-  position: absolute; right: 0.9rem; bottom: 0.9rem;
+  position: absolute; inset-inline-end: 0.9rem; bottom: 0.9rem;
   display: grid; place-items: center; height: 1.9rem; width: 1.9rem;
   border-radius: 9999px; background: var(--primary-soft); color: var(--primary);
   opacity: 0.45; transform: translateY(0); pointer-events: none;
@@ -379,8 +379,11 @@ body::before {
   position: absolute;
   inset: 0 0 auto 0;
   height: 3px;
-  background: linear-gradient(90deg, var(--primary), color-mix(in srgb, var(--primary) 45%, var(--accent)));
+  background: linear-gradient(to right, var(--primary), color-mix(in srgb, var(--primary) 45%, var(--accent)));
   pointer-events: none;
+}
+[dir="rtl"] .card-edge::after {
+  background: linear-gradient(to left, var(--primary), color-mix(in srgb, var(--primary) 45%, var(--accent)));
 }
 
 /* Gradient icon tiles (stats, empty states, headers) */

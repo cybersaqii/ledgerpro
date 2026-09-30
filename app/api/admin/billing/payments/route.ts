@@ -1,6 +1,6 @@
 import { NextRequest } from "next/server";
 import { desc, eq } from "drizzle-orm";
-import { billingPayments, companies } from "@/db/schema";
+import { billingPayments, companies, coupons } from "@/db/schema";
 import { db } from "@/lib/route-helpers";
 import { json } from "@/lib/api";
 import { requirePlatformAdmin } from "@/lib/billing-guards";
@@ -17,6 +17,8 @@ export async function GET(req: NextRequest) {
       companyName: companies.name,
       userId: billingPayments.userId,
       amountPaisa: billingPayments.amountPaisa,
+      discountPaisa: billingPayments.discountPaisa,
+      couponCode: coupons.code,
       method: billingPayments.method,
       reference: billingPayments.reference,
       months: billingPayments.months,
@@ -28,6 +30,7 @@ export async function GET(req: NextRequest) {
     })
     .from(billingPayments)
     .innerJoin(companies, eq(billingPayments.companyId, companies.id))
+    .leftJoin(coupons, eq(billingPayments.couponId, coupons.id))
     .where(status ? eq(billingPayments.status, status) : undefined)
     .orderBy(desc(billingPayments.createdAt))
     .limit(100);

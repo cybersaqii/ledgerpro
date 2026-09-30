@@ -1,5 +1,5 @@
 import { createHash, randomInt, timingSafeEqual } from "node:crypto";
-import { and, desc, eq, isNull } from "drizzle-orm";
+import { and, desc, eq, isNull, sql } from "drizzle-orm";
 import { otpCodes } from "@/db/schema";
 import type { Db, DbTx } from "@/lib/db";
 
@@ -7,7 +7,7 @@ export const OTP_LENGTH = 6;
 export const OTP_TTL_MS = 10 * 60 * 1000;
 export const OTP_MAX_ATTEMPTS = 5;
 
-export type OtpPurpose = "signup" | "login";
+export type OtpPurpose = "signup" | "login" | "reset";
 
 /** 6-digit zero-padded code, e.g. "042817". */
 export function generateOtpCode(): string {
@@ -78,13 +78,29 @@ export async function checkOtp(
     return { ok: false };
   }
   if (codesEqual(hashOtpCode(input.code), row.codeHash)) {
-    await dbc.update(otpCodes).set({ consumedAt: now }).where(eq(otpCodes.id, row.id));
-    return { ok: true };
+    // Atomic consumption: only the first concurrent verifier wins. The
+    // WHERE guard ensures a second request racing with the same correct code
+    // finds consumedAt already set and fails closed.
+    const consumed = await dbc
+      .update(otpCodes)
+      .set({ consumedAt: now })
+      .where(and(eq(otpCodes.id, row.id), isNull(otpCodes.consumedAt)))
+      .returning({ id: otpCodes.id });
+    return { ok: consumed.length > 0 };
   }
-  const attempts = row.attempts + 1;
-  await dbc
+  // M4 fix: atomic increment with a guard in the WHERE clause, so concurrent
+  // verify requests cannot each slip under the attempt cap.
+  const bumped = await dbc
     .update(otpCodes)
-    .set({ attempts, consumedAt: attempts >= OTP_MAX_ATTEMPTS ? now : null })
-    .where(eq(otpCodes.id, row.id));
+    .set({
+      attempts: sql`${otpCodes.attempts} + 1`,
+      consumedAt: sql`CASE WHEN ${otpCodes.attempts} + 1 >= ${OTP_MAX_ATTEMPTS} THEN ${now.getTime()} ELSE NULL END`,
+    })
+    .where(and(eq(otpCodes.id, row.id), sql`${otpCodes.attempts} < ${OTP_MAX_ATTEMPTS}`))
+    .returning({ id: otpCodes.id });
+  if (bumped.length === 0) {
+    // Another concurrent request already consumed the code.
+    return { ok: false };
+  }
   return { ok: false };
 }

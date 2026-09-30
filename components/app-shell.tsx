@@ -11,6 +11,8 @@ import {
 import { Logo, ThemeToggle, LangToggle } from "./ui";
 import { api } from "@/lib/format";
 import { BusinessTypeProvider, getTranslatedProfile } from "./business-type";
+import type { BusinessFeatures } from "@/lib/business-types";
+import { newSaleHref } from "@/lib/business-types";
 import { useLang } from "./lang-provider";
 import { usePermissions, clearMeCache } from "./permissions";
 
@@ -73,28 +75,28 @@ export function AppShell({ children, initialBusinessType }: { children: ReactNod
   const bp = getTranslatedProfile(businessType, lang);
 
   const nav = [
-    { href: "/dashboard", label: t("nav.dashboard"), icon: LayoutDashboard, perm: "reports_basic" },
-    { href: "/sales", label: bp.salesNav, icon: ShoppingCart, perm: "sales" },
-    { href: "/purchases", label: t("nav.purchases"), icon: Truck, perm: "purchases" },
-    { href: "/payments", label: t("nav.payments"), icon: Wallet, perm: "payments" },
-    { href: "/expenses", label: t("nav.expenses"), icon: ReceiptText, perm: "expenses" },
-    { href: "/parties", label: bp.partyMany, icon: Users, perm: "parties" },
-    { href: "/products", label: bp.productMany, icon: Package, perm: "products" },
-    { href: "/stock", label: bp.stock, icon: Boxes, perm: "stock" },
-    { href: "/reports", label: t("nav.reports"), icon: BarChart3, perm: "reports_basic" },
-    { href: "/settings", label: t("nav.settings"), icon: Settings, perm: "" },
-    ...(billing?.isOwner ? [{ href: "/billing", label: t("nav.billing"), icon: Crown, perm: "" }] : []),
-    ...(billing?.isPlatformAdmin ? [{ href: "/admin/billing", label: t("nav.admin"), icon: ShieldCheck, perm: "" }] : []),
-    ...(billing?.isPlatformAdmin ? [{ href: "/admin/support", label: t("nav.supportInbox"), icon: LifeBuoy, perm: "" }] : []),
-  ].filter((n) => !n.perm || can(n.perm));
+    { href: "/dashboard", label: t("nav.dashboard"), icon: LayoutDashboard, perm: "reports_basic", feature: null as keyof BusinessFeatures | null },
+    { href: "/sales", label: bp.salesNav, icon: ShoppingCart, perm: "sales", feature: null },
+    { href: "/purchases", label: t("nav.purchases"), icon: Truck, perm: "purchases", feature: "purchases" as const },
+    { href: "/payments", label: t("nav.payments"), icon: Wallet, perm: "payments", feature: null },
+    { href: "/expenses", label: t("nav.expenses"), icon: ReceiptText, perm: "expenses", feature: null },
+    { href: "/parties", label: bp.partyMany, icon: Users, perm: "parties", feature: null },
+    { href: "/products", label: bp.productMany, icon: Package, perm: "products", feature: null },
+    { href: "/stock", label: bp.stock, icon: Boxes, perm: "stock", feature: null },
+    { href: "/reports", label: t("nav.reports"), icon: BarChart3, perm: "reports_basic", feature: null },
+    { href: "/settings", label: t("nav.settings"), icon: Settings, perm: "", feature: null },
+    ...(billing?.isOwner ? [{ href: "/billing", label: t("nav.billing"), icon: Crown, perm: "", feature: null }] : []),
+    ...(billing?.isPlatformAdmin ? [{ href: "/admin/billing", label: t("nav.admin"), icon: ShieldCheck, perm: "", feature: null }] : []),
+    ...(billing?.isPlatformAdmin ? [{ href: "/admin/support", label: t("nav.supportInbox"), icon: LifeBuoy, perm: "", feature: null }] : []),
+  ].filter((n) => (!n.perm || can(n.perm)) && (!n.feature || bp.features[n.feature]));
 
   const quickCreate = [
-    { href: "/sales/new", label: bp.newSale, icon: ShoppingCart, perm: "sales" },
-    { href: "/purchases/new", label: t("header.newPurchase"), icon: Truck, perm: "purchases" },
-    { href: "/payments/new?kind=RECEIPT", label: t("header.receivePayment"), icon: Wallet, perm: "payments" },
-    { href: "/payments/new?kind=PAYMENT", label: t("header.paySupplier"), icon: Wallet, perm: "payments" },
-    { href: "/expenses", label: t("header.addExpense"), icon: ReceiptText, perm: "expenses" },
-  ].filter((q) => can(q.perm));
+    { href: newSaleHref(bp), label: bp.newSale, icon: ShoppingCart, perm: "sales", feature: null as keyof BusinessFeatures | null },
+    { href: "/purchases/new", label: t("header.newPurchase"), icon: Truck, perm: "purchases", feature: "purchases" as const },
+    { href: "/payments/new?kind=RECEIPT", label: t("header.receivePayment"), icon: Wallet, perm: "payments", feature: null },
+    { href: "/payments/new?kind=PAYMENT", label: t("header.paySupplier"), icon: Wallet, perm: "payments", feature: null },
+    { href: "/expenses", label: t("header.addExpense"), icon: ReceiptText, perm: "expenses", feature: null },
+  ].filter((q) => can(q.perm) && (!q.feature || bp.features[q.feature]));
 
   // eslint-disable-next-line react-hooks/set-state-in-effect -- close drawer on navigation
   useEffect(() => setOpen(false), [pathname]);
@@ -160,7 +162,7 @@ export function AppShell({ children, initialBusinessType }: { children: ReactNod
         <div className="flex-1 overflow-y-auto">{links}</div>
         <div className="border-t border-white/10 p-4">
           {can("sales") && (
-            <Link href="/sales/new" className="btn btn-primary w-full !py-2.5 text-sm">
+            <Link href={newSaleHref(bp)} className="btn btn-primary w-full !py-2.5 text-sm">
               <Plus size={16} /> {bp.newSale}
             </Link>
           )}

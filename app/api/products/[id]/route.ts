@@ -9,6 +9,7 @@ import { json, err } from "@/lib/api";
 import { requireCompany, db, requirePermission } from "@/lib/route-helpers";
 import { logAudit } from "@/lib/audit";
 import { isForeignKeyViolation } from "@/lib/company-delete";
+import { validateImageUrl, ImageUrlError } from "@/lib/product-image";
 
 async function find(companyId: string, id: string) {
   const rows = await db
@@ -50,6 +51,15 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   const parsed = productSchema.partial().safeParse(body);
   if (!parsed.success) return err("Please check the form and try again.", 422);
   const p = parsed.data;
+  let imageUrl: string | null | undefined;
+  if (p.imageUrl !== undefined) {
+    try {
+      imageUrl = validateImageUrl(p.imageUrl);
+    } catch (e) {
+      if (e instanceof ImageUrlError) return err(e.message, 422);
+      throw e;
+    }
+  }
 
   if (p.sku && p.sku !== row.sku) {
     const dup = await db
@@ -75,6 +85,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
       ...(p.reorderLevel !== undefined ? { reorderLevel: parseQty(p.reorderLevel) } : {}),
       ...(p.minSalePrice !== undefined ? { minSalePrice: parseMoney(p.minSalePrice || "0") } : {}),
       ...(p.location !== undefined ? { location: p.location?.trim() ? p.location.trim().slice(0, 60) : null } : {}),
+      ...(imageUrl !== undefined ? { imageUrl } : {}),
       updatedAt: new Date(),
  })
     .where(eq(products.id, id));

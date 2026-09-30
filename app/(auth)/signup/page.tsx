@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useState, useEffect, Suspense } from "react";
-import { UserPlus, Eye, EyeOff, Copy, Check } from "lucide-react";
+import { UserPlus, Eye, EyeOff } from "lucide-react";
 import { AuthLayout } from "@/components/auth-layout";
 import { GoogleGlyph } from "@/components/google-glyph";
 import { Field, ErrorNote } from "@/components/ui";
@@ -13,22 +13,25 @@ import { useLang } from "@/components/lang-provider";
 
 type Form = {
   companyName: string; businessType: string; name: string; email: string;
-  phone: string; address: string; city: string; password: string;
+  phone: string; address: string; city: string; password: string; referralCode: string;
 };
 
 function SignupForm() {
   const { t } = useLang();
   const router = useRouter();
+  const searchParams = useSearchParams();
+  // Referral link (?ref=CODE) — prefill the optional referral field at init.
+  const initialRef = (() => {
+    const ref = searchParams.get("ref");
+    return ref && /^[A-Za-z0-9]{4,16}$/.test(ref) ? ref.toUpperCase() : "";
+  })();
   const [form, setForm] = useState<Form>({
     companyName: "", businessType: "WHOLESALE", name: "", email: "",
-    phone: "", address: "", city: "", password: "",
+    phone: "", address: "", city: "", password: "", referralCode: initialRef,
   });
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [showPw, setShowPw] = useState(false);
-  const [recoveryCode, setRecoveryCode] = useState<string | null>(null);
-  const [savedAck, setSavedAck] = useState(false);
-  const [copied, setCopied] = useState(false);
   // Email-code verification: step 1 = profile form, step 2 = 6-digit code.
   const [step, setStep] = useState<1 | 2>(1);
   const [code, setCode] = useState("");
@@ -36,7 +39,6 @@ function SignupForm() {
   // Google OAuth button renders only when the server has it configured.
   const [googleOn, setGoogleOn] = useState(false);
   const [googlePrefill, setGooglePrefill] = useState(false);
-  const searchParams = useSearchParams();
   useEffect(() => {
     fetch("/api/auth/providers")
       .then((r) => r.json())
@@ -108,16 +110,12 @@ function SignupForm() {
         body: JSON.stringify({ email: form.email, code, purpose: "signup" }),
       });
       if (!v.verificationToken) throw new Error(t("auth.signupError"));
-      const d = await api<{ recoveryCode?: string }>("/api/auth/signup", {
+      await api("/api/auth/signup", {
         method: "POST",
         body: JSON.stringify({ ...form, verificationToken: v.verificationToken }),
       });
-      if (d.recoveryCode) {
-        setRecoveryCode(d.recoveryCode);
-      } else {
-        router.push("/dashboard");
-        router.refresh();
-      }
+      router.push("/welcome");
+      router.refresh();
     } catch (err) {
       setError(err instanceof Error ? err.message : t("auth.signupError"));
     } finally {
@@ -125,46 +123,12 @@ function SignupForm() {
     }
   }
 
-  async function copy() {
-    if (!recoveryCode) return;
-    try {
-      await navigator.clipboard.writeText(recoveryCode);
-      setCopied(true);
-    } catch { /* clipboard unavailable — user can select manually */ }
-  }
-
-  function continueToDashboard() {
-    router.push("/dashboard");
-    router.refresh();
-  }
-
   return (
     <AuthLayout
-      heading={recoveryCode ? t("auth.saveCodeTitle") : t("auth.signupTitle")}
-      sub={recoveryCode ? t("auth.saveCodeHint") : t("auth.signupSub")}
-      tabs={!recoveryCode}
+      heading={t("auth.signupTitle")}
+      sub={t("auth.signupSub")}
+      tabs
     >
-        {recoveryCode ? (
-          <div className="text-center">
-            <button
-              type="button"
-              onClick={copy}
-              className="mt-5 flex w-full items-center justify-between gap-3 rounded-2xl border-2 border-dashed border-primary/40 bg-primary-soft/50 px-5 py-4 font-mono text-base font-extrabold tracking-[0.2em] text-primary sm:text-lg"
-              title={t("auth.copyCode")}
-            >
-              <span>{recoveryCode}</span>
-              {copied ? <Check size={18} /> : <Copy size={18} />}
-            </button>
-            {copied && <p className="mt-2 text-xs font-semibold text-primary">{t("auth.copied")}</p>}
-            <label className="mt-4 flex cursor-pointer items-start gap-3 rounded-2xl bg-muted/60 p-4 text-left text-sm">
-              <input type="checkbox" className="mt-1 h-4 w-4 accent-primary" checked={savedAck} onChange={(e) => setSavedAck(e.target.checked)} />
-              <span>{t("auth.savedAck")}</span>
-            </label>
-            <button className="btn btn-primary mt-4 w-full !py-3" disabled={!savedAck} onClick={continueToDashboard}>
-              {t("auth.continueDash")}
-            </button>
-          </div>
-        ) : (
         <>
         {googlePrefill && (
           <p className="rise rise-2 mb-5 rounded-xl bg-primary-soft/60 px-4 py-3 text-sm font-semibold text-primary">
@@ -222,6 +186,10 @@ function SignupForm() {
           <button className="btn btn-primary w-full !py-3" disabled={busy || sending}>
             <UserPlus size={17} /> {sending ? t("auth.sendingCode") : t("auth.sendCode")}
           </button>
+          <Field label={t("auth.referralCode")} hint={t("auth.referralHint")}>
+            <input className="field font-mono uppercase tracking-widest" placeholder="—"
+              value={form.referralCode} onChange={(e) => setForm((f) => ({ ...f, referralCode: e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 16) }))} />
+          </Field>
         </form>
         ) : (
         <form onSubmit={submit} className="rise rise-2 mt-6 space-y-4">
@@ -269,7 +237,6 @@ function SignupForm() {
           <Link href="/login" className="font-bold text-primary hover:underline">{t("auth.loginLink")}</Link>
         </p>
         </>
-        )}
     </AuthLayout>
   );
 }

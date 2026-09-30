@@ -82,7 +82,8 @@ export function Stat({ label, value, sub, icon, tone = "primary" }: {
   return (
     <div className="card card-gloss card-edge card-lift rise p-5">
       <div className="flex items-start justify-between gap-3">
-        <div className="min-w-0">
+        {/* pe-10 keeps text clear of the .kpi-tile-go arrow on narrow tiles (A1) */}
+        <div className={`min-w-0 ${sub ? "pe-10" : ""}`}>
           <p className="text-[0.72rem] font-semibold uppercase tracking-wider text-muted-foreground">{label}</p>
           <p className="mt-1.5 truncate text-[1.45rem] font-extrabold tabular-nums tracking-tight">{value}</p>
           {sub && <p className="mt-1 text-xs text-muted-foreground">{sub}</p>}
@@ -95,11 +96,11 @@ export function Stat({ label, value, sub, icon, tone = "primary" }: {
   );
 }
 
-export function EmptyState({ title, hint, action }: { title: string; hint?: string; action?: ReactNode }) {
+export function EmptyState({ title, hint, action, icon }: { title: string; hint?: string; action?: ReactNode; icon?: ReactNode }) {
   return (
     <div className="card card-gloss rise flex flex-col items-center px-6 py-14 text-center">
       <div className="tile tile-neutral h-14 w-14">
-        <BookOpenCheck size={26} />
+        {icon ?? <BookOpenCheck size={26} />}
       </div>
       <h3 className="mt-4 text-base font-bold">{title}</h3>
       {hint && <p className="mt-1 max-w-sm text-sm text-muted-foreground">{hint}</p>}

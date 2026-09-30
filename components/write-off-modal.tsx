@@ -5,7 +5,6 @@ import { Modal } from "@/components/modal";
 import { Field, ErrorNote } from "@/components/ui";
 import { api, fmtMoney, fmtDateInput } from "@/lib/format";
 import { useLang } from "@/components/lang-provider";
-import { fx } from "@/components/fix3-lang";
 
 type Account = { id: string; name: string; code: string };
 
@@ -17,7 +16,7 @@ export function WriteOffModal({
   onClose: () => void; onDone: () => void;
 }) {
   const { t } = useLang();
-  const f = (k: string, vars?: Record<string, string | number>) => fx(t, k, vars);
+  const f = (k: string, vars?: Record<string, string | number>) => t(k, vars);
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [form, setForm] = useState({ accountId: "", date: fmtDateInput(), amount: "", notes: "" });
   const [saving, setSaving] = useState(false);

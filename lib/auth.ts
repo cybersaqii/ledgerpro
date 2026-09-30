@@ -7,11 +7,11 @@ import { users } from "@/db/schema";
 import { SESSION_COOKIE, verifySessionToken as verifyTokenEdge } from "./edge-auth";
 import { getIdleTimeoutMs, isIdleExpired, shouldTouchActivity } from "./security";
 
+import { authSecretBytes } from "./auth-secret";
+
 export { SESSION_COOKIE };
 
-const secret = new TextEncoder().encode(
-  process.env.AUTH_SECRET || "dev-only-secret-change-me-32-chars-min"
-);
+const secret = authSecretBytes();
 
 export type Session = {
   uid: string;

@@ -8,7 +8,6 @@ import { Modal } from "@/components/modal";
 import { api, fmtDate, fmtDateInput } from "@/lib/format";
 import { useLang } from "@/components/lang-provider";
 import { usePermissions } from "@/components/permissions";
-import { fx } from "@/components/fix3-lang";
 
 type AdjRow = {
   id: string; docNo: string; date: number; reason: string;
@@ -28,7 +27,7 @@ function reasonLabel(f: (k: string) => string, r: string): string {
 
 export default function StockAdjustmentsPage() {
   const { t } = useLang();
-  const f = (k: string, vars?: Record<string, string | number>) => fx(t, k, vars);
+  const f = (k: string, vars?: Record<string, string | number>) => t(k, vars);
   const { permissions } = usePermissions();
   const canPost = permissions.includes("stock");
 

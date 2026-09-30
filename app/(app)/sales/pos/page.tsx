@@ -15,6 +15,7 @@ import {
   type PosLine, type PosProduct,
 } from "@/lib/pos";
 import { useBusinessProfile } from "@/components/business-type";
+import { ProductImage } from "@/components/product-image";
 import { useLang } from "@/components/lang-provider";
 
 type ApiProduct = PosProduct & { totalQty: string };
@@ -658,9 +659,10 @@ export default function PosPage() {
                       <button
                         onClick={() => addProduct(p)}
                         onMouseEnter={() => setHi(i)}
-                        className={`flex w-full items-center justify-between gap-3 px-4 py-3 text-left ${i === hi ? "bg-primary/10" : ""}`}
+                        className={`flex w-full items-center gap-3 px-4 py-3 text-left ${i === hi ? "bg-primary/10" : ""}`}
                       >
-                        <span className="min-w-0">
+                        <ProductImage name={p.name} imageUrl={p.imageUrl} businessType={bp.type} size={36} />
+                        <span className="min-w-0 flex-1">
                           <span className="block truncate text-sm font-bold">{p.name}</span>
                           <span className="block text-xs text-muted-foreground">
                             {p.sku}{" "}{Number(p.totalQty) <= 0 ? t("pos.outOfStock") : t("pos.inStock", { qty: p.totalQty })}

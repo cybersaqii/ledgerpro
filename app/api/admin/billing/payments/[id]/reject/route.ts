@@ -5,6 +5,7 @@ import { db } from "@/lib/route-helpers";
 import { json, err } from "@/lib/api";
 import { toApiError } from "@/lib/errors";
 import { requirePlatformAdmin } from "@/lib/billing-guards";
+import { releaseCoupon } from "@/lib/coupons";
 import { logAudit } from "@/lib/audit";
 
 // POST /api/admin/billing/payments/[id]/reject — platform admin rejects with a note.
@@ -26,6 +27,15 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       .update(billingPayments)
       .set({ status: "REJECTED", note: note || null, reviewedBy: session.email, reviewedAt: new Date() })
       .where(eq(billingPayments.id, id));
+
+    // A rejected payment frees its coupon for reuse.
+    if (p.couponId) {
+      try {
+        await releaseCoupon(db, { couponId: p.couponId, companyId: p.companyId });
+      } catch (e) {
+        console.error("[reject] coupon release failed", e);
+      }
+    }
 
     const owners = await db
       .select({ name: users.name })

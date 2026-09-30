@@ -3,7 +3,7 @@
 // download produces — one serializer, reused by the cron job, the manual
 // "Back up now" button, and the per-backup download.
 
-import { timingSafeEqual } from "node:crypto";
+import { timingSafeEqual, createHash, randomBytes } from "node:crypto";
 import { and, desc, eq } from "drizzle-orm";
 import {
   accounts,
@@ -18,6 +18,7 @@ import {
   parties,
   paymentAllocations,
   payments,
+  platformSettings,
   products,
   purchaseDocItems,
   purchaseDocs,
@@ -219,6 +220,49 @@ export function verifyCronSecret(provided: string | null, expected: string | und
   const a = Buffer.from(provided, "utf8");
   const b = Buffer.from(expected, "utf8");
   return a.length === b.length && timingSafeEqual(a, b);
+}
+
+// ─── Cron URL token (M6) ──────────────────────────────────────────
+// Vercel Cron cannot send an Authorization header, so the scheduled backup
+// needs *something* in the URL. Instead of the raw CRON_SECRET (which would
+// land in server/proxy logs), the cron URL carries a single-purpose,
+// revocable token. Only its SHA-256 hash is stored (platform_settings,
+// key "cron.token_hash"); the plaintext is shown once at creation/rotation.
+
+const CRON_TOKEN_KEY = "cron.token_hash";
+
+function hashCronToken(token: string): string {
+  return createHash("sha256").update(token, "utf8").digest("hex");
+}
+
+/** Verify a `?token=` value against the stored hash (constant-time). */
+export async function verifyCronToken(dbc: Db, provided: string | null): Promise<boolean> {
+  if (!provided) return false;
+  const rows = await dbc.select().from(platformSettings).where(eq(platformSettings.key, CRON_TOKEN_KEY)).limit(1);
+  const expected = rows[0]?.value;
+  if (!expected) return false;
+  const a = Buffer.from(hashCronToken(provided), "utf8");
+  const b = Buffer.from(expected, "utf8");
+  return a.length === b.length && timingSafeEqual(a, b);
+}
+
+/** Mint a fresh cron token. Returns the PLAINTEXT once — store it in vercel.json / Vercel Cron. */
+export async function rotateCronToken(dbc: Db): Promise<string> {
+  const token = `lp_cron_${randomBytes(24).toString("base64url")}`;
+  const hash = hashCronToken(token);
+  const existing = await dbc.select().from(platformSettings).where(eq(platformSettings.key, CRON_TOKEN_KEY)).limit(1);
+  if (existing[0]) {
+    await dbc.update(platformSettings).set({ value: hash }).where(eq(platformSettings.key, CRON_TOKEN_KEY));
+  } else {
+    await dbc.insert(platformSettings).values({ key: CRON_TOKEN_KEY, value: hash });
+  }
+  return token;
+}
+
+/** True once a cron token has been minted (so the admin UI can prompt). */
+export async function hasCronToken(dbc: Db): Promise<boolean> {
+  const rows = await dbc.select().from(platformSettings).where(eq(platformSettings.key, CRON_TOKEN_KEY)).limit(1);
+  return !!rows[0]?.value;
 }
 
 // ─── Restore verification (dry-run, zero writes) ─────────────────

@@ -1,4 +1,5 @@
 import { createRemoteJWKSet, jwtVerify, SignJWT } from "jose";
+import { authSecretBytes } from "./auth-secret";
 
 export const GOOGLE_STATE_COOKIE = "g_oauth_state";
 export const GOOGLE_SIGNUP_COOKIE = "g_signup";
@@ -98,7 +99,7 @@ export interface GoogleSignupClaims {
 }
 
 function signupSecret(): Uint8Array {
-  return new TextEncoder().encode(process.env.AUTH_SECRET || "dev-only-secret-change-me-32-chars-min");
+  return authSecretBytes();
 }
 
 export async function signGoogleSignupToken(input: GoogleSignupClaims): Promise<string> {

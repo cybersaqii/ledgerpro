@@ -41,6 +41,7 @@ export const companies = sqliteTable("companies", {
   trialEndsAt: ts("trial_ends_at"), // 30-day free trial; full access while now < trialEndsAt
   plan: text("plan").notNull().default("FREE"), // FREE | PRO
   proExpiresAt: ts("pro_expires_at"), // paid PRO access ends here (null = no paid plan)
+  referralCode: text("referral_code").unique(), // public code others use to credit this company (migration 0029)
   createdAt: createdAt(),
   updatedAt: updatedAt(),
 });
@@ -198,6 +199,7 @@ export const products = sqliteTable(
     reorderLevel: qty("reorder_level"),
     minSalePrice: money("min_sale_price"), // floor price; selling below needs an override
     location: text("location"), // godown/rack free text, e.g. "Godown A · Rack 3"
+    imageUrl: text("image_url"), // external https image URL (validated app-side); null = generated fallback
     isActive: flag("is_active", true),
     createdAt: createdAt(),
     updatedAt: updatedAt(),
@@ -683,6 +685,8 @@ export const billingPayments = sqliteTable(
     months: integer("months").notNull().default(1),
     status: text("status").notNull().default("PENDING"), // PENDING | APPROVED | REJECTED
     note: text("note"),
+    couponId: text("coupon_id"), // applied coupon (migration 0029)
+    discountPaisa: integer("discount_paisa").notNull().default(0), // coupon discount granted
     reviewedBy: text("reviewed_by"),
     reviewedAt: ts("reviewed_at"),
     createdAt: createdAt(),
@@ -951,4 +955,68 @@ export const notes = sqliteTable(
     index("notes_company_party").on(t.companyId, t.partyId),
     index("notes_source_doc").on(t.sourceDocId),
   ]
+);
+
+// ─── Referrals & coupons (migration 0029) ─────────────────────────
+// Referral: a company joins with another company's referralCode.
+// Becomes QUALIFIED when the referred company activates PRO (purchase).
+export const referrals = sqliteTable(
+  "referrals",
+  {
+    id: id(),
+    referrerCompanyId: text("referrer_company_id").notNull(),
+    referredCompanyId: text("referred_company_id").notNull().unique(),
+    code: text("code").notNull(),
+    status: text("status").notNull().default("PENDING"), // PENDING | QUALIFIED
+    createdAt: createdAt(),
+    qualifiedAt: ts("qualified_at"),
+  },
+  (t) => [index("referrals_referrer").on(t.referrerCompanyId, t.createdAt)]
+);
+
+// Granted rewards: 5 qualified referrals in a calendar month → 1 month PRO free.
+export const referralRewards = sqliteTable(
+  "referral_rewards",
+  {
+    id: id(),
+    companyId: text("company_id").notNull(), // the referrer who earned it
+    month: text("month").notNull(), // YYYY-MM
+    referralsCount: integer("referrals_count").notNull(),
+    monthsGranted: integer("months_granted").notNull().default(1),
+    createdAt: createdAt(),
+  },
+  (t) => [uniqueIndex("referral_rewards_company_month").on(t.companyId, t.month)]
+);
+
+// Platform-admin coupons: discount on PRO subscription payments.
+export const coupons = sqliteTable(
+  "coupons",
+  {
+    id: id(),
+    code: text("code").notNull().unique(), // uppercase, e.g. LAUNCH50
+    kind: text("kind").notNull(), // PERCENT | FIXED
+    value: integer("value").notNull(), // percent 1-100 | fixed paisa
+    maxUses: integer("max_uses"), // null = unlimited
+    usedCount: integer("used_count").notNull().default(0),
+    validFrom: ts("valid_from"),
+    validTo: ts("valid_to"),
+    active: flag("active", true),
+    createdBy: text("created_by"),
+    createdAt: createdAt(),
+  },
+  (t) => [index("coupons_active").on(t.active)]
+);
+
+// One redemption per (coupon, company) — prevents reusing the same coupon.
+export const couponRedemptions = sqliteTable(
+  "coupon_redemptions",
+  {
+    id: id(),
+    couponId: text("coupon_id").notNull(),
+    companyId: text("company_id").notNull(),
+    billingPaymentId: text("billing_payment_id"),
+    discountPaisa: integer("discount_paisa").notNull(),
+    createdAt: createdAt(),
+  },
+  (t) => [uniqueIndex("coupon_redemptions_coupon_company").on(t.couponId, t.companyId)]
 );

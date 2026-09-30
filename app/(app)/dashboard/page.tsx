@@ -1,16 +1,18 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useEffect, useState, type ReactNode } from "react";
 import {
   TrendingUp, ShoppingBag, ReceiptText, ArrowDownToLine, ArrowUpFromLine,
   Landmark, TriangleAlert, FileText, LayoutDashboard, Zap, ArrowRight,
-  ShoppingCart, Truck, Users, Package, BarChart3, KeyRound, X, CircleCheck, Circle, ListChecks, Crown, RotateCcw,
+  ShoppingCart, Truck, Users, Package, BarChart3, X, CircleCheck, Circle, ListChecks, Crown, RotateCcw,
   ArrowUpRight,
 } from "lucide-react";
 import { PageHeader, Stat, EmptyState } from "@/components/ui";
 import { api, fmtMoney, fmtDate } from "@/lib/format";
 import { useBusinessProfile } from "@/components/business-type";
+import { newSaleHref } from "@/lib/business-types";
 import { useLang } from "@/components/lang-provider";
 import { useCan } from "@/components/permissions";
 import { metricTileTarget, type MetricTileKey } from "@/lib/dashboard-tiles";
@@ -22,6 +24,7 @@ type DashboardData = {
   kpis: {
     salesToday: string; salesMonth: string; purchasesMonth: string; expensesMonth: string;
     receivables: string; payables: string; cashAndBank: string; profitMonth: string; lowStock: number;
+    expiringBatches: number;
   };
   recentSales: Array<{ id: string; docNo: string; date: number; grandTotal: string; partyName: string | null }>;
   salesTrend: Array<{ month: string; total: string }>;
@@ -37,12 +40,12 @@ async function loadSampleDataNow(): Promise<void> {
 }
 
 export default function DashboardPage() {
+  const router = useRouter();
   const bp = useBusinessProfile();
   const { t } = useLang();
   const canPos = useCan("pos");
   const [data, setData] = useState<DashboardData | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [showRecoveryNudge, setShowRecoveryNudge] = useState(false);
   const [steps, setSteps] = useState<OnboardingStep[] | null>(null);
   const [sampleBusy, setSampleBusy] = useState(false);
   const [sampleError, setSampleError] = useState<string | null>(null);
@@ -58,8 +61,8 @@ export default function DashboardPage() {
   }
 
   const quickActions = [
-    { href: "/sales/new", label: bp.newSale, icon: ShoppingCart, cls: "tile-primary" },
-    { href: "/purchases/new", label: t("dashboard.qaNewPurchase"), icon: Truck, cls: "tile-accent" },
+    { href: newSaleHref(bp), label: bp.newSale, icon: ShoppingCart, cls: "tile-primary" },
+    ...(bp.features.purchases ? [{ href: "/purchases/new", label: t("dashboard.qaNewPurchase"), icon: Truck, cls: "tile-accent" }] : []),
     { href: "/payments/new?kind=RECEIPT", label: t("dashboard.qaReceive"), icon: ArrowDownToLine, cls: "tile-emerald" },
     { href: "/payments/new?kind=PAYMENT", label: t("dashboard.qaPay"), icon: ArrowUpFromLine, cls: "tile-sky" },
     { href: "/expenses", label: t("dashboard.qaExpense"), icon: ReceiptText, cls: "tile-violet" },
@@ -72,19 +75,27 @@ export default function DashboardPage() {
     api<{ kpis: DashboardData["kpis"]; recentSales: DashboardData["recentSales"]; salesTrend: DashboardData["salesTrend"] }>("/api/dashboard")
       .then(setData)
       .catch((e) => setError(e instanceof Error ? e.message : t("dashboard.loadError")));
-    // Nudge pre-recovery-code accounts to generate one (dismissible, once).
-    if (typeof window !== "undefined" && !localStorage.getItem("lp-recovery-nudge-dismissed")) {
-      api<{ hasCode: boolean }>("/api/auth/recovery-status")
-        .then((d) => { if (!d.hasCode) setShowRecoveryNudge(true); })
-        .catch(() => {});
-    }
     // First-run onboarding checklist (dismissible, once — hides when complete).
     if (typeof window !== "undefined" && !localStorage.getItem("lp-onboarding-dismissed")) {
       api<{ data: OnboardingStep[] }>("/api/onboarding")
         .then((d) => { if (d.data.some((s) => !s.done)) setSteps(d.data); })
         .catch(() => {});
     }
-  }, [t]);
+    // Brand-new companies (no wizard done, no real data yet) go through the
+    // guided setup instead of landing on an empty dashboard.
+    api<{ data: { completed: boolean } }>("/api/onboarding/wizard")
+      .then((w) => {
+        if (!w.data.completed) {
+          api<{ data: OnboardingStep[] }>("/api/onboarding")
+            .then((d) => {
+              const hasData = d.data.some((s) => s.done && s.key !== "profile");
+              if (!hasData) router.replace("/welcome");
+            })
+            .catch(() => {});
+        }
+      })
+      .catch(() => {});
+  }, [t, router]);
 
   if (error) return (
     <div>
@@ -95,7 +106,7 @@ export default function DashboardPage() {
         </span>
         <h2 className="text-lg font-extrabold">{t("dashboard.loadError")}</h2>
         <p className="text-sm text-muted-foreground">{error}</p>
-        <button className="btn btn-primary text-sm" onClick={retry}>
+        <button type="button" className="btn btn-primary text-sm" onClick={retry}>
           <RotateCcw size={15} /> {t("ui.tryAgain")}
         </button>
       </div>
@@ -120,8 +131,8 @@ export default function DashboardPage() {
     key: MetricTileKey; label: string; value: string; sub?: string;
     icon: ReactNode; tone: "primary" | "accent" | "danger" | "neutral"; target: string;
   }> = [
-    { key: "salesToday", label: `${bp.salesNav} ${t("dashboard.today")}`, value: fmtMoney(k.salesToday), icon: <TrendingUp size={20} />, tone: "primary", target: bp.salesNav },
-    { key: "salesMonth", label: `${bp.salesNav} ${t("dashboard.thisMonth")}`, value: fmtMoney(k.salesMonth), icon: <ShoppingBag size={20} />, tone: "primary", target: bp.salesNav },
+    { key: "salesToday", label: t("dashboard.salesToday", { sales: bp.salesNav }), value: fmtMoney(k.salesToday), icon: <TrendingUp size={20} />, tone: "primary", target: bp.salesNav },
+    { key: "salesMonth", label: t("dashboard.salesThisMonth", { sales: bp.salesNav }), value: fmtMoney(k.salesMonth), icon: <ShoppingBag size={20} />, tone: "primary", target: bp.salesNav },
     { key: "receivables", label: bp.receivables, value: fmtMoney(k.receivables), sub: t("dashboard.fromParties", { parties: bp.partyMany.toLowerCase() }), icon: <ArrowDownToLine size={20} />, tone: "accent", target: bp.receivables },
     { key: "payables", label: t("dashboard.toPay"), value: fmtMoney(k.payables), sub: t("dashboard.toSuppliers"), icon: <ArrowUpFromLine size={20} />, tone: "danger", target: t("balances.payables") },
     { key: "cashBank", label: t("dashboard.cashBank"), value: fmtMoney(k.cashAndBank), icon: <Landmark size={20} />, tone: "neutral", target: t("nav.payments") },
@@ -129,6 +140,16 @@ export default function DashboardPage() {
     { key: "lowStock", label: t("dashboard.lowStock"), value: String(k.lowStock), sub: t("dashboard.needsReorder"), icon: <TriangleAlert size={20} />, tone: k.lowStock > 0 ? "danger" : "neutral", target: t("dashboard.lowStock") },
     { key: "profitLoss", label: t("dashboard.profitLoss"), value: fmtMoney(k.profitMonth), sub: t("dashboard.profitSub"), icon: <FileText size={20} />, tone: "primary", target: t("dashboard.profitLoss") },
   ];
+
+  // Adaptive widgets: batch-expiry alert replaces the generic low-stock tile
+  // for pharmacy/clinic where expiry is the critical stock risk.
+  const tiles = bp.features.batches && (bp.type === "PHARMACY" || bp.type === "CLINIC")
+    ? metricTiles.map((tile) =>
+        tile.key === "lowStock"
+          ? { ...tile, key: "expiringBatches" as MetricTileKey, label: t("dashboard.expiringBatches"), value: String(k.expiringBatches), sub: t("dashboard.expiringSoon"), tone: (k.expiringBatches > 0 ? "danger" : "neutral") as typeof tile.tone, target: t("nav.stock") }
+          : tile
+      )
+    : metricTiles;
 
   return (
     <div>
@@ -138,37 +159,12 @@ export default function DashboardPage() {
         icon={<LayoutDashboard size={20} />}
       />
 
-      {/* Recovery-code nudge for accounts created before the feature shipped */}
-      {showRecoveryNudge && (
-        <div className="card card-edge rise mb-5 flex items-start gap-3 border-amber-500/30 bg-gradient-to-r from-amber-50 to-orange-50 p-4 dark:from-amber-950/40 dark:to-orange-950/40 sm:p-5">
-          <span className="tile tile-amber h-10 w-10 shrink-0 !rounded-xl">
-            <KeyRound size={19} />
-          </span>
-          <div className="min-w-0 flex-1">
-            <p className="font-extrabold text-amber-900 dark:text-amber-100">{t("dashboard.secureAccount")}</p>
-            <p className="mt-0.5 text-sm text-amber-800/90 dark:text-amber-200/80">
-              {t("dashboard.secureHint")}
-            </p>
-            <Link href="/settings" className="mt-2 inline-block text-sm font-bold text-amber-900 underline underline-offset-2 hover:text-amber-700 dark:text-amber-100">
-              {t("dashboard.secureLink")}
-            </Link>
-          </div>
-          <button
-            aria-label={t("dashboard.dismiss")}
-            onClick={() => { setShowRecoveryNudge(false); try { localStorage.setItem("lp-recovery-nudge-dismissed", "1"); } catch {} }}
-            className="grid h-11 w-11 shrink-0 place-items-center rounded-lg text-amber-700/70 transition hover:bg-amber-500/15 dark:text-amber-300/70"
-          >
-            <X size={16} />
-          </button>
-        </div>
-      )}
-
       {/* First-run onboarding checklist */}
       {steps && steps.length > 0 && (
         <div className="card card-gloss rise mb-5 p-4 sm:p-5">
           <div className="flex items-start justify-between gap-3">
             <div className="flex items-center gap-3">
-              <span className="tile tile-primary h-10 w-10 shrink-0 !rounded-xl">
+              <span className="tile tile-primary h-10 w-10 shrink-0">
                 <ListChecks size={19} />
               </span>
               <div>
@@ -179,9 +175,10 @@ export default function DashboardPage() {
               </div>
             </div>
             <button
+              type="button"
               aria-label={t("dashboard.dismiss")}
               onClick={() => { setSteps(null); try { localStorage.setItem("lp-onboarding-dismissed", "1"); } catch {} }}
-              className="grid h-11 w-11 shrink-0 place-items-center rounded-lg text-muted-foreground transition hover:bg-muted"
+              className="grid h-9 w-9 shrink-0 place-items-center rounded-lg text-muted-foreground transition hover:bg-muted"
             >
               <X size={16} />
             </button>
@@ -191,6 +188,7 @@ export default function DashboardPage() {
               <li key={s.key}>
                 {s.action === "load-sample" && !s.done ? (
                   <button
+                    type="button"
                     onClick={async () => {
                       setSampleBusy(true); setSampleError(null);
                       try {
@@ -198,7 +196,7 @@ export default function DashboardPage() {
                         const d = await api<{ data: OnboardingStep[] }>("/api/onboarding");
                         if (d.data.some((x) => !x.done)) setSteps(d.data); else setSteps(null);
                       } catch (e) {
-                        setSampleError(e instanceof Error ? e.message : "Could not load sample data.");
+                        setSampleError(e instanceof Error ? e.message : t("dashboard.sampleError"));
                       } finally { setSampleBusy(false); }
                     }}
                     disabled={sampleBusy}
@@ -230,7 +228,7 @@ export default function DashboardPage() {
                       <Crown size={12} /> PRO
                     </span>
                   )}
-                  {!s.done && <ArrowRight size={16} className="shrink-0 text-muted-foreground" />}
+                  {!s.done && <ArrowRight size={16} className="shrink-0 text-muted-foreground rtl:rotate-180" />}
                 </Link>
                 )}
               </li>
@@ -245,10 +243,10 @@ export default function DashboardPage() {
       )}
 
       {/* POS banner for counter businesses */}
-      {canPos && (bp.type === "RETAIL" || bp.type === "PHARMACY" || bp.type === "RESTAURANT") && (
+      {canPos && bp.features.pos && (
         <Link href="/sales/pos"
           className="card card-lift card-edge group mb-5 flex items-center justify-between gap-4 p-4 sm:p-5">
-          <span className="flex min-w-0 items-center gap-4 pl-2">
+          <span className="flex min-w-0 items-center gap-4">
             <span className="tile tile-emerald h-12 w-12 shrink-0 transition group-hover:scale-110">
               <Zap size={22} />
             </span>
@@ -258,17 +256,17 @@ export default function DashboardPage() {
             </span>
           </span>
           <span className="btn btn-primary shrink-0 !py-2 text-sm">
-            {t("dashboard.posStart")} <ArrowRight size={16} />
+            {t("dashboard.posStart")} <ArrowRight size={16} className="rtl:rotate-180" />
           </span>
         </Link>
       )}
 
       {/* Quick actions — horizontal swipe strip on phones, grid on larger screens */}
-      <div className="mb-5 flex gap-2.5 overflow-x-auto pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden sm:grid sm:grid-cols-4 sm:overflow-visible lg:grid-cols-8">
+      <div className="mb-5 flex snap-x snap-mandatory gap-2.5 overflow-x-auto pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden sm:grid sm:grid-cols-4 sm:overflow-visible lg:grid-cols-8">
         {quickActions.map((q) => (
-          <Link key={q.label} href={q.href}
+          <Link key={q.href} href={q.href}
             className="card card-lift group flex w-[78px] shrink-0 snap-start flex-col items-center gap-1.5 py-3.5 sm:w-auto">
-            <span className={`tile ${q.cls} h-10 w-10 !rounded-xl transition group-hover:scale-110`}>
+            <span className={`tile ${q.cls} h-10 w-10 transition group-hover:scale-110`}>
               <q.icon size={19} />
             </span>
             <span className="flex min-h-[2.2em] items-center px-0.5 text-center text-[0.7rem] font-bold leading-tight">{q.label}</span>
@@ -276,17 +274,17 @@ export default function DashboardPage() {
         ))}
       </div>
 
-      <div className="stagger-rise grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        {metricTiles.map((tile) => (
+      <div className="stagger-rise grid grid-cols-2 gap-3 sm:gap-4 xl:grid-cols-4">
+        {tiles.map((tile) => (
           <Link
             key={tile.key}
             href={metricTileTarget(tile.key)}
             aria-label={t("dashboard.openTile", { target: tile.target })}
-            className="kpi-tile group relative block"
+            className="kpi-tile group relative block rise"
           >
             <Stat label={tile.label} value={tile.value} sub={tile.sub} icon={tile.icon} tone={tile.tone} />
             <span className="kpi-tile-go" aria-hidden="true">
-              <ArrowUpRight size={15} />
+              <ArrowUpRight size={15} className="rtl:-scale-x-100" />
             </span>
           </Link>
         ))}
@@ -298,7 +296,7 @@ export default function DashboardPage() {
           <p className="text-xs text-muted-foreground">{t("dashboard.trendSub")}</p>
           <div className="mt-4 h-64">
             {trend.length === 0 ? (
-              <p className="py-16 text-center text-sm text-muted-foreground">{t("dashboard.noSales")}</p>
+              <EmptyState title={t("dashboard.noSales")} hint={t("dashboard.noSalesHint")} icon={<BarChart3 size={26} />} />
             ) : (
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart data={trend} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
@@ -310,7 +308,7 @@ export default function DashboardPage() {
                   </defs>
                   <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" vertical={false} />
                   <XAxis dataKey="month" tick={{ fontSize: 12, fill: "var(--muted-foreground)" }} axisLine={false} tickLine={false} />
-                  <YAxis tick={{ fontSize: 12, fill: "var(--muted-foreground)" }} axisLine={false} tickLine={false} width={70}
+                  <YAxis tick={{ fontSize: 12, fill: "var(--muted-foreground)" }} axisLine={false} tickLine={false} width={44}
                     tickFormatter={(v: number) => (v >= 1000 ? `${Math.round(v / 1000)}k` : `${v}`)} />
                   <Tooltip
                     contentStyle={{ background: "var(--card)", border: "1px solid var(--border)", borderRadius: 12, fontSize: 13 }}

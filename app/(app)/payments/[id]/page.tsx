@@ -9,7 +9,6 @@ import { ErrorNote, Field } from "@/components/ui";
 import { api, fmtMoney, fmtDate, toBig } from "@/lib/format";
 import { useLang } from "@/components/lang-provider";
 import { usePermissions } from "@/components/permissions";
-import { fx } from "@/components/fix3-lang";
 
 type AllocRow = {
   id: string;
@@ -26,7 +25,7 @@ type PayDetail = {
 
 export default function PaymentDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { t } = useLang();
-  const f = (k: string, vars?: Record<string, string | number>) => fx(t, k, vars);
+  const f = (k: string, vars?: Record<string, string | number>) => t(k, vars);
   const { permissions } = usePermissions();
   const canVoid = permissions.includes("payments");
   const [id, setId] = useState<string | null>(null);

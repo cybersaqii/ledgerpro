@@ -50,6 +50,11 @@ describe("rateLimitDb", () => {
 describe("clientIp", () => {
   it("prefers x-forwarded-for", () => {
     const req = new Request("http://x/", { headers: { "x-forwarded-for": "1.2.3.4, 5.6.7.8" } });
+    expect(clientIp(req)).toBe("5.6.7.8");
+  });
+
+  it("uses the last non-empty entry (proxies append; first entry is client-spoofable)", () => {
+    const req = new Request("http://x/", { headers: { "x-forwarded-for": "9.9.9.9, 1.2.3.4, " } });
     expect(clientIp(req)).toBe("1.2.3.4");
   });
 });

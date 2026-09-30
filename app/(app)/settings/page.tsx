@@ -949,20 +949,6 @@ function SecurityCard() {
   const [pwError, setPwError] = useState<string | null>(null);
   const [pwDone, setPwDone] = useState(false);
   const [pwBusy, setPwBusy] = useState(false);
-  const [code, setCode] = useState<string | null>(null);
-  const [codeError, setCodeError] = useState<string | null>(null);
-  const [codeBusy, setCodeBusy] = useState(false);
-  const [copied, setCopied] = useState(false);
-  const [savedAck, setSavedAck] = useState(false);
-  const [hasCode, setHasCode] = useState<boolean | null>(null);
-
-  useEffect(() => {
-    let alive = true;
-    api<{ hasCode: boolean }>("/api/auth/recovery-status")
-      .then((d) => { if (alive) setHasCode(d.hasCode); })
-      .catch(() => {});
-    return () => { alive = false; };
-  }, []);
 
   async function changePassword(e: React.FormEvent) {
     e.preventDefault();
@@ -976,21 +962,6 @@ function SecurityCard() {
     } catch (err) {
       setPwError(err instanceof Error ? err.message : t("settingssecurity.changeError"));
     } finally { setPwBusy(false); }
-  }
-
-  async function regenCode() {
-    setCodeError(null); setCodeBusy(true);
-    try {
-      const d = await api<{ recoveryCode: string }>("/api/auth/recovery-code", { method: "POST" });
-      setCode(d.recoveryCode); setCopied(false); setSavedAck(false); setHasCode(true);
-    } catch (err) {
-      setCodeError(err instanceof Error ? err.message : t("settingssecurity.codeError"));
-    } finally { setCodeBusy(false); }
-  }
-
-  async function copy() {
-    if (!code) return;
-    try { await navigator.clipboard.writeText(code); setCopied(true); } catch { /* manual select */ }
   }
 
   return (
@@ -1015,44 +986,6 @@ function SecurityCard() {
         </div>
         <button className="btn btn-ghost text-sm" disabled={pwBusy}>{pwBusy ? t("settingssecurity.changing") : t("settingssecurity.changeBtn")}</button>
       </form>
-
-      <div className="mt-4 rounded-2xl border border-border p-4">
-        <h3 className="text-sm font-extrabold">{t("settingssecurity.recoveryTitle")}</h3>
-        {hasCode === false && !code && (
-          <div className="mt-3 flex items-start gap-3 rounded-xl bg-amber-500/10 px-4 py-3 text-sm">
-            <TriangleAlert size={17} className="mt-0.5 shrink-0 text-amber-600 dark:text-amber-400" />
-            <p className="font-semibold text-amber-700 dark:text-amber-300">
-              {t("settingssecurity.noCode")}
-            </p>
-          </div>
-        )}
-        <p className="mt-1 text-sm text-muted-foreground">
-          {t("settingssecurity.recoveryHint")}
-        </p>
-        <ErrorNote message={codeError} />
-        {code ? (
-          <div className="mt-3">
-            <button type="button" onClick={copy}
-              className="flex w-full items-center justify-between gap-3 rounded-2xl border-2 border-dashed border-primary/40 bg-primary-soft/50 px-5 py-3.5 font-mono text-base font-extrabold tracking-[0.2em] text-primary"
-              title={t("settingssecurity.copyCode")}>
-              <span>{code}</span>
-              {copied ? <Check size={18} /> : <Copy size={18} />}
-            </button>
-            <label className="mt-3 flex cursor-pointer items-start gap-3 text-sm">
-              <input type="checkbox" className="mt-1 h-4 w-4 accent-primary" checked={savedAck} onChange={(e) => setSavedAck(e.target.checked)} />
-              <span>{t("settingssecurity.savedAck")}</span>
-            </label>
-            {!savedAck && <p className="mt-2 text-xs text-muted-foreground">{t("settingssecurity.keepOpen")}</p>}
-            <button className="btn btn-ghost mt-3 text-sm" onClick={regenCode} disabled={codeBusy}>
-              <RefreshCw size={15} /> {codeBusy ? t("settingssecurity.generating") : t("settingssecurity.newCode")}
-            </button>
-          </div>
-        ) : (
-          <button className="btn btn-ghost mt-3 text-sm" onClick={regenCode} disabled={codeBusy}>
-            <KeyRound size={15} /> {codeBusy ? t("settingssecurity.generating") : t("settingssecurity.generateCode")}
-          </button>
-        )}
-      </div>
     </div>
   );
 }

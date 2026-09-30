@@ -24,6 +24,22 @@ export function businessTypeLabel(value: string | null | undefined): string {
  * products, billing and reports all re-label themselves from this one profile.
  * Accounting behaviour is identical for every type; only the words change.
  */
+/** Feature visibility per trade — hides modules a business type never uses.
+ *  Routes stay accessible (deep links/bookmarks keep working); this only
+ *  declutters navigation and quick actions for a focused workspace. */
+export interface BusinessFeatures {
+  /** Fast counter billing (POS). */
+  pos: boolean;
+  /** Batch no + expiry tracking UI. */
+  batches: boolean;
+  /** Multi-godown / rack locations. */
+  godowns: boolean;
+  /** Purchase bills (inventory buying). Services typically use expenses instead. */
+  purchases: boolean;
+  /** Product bundles / packages. */
+  bundles: boolean;
+}
+
 export interface BusinessProfile {
   type: BusinessType;
   /** Who you sell to: Customer / Patient / Guest / Client */
@@ -50,6 +66,8 @@ export interface BusinessProfile {
   showBatchExpiry: boolean;
   /** Print SKU under each invoice line (wholesale / distribution / manufacturing). */
   showSku: boolean;
+  /** Module visibility for this trade. */
+  features: BusinessFeatures;
 }
 
 interface DocVocab {
@@ -59,6 +77,8 @@ interface DocVocab {
   showSku?: boolean;
 }
 
+const ALL_FEATURES: BusinessFeatures = { pos: true, batches: true, godowns: true, purchases: true, bundles: true };
+
 const profile = (
   type: BusinessType,
   partyOne: string, partyMany: string,
@@ -66,23 +86,25 @@ const profile = (
   salesNav: string, newSale: string, saveSale: string,
   receivables: string, stock: string,
   doc?: DocVocab,
+  features?: Partial<BusinessFeatures>,
 ): BusinessProfile => ({
   type, partyOne, partyMany, productOne, productMany, salesNav, newSale, saveSale, receivables, stock,
   docTitle: doc?.docTitle ?? "Sale Invoice",
   billTitle: doc?.billTitle ?? "Purchase Bill",
   showBatchExpiry: doc?.showBatchExpiry ?? false,
   showSku: doc?.showSku ?? false,
+  features: { ...ALL_FEATURES, ...features },
 });
 
 export const BUSINESS_PROFILES: Record<BusinessType, BusinessProfile> = {
   WHOLESALE: profile("WHOLESALE", "Customer", "Customers", "Product", "Products", "Sales", "New sale bill", "Save sale bill", "Receivables", "Stock", { showSku: true }),
-  RETAIL: profile("RETAIL", "Customer", "Customers", "Product", "Products", "Billing", "New counter bill", "Save counter bill", "Receivables", "Stock", { docTitle: "Sale Bill" }),
+  RETAIL: profile("RETAIL", "Customer", "Customers", "Product", "Products", "Billing", "New counter bill", "Save counter bill", "Receivables", "Stock", { docTitle: "Sale Bill" }, { godowns: false }),
   DISTRIBUTION: profile("DISTRIBUTION", "Customer", "Customers", "Product", "Products", "Sales", "New sale bill", "Save sale bill", "Receivables", "Stock", { showSku: true }),
   PHARMACY: profile("PHARMACY", "Customer", "Customers", "Medicine", "Medicines", "Sales", "New sale bill", "Save sale bill", "Receivables", "Medicine stock", { showBatchExpiry: true }),
-  CLINIC: profile("CLINIC", "Patient", "Patients", "Treatment", "Treatments", "Treatments", "New treatment bill", "Save treatment bill", "Patient dues", "Medicine stock", { docTitle: "Treatment Bill" }),
-  RESTAURANT: profile("RESTAURANT", "Guest", "Guests", "Menu item", "Menu items", "Billing", "New bill", "Save bill", "Receivables", "Stock", { docTitle: "Bill" }),
-  SERVICES: profile("SERVICES", "Client", "Clients", "Service", "Services", "Invoices", "New invoice", "Save invoice", "Receivables", "Stock", { docTitle: "Invoice" }),
-  MANUFACTURING: profile("MANUFACTURING", "Customer", "Customers", "Product", "Products", "Sales", "New sale bill", "Save sale bill", "Receivables", "Stock", { showSku: true }),
+  CLINIC: profile("CLINIC", "Patient", "Patients", "Treatment", "Treatments", "Treatments", "New treatment bill", "Save treatment bill", "Patient dues", "Medicine stock", { docTitle: "Treatment Bill" }, { pos: false, godowns: false, bundles: false }),
+  RESTAURANT: profile("RESTAURANT", "Guest", "Guests", "Menu item", "Menu items", "Billing", "New bill", "Save bill", "Receivables", "Stock", { docTitle: "Bill" }, { batches: false, godowns: false }),
+  SERVICES: profile("SERVICES", "Client", "Clients", "Service", "Services", "Invoices", "New invoice", "Save invoice", "Receivables", "Stock", { docTitle: "Invoice" }, { pos: false, batches: false, godowns: false, purchases: false, bundles: false }),
+  MANUFACTURING: profile("MANUFACTURING", "Customer", "Customers", "Product", "Products", "Sales", "New sale bill", "Save sale bill", "Receivables", "Stock", { showSku: true }, { pos: false, batches: false }),
   OTHER: profile("OTHER", "Customer", "Customers", "Product", "Products", "Sales", "New sale bill", "Save sale bill", "Receivables", "Stock"),
 };
 
@@ -90,4 +112,13 @@ export const BUSINESS_PROFILES: Record<BusinessType, BusinessProfile> = {
 export function getBusinessProfile(value: string | null | undefined): BusinessProfile {
   const key = (value ?? "") as BusinessType;
   return BUSINESS_PROFILES[key] ?? BUSINESS_PROFILES.OTHER;
+}
+
+/** Adaptive default for the primary "new sale" action: counter trades land
+ *  on the fast POS screen, everyone else on the full bill form. */
+export function newSaleHref(profile: BusinessProfile): string {
+  if (profile.features.pos && (profile.type === "RETAIL" || profile.type === "RESTAURANT")) {
+    return "/sales/pos";
+  }
+  return "/sales/new";
 }

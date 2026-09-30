@@ -6,7 +6,6 @@ import { db } from "@/lib/db";
 import { users, companies } from "@/db/schema";
 import { TRIAL_DAYS } from "@/lib/entitlements";
 import { hashPassword, createSession, verifyEmailVerificationToken } from "@/lib/auth";
-import { generateRecoveryCode, normalizeRecoveryCode } from "@/lib/recovery";
 import { setupCompany } from "@/lib/setup";
 import { signupSchema } from "@/lib/validators";
 import { json, err } from "@/lib/api";
@@ -32,15 +31,8 @@ export async function POST(req: NextRequest) {
   const body = await req.json().catch(() => null);
   const parsed = signupWithVerification.safeParse(body);
   if (!parsed.success) return err("Please check the form and try again.", 422);
-  const { name, email, password, companyName, phone, businessType, address, city, verificationToken } = parsed.data;
+  const { name, email, password, companyName, phone, businessType, address, city, verificationToken, referralCode } = parsed.data;
   const emailLc = email.toLowerCase();
-
-  const existing = await db
-    .select({ id: users.id })
-    .from(users)
-    .where(eq(users.email, emailLc))
-    .limit(1);
-  if (existing[0]) return err("This email is already registered. Please log in instead.", 409);
 
   // Email verification: the OTP flow mints a signed token the form submits
   // back; Google sign-up drops a signed HttpOnly cookie. Either one marks the
@@ -61,6 +53,39 @@ export async function POST(req: NextRequest) {
     }
   }
 
+  const existing = await db
+    .select({ id: users.id, companyId: users.companyId, name: users.name, role: users.role, tokenVersion: users.tokenVersion })
+    .from(users)
+    .where(eq(users.email, emailLc))
+    .limit(1);
+  // Enumeration-safe: never reveal whether the email is registered. The OTP
+  // step already proved ownership of the address, so an existing user is
+  // simply signed in to their account (passwordless) instead of getting a
+  // duplicate. An attacker without the OTP learns nothing from the response.
+  if (existing[0]) {
+    const u = existing[0];
+    // Link Google identity if this signup came through Google.
+    if (googleSub) {
+      await db.update(users).set({ googleSub }).where(eq(users.id, u.id));
+    }
+    await createSession({ uid: u.id, cid: u.companyId, name: u.name, email: emailLc, role: u.role as "OWNER" | "STAFF", v: u.tokenVersion ?? 0 });
+    await db.update(users).set({ lastActivityAt: new Date() }).where(eq(users.id, u.id));
+    if (gCookie) jar.delete(GOOGLE_SIGNUP_COOKIE);
+    await recordLoginEvent(db, {
+      userId: u.id,
+      companyId: u.companyId,
+      ip: clientIp(req),
+      userAgent: req.headers.get("user-agent"),
+    });
+    return json({ data: { ok: true, existing: true } });
+  }
+
+  // M2: disposable / temporary email addresses cannot register.
+  const { isDisposableEmail } = await import("@/lib/disposable-email");
+  if (isDisposableEmail(emailLc)) {
+    return err("Please sign up with a permanent email address (temporary email services are not allowed).", 422);
+  }
+
   const passwordHash = await hashPassword(password);
   const companyId = crypto.randomUUID();
   await db.insert(companies).values({
@@ -74,14 +99,12 @@ export async function POST(req: NextRequest) {
     trialEndsAt: new Date(Date.now() + TRIAL_DAYS * 86_400_000), // 30-day free trial
   });
   const userId = crypto.randomUUID();
-  const recoveryCode = generateRecoveryCode();
   await db.insert(users).values({
     id: userId,
     companyId,
     name,
     email: emailLc,
     passwordHash,
-    recoveryCodeHash: await hashPassword(normalizeRecoveryCode(recoveryCode)),
     role: "OWNER",
     emailVerifiedAt: emailVerified ? new Date() : null,
     googleSub,
@@ -92,6 +115,17 @@ export async function POST(req: NextRequest) {
   } catch (e) {
     console.error("Company bootstrap failed", e);
     return err("Account setup hit a snag. Please try logging in to continue.", 500);
+  }
+
+  // Referral: optional code from the signup form (?ref= link). Invalid codes
+  // never block signup — they are simply ignored.
+  if (referralCode) {
+    try {
+      const { recordReferral } = await import("@/lib/referrals");
+      await recordReferral(db, { code: referralCode, referredCompanyId: companyId });
+    } catch (e) {
+      console.error("[signup] referral record failed", e);
+    }
   }
 
   await createSession({ uid: userId, cid: companyId, name, email: emailLc, role: "OWNER", v: 0 });
@@ -130,5 +164,5 @@ export async function POST(req: NextRequest) {
     console.error("[signup] welcome email failed", e);
   }
 
-  return json({ ok: true, user: { id: userId, name, email: emailLc, role: "OWNER" }, recoveryCode });
+  return json({ ok: true, user: { id: userId, name, email: emailLc, role: "OWNER" } });
 }

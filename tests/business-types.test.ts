@@ -72,3 +72,40 @@ describe("business type adaptation profiles", () => {
     }
   });
 });
+
+describe("business type feature flags", () => {
+  it("every profile has a complete features object", async () => {
+    const { BUSINESS_PROFILES } = await import("@/lib/business-types");
+    for (const p of Object.values(BUSINESS_PROFILES)) {
+      expect(p.features, p.type).toBeDefined();
+      for (const f of ["pos", "batches", "godowns", "purchases", "bundles"] as const) {
+        expect(typeof p.features[f], `${p.type}.${f}`).toBe("boolean");
+      }
+    }
+  });
+
+  it("counter trades keep POS, services/clinic/manufacturing hide it", async () => {
+    const { getBusinessProfile } = await import("@/lib/business-types");
+    expect(getBusinessProfile("RETAIL").features.pos).toBe(true);
+    expect(getBusinessProfile("RESTAURANT").features.pos).toBe(true);
+    expect(getBusinessProfile("PHARMACY").features.pos).toBe(true);
+    expect(getBusinessProfile("SERVICES").features.pos).toBe(false);
+    expect(getBusinessProfile("CLINIC").features.pos).toBe(false);
+    expect(getBusinessProfile("MANUFACTURING").features.pos).toBe(false);
+  });
+
+  it("services hide purchase bills (expenses cover their buying)", async () => {
+    const { getBusinessProfile } = await import("@/lib/business-types");
+    expect(getBusinessProfile("SERVICES").features.purchases).toBe(false);
+    expect(getBusinessProfile("WHOLESALE").features.purchases).toBe(true);
+  });
+
+  it("newSaleHref routes counter trades to POS, others to the bill form", async () => {
+    const { getBusinessProfile, newSaleHref } = await import("@/lib/business-types");
+    expect(newSaleHref(getBusinessProfile("RETAIL"))).toBe("/sales/pos");
+    expect(newSaleHref(getBusinessProfile("RESTAURANT"))).toBe("/sales/pos");
+    expect(newSaleHref(getBusinessProfile("WHOLESALE"))).toBe("/sales/new");
+    expect(newSaleHref(getBusinessProfile("SERVICES"))).toBe("/sales/new");
+    expect(newSaleHref(getBusinessProfile("PHARMACY"))).toBe("/sales/new");
+  });
+});

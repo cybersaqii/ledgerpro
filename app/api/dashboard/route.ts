@@ -1,4 +1,4 @@
-import { eq, and, sql, desc } from "drizzle-orm";
+import { eq, and, sql, desc, lte, gt, isNotNull } from "drizzle-orm";
 import {
   salesDocs,
   purchaseDocs,
@@ -7,6 +7,7 @@ import {
   products,
   stockLevels,
   expenses,
+  productBatches,
 } from "@/db/schema";
 import { json } from "@/lib/api";
 import { requirePermission, db } from "@/lib/route-helpers";
@@ -122,6 +123,23 @@ export async function GET() {
   const monthStartISO = new Date(startOfMonth).toISOString().slice(0, 10);
   const profitMonth = await netProfit(db, companyId, monthStartISO, null);
 
+  // Batches expiring within 60 days with remaining stock (pharmacy/clinic alert)
+  const cutoff = new Date();
+  cutoff.setDate(cutoff.getDate() + 60);
+  const cutoffStr = cutoff.toISOString().slice(0, 10);
+  const expiringRows = await db
+    .select({ id: productBatches.id })
+    .from(productBatches)
+    .where(
+      and(
+        eq(productBatches.companyId, companyId),
+        isNotNull(productBatches.expiryDate),
+        lte(productBatches.expiryDate, cutoffStr),
+        gt(productBatches.qtyThousandths, 0n)
+      )
+    );
+  const expiringBatches = expiringRows.length;
+
   return json({
     kpis: {
       salesToday: num(salesToday[0]?.t),
@@ -133,6 +151,7 @@ export async function GET() {
       cashAndBank: num(cash[0]?.t),
       profitMonth,
       lowStock,
+      expiringBatches,
     },
     recentSales: recent.map((r) => ({ ...r.doc, partyName: r.partyName })),
     salesTrend: trend.map((t) => ({ month: t.month, total: num(t.total) })),

@@ -5,12 +5,16 @@ import { db } from "@/lib/db";
 import { hashPassword, verifyPassword, createSession } from "@/lib/auth";
 import { requireAuth, json, err } from "@/lib/api";
 import { logAudit } from "@/lib/audit";
+import { rateLimitDb, clientIp } from "@/lib/rate-limit-db";
 
 // POST /api/auth/change-password — logged-in user changes their own password.
 // Other sessions are logged out; the current session is re-issued.
+// M8: throttled per user+IP — the current-password check is a bcrypt guess.
 export async function POST(req: NextRequest) {
   const { session, response } = await requireAuth();
   if (!session) return response;
+  const rl = await rateLimitDb(`change-password:${session.uid}:${clientIp(req)}`, 10, 10 * 60_000);
+  if (!rl.ok) return err("Too many attempts. Please wait a few minutes and try again.", 429);
   const body = await req.json().catch(() => null);
   const currentPassword = String(body?.currentPassword || "");
   const newPassword = String(body?.newPassword || "");

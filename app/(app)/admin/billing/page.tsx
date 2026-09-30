@@ -2,14 +2,15 @@
 
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import { ShieldCheck, Check, X } from "lucide-react";
+import { ShieldCheck, Check, X, Tag } from "lucide-react";
 import { PageHeader, Field, ErrorNote, EmptyState } from "@/components/ui";
 import { api, fmtMoney } from "@/lib/format";
 import { useLang } from "@/components/lang-provider";
 
 type Payment = {
   id: string; companyId: string; companyName: string;
-  amountPaisa: number; method: string; reference: string; months: number;
+  amountPaisa: number; discountPaisa: number; couponCode: string | null;
+  method: string; reference: string; months: number;
   status: string; note: string | null; reviewedBy: string | null;
   createdAt: string;
 };
@@ -148,6 +149,12 @@ export default function AdminBillingPage() {
 
   return (
     <div className="space-y-6">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <PageHeader title={t("adminbilling.title")} subtitle={t("adminbilling.subtitle")} icon={<ShieldCheck size={22} />} />
+        <Link href="/admin/coupons" className="btn btn-secondary">
+          <Tag size={15} /> Coupons
+        </Link>
+      </div>
       <PageHeader title={t("adminbilling.title")} subtitle={t("adminbilling.subtitle2")} icon={<ShieldCheck size={22} />} />
       <ErrorNote message={error} />
       <Link href="/admin/support" className="card flex items-center justify-between p-4 transition hover:-translate-y-0.5">
@@ -181,7 +188,9 @@ export default function AdminBillingPage() {
                   <div>
                     <p className="font-bold">{p.companyName}</p>
                     <p className="text-sm text-muted-foreground">
-                      {p.months === 12 ? t("billing.yearly") : t("billing.monthly")} · <strong className="text-foreground">{fmtMoney(p.amountPaisa)}</strong> · {p.method} · {t("adminbilling.ref")} <strong className="text-foreground">{p.reference}</strong>
+                      {p.months === 12 ? t("billing.yearly") : t("billing.monthly")} · <strong className="text-foreground">{fmtMoney(p.amountPaisa - (p.discountPaisa || 0))}</strong>{p.discountPaisa ? (
+                        <span> <s>{fmtMoney(p.amountPaisa)}</s> <span className="font-bold text-emerald-600 dark:text-emerald-400">−{fmtMoney(p.discountPaisa)}{p.couponCode ? ` (${p.couponCode})` : ""}</span></span>
+                      ) : null} · {p.method} · {t("adminbilling.ref")} <strong className="text-foreground">{p.reference}</strong>
                     </p>
                     <p className="text-xs text-muted-foreground">{p.createdAt.slice(0, 10)}{p.reviewedBy ? ` · ${t("adminbilling.reviewedBy", { name: p.reviewedBy })}` : ""}{p.note ? ` · ${p.note}` : ""}</p>
                   </div>

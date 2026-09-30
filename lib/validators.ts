@@ -13,6 +13,7 @@ export const signupSchema = z.object({
   businessType: z.enum(["WHOLESALE", "RETAIL", "DISTRIBUTION", "PHARMACY", "CLINIC", "RESTAURANT", "SERVICES", "MANUFACTURING", "OTHER"]).default("WHOLESALE"),
   address: z.string().trim().max(300).optional().or(z.literal("")),
   city: z.string().trim().max(60).optional().or(z.literal("")),
+  referralCode: z.string().trim().max(16).optional().or(z.literal("")),
 });
 
 export const loginSchema = z.object({
@@ -48,6 +49,7 @@ export const productSchema = z.object({
   reorderLevel: qtyStr.default("0"),
   minSalePrice: moneyStr.default("0"),
   location: z.string().trim().max(60).optional().or(z.literal("")),
+  imageUrl: z.string().trim().max(500).optional().or(z.literal("")),
 });
 
 // Bundle components editor: component product + qty per one bundle unit.

@@ -10,7 +10,6 @@ import { brand } from "@/lib/brand";
 import { useLang } from "@/components/lang-provider";
 import { useBusinessProfile } from "@/components/business-type";
 import { usePermissions } from "@/components/permissions";
-import { fx } from "@/components/fix3-lang";
 import { WriteOffModal, recoverWriteOff } from "@/components/write-off-modal";
 import { tr, type Lang } from "@/lib/i18n";
 
@@ -132,7 +131,7 @@ function ItemSubLines({ it, className }: { it: Item; className?: string }) {
 
 export function DocDetail({ mode, id }: { mode: "SALES" | "PURCHASE" | "NOTE"; id: string }) {
   const { t, lang } = useLang();
-  const f = (k: string, vars?: Record<string, string | number>) => fx(t, k, vars);
+  const f = (k: string, vars?: Record<string, string | number>) => t(k, vars);
   const bp = useBusinessProfile();
   const { permissions } = usePermissions();
   const canWriteOff = permissions.includes("payments");
