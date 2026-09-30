@@ -49,14 +49,16 @@ export function AuthLayout({ children }: { children: ReactNode }) {
         <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-emerald-300/50 to-transparent" />
       </div>
 
-      {/* Top bar */}
-      <header className="relative z-10 flex h-16 items-center justify-between px-4 sm:px-8">
-        <Link href="/" aria-label={brand.name}>
-          <BrandLockup markSize={34} wordClass="font-display text-[1.02rem] leading-none text-white" tagline dark />
-        </Link>
-        <div className="flex items-center gap-2">
-          <LangToggle />
-          <ThemeToggle />
+      {/* Top bar — floating pill */}
+      <header className="absolute inset-x-0 top-3 z-20 px-3 sm:top-4 sm:px-6">
+        <div className="mx-auto flex h-14 max-w-6xl items-center justify-between rounded-full border border-white/15 bg-black/25 py-1.5 pl-4 pr-2 shadow-xl shadow-black/20 backdrop-blur-xl sm:h-16 sm:pl-5">
+          <Link href="/" aria-label={brand.name}>
+            <BrandLockup markSize={32} wordClass="font-display text-[1rem] leading-none text-white" tagline dark />
+          </Link>
+          <div className="flex items-center gap-1 sm:gap-2">
+            <LangToggle />
+            <ThemeToggle />
+          </div>
         </div>
       </header>
 
@@ -118,7 +120,7 @@ export function AuthLayout({ children }: { children: ReactNode }) {
       </div>
 
       {/* Center stage */}
-      <main className="relative z-10 mx-auto flex w-full max-w-xl flex-col items-center px-4 pb-14 pt-4 sm:pt-8">
+      <main className="relative z-10 mx-auto flex w-full max-w-xl flex-col items-center px-4 pb-14 pt-24 sm:pt-28">
         <div className="rise">
           <BrandMark size={58} className="drop-shadow-[0_10px_30px_rgba(16,185,129,0.5)]" />
         </div>

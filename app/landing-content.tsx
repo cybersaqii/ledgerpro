@@ -5,10 +5,10 @@ import {
   ArrowRight, BarChart3, Boxes, CheckCircle2, FileText, Landmark,
   ScanBarcode, ShieldCheck, Smartphone, Sparkles, TrendingUp, Users, Wallet,
   Store, Factory, Stethoscope, Pill, UtensilsCrossed, Briefcase, Truck,
-  TriangleAlert, XCircle, BadgeCheck,
+  TriangleAlert, XCircle, BadgeCheck, Play,
 } from "lucide-react";
 import { ThemeToggle, LangToggle } from "@/components/ui";
-import { BrandLockup, BrandMark } from "@/components/brand-logo";
+import { BrandLockup } from "@/components/brand-logo";
 import { Typewriter, type TwPhrase } from "@/components/typewriter";
 import { brand } from "@/lib/brand";
 import { useLang } from "@/components/lang-provider";
@@ -65,7 +65,6 @@ const trust = [
   { t: "tr2t", d: "tr2d", icon: ShieldCheck },
 ];
 
-const heroPoints = ["hp0", "hp1", "hp2", "hp3"];
 const paperBad = ["pp0", "pp1", "pp2", "pp3"];
 const paperGood = ["lp0", "lp1", "lp2", "lp3"];
 const madeFor = ["mf0", "mf1", "mf2", "mf3", "mf4", "mf5"];
@@ -83,42 +82,41 @@ export default function LandingContent() {
   ];
   return (
     <div className="min-h-screen overflow-x-clip bg-background">
-      {/* Nav */}
-      <header className="fixed inset-x-0 top-0 z-40 border-b border-white/10 bg-[#0a2e25]/85 backdrop-blur-xl">
-        <div className="flex h-16 items-center justify-between px-4 sm:px-8 lg:px-12">
-          <Link href="/" className="flex min-w-0 items-center gap-2.5">
-            <BrandLockup markSize={36} wordClass="text-[1.05rem] leading-none text-white hidden min-[420px]:block" tagline dark />
+      {/* Nav — floating pill */}
+      <header className="fixed inset-x-0 top-3 z-40 px-3 sm:top-4 sm:px-6">
+        <div className="mx-auto flex h-14 max-w-6xl items-center justify-between gap-2 rounded-full border border-white/15 bg-[#071f19]/80 py-1.5 pl-4 pr-1.5 shadow-2xl shadow-black/30 backdrop-blur-xl sm:h-16 sm:pl-5 sm:pr-2">
+          <Link href="/" className="flex min-w-0 items-center gap-2.5" aria-label={b}>
+            <BrandLockup markSize={34} wordClass="font-display text-[1.02rem] leading-none text-white hidden min-[420px]:block" tagline dark />
           </Link>
-          <nav className="hidden items-center gap-7 text-sm font-semibold text-emerald-50/85 md:flex">
+          <nav className="hidden items-center gap-7 text-sm font-semibold text-emerald-50/85 lg:flex">
             <a href="#features" className="transition hover:text-white">{L("navFeatures")}</a>
             <a href="#businesses" className="transition hover:text-white">{L("navBusinesses")}</a>
             <a href="#how" className="transition hover:text-white">{L("navHow")}</a>
             <a href="#faq" className="transition hover:text-white">{L("navFaq")}</a>
           </nav>
-          <div className="flex items-center gap-1.5 sm:gap-3">
+          <div className="flex items-center gap-1 sm:gap-2">
             <LangToggle />
             <ThemeToggle />
-            <Link href="/login" className="hidden rounded-xl px-4 py-2 text-sm font-bold text-white transition hover:bg-white/10 sm:inline-flex">{L("navLogin")}</Link>
-            <Link href="/signup" className="btn shrink-0 !border-0 !bg-white !px-3 !py-2 text-[0.8rem] !text-[#0a2e25] hover:!bg-emerald-50 sm:!px-4 sm:text-sm">
+            <Link href="/login" className="hidden rounded-full px-4 py-2 text-sm font-bold text-white transition hover:bg-white/10 md:inline-flex">{L("navLogin")}</Link>
+            <Link href="/signup" className="inline-flex shrink-0 items-center gap-1.5 rounded-full bg-white px-4 py-2 text-[0.8rem] font-extrabold text-[#0a2e25] transition hover:bg-emerald-50 sm:px-5 sm:text-sm">
               {L("navStart")} <ArrowRight size={15} />
             </Link>
           </div>
         </div>
       </header>
 
-      {/* Hero — rich dark */}
-      <section className="relative">
-        <div className="absolute inset-0 bg-gradient-to-br from-[#0a2e25] via-[#0d4a3a] to-[#0b3d31]" />
-        <div className="pointer-events-none absolute inset-0">
-          <div className="absolute -top-32 left-1/4 h-[420px] w-[620px] rounded-full bg-emerald-400/20 blur-[130px]" />
-          <div className="absolute top-1/3 -right-32 h-96 w-96 rounded-full bg-teal-300/15 blur-[110px]" />
-          <div className="absolute inset-0 opacity-[0.06]" style={{ backgroundImage: "radial-gradient(circle at 1px 1px, #fff 1px, transparent 0)", backgroundSize: "30px 30px" }} />
-        </div>
-        <div className="relative grid items-center gap-12 px-4 pb-16 pt-32 sm:px-8 sm:pt-40 lg:grid-cols-2 lg:gap-12 lg:px-12 lg:pb-20">
-          <div className="text-center lg:text-left">
-            <div className="rise mb-6 flex justify-center lg:justify-start">
-              <BrandMark size={64} className="drop-shadow-[0_8px_24px_rgba(16,185,129,0.45)]" />
+      {/* Hero — rounded emerald frame, floating collage */}
+      <section className="relative pt-24 sm:pt-28">
+        <div className="px-3 sm:px-5">
+          <div className="relative mx-auto max-w-[1400px] overflow-hidden rounded-[2rem] sm:rounded-[2.5rem]">
+            <div className="absolute inset-0 bg-gradient-to-br from-[#052b21] via-[#0a4634] to-[#062b22]" />
+            <div className="pointer-events-none absolute inset-0">
+              <div className="absolute -top-24 left-[12%] h-[380px] w-[560px] rounded-full bg-emerald-400/25 blur-[130px]" />
+              <div className="absolute bottom-0 right-[8%] h-80 w-80 rounded-full bg-teal-300/20 blur-[110px]" />
+              <div className="absolute inset-0 opacity-[0.07]" style={{ backgroundImage: "radial-gradient(circle at 1px 1px, #fff 1px, transparent 0)", backgroundSize: "28px 28px" }} />
             </div>
+            <div className="relative grid items-center gap-14 px-6 pb-16 pt-12 sm:px-10 lg:grid-cols-[1.02fr_0.98fr] lg:gap-6 lg:px-14 lg:pb-24 lg:pt-16">
+          <div className="text-center lg:text-left">
             <div className="rise inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/10 px-4 py-1.5 text-xs font-semibold text-emerald-50 shadow-sm backdrop-blur">
               <BadgeCheck size={14} className="text-amber-300" />
               {L("heroBadge")}
@@ -139,44 +137,64 @@ export default function LandingContent() {
             <p className="rise rise-2 mt-5 max-w-xl text-base text-emerald-50/80 sm:text-lg lg:mx-0">
               {L("heroSubA")} <span className="font-semibold text-white">{L("heroSubU")}</span> {L("heroSubB", { brand: b })}
             </p>
-            <ul className="rise rise-3 mx-auto mt-7 grid max-w-xl gap-2.5 text-left sm:grid-cols-2 lg:mx-0">
-              {heroPoints.map((k) => (
-                <li key={k} className="flex items-start gap-2 text-sm font-medium text-emerald-50">
-                  <CheckCircle2 size={17} className="mt-0.5 shrink-0 text-emerald-300" />
-                  {L(k)}
-                </li>
-              ))}
-            </ul>
-            <div className="rise rise-4 mt-8 flex flex-wrap items-center justify-center gap-3 lg:justify-start">
-              <Link href="/signup" className="btn !border-0 !bg-white !px-7 !py-3.5 !text-base !text-[#0a2e25] shadow-xl shadow-black/20 hover:!bg-emerald-50">
-                {L("heroCtaStart")} <ArrowRight size={18} />
+            <div className="rise rise-3 mt-8 flex flex-wrap items-center justify-center gap-4 lg:justify-start">
+              <Link href="/signup" className="group inline-flex items-center gap-2 rounded-full bg-white px-7 py-3.5 text-base font-extrabold text-[#0a2e25] shadow-xl shadow-black/25 transition hover:bg-emerald-50">
+                {L("heroCtaStart")} <ArrowRight size={18} className="transition-transform group-hover:translate-x-0.5" />
               </Link>
-              <Link href="/login" className="btn !border-white/25 !bg-white/10 !px-7 !py-3.5 !text-base !text-white backdrop-blur hover:!bg-white/20">
-                {L("heroCtaLogin")}
-              </Link>
+              <a href="#how" className="group inline-flex items-center gap-3 rounded-full border border-white/20 bg-white/10 py-2 pl-2 pr-5 text-sm font-bold text-white backdrop-blur transition hover:bg-white/20">
+                <span className="grid h-10 w-10 place-items-center rounded-full bg-white text-[#0a2e25]">
+                  <Play size={15} className="ml-0.5 fill-current" />
+                </span>
+                {L("watchDemo")}
+              </a>
             </div>
             <p className="rise rise-4 mt-4 text-xs text-emerald-100/60">{L("heroMicro")}</p>
           </div>
 
-          {/* Floating dashboard mock */}
-          <div className="rise rise-2 relative lg:pl-6">
-            <div className="pointer-events-none absolute -inset-6 rounded-[2rem] bg-emerald-400/15 blur-3xl" />
-            <div className="floaty absolute -top-6 right-2 z-10 hidden items-center gap-3 rounded-2xl border border-white/40 bg-white/95 p-3 pr-4 shadow-xl backdrop-blur md:flex">
-              <span className="grid h-10 w-10 place-items-center rounded-full bg-emerald-100 text-emerald-700">
-                <CheckCircle2 size={20} />
-              </span>
-              <span>
-                <span className="block text-xs font-bold text-slate-900">{L("mockPayTitle")}</span>
-                <span className="block text-[0.7rem] text-slate-500">{L("mockPaySub")}</span>
-              </span>
+          {/* Collage — dashboard centerpiece + floating glass cards */}
+          <div className="rise rise-2 relative mx-auto w-full max-w-[500px]">
+            <div className="pointer-events-none absolute -inset-8 rounded-[2.5rem] bg-emerald-400/15 blur-3xl" />
+            {/* P&L sparkline card */}
+            <div className="floaty absolute -top-9 -left-4 z-10 hidden w-52 rounded-2xl border border-white/15 bg-white/10 p-4 shadow-xl backdrop-blur-xl sm:block" style={{ animationDelay: "-2s" }} aria-hidden="true">
+              <p className="text-[0.68rem] font-semibold uppercase tracking-wider text-emerald-100/70">{L("fcPlT")}</p>
+              <p className="font-display mt-1 text-2xl font-extrabold tracking-tight text-white">Rs 1,84,500</p>
+              <svg viewBox="0 0 120 36" className="mt-2 h-9 w-full" aria-hidden="true">
+                <polyline points="0,28 15,24 30,26 45,18 60,21 75,13 90,16 105,8 120,10" fill="none" stroke="#6ee7b7" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
+              <p className="mt-1 text-[0.7rem] font-bold text-emerald-300">{L("fcPlD")}</p>
             </div>
-            <div className="floaty absolute -bottom-7 left-0 z-10 hidden items-center gap-3 rounded-2xl border border-white/40 bg-white/95 p-3 pr-4 shadow-xl backdrop-blur md:flex" style={{ animationDelay: "-3.5s" }}>
-              <span className="grid h-10 w-10 place-items-center rounded-full bg-amber-100 text-amber-700">
+            {/* New invoice card */}
+            <div className="floaty absolute -top-7 -right-4 z-10 hidden w-56 rounded-2xl border border-white/15 bg-white/10 p-4 shadow-xl backdrop-blur-xl md:block" style={{ animationDelay: "-4.2s" }} aria-hidden="true">
+              <div className="flex items-center justify-between">
+                <p className="text-xs font-bold text-white">{L("fcInvT")}</p>
+                <span className="rounded-md bg-white/15 px-2 py-0.5 text-[0.65rem] font-bold text-emerald-100">INV-0104</span>
+              </div>
+              <div className="mt-3 flex items-center justify-between rounded-xl bg-black/25 px-3 py-2.5">
+                <span className="text-sm font-bold text-white/90">Rs 25,000</span>
+                <span className="h-4 w-px animate-pulse bg-emerald-300" />
+              </div>
+              <div className="mt-3 rounded-full bg-white py-2 text-center text-xs font-extrabold text-[#0a2e25]">{L("fcInvB")}</div>
+            </div>
+            {/* Payment received toasts */}
+            <div className="absolute top-[36%] -right-7 z-10 hidden flex-col gap-2.5 lg:flex" aria-hidden="true">
+              {[{ n: "fcRecN0", init: "AT", d: "-1.2s" }, { n: "fcRecN1", init: "SK", d: "-3.4s" }].map((r) => (
+                <div key={r.n} className="floaty flex items-center gap-2.5 rounded-2xl border border-white/15 bg-white/10 py-2.5 pl-2.5 pr-4 shadow-lg backdrop-blur-xl" style={{ animationDelay: r.d }}>
+                  <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-gradient-to-br from-amber-300 to-emerald-400 text-[0.7rem] font-extrabold text-[#0a2e25]">{r.init}</span>
+                  <span>
+                    <span className="block text-[0.72rem] font-extrabold text-white">Rs 10,000</span>
+                    <span className="block text-[0.65rem] text-emerald-100/75">{L("fcRecT")} · {L("fcRecD", { name: L(r.n) })}</span>
+                  </span>
+                </div>
+              ))}
+            </div>
+            {/* Low stock glass card */}
+            <div className="floaty absolute -bottom-9 -left-5 z-10 hidden items-center gap-3 rounded-2xl border border-white/15 bg-white/10 p-3 pr-5 shadow-xl backdrop-blur-xl md:flex" style={{ animationDelay: "-5.6s" }} aria-hidden="true">
+              <span className="grid h-10 w-10 place-items-center rounded-full bg-amber-400/20 text-amber-300">
                 <TriangleAlert size={20} />
               </span>
               <span>
-                <span className="block text-xs font-bold text-slate-900">{L("mockAlertTitle")}</span>
-                <span className="block text-[0.7rem] text-slate-500">{L("mockAlertSub")}</span>
+                <span className="block text-xs font-bold text-white">{L("mockAlertTitle")}</span>
+                <span className="block text-[0.7rem] text-emerald-100/70">{L("mockAlertSub")}</span>
               </span>
             </div>
             <div className="floaty card card-gloss relative p-5 text-left shadow-2xl sm:p-7">
@@ -206,9 +224,11 @@ export default function LandingContent() {
               </div>
             </div>
           </div>
+            </div>
+          </div>
         </div>
         {/* Business-type marquee — solid band, crisp text */}
-        <div className="relative z-10 border-y border-white/10 bg-[#082a21]">
+        <div className="relative z-10 mt-4 border-y border-white/10 bg-[#082a21]">
           <div className="overflow-hidden py-5 [mask-image:linear-gradient(to_right,transparent,black_8%,black_92%,transparent)]">
             <div className="animate-marquee flex w-max items-center gap-12 pr-12">
               {[...businessTypes, ...businessTypes].map((bt, i) => (
