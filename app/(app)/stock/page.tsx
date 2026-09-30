@@ -1,12 +1,21 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { Search, TriangleAlert, Boxes } from "lucide-react";
+import Link from "next/link";
+import { Search, TriangleAlert, Boxes, ClipboardList } from "lucide-react";
 import { PageHeader, EmptyState, ExportCsv } from "@/components/ui";
 import { csvMoney } from "@/lib/csv";
-import { api, fmtMoney, fmtQty, fmtDate } from "@/lib/format";
+import { api, fmtMoney, fmtQty } from "@/lib/format";
 import { useBusinessProfile } from "@/components/business-type";
 import { useLang } from "@/components/lang-provider";
+
+/** Parse a YYYY-MM-DD date in the LOCAL timezone (never UTC — avoids the
+ * off-by-one shift fmtDate can produce near midnight). */
+function fmtExpiry(s: string | null): string {
+  if (!s) return "—";
+  const [y, m, d] = s.split("-").map(Number);
+  return new Date(y, (m ?? 1) - 1, d ?? 1).toLocaleDateString();
+}
 
 type Row = {
   productId: string; sku: string; name: string; unit: string; category: string | null;
@@ -60,11 +69,10 @@ export default function StockPage() {
         title={bp.stock}
         icon={<Boxes size={20} />}
         subtitle={<>{t("stockpage.subtitle", { stock: bp.stock.toLowerCase() })}:  <span className="font-extrabold text-primary">{fmtMoney(totalValue)}</span></>}
-        actions={<ExportCsv filename={lowOnly ? "stock-low" : "stock"} disabled={loading || rows.length === 0} rows={() => [
-          ["SKU", t("stockpage.csvProduct"), t("stockpage.csvUnit"), t("stockpage.csvCategory"), t("stockpage.csvBranch"), t("stockpage.csvQty"), t("stockpage.csvAvgCost"), t("stockpage.csvValue"), t("stockpage.csvReorder"), t("stockpage.csvLow")],
+        actions={<><Link href="/stock/adjustments" className="btn btn-ghost text-sm"><ClipboardList size={16} /> {t("fix3.adjTitle")}</Link><ExportCsv filename={lowOnly ? "stock-low" : "stock"} disabled={loading || rows.length === 0} rows={() => [          ["SKU", t("stockpage.csvProduct"), t("stockpage.csvUnit"), t("stockpage.csvCategory"), t("stockpage.csvBranch"), t("stockpage.csvQty"), t("stockpage.csvAvgCost"), t("stockpage.csvValue"), t("stockpage.csvReorder"), t("stockpage.csvLow")],
           ...rows.map((r) => [r.sku, r.name, r.unit, r.category ?? "", r.branchName ?? "", r.qty, csvMoney(r.avgCost), csvMoney(r.value), r.reorderLevel, r.low ? t("stockpage.csvYes") : ""]),
           ["", "", "", "", t("stockpage.csvTotal"), "", "", csvMoney(totalValue), "", ""],
-        ]} />}
+        ]} /></>}
       />
 
       <div className="mb-4 flex flex-wrap items-center gap-3">
@@ -93,7 +101,7 @@ export default function StockPage() {
                   <tr key={b.id}>
                     <td className="font-bold">{b.productName}</td>
                     <td>{b.batchNo}</td>
-                    <td>{b.expiryDate ? fmtDate(b.expiryDate) : "—"}</td>
+                    <td>{b.expiryDate ? fmtExpiry(b.expiryDate) : "—"}</td>
                     <td className="num font-bold">{fmtQty(b.qtyThousandths, b.unit)}</td>
                     <td><span className="badge bg-danger-soft text-danger"><TriangleAlert size={11} /> {t("batches.expired")}</span></td>
                   </tr>
@@ -102,7 +110,7 @@ export default function StockPage() {
                   <tr key={b.id}>
                     <td className="font-bold">{b.productName}</td>
                     <td>{b.batchNo}</td>
-                    <td>{b.expiryDate ? fmtDate(b.expiryDate) : "—"}</td>
+                    <td>{b.expiryDate ? fmtExpiry(b.expiryDate) : "—"}</td>
                     <td className="num font-bold">{fmtQty(b.qtyThousandths, b.unit)}</td>
                     <td><span className="badge bg-amber-500/15 text-amber-700 dark:text-amber-300"><TriangleAlert size={11} /> {t("batches.expiringSoon")}</span></td>
                   </tr>

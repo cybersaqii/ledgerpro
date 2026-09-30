@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, Fragment } from "react";
 import { CheckCircle2, TriangleAlert } from "lucide-react";
 import { PageHeader, ExportCsv } from "@/components/ui";
 import { csvMoney } from "@/lib/csv";
@@ -52,7 +52,7 @@ export default function TrialBalancePage() {
               <thead><tr><th>{t("trialbalance.colCode")}</th><th>{t("trialbalance.colAccount")}</th><th>{t("trialbalance.colType")}</th><th className="num">{t("trialbalance.colDebit")}</th><th className="num">{t("trialbalance.colCredit")}</th></tr></thead>
               <tbody>
                 {Object.entries(groups).map(([type, ls]) => (
-                  <>
+                  <Fragment key={type}>
                     <tr key={type}><td colSpan={5} className="!bg-muted/60 !py-2 text-xs font-extrabold uppercase tracking-wider text-muted-foreground">{type}</td></tr>
                     {ls.map((l) => (
                       <tr key={l.code}>
@@ -63,7 +63,7 @@ export default function TrialBalancePage() {
                         <td className="num">{BigInt(l.credit) ? fmtMoney(l.credit) : "—"}</td>
                       </tr>
                     ))}
-                  </>
+                  </Fragment>
                 ))}
               </tbody>
               <tfoot>

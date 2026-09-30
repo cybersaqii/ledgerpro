@@ -5,6 +5,7 @@ import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { Users, TriangleAlert, RotateCcw, Printer } from "lucide-react";
 import { PageHeader, Field, ExportCsv } from "@/components/ui";
+import { useDismiss } from "@/components/use-dismiss";
 import { csvMoney } from "@/lib/csv";
 import { useBusinessProfile } from "@/components/business-type";
 import { useLang } from "@/components/lang-provider";
@@ -32,6 +33,7 @@ function StatementsInner() {
   const [partyQ, setPartyQ] = useState("");
   const [partyId, setPartyId] = useState(() => searchParams.get("party") ?? "");
   const [showList, setShowList] = useState(false);
+  const listBoxRef = useDismiss<HTMLDivElement>(() => setShowList(false));
   const [from, setFrom] = useState("");
   const [to, setTo] = useState(fmtDateInput());
   const [entries, setEntries] = useState<Entry[]>([]);
@@ -129,7 +131,7 @@ function StatementsInner() {
       <div className="card mb-4 flex flex-wrap items-end gap-3 p-4 print:hidden">
         <div className="min-w-52 flex-1">
           <Field label={t("statements.party")}>
-            <div className="relative">
+            <div className="relative" ref={listBoxRef}>
               <button type="button" onClick={() => setShowList((s) => !s)} className="field text-left">
                 <span className={selected ? "" : "text-muted-foreground"}>{selected ? selected.name : t("statements.selectParty")}</span>
               </button>
@@ -175,7 +177,7 @@ function StatementsInner() {
       ) : (
         <>
           {aging && (
-            <div className="mb-4 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
+            <div className="mb-4 grid grid-cols-2 gap-3 print:hidden sm:grid-cols-3 lg:grid-cols-6">
               {buckets.map(([label, value]) => (
                 <div key={label} className="card !p-4">
                   <p className="text-[0.7rem] font-bold uppercase tracking-wide text-muted-foreground">{label}</p>

@@ -314,7 +314,7 @@ export default function DashboardPage() {
                     tickFormatter={(v: number) => (v >= 1000 ? `${Math.round(v / 1000)}k` : `${v}`)} />
                   <Tooltip
                     contentStyle={{ background: "var(--card)", border: "1px solid var(--border)", borderRadius: 12, fontSize: 13 }}
-                    formatter={(v) => [`Rs ${Number(v).toLocaleString()}`, t("dashboard.salesTooltip")]}
+                    formatter={(v) => [fmtMoney(BigInt(Math.round(Number(v))) * 100n), t("dashboard.salesTooltip")]}
                   />
                   <Bar dataKey="total" fill="url(#salesBar)" radius={[8, 8, 2, 2]} />
                 </BarChart>

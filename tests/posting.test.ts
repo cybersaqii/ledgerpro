@@ -450,7 +450,11 @@ describe("report account mappings", () => {
     const brs = await db.select().from(s.branches).where(eq(s.branches.companyId, c3));
     expect(brs).toHaveLength(1);
     const seqs = await db.select().from(s.numberSequences).where(eq(s.numberSequences.companyId, c3));
-    expect(seqs).toHaveLength(10); // all doc prefixes, none duplicated
+    expect(seqs).toHaveLength(17); // 10 legacy doc prefixes + 7 QA-wave prefixes (split returns, transfer, adjustment, write-off, CN/DN), none duplicated
+    const seqTypes = new Set(seqs.map((x) => x.docType));
+    for (const t of ["SALE_RETURN", "PURCHASE_RETURN", "TRANSFER", "STOCK_ADJUSTMENT", "WRITE_OFF", "CREDIT_NOTE", "DEBIT_NOTE"]) {
+      expect(seqTypes.has(t)).toBe(true);
+    }
     const banks = await db.select().from(s.bankAccounts).where(eq(s.bankAccounts.companyId, c3));
     expect(banks).toHaveLength(1);
     // backfill: delete the General Expenses account, re-run setup, it comes back

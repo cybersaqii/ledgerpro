@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Inbox, Check, RotateCcw } from "lucide-react";
 import { PageHeader, ErrorNote, EmptyState } from "@/components/ui";
 import { api } from "@/lib/format";
@@ -50,7 +50,11 @@ export default function AdminSupportPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // The mount effect above already fetched the default filter's list;
+  // skip the filter effect's first run so we don't fetch OPEN twice.
+  const firstFilterRun = useRef(true);
   useEffect(() => {
+    if (firstFilterRun.current) { firstFilterRun.current = false; return; }
     let alive = true;
     (async () => { if (alive) await load(filter); })();
     return () => { alive = false; };

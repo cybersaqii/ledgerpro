@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
-import { Plus, Search, CalendarDays, ShoppingCart, Truck, Zap } from "lucide-react";
+import { Plus, Search, CalendarDays, ShoppingCart, Truck, Zap, FileText } from "lucide-react";
 import { PageHeader, EmptyState, FilterBar, SummaryChips, Pagination, StatusPill } from "@/components/ui";
 import { api, fmtMoney, fmtDate, toBig } from "@/lib/format";
 import { paymentStatusOf } from "@/lib/payment-status";
@@ -14,6 +14,7 @@ type Doc = {
   id: string; docNo: string; docType: string; date: number; status: string;
   grandTotal: string; partyName: string | null;
   partyId: string; amountPaid: string; returnedTotal: string;
+  writtenOffAmount: string | null;
   dueDate: number | string | null;
 };
 
@@ -38,7 +39,7 @@ function paisaDecimal(p: bigint): string {
 
 /** Outstanding balance of a doc row: grandTotal − paid − returned. */
 function docBalance(d: Doc): bigint {
-  return toBig(d.grandTotal) - toBig(d.amountPaid) - toBig(d.returnedTotal);
+  return toBig(d.grandTotal) - toBig(d.amountPaid) - toBig(d.returnedTotal) - toBig(d.writtenOffAmount);
 }
 
 /** Payment-status badge for invoice/bill rows; null for non-payable doc types. */
@@ -49,6 +50,7 @@ function PayStatusBadge({ d, t, nowMs }: { d: Doc; t: (k: string, v?: Record<str
     grandTotal: toBig(d.grandTotal),
     amountPaid: toBig(d.amountPaid),
     returnedTotal: toBig(d.returnedTotal),
+    writtenOffAmount: toBig(d.writtenOffAmount),
     dueDateMs: Number.isNaN(dueMs) ? null : dueMs,
     nowMs,
   });
@@ -130,6 +132,9 @@ export function DocList({ mode }: { mode: "SALES" | "PURCHASE" }) {
                 <Zap size={16} /> POS
               </Link>
             )}
+            <Link href={isSales ? "/sales/notes" : "/purchases/notes"} className="btn btn-ghost text-sm">
+              <FileText size={16} /> {t(isSales ? "fix4.note.listCreditTitle" : "fix4.note.listDebitTitle")}
+            </Link>
             <Link href={isSales ? "/sales/new" : "/purchases/new"} className="btn btn-primary text-sm">
               <Plus size={16} /> {isSales ? bp.newSale : t("docs.newPurchase")}
             </Link>

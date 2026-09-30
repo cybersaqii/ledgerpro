@@ -171,7 +171,7 @@ export async function POST(req: NextRequest) {
     const result = await db.transaction(async (tx) => {
       const branchId = b.branchId || (await defaultBranchId(tx, companyId));
       await assertBranch(tx, companyId, branchId);
-      const docNo = await nextDocNo(tx, companyId, b.docType);
+      const docNo = await nextDocNo(tx, companyId, b.docType === "RETURN" ? "SALE_RETURN" : b.docType);
       const docId = crypto.randomUUID();
 
       await tx.insert(salesDocs).values({

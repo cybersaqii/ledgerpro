@@ -1,11 +1,12 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Sunrise, TrendingUp, ArrowDownToLine, ArrowUpFromLine, Receipt, Wallet, ShoppingCart, Undo2, PiggyBank } from "lucide-react";
+import { Sunrise, TrendingUp, ArrowDownToLine, ArrowUpFromLine, Receipt, Wallet, ShoppingCart, Undo2, PiggyBank, ArrowLeftRight } from "lucide-react";
 import { PageHeader, ExportCsv, SummaryChips, EmptyState } from "@/components/ui";
 import { api, fmtMoney, fmtDateInput } from "@/lib/format";
 import { csvMoney } from "@/lib/csv";
 import { useLang } from "@/components/lang-provider";
+import { fx } from "@/components/fix3-lang";
 
 type Bucket = { count: number; total: string };
 type Data = {
@@ -16,6 +17,7 @@ type Data = {
   purchaseReturns: Bucket;
   receipts: Bucket;
   paymentsMade: Bucket;
+  transfers?: Bucket;
   expenses: Bucket & { byAccount: { account: string; total: string }[] };
   cashIn: string;
   cashOut: string;
@@ -25,6 +27,7 @@ type Data = {
 
 export default function DayClosePage() {
   const { t } = useLang();
+  const f = (k: string) => fx(t, k);
   const [date, setDate] = useState(fmtDateInput());
   const [d, setD] = useState<Data | null>(null);
   const [loading, setLoading] = useState(true);
@@ -114,6 +117,7 @@ export default function DayClosePage() {
             <DetailCard icon={<ShoppingCart size={18} />} title={t("dayclose.cardPurchases")} count={d.purchases.count} total={d.purchases.total} href="/purchases" linkText={t("dayclose.viewPurchases")} t={t} />
             <DetailCard icon={<ArrowDownToLine size={18} />} title={t("dayclose.cardCashReceived")} count={d.receipts.count} total={d.receipts.total} href="/payments" linkText={t("dayclose.viewPayments")} t={t} />
             <DetailCard icon={<ArrowUpFromLine size={18} />} title={t("dayclose.cardCashPaid")} count={d.paymentsMade.count} total={d.paymentsMade.total} href="/payments" linkText={t("dayclose.viewPayments")} t={t} />
+            {d.transfers && <DetailCard icon={<ArrowLeftRight size={18} />} title={f("fix3.trDayCloseCard")} count={d.transfers.count} total={d.transfers.total} href="/payments/transfers" linkText={f("fix3.trView")} t={t} />}
             <DetailCard icon={<Receipt size={18} />} title={t("dayclose.cardExpenses")} count={d.expenses.count} total={d.expenses.total} href="/expenses" linkText={t("dayclose.viewExpenses")} t={t} />
           </div>
 

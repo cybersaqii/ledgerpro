@@ -1,6 +1,7 @@
 import { NextRequest } from "next/server";
 import { eq, and, like, desc, sql } from "drizzle-orm";
 import { parties } from "@/db/schema";
+
 import { partySchema } from "@/lib/validators";
 import { parseMoney } from "@/lib/money";
 import { json, err } from "@/lib/api";
@@ -21,6 +22,8 @@ export async function GET(req: NextRequest) {
   const conds = [eq(parties.companyId, companyId), eq(parties.isActive, true)];
   if (kind === "CUSTOMER" || kind === "SUPPLIER") conds.push(eq(parties.kind, kind));
   if (q) conds.push(like(parties.name, `%${q}%`));
+  const category = sp.get("category")?.trim();
+  if (category) conds.push(eq(parties.category, category));
 
   const rows = await db
     .select()
@@ -68,6 +71,9 @@ export async function POST(req: NextRequest) {
     creditLimit: parseMoney(p.creditLimit || "0"),
     notes: p.notes || null,
  });
+  if (p.category) {
+    await db.update(parties).set({ category: p.category }).where(eq(parties.id, id));
+  }
   await logAudit(db, {
     companyId, userId: session.uid, userName: session.name,
     action: "party.created", entity: "party", entityId: id,

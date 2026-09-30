@@ -5,7 +5,7 @@ import { paymentSchema } from "@/lib/validators";
 import { parseMoney } from "@/lib/money";
 import { postPayment } from "@/lib/posting";
 import { json, err } from "@/lib/api";
-import { toApiError } from "@/lib/errors";
+import { toApiError, UserError } from "@/lib/errors";
 import { requirePermission, db, parseDateOnly, defaultBranchId, assertBranch } from "@/lib/route-helpers";
 import { periodLockError } from "@/lib/period";
 import { logAudit } from "@/lib/audit";
@@ -87,13 +87,13 @@ export async function POST(req: NextRequest) {
 
       let partyId: string;
       {
-        if (!b.partyId) throw new Error("Please select a customer or supplier.");
+        if (!b.partyId) throw new UserError("Please select a customer or supplier.", 422);
         const pr = await tx
           .select()
           .from(parties)
           .where(and(eq(parties.id, b.partyId), eq(parties.companyId, companyId)))
           .limit(1);
-        if (!pr[0]) throw new Error("Selected party is invalid.");
+        if (!pr[0]) throw new UserError("Selected party is invalid.", 422);
         partyId = pr[0].id;
  }
 

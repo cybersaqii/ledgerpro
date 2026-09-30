@@ -6,22 +6,30 @@ import { Plus, Search, Pencil, Phone, Users, Eye } from "lucide-react";
 import { PageHeader, EmptyState, Field, ErrorNote } from "@/components/ui";
 import { Modal } from "@/components/modal";
 import { api, fmtMoney } from "@/lib/format";
+import { paisaToRupees } from "@/lib/pos";
 import { useBusinessProfile } from "@/components/business-type";
 import { useLang } from "@/components/lang-provider";
 
 type Party = {
   id: string; kind: string; name: string; phone: string | null; city: string | null;
-  balance: string; creditLimit: string; filerStatus: string;
+  balance: string; creditLimit: string; filerStatus: string; category: string | null;
 };
 
 
-const emptyForm = { name: "", phone: "", email: "", address: "", city: "", ntn: "", filerStatus: "NA", creditLimit: "", notes: "" };
+type PartyDetail = {
+  id: string; name: string; phone: string | null; email: string | null;
+  address: string | null; city: string | null; ntn: string | null;
+  filerStatus: string; creditLimit: string; notes: string | null; category: string | null;
+};
+
+const emptyForm = { name: "", phone: "", email: "", address: "", city: "", ntn: "", filerStatus: "NA", creditLimit: "", notes: "", category: "" };
 
 export default function PartiesPage() {
   const bp = useBusinessProfile();
   const { t } = useLang();
   const [kind, setKind] = useState<"CUSTOMER" | "SUPPLIER">("CUSTOMER");
   const [q, setQ] = useState("");
+  const [category, setCategory] = useState("");
   const [rows, setRows] = useState<Party[]>([]);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
@@ -34,29 +42,38 @@ export default function PartiesPage() {
     setLoading(true);
     try {
       const d = await api<{ data: Party[]; total: number }>(
-        `/api/parties?kind=${kind}&q=${encodeURIComponent(q)}&perPage=50`
+        `/api/parties?kind=${kind}&q=${encodeURIComponent(q)}${category ? `&category=${encodeURIComponent(category)}` : ""}&perPage=50`
       );
       setRows(d.data);
       setTotal(d.total);
     } catch { setRows([]); } finally { setLoading(false); }
-  }, [kind, q]);
+  }, [kind, q, category]);
 
   useEffect(() => {
     const t = setTimeout(load, q ? 300 : 0);
     return () => clearTimeout(t);
   }, [load, q]);
 
-  useEffect(() => {
-  }, []);
-
   function openAdd() { setForm(emptyForm); setError(null); setModal({ mode: "add" }); }
-  function openEdit(p: Party) {
-    setForm({
-      name: p.name, phone: p.phone ?? "", email: "", address: "", city: p.city ?? "",
-      ntn: "", filerStatus: p.filerStatus, creditLimit: (Number(BigInt(p.creditLimit)) / 100).toString(), notes: "",
-    });
+  // Fetch the full row first: the list omits email/address/NTN/notes, and
+  // sending those back blank would silently wipe them on save.
+  async function openEdit(p: Party) {
     setError(null);
-    setModal({ mode: "edit", party: p });
+    try {
+      const d = await api<{ data: PartyDetail }>(`/api/parties/${p.id}`);
+      const full = d.data;
+      setForm({
+        name: full.name, phone: full.phone ?? "", email: full.email ?? "",
+        address: full.address ?? "", city: full.city ?? "", ntn: full.ntn ?? "",
+        filerStatus: full.filerStatus,
+        creditLimit: paisaToRupees(full.creditLimit),
+        notes: full.notes ?? "",
+        category: full.category ?? "",
+      });
+      setModal({ mode: "edit", party: p });
+    } catch (e) {
+      setError(e instanceof Error ? e.message : t("parties.loadError"));
+    }
   }
 
   async function save(e: React.FormEvent) {
@@ -103,7 +120,16 @@ export default function PartiesPage() {
           <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
           <input className="field !pl-9" placeholder={t("parties.searchName")} value={q} onChange={(e) => setQ(e.target.value)} />
         </div>
+        <div className="relative min-w-40 sm:max-w-2xs">
+          <input className="field" placeholder={t("parties.categoryFilter")} value={category} onChange={(e) => setCategory(e.target.value)} list="party-categories" />
+          <datalist id="party-categories">
+            {[...new Set(rows.map((r) => r.category).filter(Boolean))].map((c) => (
+              <option key={c as string} value={c as string} />
+            ))}
+          </datalist>
+        </div>
       </div>
+      {!modal && <ErrorNote message={error} />}
 
       <div className="card rise rise-1 overflow-hidden">
         {loading ? (
@@ -115,13 +141,14 @@ export default function PartiesPage() {
         ) : (
           <div className="overflow-x-auto">
             <table className="tbl">
-              <thead><tr><th>{t("common.name")}</th><th>{t("common.phone")}</th><th>{t("common.city")}</th><th className="num">{t("common.balance")}</th><th></th></tr></thead>
+              <thead><tr><th>{t("common.name")}</th><th>{t("common.phone")}</th><th>{t("common.city")}</th><th>{t("parties.category")}</th><th className="num">{t("common.balance")}</th><th></th></tr></thead>
               <tbody>
                 {rows.map((p) => (
                   <tr key={p.id}>
                     <td className="font-bold">{p.name}</td>
                     <td className="text-muted-foreground">{p.phone ? <span className="inline-flex items-center gap-1.5"><Phone size={13} />{p.phone}</span> : "—"}</td>
                     <td className="text-muted-foreground">{p.city ?? "—"}</td>
+                    <td className="text-muted-foreground">{p.category ? <span className="rounded-full bg-muted px-2.5 py-0.5 text-xs font-semibold">{p.category}</span> : "—"}</td>
                     <td className={`num font-extrabold ${BigInt(p.balance) > 0n ? "text-accent" : ""}`}>{fmtMoney(p.balance)}</td>
                     <td className="whitespace-nowrap">
                       <div className="flex items-center justify-end gap-1.5">
@@ -146,9 +173,15 @@ export default function PartiesPage() {
             <Field label={t("common.name")}><input className="field" required value={form.name} onChange={set("name")} placeholder={t("parties.namePlaceholder")} /></Field>
             <div className="grid gap-4 sm:grid-cols-2">
               <Field label={t("common.phone")}><input className="field" value={form.phone} onChange={set("phone")} placeholder={t("parties.phonePlaceholder")} /></Field>
+              <Field label={t("parties.email")}><input className="field" type="email" value={form.email} onChange={set("email")} /></Field>
+            </div>
+            <div className="grid gap-4 sm:grid-cols-2">
               <Field label={t("common.city")}><input className="field" value={form.city} onChange={set("city")} placeholder={t("parties.cityPlaceholder")} /></Field>
+              <Field label={t("parties.ntn")}><input className="field" value={form.ntn} onChange={set("ntn")} /></Field>
             </div>
             <Field label={t("common.address")}><input className="field" value={form.address} onChange={set("address")} placeholder={t("parties.addressPlaceholder")} /></Field>
+            <Field label={t("parties.category")}><input className="field" value={form.category} onChange={set("category")} placeholder={t("parties.categoryFilter")} /></Field>
+            <Field label={t("parties.notes")}><textarea className="field" rows={2} value={form.notes} onChange={set("notes")} /></Field>
             <div className="grid gap-4 sm:grid-cols-2">
               <Field label={t("parties.creditLimit")} hint={t("parties.creditLimitHint")}>
                 <input className="field" type="number" min="0" step="0.01" placeholder="0.00" value={form.creditLimit} onChange={set("creditLimit")} />

@@ -1,11 +1,13 @@
 import { NextRequest } from "next/server";
 import { eq, and } from "drizzle-orm";
 import { parties } from "@/db/schema";
+
 import { partySchema } from "@/lib/validators";
 import { parseMoney } from "@/lib/money";
 import { json, err } from "@/lib/api";
 import { requireCompany, db, requirePermission } from "@/lib/route-helpers";
 import { logAudit } from "@/lib/audit";
+import { isForeignKeyViolation } from "@/lib/company-delete";
 
 async function find(companyId: string, id: string) {
   const rows = await db
@@ -53,6 +55,9 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
       updatedAt: new Date(),
  })
     .where(eq(parties.id, id));
+  if (p.category !== undefined) {
+    await db.update(parties).set({ category: p.category || null }).where(eq(parties.id, id));
+  }
   await logAudit(db, {
     companyId, userId: session.uid, userName: session.name,
     action: "party.updated", entity: "party", entityId: id,
@@ -69,7 +74,12 @@ export async function DELETE(_req: NextRequest, { params }: { params: Promise<{ 
   const row = await find(companyId, id);
   if (!row) return err("Not found.", 404);
   if (row.balance !== 0n) return err("Cannot delete a party with an outstanding balance.", 400);
-  await db.update(parties).set({ isActive: false }).where(eq(parties.id, id));
+  try {
+    await db.update(parties).set({ isActive: false }).where(eq(parties.id, id));
+  } catch (e) {
+    if (isForeignKeyViolation(e)) return err("Cannot delete this party: linked records exist.", 409);
+    throw e;
+  }
   await logAudit(db, {
     companyId, userId: session.uid, userName: session.name,
     action: "party.deleted", entity: "party", entityId: id,

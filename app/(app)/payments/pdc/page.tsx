@@ -7,7 +7,7 @@ import { PageHeader, EmptyState, FilterBar, SummaryChips, Pagination, ErrorNote,
 import { Modal } from "@/components/modal";
 import { api, fmtMoney, fmtDate, fmtDateInput, toBig } from "@/lib/format";
 import { useLang } from "@/components/lang-provider";
-import { useCan } from "@/components/permissions";
+import { usePermissions } from "@/components/permissions";
 
 type Pdc = {
   id: string; kind: string; partyId: string; chequeNo: string; bankName: string | null;
@@ -30,7 +30,10 @@ type ActionTarget = { pdc: Pdc; action: "clear" | "bounce" | "cancel" } | null;
 
 export default function PdcRegisterPage() {
   const { t } = useLang();
-  const canPay = useCan("payments");
+  // While permissions are still loading we err on the side of showing the
+  // buttons (the API still enforces the grants server-side on every action).
+  const { permissions, loading: permsLoading } = usePermissions();
+  const canPay = permsLoading || permissions.includes("payments");
   const [kind, setKind] = useState<"RECEIVED" | "ISSUED">("RECEIVED");
   const [status, setStatus] = useState<(typeof STATUSES)[number]>("");
   const [from, setFrom] = useState("");

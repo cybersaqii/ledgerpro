@@ -4,7 +4,9 @@ import { useRouter } from "next/navigation";
 import { useEffect, useState, Suspense } from "react";
 import { Landmark } from "lucide-react";
 import { PageHeader, Field, ErrorNote } from "@/components/ui";
+import { useDismiss } from "@/components/use-dismiss";
 import { api, fmtDateInput } from "@/lib/format";
+import { useBusinessProfile } from "@/components/business-type";
 import { useLang } from "@/components/lang-provider";
 
 type Party = { id: string; name: string };
@@ -12,6 +14,7 @@ type Party = { id: string; name: string };
 function RecordPdcFormInner() {
   const router = useRouter();
   const { t } = useLang();
+  const bp = useBusinessProfile();
   const [kind, setKind] = useState<"RECEIVED" | "ISSUED">("RECEIVED");
   const isReceived = kind === "RECEIVED";
   const partyKind = isReceived ? "CUSTOMER" : "SUPPLIER";
@@ -20,6 +23,7 @@ function RecordPdcFormInner() {
   const [partyQ, setPartyQ] = useState("");
   const [partyId, setPartyId] = useState("");
   const [showPartyList, setShowPartyList] = useState(false);
+  const partyBoxRef = useDismiss<HTMLDivElement>(() => setShowPartyList(false));
   const [chequeNo, setChequeNo] = useState("");
   const [bankName, setBankName] = useState("");
   const [amount, setAmount] = useState("");
@@ -44,7 +48,7 @@ function RecordPdcFormInner() {
   async function submit(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
-    if (!partyId) { setError(t("pdcform.errParty", { party: t(partyKind === "CUSTOMER" ? "pdcform.customer" : "pdcform.supplier").toLowerCase() })); return; }
+    if (!partyId) { setError(t("pdcform.errParty", { party: (partyKind === "CUSTOMER" ? bp.partyOne : t("pdcform.supplier")).toLowerCase() })); return; }
     if (!chequeNo.trim()) { setError(t("pdcform.errChequeNo")); return; }
     if (!(parseFloat(amount || "0") > 0)) { setError(t("pdcform.errAmount")); return; }
     if (!chequeDate) { setError(t("pdcform.errDate")); return; }
@@ -82,8 +86,8 @@ function RecordPdcFormInner() {
           <p className="mb-5 text-xs text-muted-foreground">{isReceived ? t("pdcform.kindReceivedHint") : t("pdcform.kindIssuedHint")}</p>
 
           <div className="grid gap-4 sm:grid-cols-2">
-            <Field label={t(partyKind === "CUSTOMER" ? "pdcform.customer" : "pdcform.supplier")}>
-              <div className="relative">
+            <Field label={partyKind === "CUSTOMER" ? bp.partyOne : t("pdcform.supplier")}>
+              <div className="relative" ref={partyBoxRef}>
                 <button type="button" onClick={() => setShowPartyList((s) => !s)} className="field flex items-center justify-between text-left">
                   <span className={selectedParty ? "" : "text-muted-foreground"}>
                     {selectedParty ? selectedParty.name : t("pdcform.selectPlaceholder")}

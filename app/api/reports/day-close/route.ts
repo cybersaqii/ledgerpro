@@ -38,7 +38,7 @@ export async function GET(req: NextRequest) {
     return { count: r[0]?.n ?? 0, total: (BigInt(r[0]?.t ?? "0")).toString() };
  }
 
-  const [sales, salesReturns, purchases, purchaseReturns, receipts, paidOut, exp] = await Promise.all([
+  const [sales, salesReturns, purchases, purchaseReturns, receipts, paidOut, exp, transfers] = await Promise.all([
     sumCount(salesDocs, salesDocs.date, salesDocs.grandTotal, eq(salesDocs.docType, "INVOICE")),
     sumCount(salesDocs, salesDocs.date, salesDocs.grandTotal, eq(salesDocs.docType, "RETURN")),
     sumCount(purchaseDocs, purchaseDocs.date, purchaseDocs.grandTotal, eq(purchaseDocs.docType, "BILL")),
@@ -46,6 +46,15 @@ export async function GET(req: NextRequest) {
     sumCount(payments, payments.date, payments.amount, eq(payments.kind, "RECEIPT")),
     sumCount(payments, payments.date, payments.amount, eq(payments.kind, "PAYMENT")),
     sumCount(expenses, expenses.date, expenses.amount),
+    // G2 transfers: own-accounts money moves of the day (raw — table is FIX-3,
+    // outside db/schema.ts). Neutral for cash position, listed for the ritual.
+    (async () => {
+      const r = (await db.run(sql`
+        SELECT COUNT(*) AS n, COALESCE(SUM(amount), 0) AS t FROM transfers
+        WHERE company_id = ${companyId} AND date >= ${dayStart} AND date < ${dayEnd}`)).rows as unknown as
+        { n: number; t: number | string }[];
+      return { count: r[0]?.n ?? 0, total: BigInt(r[0]?.t ?? 0).toString() };
+    })(),
   ]);
 
   // Expense breakdown by account (category).
@@ -72,6 +81,7 @@ export async function GET(req: NextRequest) {
     purchaseReturns,
     receipts,
     paymentsMade: paidOut,
+    transfers,
     expenses: {
       ...exp,
       byAccount: expRows.map((r) => ({ account: r.account, total: BigInt(r.t).toString() })),

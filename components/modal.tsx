@@ -8,7 +8,13 @@ import { useLang } from "./lang-provider";
  * Shared modal dialog: bottom-sheet on phones, centered dialog on desktop.
  * Handles Escape, backdrop click, initial focus, and keeps focus inside
  * while open (simple focus trap) so keyboard users can't get lost.
+ *
+ * Body scroll is locked with a module-level counter so stacked modals
+ * (e.g. a confirmation opened from another dialog) don't unlock scrolling
+ * when the inner one closes — only the last close restores overflow.
  */
+let modalLocks = 0;
+
 export function Modal({ title, onClose, children, wide = false }: {
   title: string; onClose: () => void; children: ReactNode; wide?: boolean;
 }) {
@@ -33,12 +39,12 @@ export function Modal({ title, onClose, children, wide = false }: {
       }
     };
     window.addEventListener("keydown", onKey);
-    document.body.style.overflow = "hidden";
+    if (++modalLocks === 1) document.body.style.overflow = "hidden";
     // Move focus into the dialog when it opens
     const t = setTimeout(() => panelRef.current?.focus(), 30);
     return () => {
       window.removeEventListener("keydown", onKey);
-      document.body.style.overflow = "";
+      if (--modalLocks === 0) document.body.style.overflow = "";
       clearTimeout(t);
     };
   }, [onClose]);

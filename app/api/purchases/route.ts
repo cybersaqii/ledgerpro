@@ -162,7 +162,7 @@ export async function POST(req: NextRequest) {
     const result = await db.transaction(async (tx) => {
       const branchId = b.branchId || (await defaultBranchId(tx, companyId));
       await assertBranch(tx, companyId, branchId);
-      const docNo = await nextDocNo(tx, companyId, b.docType);
+      const docNo = await nextDocNo(tx, companyId, b.docType === "RETURN" ? "PURCHASE_RETURN" : b.docType);
       const docId = crypto.randomUUID();
 
       const stockNets: { idx: number; net: bigint }[] = [];

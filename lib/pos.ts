@@ -165,13 +165,13 @@ export function priceWarnings(lines: PosLine[], products: PosProduct[]): { line:
   return out;
 }
 
-/** Validate the cart before saving; returns an error message or null. */
+/** Validate the cart before saving; returns an i18n key or null. */
 export function validateCart(lines: PosLine[]): string | null {
-  if (lines.length === 0) return "Add at least one item.";
+  if (lines.length === 0) return "pos.errNoItems";
   for (const l of lines) {
-    if (!l.name.trim()) return "Every item needs a name.";
-    if (!(parseQtyMilli(l.qty || "0") > 0n)) return "Quantities must be positive.";
-    if (!(parsePaisa(l.rate || "0") >= 0n)) return "Rates cannot be negative.";
+    if (!l.name.trim()) return "pos.errNoName";
+    if (!(parseQtyMilli(l.qty || "0") > 0n)) return "pos.errQty";
+    if (!(parsePaisa(l.rate || "0") >= 0n)) return "pos.errRate";
   }
   return null;
 }

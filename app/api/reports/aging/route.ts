@@ -26,6 +26,9 @@ export async function GET(req: NextRequest) {
       grandTotal: docs.grandTotal,
       amountPaid: docs.amountPaid,
       returnedTotal: docs.returnedTotal,
+      // G7: written-off invoices leave aging. The column is FIX-3 (outside
+      // db/schema.ts), so it is selected raw on whichever doc table is used.
+      writtenOff: sql<string>`COALESCE(written_off_amount, 0)`,
       partyId: docs.partyId,
       partyName: parties.name,
       phone: parties.phone,
@@ -38,9 +41,9 @@ export async function GET(req: NextRequest) {
         eq(docs.companyId, companyId),
         eq(docs.docType, docType),
         // PARTIAL invoices carry real outstanding; RETURNED ones are settled
-        // by definition. Outstanding nets off returns (M3).
+        // by definition. Outstanding nets off returns (M3) and write-offs (G7).
         inArray(docs.status, ["POSTED", "PARTIAL"]),
-        sql`${docs.grandTotal} > ${docs.amountPaid} + ${docs.returnedTotal}`
+        sql`${docs.grandTotal} > ${docs.amountPaid} + ${docs.returnedTotal} + COALESCE(written_off_amount, 0)`
       )
     )
     .orderBy(docs.date);
@@ -55,7 +58,7 @@ export async function GET(req: NextRequest) {
   const totals = { total: 0n, notDue: 0n, d30: 0n, d60: 0n, d90: 0n, d90plus: 0n };
 
   for (const r of rows) {
-    const outstanding = (r.grandTotal as bigint) - (r.amountPaid as bigint) - (r.returnedTotal as bigint);
+    const outstanding = (r.grandTotal as bigint) - (r.amountPaid as bigint) - (r.returnedTotal as bigint) - BigInt(r.writtenOff ?? "0");
     if (outstanding <= 0n) continue;
     const dateMs = (r.date as unknown as Date).getTime();
     const dueMs = r.dueDate ? (r.dueDate as unknown as Date).getTime() : null;

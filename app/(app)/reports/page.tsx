@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { Scale, TrendingUp, Landmark, BookOpen, ArrowDownToLine, ArrowUpFromLine, Boxes, BarChart3, ScrollText, Crown, Sunrise, Star, Search, FileText, ClipboardList, ClipboardCheck, Wallet, CalendarDays, Percent } from "lucide-react";
+import { Scale, TrendingUp, Landmark, BookOpen, ArrowDownToLine, ArrowUpFromLine, Boxes, BarChart3, ScrollText, Crown, Sunrise, Star, Search, FileText, ClipboardList, ClipboardCheck, Wallet, CalendarDays, Percent, Package } from "lucide-react";
 import { PageHeader } from "@/components/ui";
 import { useBusinessProfile } from "@/components/business-type";
 import { useLang } from "@/components/lang-provider";
@@ -54,6 +54,7 @@ export default function ReportsHub() {
     { key: "statements", href: "/reports/statements", icon: FileText, title: t("reportsindex.statements", { party: bp.partyOne }), text: t("reportsindex.statementsText", { party: bp.partyOne.toLowerCase() }) },
     { key: "sale-summary", href: "/reports/sale-summary", icon: ClipboardList, title: t("reportsindex.saleSummary"), text: t("reportsindex.saleSummaryText", { parties: bp.partyMany.toLowerCase() }) },
     { key: "purchase-summary", href: "/reports/purchase-summary", icon: ClipboardCheck, title: t("reportsindex.purchaseSummary"), text: t("reportsindex.purchaseSummaryText") },
+    { key: "product-sales", href: "/reports/product-sales", icon: Package, title: t("fix4.psr.title"), text: t("fix4.psr.galleryText") },
     { key: "bank-book", href: "/reports/bank-book", icon: Wallet, title: t("reportsindex.bankBook"), text: t("reportsindex.bankBookText") },
     { key: "day-book", href: "/reports/day-book", icon: CalendarDays, title: t("reportsindex.dayBook"), text: t("reportsindex.dayBookText") },
     { key: "tax-summary", href: "/reports/tax-summary", icon: Percent, title: t("reportsindex.taxSummary"), text: t("reportsindex.taxSummaryText") },

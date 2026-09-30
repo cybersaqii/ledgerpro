@@ -116,7 +116,7 @@ export default function SignupPage() {
           </Field>
           <Field label={t("auth.businessKind")}>
             <select className="field" value={form.businessType} onChange={set("businessType")}>
-              {BUSINESS_TYPES.map((b) => <option key={b.value} value={b.value}>{b.label}</option>)}
+              {BUSINESS_TYPES.map((b) => <option key={b.value} value={b.value}>{t(b.label)}</option>)}
             </select>
           </Field>
           <div className="grid gap-4 sm:grid-cols-2">

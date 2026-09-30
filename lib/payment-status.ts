@@ -10,6 +10,8 @@ export interface PaymentStatusInput {
   grandTotal: bigint;
   amountPaid: bigint;
   returnedTotal: bigint;
+  /** Collectible balance removed by a bad-debt write-off (nets off the balance). */
+  writtenOffAmount?: bigint;
   /** due-date epoch ms (midnight), or null when the doc has no due date. */
   dueDateMs: number | null;
   nowMs: number;
@@ -30,7 +32,8 @@ function startOfDay(ms: number): number {
 }
 
 export function paymentStatusOf(input: PaymentStatusInput): PaymentStatus {
-  const balance = input.grandTotal - input.amountPaid - input.returnedTotal;
+  const writtenOff = input.writtenOffAmount ?? 0n;
+  const balance = input.grandTotal - input.amountPaid - input.returnedTotal - writtenOff;
   if (balance <= 0n) return { key: "paid", daysOverdue: 0, balance };
   if (input.dueDateMs != null && startOfDay(input.dueDateMs) < startOfDay(input.nowMs)) {
     const daysOverdue = Math.max(

@@ -73,6 +73,7 @@ export const ur: DeepPartial<EnDict> = {
     settings: "ترتیبات",
     help: "مدد",
     language: "زبان",
+    currencyNote: "روپے"
   },
   nav: {
     dashboard: "ڈیش بورڈ",
@@ -86,7 +87,7 @@ export const ur: DeepPartial<EnDict> = {
     settings: "ترتیبات",
     billing: "بلنگ",
     admin: "ایڈمن",
-    supportInbox: "سپورٹ ان باکس",
+    supportInbox: "سپورٹ ان باکس"
   },
   header: {
     openMenu: "مینیو کھولیں",
@@ -101,7 +102,7 @@ export const ur: DeepPartial<EnDict> = {
     switchToEnglish: "View in English",
     trialTitle: "آپ مفت ٹرائل پر ہیں",
     trialCta: "دن باقی — پرو میں اپ گریڈ کریں",
-    trialCtaOne: "1 دن باقی — پرو میں اپ گریڈ کریں",
+    trialCtaOne: "1 دن باقی — پرو میں اپ گریڈ کریں"
   },
   ui: {
     switchToLight: "لائٹ موڈ پر جائیں",
@@ -115,12 +116,12 @@ export const ur: DeepPartial<EnDict> = {
     pageNotFound: "صفحہ نہیں ملا",
     goHome: "ڈیش بورڈ پر جائیں",
     somethingWrong: "کچھ غلط ہو گیا",
-    tryAgain: "دوبارہ کوشش کریں",
+    tryAgain: "دوبارہ کوشش کریں"
   },
   pagination: {
     prev: "پچھلا",
     next: "اگلا",
-    page: "صفحہ {page} از {pages}",
+    page: "صفحہ {page} از {pages}"
   },
   shell: {
     closeMenu: "مینیو بند کریں",
@@ -132,6 +133,7 @@ export const ur: DeepPartial<EnDict> = {
     trialEnded: "آپ کا مفت ٹرائل ختم ہو گیا — POS، ٹیم، ایڈوانس رپورٹس اور مزید کے لیے پرو میں اپ گریڈ کریں۔",
     viewPlans: "پلانز دیکھیں",
     upgradeNow: "ابھی اپ گریڈ کریں",
+    navMenu: "نیویگیشن مینیو"
   },
   dashboard: {
     title: "ڈیش بورڈ",
@@ -171,7 +173,7 @@ export const ur: DeepPartial<EnDict> = {
     noRecent: "ابھی کوئی {sales} نہیں",
     noRecentHint: "آپ کی حالیہ {sales} یہاں نظر آئے گی۔",
     salesTooltip: "فروخت",
-    openTile: "{target} کی فہرست کھولیں",
+    openTile: "{target} کی فہرست کھولیں"
   },
   docs: {
     purchasesTitle: "خریداریاں",
@@ -211,7 +213,7 @@ export const ur: DeepPartial<EnDict> = {
     filterHint: "تاریخ کی حد بڑھا کر یا فلٹر صاف کر کے دیکھیں۔",
     createFirstSale: "اپنی پہلی {thing} بنائیں۔",
     createFirstPurchase: "اپنا پہلا خریداری بل درج کریں۔",
-    createNow: "ابھی بنائیں",
+    createNow: "ابھی بنائیں"
   },
   docform: {
     subtitleSales: "انوائس فوراً اکاؤنٹس اور اسٹاک میں پوسٹ ہو جاتی ہے",
@@ -220,7 +222,6 @@ export const ur: DeepPartial<EnDict> = {
     searchPlaceholder: "تلاش کریں…",
     noMatchFor: "کوئی نتیجہ نہیں برائے",
     phoneOptional: "فون (اختیاری)",
-    addCustomer: "کسٹمر شامل کریں",
     addSupplier: "سپلائر شامل کریں",
     typeAtLeast: "تلاش یا شامل کرنے کے لیے کم از کم 2 حروف لکھیں۔",
     typeLabel: "قسم",
@@ -299,6 +300,8 @@ export const ur: DeepPartial<EnDict> = {
     barcodeAdded: "بارکوڈ اسکین: {name} شامل کر دیا گیا",
     minPriceConfirm: "کم از کم فروخت قیمت سے کم: {names}۔\n\nپھر بھی محفوظ کریں؟ یہ سرگرمی لاگ میں درج ہو گا۔",
     creditLimitConfirm: "{party} کی کریڈٹ حد سے تجاوز ہو گیا!\nحد: {limit}\nنیا ادھار: {balance}\n\nپھر بھی یہ سیل پوسٹ کریں؟ یہ سرگرمی لاگ میں درج ہو گا۔",
+    extraAmountPh: "روپے",
+    noResults: "“{q}” کے لیے کوئی نتیجہ نہیں ملا۔"
   },
   docdetail: {
     notFound: "نہیں ملا",
@@ -383,7 +386,7 @@ export const ur: DeepPartial<EnDict> = {
     waDate: "تاریخ: {date}",
     waParty: "پارٹی: {party}",
     waReceived: "سامان اچھی حالت میں وصول ہوا۔",
-    waTotal: "کل: {total}",
+    waTotal: "کل: {total}"
   },
   parties: {
     suppliersTitle: "سپلائرز",
@@ -394,6 +397,8 @@ export const ur: DeepPartial<EnDict> = {
     emptyHint: "بلنگ شروع کرنے کے لیے پہلا شامل کریں۔",
     addNow: "ابھی شامل کریں",
     addTitle: "{party} شامل کریں",
+    category: "زمرہ",
+    categoryFilter: "زمرے کے حساب سے فلٹر…",
     editTitle: "{party} میں ترمیم",
     creditLimit: "کریڈٹ حد (روپے)",
     creditLimitHint: "0 کا مطلب کوئی حد نہیں",
@@ -407,6 +412,10 @@ export const ur: DeepPartial<EnDict> = {
     addressPlaceholder: "دکان کا پتہ",
     view360: "360 ویو",
     saveError: "محفوظ نہیں ہو سکا۔",
+    email: "ای میل",
+    loadError: "پارٹی کی تفصیلات لوڈ نہیں ہو سکیں۔",
+    notes: "نوٹس (اختیاری)",
+    ntn: "NTN (اختیاری)"
   },
   products: {
     subtitle: "کل {total} {products} · خرید و فروخت پر اسٹاک خودکار اپ ڈیٹ ہوتا ہے",
@@ -438,6 +447,7 @@ export const ur: DeepPartial<EnDict> = {
     reorderLevel: "ری آرڈر لیول",
     trackStock: "اس {product} کا اسٹاک ٹریک کریں",
     saveError: "محفوظ نہیں ہو سکا۔",
+    loadError: "پروڈکٹ کی تفصیلات لوڈ نہیں ہو سکیں۔"
   },
   bundles: {
     badge: "بنڈل",
@@ -451,7 +461,7 @@ export const ur: DeepPartial<EnDict> = {
     loadError: "بنڈل کے اجزاء لوڈ نہیں ہو سکے۔",
     saveError: "بنڈل کے اجزاء محفوظ نہیں ہو سکے۔",
     duplicateError: "یہ پروڈکٹ پہلے سے جزو ہے۔",
-    isBundleNote: "بنڈل — اسٹاک یہاں نہیں بلکہ اس کے اجزاء پر ٹریک ہوتا ہے۔",
+    isBundleNote: "بنڈل — اسٹاک یہاں نہیں بلکہ اس کے اجزاء پر ٹریک ہوتا ہے۔"
   },
   batches: {
     title: "بیچز",
@@ -488,7 +498,7 @@ export const ur: DeepPartial<EnDict> = {
     colStatus: "حالت",
     errInvalidExpiry: "میعاد کی تاریخ YYYY-MM-DD فارمیٹ میں درست تاریخ ہونی چاہیے۔",
     errBatchRequired: "براہ کرم واپس کیے گئے آئٹم کے لیے بیچ منتخب کریں۔",
-    errBatchInvalid: "منتخب کردہ بیچ اس پروڈکٹ کے لیے درست نہیں۔",
+    errBatchInvalid: "منتخب کردہ بیچ اس پروڈکٹ کے لیے درست نہیں۔"
   },
   payments: {
     title: "ادائیگیاں",
@@ -498,6 +508,8 @@ export const ur: DeepPartial<EnDict> = {
     tabAll: "سب",
     tabReceipts: "وصولیاں",
     tabPayments: "ادائیگیاں",
+    transfers: "منتقلیاں",
+    reconcile: "مطابقت",
     fromDate: "از تاریخ",
     toDate: "تا تاریخ",
     toWord: "تا",
@@ -532,7 +544,7 @@ export const ur: DeepPartial<EnDict> = {
     detailNotes: "نوٹس",
     detailUnallocated: "غیر مختص",
     detailPrint: "پرنٹ",
-    detailBack: "ادائیگیاں",
+    detailBack: "ادائیگیاں"
   },
   pdc: {
     title: "پوسٹ ڈیٹڈ چیک",
@@ -577,7 +589,7 @@ export const ur: DeepPartial<EnDict> = {
     working: "جاری ہے…",
     errBank: "بینک اکاؤنٹ منتخب کریں۔",
     errDate: "تاریخ درج کریں۔",
-    errSave: "محفوظ نہیں ہو سکا۔",
+    errSave: "محفوظ نہیں ہو سکا۔"
   },
   pdcform: {
     title: "پوسٹ ڈیٹڈ چیک درج کریں",
@@ -606,14 +618,14 @@ export const ur: DeepPartial<EnDict> = {
     errChequeNo: "چیک نمبر درج کریں۔",
     errAmount: "صحیح رقم درج کریں۔",
     errDate: "چیک کی تاریخ درج کریں۔",
-    errSave: "محفوظ نہیں ہو سکا۔",
+    errSave: "محفوظ نہیں ہو سکا۔"
   },
   payform: {
     receiveTitle: "ادائیگی وصول کریں",
     payTitle: "سپلائر کو ادائیگی",
-    receiveSub: "گاہک سے وصول کردہ رقم",
+    receiveSub: "{party} سے وصول کردہ رقم",
     paySub: "ادا شدہ رقم — سپلائر بل یا گاہک کو واپسی",
-    tabReceive: "وصول کریں (گاہک ادا کرے)",
+    tabReceive: "وصول کریں ({party} ادا کرے)",
     payTo: "ادائیگی برائے:",
     refundHint: "رقم کی واپسی — کسی انوائس سے منسلک نہیں",
     tabPay: "ادائیگی / واپسی",
@@ -647,7 +659,7 @@ export const ur: DeepPartial<EnDict> = {
     allocateAgainst: "{docNo} کے مقابل مختص کریں",
     saveReceipt: "رسید محفوظ کریں",
     savePayment: "ادائیگی محفوظ کریں",
-    saving: "محفوظ ہو رہی ہے…",
+    saving: "محفوظ ہو رہی ہے…"
   },
   expenses: {
     title: "اخراجات",
@@ -676,7 +688,7 @@ export const ur: DeepPartial<EnDict> = {
     notes: "نوٹس (اختیاری)",
     notesPlaceholder: "مثلاً ستمبر کا دکان کا کرایہ",
     saveExpense: "اخراجات محفوظ کریں",
-    saveError: "محفوظ نہیں ہو سکا۔",
+    saveError: "محفوظ نہیں ہو سکا۔"
   },
   stockpage: {
     subtitle: "کل {stock} ویلیو",
@@ -701,7 +713,7 @@ export const ur: DeepPartial<EnDict> = {
     csvReorder: "Reorder level",
     csvLow: "Low stock",
     csvYes: "YES",
-    csvTotal: "TOTAL",
+    csvTotal: "TOTAL"
   },
   auth: {
     loginTitle: "خوش آمدید",
@@ -762,11 +774,11 @@ export const ur: DeepPartial<EnDict> = {
     repeatPw: "نیا پاس ورڈ دہرائیں",
     resetting: "ری سیٹ ہو رہا ہے…",
     resetBtn: "پاس ورڈ ری سیٹ کریں",
-    lostCode: "ریکوری کوڈ بھی کھو گیا؟ اپنی کمپنی کے مالک سے کہیں کہ Settings → Team سے آپ کا پاس ورڈ ری سیٹ کرے، یا واپس لاگ اِن کریں۔",
+    lostCode: "ریکوری کوڈ بھی کھو گیا؟ اپنی کمپنی کے مالک سے کہیں کہ Settings → Team سے آپ کا پاس ورڈ ری سیٹ کرے، یا واپس لاگ اِن کریں۔"
   },
   pub: {
     login: "لاگ اِن",
-    backHome: "ہوم پر واپس",
+    backHome: "ہوم پر واپس"
   },
   terms: {
     title: "شرائطِ استعمال",
@@ -789,7 +801,7 @@ export const ur: DeepPartial<EnDict> = {
     s6p0: "آپ کسی بھی وقت سروس استعمال کرنا بند کر سکتے ہیں — پہلے Settings سے اپنا ڈیٹا ایکسپورٹ کر لیں۔ ہم یہ شرائط اپ ڈیٹ کر سکتے ہیں؛ اہم تبدیلیوں کا اعلان ایپ میں کیا جائے گا۔ تبدیلیوں کے نافذ ہونے کے بعد مسلسل استعمال کا مطلب قبولیت ہے۔",
     s7h: "8. رابطہ",
     s7p0: "ان شرائط کے بارے میں سوالات؟ {brand} کی ویب سائٹ پر درج رابطے کی تفصیلات سے رابطہ کریں۔",
-    privacyLink: "پرائیویسی پالیسی",
+    privacyLink: "پرائیویسی پالیسی"
   },
   privacy: {
     title: "پرائیویسی پالیسی",
@@ -816,7 +828,7 @@ export const ur: DeepPartial<EnDict> = {
     s6p0: "پروڈکٹ کے ساتھ ہم یہ پالیسی اپ ڈیٹ کر سکتے ہیں؛ اہم تبدیلیوں کا اعلان ایپ میں کیا جائے گا۔ تبدیلیوں کے نافذ ہونے کے بعد مسلسل استعمال کا مطلب اپ ڈیٹ شدہ پالیسی کی قبولیت ہے۔",
     s7h: "8. رابطہ",
     s7p0: "اپنے ڈیٹا کے بارے میں سوالات؟ {brand} کی ویب سائٹ پر درج رابطے کی تفصیلات سے رابطہ کریں۔",
-    termsLink: "شرائطِ استعمال",
+    termsLink: "شرائطِ استعمال"
   },
   support: {
     title: "سپورٹ",
@@ -826,7 +838,7 @@ export const ur: DeepPartial<EnDict> = {
     hoursLabel: "سپورٹ کے اوقات",
     formTitle: "سپورٹ درخواست بھیجیں",
     formSub: "بتائیں کیا ہوا اور آپ سے کیسے رابطہ کیا جائے۔ درخواستوں کا جواب ہماری ٹیم ای میل یا فون سے دیتی ہے — کوئی خودکار جواب نہیں، اس لیے سپورٹ اوقات میں کچھ وقت دیں۔",
-    changelogLink: "چینج لاگ",
+    changelogLink: "چینج لاگ"
   },
   supportform: {
     nameLabel: "آپ کا نام",
@@ -840,25 +852,25 @@ export const ur: DeepPartial<EnDict> = {
     sendBtn: "پیغام بھیجیں",
     sendError: "آپ کا پیغام نہیں بھیجا جا سکا۔",
     sentTitle: "پیغام موصول ہو گیا۔",
-    sentSub: "لکھنے کا شکریہ — ہماری ٹیم ای میل یا فون سے رابطہ کرے گی۔",
+    sentSub: "لکھنے کا شکریہ — ہماری ٹیم ای میل یا فون سے رابطہ کرے گی۔"
   },
   changelog: {
     title: "چینج لاگ",
     intro: "جو کچھ ہم جاری کرتے ہیں، نیا پہلے۔ ریلیز نوٹس انگریزی میں رہتے ہیں تاکہ ہر ورژن ہر جگہ ایک جیسا پڑھا جائے۔",
-    supportLink: "سپورٹ",
+    supportLink: "سپورٹ"
   },
   notfound: {
     title: "صفحہ نہیں ملا",
     sub: "یہ صفحہ موجود نہیں یا منتقل کر دیا گیا ہے۔ آپ کا حساب محفوظ ہے — آگے جانے کے لیے جگہ چنیں۔",
     dashboard: "ڈیش بورڈ پر جائیں",
     pos: "POS کھولیں",
-    home: "ہوم پیج",
+    home: "ہوم پیج"
   },
   errorpage: {
     title: "کچھ غلط ہو گیا",
     sub: "اس صفحے میں غیر متوقع خرابی آئی۔ آپ کا محفوظ ڈیٹا متاثر نہیں ہوا — دوبارہ کوشش کریں یا ڈیش بورڈ پر واپس جائیں۔",
     retry: "دوبارہ کوشش کریں",
-    dashboard: "ڈیش بورڈ پر جائیں",
+    dashboard: "ڈیش بورڈ پر جائیں"
   },
   authlayout: {
     headline: "آپ کے کاروبار کا مکمل حساب، آخرکار ایک جگہ۔",
@@ -870,7 +882,7 @@ export const ur: DeepPartial<EnDict> = {
     p2d: "P&L، اسٹاک اور لیجر ایک کلک میں۔",
     p3t: "10 سال تک محفوظ",
     p3d: "متوازن کھاتے، محفوظ اور مستقل۔",
-    footer: "© 2026 {brand} · ہر کاروبار کے لیے بنایا گیا",
+    footer: "© 2026 {brand} · ہر کاروبار کے لیے بنایا گیا"
   },
   landing: {
     navFeatures: "فیچرز",
@@ -1019,7 +1031,7 @@ export const ur: DeepPartial<EnDict> = {
     footPrivacy: "پرائیویسی",
     footSupport: "سپورٹ",
     footChangelog: "چینج لاگ",
-    footTagline: "ہر کاروبار کے لیے مکمل حساب کتاب۔",
+    footTagline: "ہر کاروبار کے لیے مکمل حساب کتاب۔"
   },
   balances: {
     outstanding: "کل بقایا:",
@@ -1064,7 +1076,7 @@ export const ur: DeepPartial<EnDict> = {
     bills: "بل",
     daysLate: "{days} دن لیٹ",
     notDueYet: "واجب الادا نہیں",
-    payables: "واجب الادا",
+    payables: "واجب الادا"
   },
   pos: {
     doneTitle: "بل محفوظ ہو گیا",
@@ -1165,6 +1177,9 @@ export const ur: DeepPartial<EnDict> = {
     batch: "بیچ",
     batchAuto: "خودکار (FIFO)",
     printReceipt: "رسید پرنٹ کریں",
+    defaultNote: "POS فروخت",
+    errNoName: "ہر آئٹم کا نام ضروری ہے۔",
+    errRate: "ریٹ منفی نہیں ہو سکتا۔"
   },
   settings: {
     navAria: "سیٹنگز کے حصے",
@@ -1228,7 +1243,7 @@ export const ur: DeepPartial<EnDict> = {
     activityTitle: "سرگرمی لاگ",
     activityHint: "کس نے کیا کیا، اور کب — آڈٹ ٹریل۔",
     viewLog: "لاگ دیکھیں",
-    auditRetention: "آڈٹ اندراجات {years} سال تک رکھی جاتی ہیں اور کبھی خودکار ڈیلیٹ نہیں ہوتیں۔",
+    auditRetention: "آڈٹ اندراجات {years} سال تک رکھی جاتی ہیں اور کبھی خودکار ڈیلیٹ نہیں ہوتیں۔"
   },
   settingsbackups: {
     title: "خودکار بیک اپ",
@@ -1278,7 +1293,7 @@ export const ur: DeepPartial<EnDict> = {
     restoring: "بحال ہو رہا ہے… براہ کرم یہ صفحہ کھلا رکھیں۔",
     restoreDone: "بحالی مکمل۔ آپ کا کمپنی ڈیٹا اب بیک اپ سے میل کھاتا ہے۔",
     reloadPage: "صفحہ دوبارہ لوڈ کریں",
-    close: "بند کریں",
+    close: "بند کریں"
   },
   perms: {
     groupDaily: "روزمرہ کام",
@@ -1320,7 +1335,7 @@ export const ur: DeepPartial<EnDict> = {
     period_lock: "پیریڈ لاک",
     period_lockDesc: "اکاؤنٹنگ پیریڈ لاک کریں",
     audit: "آڈٹ ٹریل",
-    auditDesc: "سرگرمی اور آڈٹ لاگ دیکھیں",
+    auditDesc: "سرگرمی اور آڈٹ لاگ دیکھیں"
   },
   settingsteam: {
     title: "ٹیم",
@@ -1362,7 +1377,7 @@ export const ur: DeepPartial<EnDict> = {
     pwShort: "پاس ورڈ کم از کم 8 حروف کا ہونا چاہیے۔",
     resetError: "پاس ورڈ ری سیٹ نہیں ہو سکا۔",
     resetDone: "{name} کا پاس ورڈ ری سیٹ ہو گیا۔ انہیں ہر جگہ سے لاگ آؤٹ کر دیا گیا ہے۔",
-    updateError: "اپ ڈیٹ نہیں ہو سکا۔",
+    updateError: "اپ ڈیٹ نہیں ہو سکا۔"
   },
   settingssecurity: {
     title: "پاس ورڈ اور ریکوری",
@@ -1386,6 +1401,7 @@ export const ur: DeepPartial<EnDict> = {
     generating: "بن رہا ہے…",
     generateCode: "نیا ریکوری کوڈ بنائیں",
     codeError: "کوڈ نہیں بن سکا۔",
+    newCode: "نیا کوڈ بنائیں"
   },
   settingssessions: {
     title: "سیشنز اور ڈیوائسز",
@@ -1395,7 +1411,7 @@ export const ur: DeepPartial<EnDict> = {
     loggingOut: "لاگ آؤٹ ہو رہا ہے…",
     logoutAll: "تمام ڈیوائسز سے لاگ آؤٹ کریں",
     logoutConfirm: "اس سمیت تمام ڈیوائسز سے لاگ آؤٹ کریں؟ آپ کو دوبارہ سائن ان کرنا ہو گا۔",
-    logoutError: "ہر جگہ لاگ آؤٹ نہیں ہو سکا۔",
+    logoutError: "ہر جگہ لاگ آؤٹ نہیں ہو سکا۔"
   },
   settingssyncdevices: {
     title: "سنک شدہ ڈیوائسز",
@@ -1407,7 +1423,7 @@ export const ur: DeepPartial<EnDict> = {
     revoked: "ریوک شدہ",
     revokeError: "ڈیوائس ریوک نہیں ہو سکی۔",
     lastUsed: "آخری سنک {date}",
-    neverUsed: "کبھی سنک نہیں ہوئی",
+    neverUsed: "کبھی سنک نہیں ہوئی"
   },
   settingslock: {
     title: "اکاؤنٹنگ پیریڈ لاک",
@@ -1426,12 +1442,12 @@ export const ur: DeepPartial<EnDict> = {
     saving: "محفوظ ہو رہا ہے…",
     lockPeriod: "پیریڈ لاک کریں",
     clearLock: "لاک ختم کریں",
-    ownerOnly: "صرف مالک پیریڈ لاک تبدیل کر سکتا ہے۔",
+    ownerOnly: "صرف مالک پیریڈ لاک تبدیل کر سکتا ہے۔"
   },
   settingshealth: {
     title: "سسٹم ہیلتھ",
     hint: "حالیہ غیر متوقع سرور ایررز۔ اگر آپ کی ٹیم کے لیے کچھ ٹوٹے تو یہاں نظر آئے گا۔",
-    noErrors: "کوئی ایرر لاگ نہیں ہوا۔",
+    noErrors: "کوئی ایرر لاگ نہیں ہوا۔"
   },
   settingsdanger: {
     title: "خطرناک زون",
@@ -1445,7 +1461,7 @@ export const ur: DeepPartial<EnDict> = {
     cancel: "منسوخ",
     nameMismatch: "تصدیق کے لیے اپنی کمپنی کا نام بالکل ویسے لکھیں جیسے دکھایا گیا ہے۔",
     pwRequired: "اپنا موجودہ پاس ورڈ درج کریں۔",
-    deleteError: "کمپنی ڈیلیٹ نہیں ہو سکی۔",
+    deleteError: "کمپنی ڈیلیٹ نہیں ہو سکی۔"
   },
   settingsactivity: {
     title: "سرگرمی لاگ",
@@ -1455,7 +1471,7 @@ export const ur: DeepPartial<EnDict> = {
     emptyHint: "لاگ اِن، بل، ادائیگیاں اور ٹیم تبدیلیاں یہاں نظر آئیں گی۔",
     events: "{count} واقعات",
     newer: "← نئے",
-    older: "پرانے →",
+    older: "پرانے →"
   },
   activityactions: {
     auth: {
@@ -1464,6 +1480,7 @@ export const ur: DeepPartial<EnDict> = {
       password_reset: "ریکوری کوڈ سے پاس ورڈ ری سیٹ",
       password_changed: "پاس ورڈ تبدیل ہوا",
       recovery_code_regenerated: "ریکوری کوڈ دوبارہ بنایا گیا",
+      logout_everywhere: "تمام آلات سے سائن آؤٹ کر دیا گیا"
     },
     sale: {
       invoice_created: "سیل انوائس بنائی گئی",
@@ -1475,6 +1492,8 @@ export const ur: DeepPartial<EnDict> = {
       price_override: "کم از کم قیمت سے کم پر فروخت",
       advance_applied: "ایڈوانس لگایا گیا",
       credit_limit_override: "کریڈٹ حد اوور رائیڈ",
+      receipt_created: "رسید بنائی گئی",
+      updated: "سیل انوائس اپ ڈیٹ ہو گئی"
     },
     purchase: {
       bill_created: "خریداری بل بنایا گیا",
@@ -1482,6 +1501,8 @@ export const ur: DeepPartial<EnDict> = {
       grn_created: "GRN بنایا گیا",
       return_created: "پرچیز ریٹرن بنایا گیا",
       converted: "بل میں کنورٹ ہوا",
+      payment_created: "خرید کی ادائیگی ریکارڈ ہو گئی",
+      updated: "خرید بل اپ ڈیٹ ہو گیا"
     },
     pos: {
       checkout: "POS بل مکمل",
@@ -1489,36 +1510,61 @@ export const ur: DeepPartial<EnDict> = {
       held_deleted: "پارک بل ہٹایا گیا",
       price_override: "POS قیمت اوور رائیڈ",
       advance_applied: "POS ایڈوانس لگایا گیا",
-      credit_limit_override: "POS کریڈٹ حد اوور رائیڈ",
+      credit_limit_override: "POS کریڈٹ حد اوور رائیڈ"
     },
     party: {
       created: "پارٹی بنائی گئی",
       updated: "پارٹی اپ ڈیٹ ہوئی",
       deleted: "پارٹی ہٹائی گئی",
-      setoff: "پارٹی سیٹ آف",
+      setoff: "پارٹی سیٹ آف"
     },
     product: {
       created: "پروڈکٹ بنایا گیا",
       updated: "پروڈکٹ اپ ڈیٹ ہوا",
       deleted: "پروڈکٹ ہٹایا گیا",
+      bundle_updated: "بنڈل اپ ڈیٹ ہو گیا"
     },
     settings: {
       updated: "کاروباری سیٹنگز اپ ڈیٹ ہوئیں",
-      period_lock: "پیریڈ لاک اپ ڈیٹ ہوا",
+      period_lock: "پیریڈ لاک اپ ڈیٹ ہوا"
     },
-    data: { imported: "CSV ڈیٹا امپورٹ ہوا" },
-    payment: { created: "ادائیگی ریکارڈ ہوئی" },
-    expense: { created: "خرچ ریکارڈ ہوا" },
+    data: {
+      imported: "CSV ڈیٹا امپورٹ ہوا"
+    },
+    payment: {
+      created: "ادائیگی ریکارڈ ہوئی"
+    },
+    expense: {
+      created: "خرچ ریکارڈ ہوا"
+    },
     user: {
       invited: "اسٹاف ممبر شامل ہوا",
       updated: "ٹیم ممبر اپ ڈیٹ ہوا",
-      password_reset: "اسٹاف پاس ورڈ ری سیٹ ہوا",
+      password_reset: "اسٹاف پاس ورڈ ری سیٹ ہوا"
     },
     billing: {
       payment_submitted: "PRO ادائیگی جمع ہوئی",
       payment_approved: "PRO سبسکرپشن فعال ہوئی",
-      payment_rejected: "PRO ادائیگی مسترد ہوئی",
+      payment_rejected: "PRO ادائیگی مسترد ہوئی"
     },
+    backup: {
+      created: "بیک اپ بنایا گیا",
+      restored: "بیک اپ بحال کیا گیا",
+      upload_verified: "بیک اپ فائل کی تصدیق ہو گئی"
+    },
+    pdc: {
+      cleared: "چیک کلیئر ہو گیا",
+      recorded: "چیک ریکارڈ ہو گیا"
+    },
+    sample: {
+      loaded: "نمونہ ڈیٹا لوڈ ہو گیا",
+      removed: "نمونہ ڈیٹا ہٹا دیا گیا"
+    },
+    sync: {
+      conflict: "سنک تنازع",
+      enroll: "ڈیوائس منسلک ہو گئی",
+      revoke: "ڈیوائس منقطع کر دی گئی"
+    }
   },
   billing: {
     title: "بلنگ",
@@ -1569,7 +1615,7 @@ export const ur: DeepPartial<EnDict> = {
     rejected: "مسترد شدہ",
     methodBank: "بینک ٹرانسفر",
     methodJazzcash: "JazzCash",
-    methodEasypaisa: "EasyPaisa",
+    methodEasypaisa: "EasyPaisa"
   },
   adminbilling: {
     title: "بلنگ ایڈمن",
@@ -1601,24 +1647,24 @@ export const ur: DeepPartial<EnDict> = {
       bankDetails: "بینک تفصیلات",
       jazzcash: "JazzCash",
       easypaisa: "EasyPaisa",
-      instructions: "ادائیگی کی ہدایات",
+      instructions: "ادائیگی کی ہدایات"
     },
     supportTitle: "سپورٹ رابطہ تفصیلات",
     supportHint: "(عوامی /support صفحے پر دکھایا جاتا ہے)",
     supportLabels: {
       email: "سپورٹ ای میل",
       phone: "سپورٹ فون / واٹس ایپ",
-      hours: "سپورٹ اوقات",
+      hours: "سپورٹ اوقات"
     },
     securityTitle: "سیکیورٹی",
     securityHint: "(ہر کمپنی پر لاگو ہوتا ہے)",
     securityLabels: {
-      idleTimeout: "غیر فعال سیشن ٹائم آؤٹ (گھنٹے، 1–720)",
+      idleTimeout: "غیر فعال سیشن ٹائم آؤٹ (گھنٹے، 1–720)"
     },
     saved: "محفوظ ہو گیا۔",
     saving: "محفوظ ہو رہا ہے…",
     saveSettings: "سیٹنگز محفوظ کریں",
-    saveError: "سیٹنگز محفوظ نہیں ہو سکیں۔",
+    saveError: "سیٹنگز محفوظ نہیں ہو سکیں۔"
   },
   adminsupport: {
     title: "سپورٹ درخواستیں",
@@ -1634,7 +1680,7 @@ export const ur: DeepPartial<EnDict> = {
     all: "تمام",
     noRequests: "کوئی {filter} درخواستیں نہیں",
     markResolved: "حل شدہ قرار دیں",
-    reopen: "دوبارہ کھولیں",
+    reopen: "دوبارہ کھولیں"
   },
   reportsindex: {
     title: "رپورٹس",
@@ -1671,7 +1717,7 @@ export const ur: DeepPartial<EnDict> = {
     dayBook: "ڈے بک",
     dayBookText: "دن کا ہر واؤچر، وقت کی ترتیب میں۔",
     taxSummary: "ٹیکس کا خلاصہ",
-    taxSummaryText: "وصول شدہ بمقابلہ ادا شدہ GST، اور خالص واجب الادا۔",
+    taxSummaryText: "وصول شدہ بمقابلہ ادا شدہ GST، اور خالص واجب الادا۔"
   },
   statements: {
     title: "{party} اسٹیٹمنٹ",
@@ -1712,7 +1758,7 @@ export const ur: DeepPartial<EnDict> = {
     csvCredit: "کریڈٹ (روپے)",
     csvBalance: "بیلنس (روپے)",
     csvOpening: "ابتدائی بیلنس",
-    csvClosing: "اختتامی بیلنس",
+    csvClosing: "اختتامی بیلنس"
   },
   salesummary: {
     title: "فروخت کا خلاصہ",
@@ -1746,7 +1792,7 @@ export const ur: DeepPartial<EnDict> = {
     csvTax: "ٹیکس (روپے)",
     csvReturns: "واپسی (روپے)",
     csvGrand: "کل رقم (روپے)",
-    csvTotal: "کل",
+    csvTotal: "کل"
   },
   purchasesummary: {
     title: "خریداری کا خلاصہ",
@@ -1780,7 +1826,7 @@ export const ur: DeepPartial<EnDict> = {
     csvTax: "ٹیکس (روپے)",
     csvReturns: "واپسی (روپے)",
     csvGrand: "کل رقم (روپے)",
-    csvTotal: "کل",
+    csvTotal: "کل"
   },
   bankbook: {
     title: "بینک بک",
@@ -1807,7 +1853,7 @@ export const ur: DeepPartial<EnDict> = {
     csvCredit: "کریڈٹ (روپے)",
     csvBalance: "بیلنس (روپے)",
     csvOpening: "ابتدائی بیلنس",
-    csvClosing: "اختتامی بیلنس",
+    csvClosing: "اختتامی بیلنس"
   },
   daybook: {
     title: "ڈے بک",
@@ -1826,7 +1872,7 @@ export const ur: DeepPartial<EnDict> = {
     csvAccount: "اکاؤنٹ",
     csvParty: "پارٹی",
     csvDebit: "ڈیبٹ (روپے)",
-    csvCredit: "کریڈٹ (روپے)",
+    csvCredit: "کریڈٹ (روپے)"
   },
   taxsummary: {
     title: "ٹیکس کا خلاصہ",
@@ -1851,7 +1897,7 @@ export const ur: DeepPartial<EnDict> = {
     csvDebit: "ڈیبٹ (روپے)",
     csvCredit: "کریڈٹ (روپے)",
     csvNet: "خالص (روپے)",
-    csvNetPayable: "خالص واجب الادا",
+    csvNetPayable: "خالص واجب الادا"
   },
   trialbalance: {
     title: "ٹرائل بیلنس",
@@ -1865,7 +1911,7 @@ export const ur: DeepPartial<EnDict> = {
     colCredit: "کریڈٹ",
     csvDebit: "Debit (Rs)",
     csvCredit: "Credit (Rs)",
-    csvTotal: "TOTAL",
+    csvTotal: "TOTAL"
   },
   pl: {
     title: "نفع و نقصان",
@@ -1876,7 +1922,7 @@ export const ur: DeepPartial<EnDict> = {
     errLoadWith: "رپورٹ لوڈ نہیں ہو سکی — {error}",
     tryAgain: "دوبارہ کوشش کریں",
     csvItem: "Item",
-    csvAmount: "Amount (Rs)",
+    csvAmount: "Amount (Rs)"
   },
   balancesheet: {
     title: "بیلنس شیٹ",
@@ -1888,7 +1934,7 @@ export const ur: DeepPartial<EnDict> = {
     equity: "ایکویٹی",
     csvSection: "Section",
     csvAccount: "Account",
-    csvAmount: "Amount (Rs)",
+    csvAmount: "Amount (Rs)"
   },
   journal: {
     title: "جرنل",
@@ -1918,7 +1964,7 @@ export const ur: DeepPartial<EnDict> = {
     csvAccount: "Account",
     csvParty: "Party",
     csvDebit: "Debit (Rs)",
-    csvCredit: "Credit (Rs)",
+    csvCredit: "Credit (Rs)"
   },
   partyledger: {
     title: "{party} لیجر",
@@ -1966,6 +2012,7 @@ export const ur: DeepPartial<EnDict> = {
     statReceived: "وصول شدہ",
     statPaid: "ادا شدہ",
     statOutstanding: "واجب الادا",
+    errTooMuch: "سیٹ آف رقم زیادہ سے زیادہ حد ({max}) سے تجاوز کر گئی ہے۔"
   },
   dayclose: {
     title: "دن کا حساب",
@@ -2000,17 +2047,389 @@ export const ur: DeepPartial<EnDict> = {
     csvPurchaseReturns: "Purchase returns",
     csvTotalCashIn: "Total cash in",
     csvTotalCashOut: "Total cash out",
-    csvNetCash: "Net cash",
+    csvNetCash: "Net cash"
   },
   bp: {
-    WHOLESALE: { partyOne: "گاہک", partyMany: "گاہک", productOne: "مصنوعات", productMany: "مصنوعات", salesNav: "فروخت", newSale: "نیا فروخت بل", saveSale: "فروخت بل محفوظ کریں", receivables: "وصولیابیاں", stock: "اسٹاک", docTitle: "فروخت انوائس", billTitle: "خریداری بل" },
-    RETAIL: { partyOne: "گاہک", partyMany: "گاہک", productOne: "مصنوعات", productMany: "مصنوعات", salesNav: "بلنگ", newSale: "نیا کاؤنٹر بل", saveSale: "کاؤنٹر بل محفوظ کریں", receivables: "وصولیابیاں", stock: "اسٹاک", docTitle: "فروخت بل", billTitle: "خریداری بل" },
-    DISTRIBUTION: { partyOne: "گاہک", partyMany: "گاہک", productOne: "مصنوعات", productMany: "مصنوعات", salesNav: "فروخت", newSale: "نیا فروخت بل", saveSale: "فروخت بل محفوظ کریں", receivables: "وصولیابیاں", stock: "اسٹاک", docTitle: "فروخت انوائس", billTitle: "خریداری بل" },
-    PHARMACY: { partyOne: "گاہک", partyMany: "گاہک", productOne: "دوا", productMany: "ادویات", salesNav: "فروخت", newSale: "نیا فروخت بل", saveSale: "فروخت بل محفوظ کریں", receivables: "وصولیابیاں", stock: "ادویات کا اسٹاک", docTitle: "فروخت انوائس", billTitle: "خریداری بل" },
-    CLINIC: { partyOne: "مریض", partyMany: "مریض", productOne: "علاج", productMany: "علاج", salesNav: "علاج", newSale: "نیا علاج بل", saveSale: "علاج بل محفوظ کریں", receivables: "مریضوں کے واجبات", stock: "ادویات کا اسٹاک", docTitle: "علاج بل", billTitle: "خریداری بل" },
-    RESTAURANT: { partyOne: "مہمان", partyMany: "مہمان", productOne: "مینیو آئٹم", productMany: "مینیو آئٹمز", salesNav: "بلنگ", newSale: "نیا بل", saveSale: "بل محفوظ کریں", receivables: "وصولیابیاں", stock: "اسٹاک", docTitle: "بل", billTitle: "خریداری بل" },
-    SERVICES: { partyOne: "کلائنٹ", partyMany: "کلائنٹس", productOne: "سروس", productMany: "سروسز", salesNav: "انوائسز", newSale: "نیا انوائس", saveSale: "انوائس محفوظ کریں", receivables: "وصولیابیاں", stock: "اسٹاک", docTitle: "انوائس", billTitle: "خریداری بل" },
-    MANUFACTURING: { partyOne: "گاہک", partyMany: "گاہک", productOne: "مصنوعات", productMany: "مصنوعات", salesNav: "فروخت", newSale: "نیا فروخت بل", saveSale: "فروخت بل محفوظ کریں", receivables: "وصولیابیاں", stock: "اسٹاک", docTitle: "فروخت انوائس", billTitle: "خریداری بل" },
-    OTHER: { partyOne: "گاہک", partyMany: "گاہک", productOne: "مصنوعات", productMany: "مصنوعات", salesNav: "فروخت", newSale: "نیا فروخت بل", saveSale: "فروخت بل محفوظ کریں", receivables: "وصولیابیاں", stock: "اسٹاک", docTitle: "فروخت انوائس", billTitle: "خریداری بل" },
+    WHOLESALE: {
+      partyOne: "گاہک",
+      partyMany: "گاہک",
+      productOne: "مصنوعات",
+      productMany: "مصنوعات",
+      salesNav: "فروخت",
+      newSale: "نیا فروخت بل",
+      saveSale: "فروخت بل محفوظ کریں",
+      receivables: "وصولیابیاں",
+      stock: "اسٹاک",
+      docTitle: "فروخت انوائس",
+      billTitle: "خریداری بل"
+    },
+    RETAIL: {
+      partyOne: "گاہک",
+      partyMany: "گاہک",
+      productOne: "مصنوعات",
+      productMany: "مصنوعات",
+      salesNav: "بلنگ",
+      newSale: "نیا کاؤنٹر بل",
+      saveSale: "کاؤنٹر بل محفوظ کریں",
+      receivables: "وصولیابیاں",
+      stock: "اسٹاک",
+      docTitle: "فروخت بل",
+      billTitle: "خریداری بل"
+    },
+    DISTRIBUTION: {
+      partyOne: "گاہک",
+      partyMany: "گاہک",
+      productOne: "مصنوعات",
+      productMany: "مصنوعات",
+      salesNav: "فروخت",
+      newSale: "نیا فروخت بل",
+      saveSale: "فروخت بل محفوظ کریں",
+      receivables: "وصولیابیاں",
+      stock: "اسٹاک",
+      docTitle: "فروخت انوائس",
+      billTitle: "خریداری بل"
+    },
+    PHARMACY: {
+      partyOne: "گاہک",
+      partyMany: "گاہک",
+      productOne: "دوا",
+      productMany: "ادویات",
+      salesNav: "فروخت",
+      newSale: "نیا فروخت بل",
+      saveSale: "فروخت بل محفوظ کریں",
+      receivables: "وصولیابیاں",
+      stock: "ادویات کا اسٹاک",
+      docTitle: "فروخت انوائس",
+      billTitle: "خریداری بل"
+    },
+    CLINIC: {
+      partyOne: "مریض",
+      partyMany: "مریض",
+      productOne: "علاج",
+      productMany: "علاج",
+      salesNav: "علاج",
+      newSale: "نیا علاج بل",
+      saveSale: "علاج بل محفوظ کریں",
+      receivables: "مریضوں کے واجبات",
+      stock: "ادویات کا اسٹاک",
+      docTitle: "علاج بل",
+      billTitle: "خریداری بل"
+    },
+    RESTAURANT: {
+      partyOne: "مہمان",
+      partyMany: "مہمان",
+      productOne: "مینیو آئٹم",
+      productMany: "مینیو آئٹمز",
+      salesNav: "بلنگ",
+      newSale: "نیا بل",
+      saveSale: "بل محفوظ کریں",
+      receivables: "وصولیابیاں",
+      stock: "اسٹاک",
+      docTitle: "بل",
+      billTitle: "خریداری بل"
+    },
+    SERVICES: {
+      partyOne: "کلائنٹ",
+      partyMany: "کلائنٹس",
+      productOne: "سروس",
+      productMany: "سروسز",
+      salesNav: "انوائسز",
+      newSale: "نیا انوائس",
+      saveSale: "انوائس محفوظ کریں",
+      receivables: "وصولیابیاں",
+      stock: "اسٹاک",
+      docTitle: "انوائس",
+      billTitle: "خریداری بل"
+    },
+    MANUFACTURING: {
+      partyOne: "گاہک",
+      partyMany: "گاہک",
+      productOne: "مصنوعات",
+      productMany: "مصنوعات",
+      salesNav: "فروخت",
+      newSale: "نیا فروخت بل",
+      saveSale: "فروخت بل محفوظ کریں",
+      receivables: "وصولیابیاں",
+      stock: "اسٹاک",
+      docTitle: "فروخت انوائس",
+      billTitle: "خریداری بل"
+    },
+    OTHER: {
+      partyOne: "گاہک",
+      partyMany: "گاہک",
+      productOne: "مصنوعات",
+      productMany: "مصنوعات",
+      salesNav: "فروخت",
+      newSale: "نیا فروخت بل",
+      saveSale: "فروخت بل محفوظ کریں",
+      receivables: "وصولیابیاں",
+      stock: "اسٹاک",
+      docTitle: "فروخت انوائس",
+      billTitle: "خریداری بل"
+    }
   },
+  delete: {
+    linkedRecordsParty: "یہ پارٹی حذف نہیں ہو سکتی: اس سے جڑے ریکارڈ موجود ہیں۔",
+    linkedRecordsProduct: "یہ پروڈکٹ حذف نہیں ہو سکتی: اس سے جڑے ریکارڈ موجود ہیں۔"
+  },
+  biztypes: {
+    clinic: "کلینک / صحت مرکز",
+    clinicHint: "ڈاکٹرز، کلینکس اور کیئر سینٹرز",
+    distribution: "ڈسٹری بیوٹر",
+    distributionHint: "برانڈز، علاقے اور آرڈر بکرز",
+    manufacturing: "مینوفیکچرر",
+    manufacturingHint: "پیداوار اور فیکٹری حسابات",
+    other: "دیگر کاروبار",
+    otherHint: "کوئی اور کاروبار",
+    pharmacy: "فارمیسی / میڈیکل اسٹور",
+    pharmacyHint: "ادویات اور صحت کی پرچون فروخت",
+    restaurant: "ریسٹورنٹ / خوراک",
+    restaurantHint: "ڈائن اِن، ٹیک اوے اور ڈیلیوری",
+    retail: "پرچون دکان",
+    retailHint: "کاؤنٹر سیلز، واک اِن گاہک",
+    services: "سروسز کا کاروبار",
+    servicesHint: "مرمت، ایجنسیاں اور پیشہ ور افراد",
+    wholesale: "ہول سیل تاجر",
+    wholesaleHint: "بلک خرید و فروخت، ڈسٹری بیوٹرز"
+  },
+  bs: {
+    ap: "قابلِ ادائیگی رقوم",
+    ar: "قابلِ وصول رقوم",
+    capital: "مالک کا سرمایہ",
+    cashBank: "نقد و بینک",
+    inputTax: "قابلِ واپسی سیلز ٹیکس",
+    inventory: "اسٹاک",
+    otherLiab: "قرضے اور دیگر واجبات",
+    retained: "محفوظ آمدنی (نفع و نقصان)",
+    taxPayable: "واجب الادا سیلز ٹیکس",
+    totalAssets: "کل اثاثے",
+    totalEquity: "کل ایکویٹی",
+    totalLiab: "کل واجبات"
+  },
+  pnl: {
+    addDiscountsReceived: "جمع: موصول رعایت",
+    grossProfit: "مجموعی منافع",
+    lessCogs: "منہا: فروخت شدہ مال کی لاگت",
+    lessDiscountsGiven: "منہا: دی گئی رعایت",
+    lessExpenses: "منہا: اخراجات",
+    lessSalesReturns: "منہا: فروخت واپسی",
+    netProfit: "خالص منافع",
+    netSales: "خالص فروخت",
+    sales: "فروخت"
+  },
+  globalerror: {
+    body: "ایپلیکیشن شروع نہیں ہو سکی۔ آپ کا محفوظ ڈیٹا سرور پر موجود ہے۔ براہ کرم صفحہ دوبارہ لوڈ کریں۔",
+    reload: "دوبارہ لوڈ کریں",
+    title: "لیجرپرو میں مسئلہ پیش آیا"
+  },
+  fix3: {
+    adjAccount: "متاثرہ کھاتہ",
+    adjAccountHint: "وہ اخراجی کھاتہ جو نقصان (یا فائدہ) برداشت کرے گا۔ پہلے سے طے شدہ: عمومی اخراجات۔",
+    adjAddLine: "لائن شامل کریں",
+    adjColAccount: "کھاتہ",
+    adjColCost: "لاگت",
+    adjColDate: "تاریخ",
+    adjColDoc: "دستاویز نمبر",
+    adjColLineValue: "مالیت",
+    adjColProduct: "پراڈکٹ",
+    adjColQty: "مقدار",
+    adjColReason: "وجہ",
+    adjColValue: "مالیت",
+    adjDate: "تاریخ",
+    adjDetail: "اسٹاک ایڈجسٹمنٹ",
+    adjEmpty: "ابھی کوئی اسٹاک ایڈجسٹمنٹ نہیں ہے۔",
+    adjEmptyHint: "ٹوٹ پھوٹ، میعاد ختم شدہ مال، چوری، ملا ہوا اسٹاک یا درستگی درج کریں۔",
+    adjIn: "آمد",
+    adjLines: "لائنیں",
+    adjNew: "نئی ایڈجسٹمنٹ",
+    adjNotes: "نوٹس",
+    adjNotesPh: "کیا ہوا تھا؟",
+    adjOut: "اخراج",
+    adjProduct: "پراڈکٹ",
+    adjQty: "مقدار (اخراج − / آمد +)",
+    adjQtyHint: "منفی مقدار اسٹاک کم کرتی ہے، مثبت بڑھاتی ہے۔",
+    adjReason: "وجہ",
+    adjReasonBreakage: "ٹوٹ پھوٹ",
+    adjReasonCorrection: "درستگی",
+    adjReasonExpired: "میعاد ختم",
+    adjReasonFound: "ملا ہوا اسٹاک",
+    adjReasonTheft: "چوری",
+    adjSave: "ایڈجسٹمنٹ محفوظ کریں",
+    adjSubtitle: "ٹوٹ پھوٹ، میعاد ختم، چوری، ملا ہوا اسٹاک اور درستگی درج کریں۔",
+    adjTitle: "اسٹاک ایڈجسٹمنٹ",
+    taxAmount: "ٹیکس کی رقم",
+    taxAmountHint: "اس خرچ پر ادا شدہ سیلز ٹیکس، اگر کوئی ہو (ان پٹ سیلز ٹیکس میں جائے گا)۔",
+    trAmount: "رقم",
+    trColAmount: "رقم",
+    trColDate: "تاریخ",
+    trColDoc: "دستاویز نمبر",
+    trColFrom: "کہاں سے",
+    trColTo: "کہاں کو",
+    trDate: "تاریخ",
+    trEmpty: "ابھی کوئی منتقلی نہیں ہے۔",
+    trEmptyHint: "نقد رقم اور بینک کھاتوں کے درمیان رقم منتقل کریں۔",
+    trFrom: "کس کھاتے سے",
+    trNew: "نئی منتقلی",
+    trNotes: "نوٹ",
+    trNotesPh: "اختیاری نوٹ",
+    trSave: "منتقلی محفوظ کریں",
+    trSubtitle: "اپنے نقد اور بینک کھاتوں کے درمیان رقم منتقل کریں۔",
+    trTitle: "بینک / نقد منتقلی",
+    trTo: "کس کھاتے میں",
+    unallocate: "الاٹمنٹ ختم کریں",
+    unallocateConfirm: "کیا یہ رقم غیر مختص کریڈٹ میں واپس کر دی جائے؟ جرنل میں کوئی تبدیلی نہیں ہوگی۔",
+    unallocating: "الاٹمنٹ ختم ہو رہی ہے…",
+    voidExpense: "اخراجات منسوخ کریں",
+    voidExpenseConfirm: "کیا یہ خرچ منسوخ کر دیا جائے؟ ایک الٹی جرنل انٹری ہوگی — اصل ریکارڈ محفوظ رہے گا۔",
+    voidPayment: "ادائیگی منسوخ کریں",
+    voidPaymentConfirm: "کیا یہ ادائیگی منسوخ کر دی جائے؟ ایک الٹی جرنل انٹری ہوگی — اصل ریکارڈ محفوظ رہے گا۔",
+    voidReason: "وجہ (اختیاری)",
+    voidReasonPh: "منسوخی کی وجہ کیا ہے؟",
+    voided: "منسوخ شدہ",
+    voiding: "منسوخ ہو رہا ہے…",
+    woAccount: "ناقابلِ وصول اخراجات کا کھاتہ",
+    woAccountHint: "وہ اخراجی کھاتہ جو نقصان برداشت کرے گا۔ پہلے سے طے شدہ: عمومی اخراجات۔",
+    woAmount: "معافی کی رقم",
+    woButton: "ناقابلِ وصول قرار دیں",
+    woColAmount: "رقم",
+    woColDate: "تاریخ",
+    woColDoc: "دستاویز نمبر",
+    woColInvoice: "انوائس",
+    woColParty: "پارٹی",
+    woColStatus: "حیثیت",
+    woConfirm: "کیا انوائس {docNo} پر {amount} ناقابلِ وصول قرار دی جائے؟ اس سے ڈیبٹ ناقابلِ وصول اخراجات / کریڈٹ واجبات کی انٹری ہوگی۔",
+    woDate: "تاریخ",
+    woInvoice: "انوائس",
+    woList: "ناقابلِ وصول رقم",
+    woNotes: "نوٹس",
+    woNotesPh: "یہ رقم کیوں وصول نہیں ہو سکتی؟",
+    woOutstanding: "بقایا",
+    woRecover: "بحال کریں",
+    woRecoverConfirm: "کیا یہ معافی واپس لی جائے؟ وصول شدہ بقایا اور پارٹی کا بیلنس بحال ہو جائے گا۔",
+    woRecovered: "بحال شدہ",
+    woSave: "ناقابلِ وصول قرار دیں",
+    woTitle: "ناقابلِ وصول رقم",
+    trDayCloseCard: "بینک اور نقد رقم کی منتقلیاں",
+    trView: "منتقلیاں دیکھیں"
+  },
+  fix4: {
+    note: {
+      account: "کھاتہ",
+      accountHint: "کریڈٹ نوٹ رعایتی/اخراجاتی کھاتے میں اور ڈیبٹ نوٹ رعایتی/آمدنی کھاتے میں پوسٹ ہوتا ہے۔",
+      amount: "رقم",
+      colAmount: "رقم",
+      colDate: "تاریخ",
+      colDoc: "دستاویز نمبر",
+      colNote: "نوٹ",
+      colParty: "پارٹی",
+      creditTitle: "کریڈٹ نوٹ",
+      customer: "گاہک",
+      date: "تاریخ",
+      debitTitle: "ڈیبٹ نوٹ",
+      errSave: "نوٹ محفوظ نہیں ہو سکا۔",
+      linkedTitle: "کریڈٹ / ڈیبٹ نوٹس",
+      listCreditTitle: "کریڈٹ نوٹس",
+      listDebitTitle: "ڈیبٹ نوٹس",
+      listSubtitle: "پارٹیوں کے خلاف رقم کی ایڈجسٹمنٹس۔",
+      newCreditTitle: "نیا کریڈٹ نوٹ",
+      newDebitTitle: "نیا ڈیبٹ نوٹ",
+      newNote: "نیا نوٹ",
+      newSubtitle: "کسی پارٹی کے خلاف رقم کی ایڈجسٹمنٹ پوسٹ کریں۔",
+      noSourceDoc: "کوئی متعلقہ دستاویز نہیں",
+      notes: "نوٹس",
+      postNote: "نوٹ پوسٹ کریں",
+      posting: "پوسٹ ہو رہا ہے...",
+      selectAccount: "کھاتہ منتخب کریں",
+      selectParty: "پارٹی منتخب کریں",
+      sourceDoc: "متعلقہ دستاویز (اختیاری)",
+      sourceDocHint: "نوٹ کو اصل انوائس یا بل سے منسلک کریں جس کی ایڈجسٹمنٹ ہو رہی ہے۔",
+      supplier: "سپلائر"
+    },
+    print: {
+      amountInWords: "رقم لفظوں میں: {words}",
+      copyDuplicate: "نقل",
+      copyLabel: "کاپی",
+      copyOffice: "آفس کاپی",
+      copyOriginal: "اصل"
+    },
+    psr: {
+      allParties: "تمام گاہک",
+      allProducts: "تمام مصنوعات",
+      catTotal: "کیٹیگری کل",
+      category: "کیٹیگری",
+      categoryPh: "کیٹیگری سے فلٹر کریں",
+      cogsNote: "ہر مصنوعات کی COGS پوسٹ شدہ فروخت شدہ سامان کی لاگت ({posted}) سے تقسیم ہوتی ہے؛ کل P&L کے عین مطابق ہے۔",
+      colCogs: "سامان کی لاگت",
+      colGross: "مجموعی منافع",
+      colMargin: "مارجن",
+      colProduct: "مصنوعات",
+      colQty: "فروخت شدہ مقدار",
+      colSaleValue: "فروخت کی قیمت",
+      csvCatTotal: "کیٹیگری کل",
+      csvCategory: "کیٹیگری",
+      csvCogs: "COGS",
+      csvGross: "مجموعی منافع",
+      csvMargin: "مارجن %",
+      csvProduct: "مصنوعات",
+      csvQty: "فروخت شدہ مقدار",
+      csvSaleValue: "فروخت کی قیمت",
+      csvSku: "SKU",
+      csvTotal: "کل",
+      errLoad: "رپورٹ لوڈ نہیں ہو سکی۔",
+      from: "سے",
+      galleryText: "ہر مصنوعات کی فروخت، سامان کی لاگت اور مجموعی منافع مع دستاویزات کی تفصیل۔",
+      groupByCategory: "کیٹیگری کے حساب سے گروپ کریں",
+      noData: "منتخب فلٹرز کے لیے کوئی فروخت نہیں ملی۔",
+      party: "گاہک",
+      product: "مصنوعات",
+      statCogs: "COGS",
+      statDocs: "دستاویزات",
+      statGross: "مجموعی منافع",
+      statMargin: "مارجن",
+      statSaleValue: "فروخت کی قیمت",
+      subtitle: "ہر مصنوعات کی فروخت، COGS اور مجموعی منافع۔",
+      title: "مصنوعات فروخت رپورٹ",
+      to: "تک",
+      total: "کل",
+      tryAgain: "دوبارہ کوشش کریں"
+    },
+    recon: {
+      account: "بینک اکاؤنٹ",
+      allClear: "تمام لائنیں کلیئر ہیں۔ کچھ زیرِ التوا نہیں۔",
+      bookBalance: "کتابی بیلنس",
+      clearedBalance: "کلیئر شدہ بیلنس",
+      clearedDate: "کلیئر ہونے کی تاریخ",
+      clearedOn: "{date} کو کلیئر",
+      colCredit: "کریڈٹ",
+      colDate: "تاریخ",
+      colDebit: "ڈیبٹ",
+      colDetails: "تفصیل",
+      colRef: "حوالہ",
+      colStatus: "حیثیت",
+      difference: "فرق",
+      errLoad: "ریکونسیلیشن ڈیٹا لوڈ نہیں ہو سکا۔",
+      errSave: "تبدیلیاں محفوظ نہیں ہو سکیں۔",
+      loading: "لوڈ ہو رہا ہے...",
+      markCleared: "{count} کو کلیئر کریں",
+      markUncleared: "{count} کو ان کلیئر کریں",
+      pdcSuggest: "پی ڈی سی تجویز: {date}",
+      pending: "{count} لائنیں زیرِ التوا",
+      reconciled: "ریکونسیلڈ",
+      select: "منتخب کریں",
+      selectAll: "تمام منتخب کریں",
+      showCleared: "کلیئر شدہ لائنیں دکھائیں",
+      subtitle: "کتابی بیلنس کو بینک اسٹیٹمنٹ سے ملائیں۔",
+      title: "بینک ریکونسیلیشن",
+      tryAgain: "دوبارہ کوشش کریں",
+      uncleared: "ان کلیئر",
+      working: "کام جاری ہے..."
+    },
+    settings: {
+      defaultFormat: "ڈیفالٹ انوائس فارمیٹ",
+      defaultFormatHint: "دستاویز صفحات پر ڈیفالٹ پرنٹ فارمیٹ کے طور پر استعمال ہوتا ہے۔ آپ پھر بھی ہر دستاویز پر تبدیل کر سکتے ہیں۔",
+      fmt80mm: "تھرمل رسید (80mm)",
+      fmtA4: "A4",
+      fmtChallan: "ڈیلیوری چالان"
+    }
+  }
 };

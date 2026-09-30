@@ -15,10 +15,10 @@ import { usePermissions } from "@/components/permissions";
 type Company = {
   name: string; email: string | null; phone: string | null; address: string | null;
   city: string | null; ntn: string | null; bankInfo: string | null; invoiceFooter: string | null;
-  businessType: string;
+  businessType: string; defaultInvoiceFormat: string;
 };
 
-const empty: Company = { name: "", email: "", phone: "", address: "", city: "", ntn: "", bankInfo: "", invoiceFooter: "", businessType: "WHOLESALE" };
+const empty: Company = { name: "", email: "", phone: "", address: "", city: "", ntn: "", bankInfo: "", invoiceFooter: "", businessType: "WHOLESALE", defaultInvoiceFormat: "80mm" };
 
 const SECTIONS = [
   "sec-company",
@@ -84,6 +84,7 @@ export default function SettingsPage() {
         address: d.data.address ?? "", city: d.data.city ?? "", ntn: d.data.ntn ?? "",
         bankInfo: d.data.bankInfo ?? "", invoiceFooter: d.data.invoiceFooter ?? "",
         businessType: d.data.businessType ?? "WHOLESALE",
+        defaultInvoiceFormat: (d.data as { defaultInvoiceFormat?: string }).defaultInvoiceFormat ?? "80mm",
       }))
       .catch(() => setError(t("settings.loadError")))
       .finally(() => setLoading(false));
@@ -134,7 +135,7 @@ export default function SettingsPage() {
             </Field>
             <Field label={t("settings.businessType")}>
               <select className="field" value={form.businessType} onChange={set("businessType")}>
-                {BUSINESS_TYPES.map((b) => <option key={b.value} value={b.value}>{b.label} — {b.hint}</option>)}
+                {BUSINESS_TYPES.map((b) => <option key={b.value} value={b.value}>{t(b.label)} — {t(b.hint)}</option>)}
               </select>
               <p className="mt-1 text-xs text-muted-foreground">
                 {t("settings.businessTypeHint")}
@@ -162,6 +163,14 @@ export default function SettingsPage() {
             <Field label={t("settings.bankInfo")}>
               <textarea className="field min-h-20" value={form.bankInfo ?? ""} onChange={set("bankInfo")} placeholder={t("settings.bankInfoPh")} />
               <p className="mt-1 text-xs text-muted-foreground">{t("settings.bankInfoHint")}</p>
+            </Field>
+            <Field label={t("fix4.settings.defaultFormat")}>
+              <select className="field" value={form.defaultInvoiceFormat} onChange={set("defaultInvoiceFormat")}>
+                <option value="80mm">{t("fix4.settings.fmt80mm")}</option>
+                <option value="a4">{t("fix4.settings.fmtA4")}</option>
+                <option value="challan">{t("fix4.settings.fmtChallan")}</option>
+              </select>
+              <p className="mt-1 text-xs text-muted-foreground">{t("fix4.settings.defaultFormatHint")}</p>
             </Field>
             <Field label={t("settings.invoiceFooter")}>
               <textarea className="field min-h-20" value={form.invoiceFooter ?? ""} onChange={set("invoiceFooter")} placeholder={t("settings.invoiceFooterPh")} />
@@ -679,6 +688,12 @@ function TeamCard() {
   const [resetBusy, setResetBusy] = useState(false);
   const [resetDone, setResetDone] = useState<string | null>(null);
   const [permsFor, setPermsFor] = useState<string | null>(null);
+  const [myId, setMyId] = useState<string | null>(null);
+  // Hide self-service landmines: never show activate/deactivate or
+  // reset-password on your own row (the API rejects them too).
+  useEffect(() => {
+    api<{ user: { id: string } }>("/api/auth/me").then((d) => setMyId(d.user.id)).catch(() => {});
+  }, []);
 
   function load() {
     api<{ data: TeamUser[] }>("/api/users")
@@ -799,7 +814,7 @@ function TeamCard() {
                         {u.role === "OWNER" ? t("settingsteam.owner") : t("settingsteam.staff")}
                       </span>
                     )}
-                    {u.role !== "OWNER" && (
+                    {u.role !== "OWNER" && u.id !== myId && (
                       <button
                         className="btn btn-ghost !px-3 !py-1.5 text-xs"
                         onClick={() => patchUser(u.id, { isActive: !u.isActive })}
@@ -807,7 +822,7 @@ function TeamCard() {
                         {u.isActive ? t("settingsteam.deactivate") : t("settingsteam.activate")}
                       </button>
                     )}
-                    {u.role !== "OWNER" && (
+                    {u.role !== "OWNER" && u.id !== myId && (
                       <button
                         className="btn btn-ghost !px-3 !py-1.5 text-xs"
                         title={t("settingsteam.resetPassword")}
@@ -1028,6 +1043,9 @@ function SecurityCard() {
               <span>{t("settingssecurity.savedAck")}</span>
             </label>
             {!savedAck && <p className="mt-2 text-xs text-muted-foreground">{t("settingssecurity.keepOpen")}</p>}
+            <button className="btn btn-ghost mt-3 text-sm" onClick={regenCode} disabled={codeBusy}>
+              <RefreshCw size={15} /> {codeBusy ? t("settingssecurity.generating") : t("settingssecurity.newCode")}
+            </button>
           </div>
         ) : (
           <button className="btn btn-ghost mt-3 text-sm" onClick={regenCode} disabled={codeBusy}>

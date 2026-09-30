@@ -47,6 +47,13 @@ export function payloadHash(raw: string): string {
 // payments, and the sample-data manifest. Audit + error log rows for the
 // company ARE wiped; the restore itself is mirrored to the global error_logs
 // (companyId NULL) so it survives, exactly like company deletion does.
+//
+// Preservation is real, not just a skip-list: since migration 0023 the
+// former ON DELETE CASCADE foreign keys are gone (plain restrict FKs,
+// deferred), and wipeCompanyData() deletes child-before-parent explicitly.
+// The old invisible DB cascades can no longer wipe the preserved tables
+// (pdc_cheques, product_batches, bundle_components, doc_batch_usage,
+// setoff_allocations) while their parents are being replaced.
 
 import { BACKUP_ARRAY_KEYS } from "./backup";
 import { companyScopedTables } from "./company-delete";
@@ -80,9 +87,13 @@ const RESTORED_TABLES = new Set<SQLiteTable>(Object.values(RESTORE_TABLES));
 /**
  * Company-scoped tables the restore wipe must leave alone: everything the
  * payload doesn't carry (users, login history, stored backups, settings,
- * held bills, billing payments, sample manifest). Computed from the schema,
- * not hardcoded — new tables are preserved by default until the payload
- * (and RESTORE_TABLES) explicitly covers them.
+ * held bills, billing payments, sample manifest, PDC cheques, batches,
+ * bundle components, batch lineage, set-off allocations). Computed from the
+ * schema, not hardcoded — new tables are preserved by default until the
+ * payload (and RESTORE_TABLES) explicitly covers them. Preservation holds
+ * at the DB level too: migration 0023 removed the ON DELETE CASCADE keys
+ * that used to wipe these tables silently, and the wipe deletes
+ * child-before-parent explicitly.
  */
 export function restorePreservedTables(): SQLiteTable[] {
   return companyScopedTables().filter(

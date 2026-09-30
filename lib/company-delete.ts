@@ -13,6 +13,15 @@ import type { DbTx } from "./db";
  * (doc items, journal lines, allocations, stock levels). The company row
  * itself is deleted last.
  *
+ * Ordering (migration 0023): the five rebuilt child tables
+ * (setoff_allocations, doc_batch_usage, product_batches, bundle_components,
+ * pdc_cheques) carry real DB-level foreign keys with NO cascade — plain
+ * restrict references, DEFERRABLE INITIALLY DEFERRED. They are deleted
+ * BEFORE their parents (docs, products, parties, branches, bank accounts)
+ * so the wipe never trips a constraint; the deferred check then passes at
+ * COMMIT. Relying on this order — not on cascades — is what keeps the
+ * restore's preserved tables (pdc_cheques etc.) actually preserved.
+ *
  * Global tables (platform_settings, rate_limits, support_requests) are
  * untouched. error_logs rows for the company are removed; the
  * `company.deleted` audit entry the route writes with companyId=NULL survives.
@@ -41,18 +50,57 @@ export function companyScopedTables(): SQLiteTable[] {
   return out;
 }
 
+/**
+ * True when `e` is a SQLite foreign-key constraint failure — i.e. a delete
+ * was refused because linked rows still exist. API routes turn this into a
+ * 409 with a clear message instead of a 500.
+ */
+export function isForeignKeyViolation(e: unknown): boolean {
+  // Drizzle wraps driver errors in DrizzleQueryError (message "Failed query…",
+  // code undefined), so walk the cause chain to the underlying driver error.
+  let cur: unknown = e;
+  for (let i = 0; i < 5 && cur != null; i++) {
+    const msg =
+      cur instanceof Error ? cur.message : typeof cur === "string" ? cur : "";
+    if (msg.includes("FOREIGN KEY constraint failed")) return true;
+    const code = (cur as { code?: unknown } | null)?.code;
+    if (typeof code === "string" && code.includes("FOREIGNKEY")) return true;
+    cur = cur instanceof Error ? (cur as { cause?: unknown }).cause : undefined;
+  }
+  return false;
+}
+
+async function deleteWhereCompany(
+  tx: DbTx,
+  table: SQLiteTable,
+  companyId: string
+): Promise<void> {
+  const cols = getTableColumns(table);
+  const companyIdCol = Object.values(cols).find((c) => c.name === "company_id");
+  if (!companyIdCol) return;
+  await tx.delete(table).where(eq(companyIdCol, companyId));
+}
+
 /** Delete every row belonging to the company. Must run inside a transaction.
  *
  * `exclude` lists tables to leave untouched — restore uses it to preserve
  * `users` (the backup payload carries no user rows, and deleting them would
  * lock everyone out), `loginEvents` (history stays readable after a restore),
- * and `backups` (never wipe the stored backups during a restore). */
+ * `backups` (never wipe the stored backups during a restore), and every
+ * other table the payload doesn't carry (pdc_cheques, product_batches,
+ * bundle_components, doc_batch_usage, setoff_allocations, price lists,
+ * settings, held bills, billing payments, sample manifest).
+ *
+ * Deletion order is child-before-parent so the DB-level foreign keys
+ * (migration 0023, no cascades) are never violated mid-transaction. */
 export async function wipeCompanyData(
   tx: DbTx,
   companyId: string,
   exclude: SQLiteTable[] = []
 ): Promise<void> {
   const excluded = new Set(exclude);
+  const skip = (t: SQLiteTable) => excluded.has(t);
+
   // 1. Child rows that reference the company only through a parent document.
   await tx.delete(schema.journalLines).where(
     inArray(
@@ -85,14 +133,27 @@ export async function wipeCompanyData(
     )
   );
 
-  // 2. Every company-scoped table (discovered from the schema), except the
-  // company row itself and anything in `exclude`.
+  // 2. FK child tables before their parents (migration 0023: restrict, no
+  // cascade). Order within: setoff_allocations references docs; doc_batch_usage
+  // references product_batches; both reference products/parties.
+  const childFirst: SQLiteTable[] = [
+    schema.setoffAllocations,
+    schema.docBatchUsage,
+    schema.productBatches,
+    schema.bundleComponents,
+    schema.pdcCheques,
+  ];
+  const childFirstSet = new Set(childFirst);
+  for (const table of childFirst) {
+    if (skip(table)) continue;
+    await deleteWhereCompany(tx, table, companyId);
+  }
+
+  // 3. Every remaining company-scoped table, except the company row itself
+  // and anything in `exclude`.
   for (const table of companyScopedTables()) {
-    if (table === schema.companies || excluded.has(table)) continue;
-    const cols = getTableColumns(table);
-    const companyIdCol = Object.values(cols).find((c) => c.name === "company_id");
-    if (!companyIdCol) continue;
-    await tx.delete(table).where(eq(companyIdCol, companyId));
+    if (table === schema.companies || childFirstSet.has(table) || skip(table)) continue;
+    await deleteWhereCompany(tx, table, companyId);
   }
 }
 
@@ -100,6 +161,6 @@ export async function wipeCompanyData(
  * Must run inside a transaction. */
 export async function deleteCompanyData(tx: DbTx, companyId: string): Promise<void> {
   await wipeCompanyData(tx, companyId);
-  // 3. The company row itself, last.
+  // 4. The company row itself, last.
   await tx.delete(schema.companies).where(eq(schema.companies.id, companyId));
 }

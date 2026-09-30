@@ -7,15 +7,18 @@ import { csvMoney } from "@/lib/csv";
 import { api, fmtMoney, fmtDateInput } from "@/lib/format";
 import { useLang } from "@/components/lang-provider";
 
-type Line = { label: string; amount: string; bold?: boolean; total?: boolean };
+type Line = { label: string; amount: string; bold?: boolean; total?: boolean; sign?: number };
 
-function MoneyLine({ l }: { l: Line }) {
+function MoneyLine({ l, t }: { l: Line; t: (key: string) => string }) {
   const neg = BigInt(l.amount) < 0n;
+  // Subtraction/addition lines ("Less:"/"Add:") carry their own sign wording;
+  // only plain lines show a negative amount in brackets. `sign` comes from the API.
+  const bracketed = neg && (l.sign ?? 0) === 0;
   return (
     <div className={`flex items-center justify-between py-2.5 ${l.total ? "border-t-2 border-border pt-3" : "border-b border-border/60"}`}>
-      <span className={l.bold ? "font-extrabold" : "text-muted-foreground"}>{l.label}</span>
+      <span className={l.bold ? "font-extrabold" : "text-muted-foreground"}>{t(l.label)}</span>
       <span className={`num font-bold ${l.total ? "text-lg text-primary" : ""} ${l.bold && !l.total ? "font-extrabold text-foreground" : ""} ${neg && !l.total ? "text-danger" : ""}`}>
-        {neg && !l.label.startsWith("Less") && !l.label.startsWith("Add") ? `(${fmtMoney((-BigInt(l.amount)).toString())})` : fmtMoney(l.amount)}
+        {bracketed ? `(${fmtMoney((-BigInt(l.amount)).toString())})` : fmtMoney(l.amount)}
       </span>
     </div>
   );
@@ -49,7 +52,7 @@ export default function ProfitLossPage() {
       <PageHeader title={t("pl.title")} subtitle={t("pl.subtitle")}
         actions={<ExportCsv filename={`profit-loss-${from}-to-${to}`} disabled={loading || lines.length === 0} rows={() => [
           [t("pl.csvItem"), t("pl.csvAmount")],
-          ...lines.map((l) => [l.label, csvMoney(l.amount)]),
+          ...lines.map((l) => [t(l.label), csvMoney(l.amount)]),
         ]} />}
       />
       <div className="card mb-4 flex flex-wrap items-end gap-3 p-4">
@@ -68,7 +71,7 @@ export default function ProfitLossPage() {
             <button className="btn btn-danger text-sm" onClick={load}><RotateCcw size={15} /> {t("pl.tryAgain")}</button>
           </div>
         ) : (
-          <div>{lines.map((l) => <MoneyLine key={l.label} l={l} />)}</div>
+          <div>{lines.map((l) => <MoneyLine key={l.label} l={l} t={t} />)}</div>
         )}
       </div>
     </div>

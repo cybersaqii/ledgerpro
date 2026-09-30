@@ -14,7 +14,7 @@ import { BusinessTypeProvider, getTranslatedProfile } from "./business-type";
 import { useLang } from "./lang-provider";
 import { usePermissions, clearMeCache } from "./permissions";
 
-export function AppShell({ children }: { children: ReactNode }) {
+export function AppShell({ children, initialBusinessType }: { children: ReactNode; initialBusinessType?: string | null }) {
   const pathname = usePathname();
   const router = useRouter();
   const { t, lang } = useLang();
@@ -23,7 +23,10 @@ export function AppShell({ children }: { children: ReactNode }) {
   const can = (p: string) => permsLoading || permissions.includes(p);
   const [open, setOpen] = useState(false);
   const [user, setUser] = useState<{ name: string; email: string } | null>(null);
-  const [businessType, setBusinessType] = useState<string | null>(null);
+  // Seeded server-side by (app)/layout.tsx so the first paint already uses the
+  // company's vocabulary; the /api/auth/me re-fetch on navigation (below)
+  // keeps it fresh after the company profile changes.
+  const [businessType, setBusinessType] = useState<string | null>(initialBusinessType ?? null);
   const [billing, setBilling] = useState<{
     level: "TRIAL" | "PRO" | "FREE";
     trialDaysLeft: number;
@@ -168,7 +171,7 @@ export function AppShell({ children }: { children: ReactNode }) {
       {open && (
         <div className="fixed inset-0 z-50 lg:hidden">
           <div className="absolute inset-0 bg-black/50" onClick={() => setOpen(false)} aria-hidden="true" />
-          <aside role="dialog" aria-modal="true" aria-label="Navigation menu"
+          <aside role="dialog" aria-modal="true" aria-label={t("shell.navMenu")}
             className="absolute left-0 top-0 flex h-full w-72 flex-col bg-sidebar shadow-2xl">
             <div className="flex h-16 items-center justify-between px-5 text-white">
               <Logo />
@@ -232,7 +235,7 @@ export function AppShell({ children }: { children: ReactNode }) {
 
         {/* Trial CTA — animated pill, opens subscription page */}
         {billing?.level === "TRIAL" && (
-          <div className="px-4 pt-4 sm:px-6 lg:px-8">
+          <div className="px-4 pt-4 print:hidden sm:px-6 lg:px-8">
             <Link
               href="/billing"
               className="trial-cta group relative flex flex-wrap items-center justify-center gap-x-2.5 gap-y-1 overflow-hidden rounded-2xl bg-gradient-to-r from-amber-300 via-amber-400 to-orange-400 px-5 py-2.5 text-center text-sm font-bold text-amber-950 transition duration-300 hover:-translate-y-0.5"
@@ -249,7 +252,7 @@ export function AppShell({ children }: { children: ReactNode }) {
           </div>
         )}
         {billing?.level === "FREE" && (
-          <div className="px-4 pt-4 sm:px-6 lg:px-8">
+          <div className="px-4 pt-4 print:hidden sm:px-6 lg:px-8">
             <Link
               href="/billing"
               className="trial-cta group relative flex flex-wrap items-center justify-center gap-x-2.5 gap-y-1 overflow-hidden rounded-2xl bg-gradient-to-r from-rose-400 via-rose-500 to-pink-500 px-5 py-2.5 text-center text-sm font-bold text-white transition duration-300 hover:-translate-y-0.5"

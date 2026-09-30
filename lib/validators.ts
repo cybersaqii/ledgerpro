@@ -31,6 +31,7 @@ export const partySchema = z.object({
   filerStatus: z.enum(["FILER", "NON_FILER", "NA"]).default("NA"),
   creditLimit: moneyStr.optional().default("0"),
   priceListId: z.string().trim().max(40).optional().or(z.literal("")),
+  category: z.string().trim().max(60).optional().or(z.literal("")),
   notes: z.string().trim().max(500).optional().or(z.literal("")),
 });
 

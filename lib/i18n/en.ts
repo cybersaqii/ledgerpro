@@ -71,6 +71,7 @@ export const en = {
     settings: "Settings",
     help: "Help",
     language: "Language",
+    currencyNote: "Rs"
   },
   nav: {
     dashboard: "Dashboard",
@@ -84,7 +85,7 @@ export const en = {
     settings: "Settings",
     billing: "Billing",
     admin: "Admin",
-    supportInbox: "Support inbox",
+    supportInbox: "Support inbox"
   },
   header: {
     openMenu: "Open menu",
@@ -99,7 +100,7 @@ export const en = {
     switchToEnglish: "View in English",
     trialTitle: "You are on a free trial",
     trialCta: "days left — upgrade to Pro",
-    trialCtaOne: "1 day left — upgrade to Pro",
+    trialCtaOne: "1 day left — upgrade to Pro"
   },
   ui: {
     switchToLight: "Switch to light mode",
@@ -113,12 +114,12 @@ export const en = {
     pageNotFound: "Page not found",
     goHome: "Go to dashboard",
     somethingWrong: "Something went wrong",
-    tryAgain: "Try again",
+    tryAgain: "Try again"
   },
   pagination: {
     prev: "Prev",
     next: "Next",
-    page: "Page {page} of {pages}",
+    page: "Page {page} of {pages}"
   },
   shell: {
     closeMenu: "Close menu",
@@ -130,6 +131,7 @@ export const en = {
     trialEnded: "Your free trial has ended — upgrade to PRO to unlock POS, team, advanced reports & more.",
     viewPlans: "View plans",
     upgradeNow: "Upgrade now",
+    navMenu: "Navigation menu"
   },
   dashboard: {
     title: "Dashboard",
@@ -169,7 +171,7 @@ export const en = {
     noRecent: "No {sales} yet",
     noRecentHint: "Your recent {sales} will appear here.",
     salesTooltip: "Sales",
-    openTile: "Open {target} list",
+    openTile: "Open {target} list"
   },
   docs: {
     purchasesTitle: "Purchases",
@@ -209,7 +211,7 @@ export const en = {
     filterHint: "Try widening the date range or clearing filters.",
     createFirstSale: "Create your first {thing}.",
     createFirstPurchase: "Record your first purchase bill.",
-    createNow: "Create now",
+    createNow: "Create now"
   },
   docform: {
     subtitleSales: "Invoice posts to accounts & stock immediately",
@@ -218,7 +220,6 @@ export const en = {
     searchPlaceholder: "Search…",
     noMatchFor: "No match for",
     phoneOptional: "Phone (optional)",
-    addCustomer: "Add customer",
     addSupplier: "Add supplier",
     typeAtLeast: "Type at least 2 letters to search or add.",
     typeLabel: "Type",
@@ -297,6 +298,8 @@ export const en = {
     barcodeAdded: "Barcode scan: added {name}",
     minPriceConfirm: "Below minimum sale price: {names}.\n\nSave anyway? This will be recorded in the activity log.",
     creditLimitConfirm: "Credit limit exceeded for {party}!\nLimit: {limit}\nNew udhaar: {balance}\n\nPost this sale anyway? This will be recorded in the activity log.",
+    extraAmountPh: "Rs",
+    noResults: "No results for “{q}”."
   },
   docdetail: {
     notFound: "Not found",
@@ -381,7 +384,7 @@ export const en = {
     waDate: "Date: {date}",
     waParty: "Party: {party}",
     waReceived: "Received in good condition.",
-    waTotal: "Total: {total}",
+    waTotal: "Total: {total}"
   },
   parties: {
     suppliersTitle: "Suppliers",
@@ -392,6 +395,8 @@ export const en = {
     emptyHint: "Add your first one to start billing.",
     addNow: "Add now",
     addTitle: "Add {party}",
+    category: "Category",
+    categoryFilter: "Filter by category…",
     editTitle: "Edit {party}",
     creditLimit: "Credit limit (Rs)",
     creditLimitHint: "0 = no limit",
@@ -405,6 +410,10 @@ export const en = {
     addressPlaceholder: "Shop address",
     view360: "360 view",
     saveError: "Could not save.",
+    email: "Email",
+    loadError: "Could not load party details.",
+    notes: "Notes (optional)",
+    ntn: "NTN (optional)"
   },
   products: {
     subtitle: "{total} {products} · stock updates automatically on purchase & sale",
@@ -436,6 +445,7 @@ export const en = {
     reorderLevel: "Reorder level",
     trackStock: "Track stock for this {product}",
     saveError: "Could not save.",
+    loadError: "Could not load product details."
   },
   bundles: {
     badge: "Bundle",
@@ -449,7 +459,7 @@ export const en = {
     loadError: "Could not load bundle components.",
     saveError: "Could not save bundle components.",
     duplicateError: "This product is already a component.",
-    isBundleNote: "Bundle — stock is tracked on its components, not here.",
+    isBundleNote: "Bundle — stock is tracked on its components, not here."
   },
   batches: {
     title: "Batches",
@@ -486,7 +496,7 @@ export const en = {
     colStatus: "Status",
     errInvalidExpiry: "Expiry date must be a real date in YYYY-MM-DD format.",
     errBatchRequired: "Please select a batch for the returned item.",
-    errBatchInvalid: "The selected batch is not valid for this product.",
+    errBatchInvalid: "The selected batch is not valid for this product."
   },
   payments: {
     title: "Payments",
@@ -496,6 +506,8 @@ export const en = {
     tabAll: "All",
     tabReceipts: "Receipts",
     tabPayments: "Payments",
+    transfers: "Transfers",
+    reconcile: "Reconcile",
     fromDate: "From date",
     toDate: "To date",
     toWord: "to",
@@ -530,7 +542,7 @@ export const en = {
     detailNotes: "Notes",
     detailUnallocated: "Unallocated",
     detailPrint: "Print",
-    detailBack: "Payments",
+    detailBack: "Payments"
   },
   pdc: {
     title: "Post-dated cheques",
@@ -575,7 +587,7 @@ export const en = {
     working: "Working…",
     errBank: "Please select a bank account.",
     errDate: "Please enter a date.",
-    errSave: "Could not save.",
+    errSave: "Could not save."
   },
   pdcform: {
     title: "Record post-dated cheque",
@@ -604,14 +616,14 @@ export const en = {
     errChequeNo: "Please enter the cheque number.",
     errAmount: "Please enter a valid amount.",
     errDate: "Please enter the cheque date.",
-    errSave: "Could not save.",
+    errSave: "Could not save."
   },
   payform: {
     receiveTitle: "Receive payment",
     payTitle: "Pay supplier",
-    receiveSub: "Money received from a customer",
+    receiveSub: "Money received from a {party}",
     paySub: "Money paid out — supplier bills or customer refunds",
-    tabReceive: "Receive (customer pays)",
+    tabReceive: "Receive ({party} pays)",
     payTo: "Pay to:",
     refundHint: "Refund — not allocated to any invoice",
     tabPay: "Pay / refund",
@@ -645,7 +657,7 @@ export const en = {
     allocateAgainst: "Allocate against {docNo}",
     saveReceipt: "Save receipt",
     savePayment: "Save payment",
-    saving: "Saving…",
+    saving: "Saving…"
   },
   expenses: {
     title: "Expenses",
@@ -674,7 +686,7 @@ export const en = {
     notes: "Notes (optional)",
     notesPlaceholder: "e.g. Shop rent for September",
     saveExpense: "Save expense",
-    saveError: "Could not save.",
+    saveError: "Could not save."
   },
   stockpage: {
     subtitle: "Total {stock} value",
@@ -699,7 +711,7 @@ export const en = {
     csvReorder: "Reorder level",
     csvLow: "Low stock",
     csvYes: "YES",
-    csvTotal: "TOTAL",
+    csvTotal: "TOTAL"
   },
   auth: {
     loginTitle: "Welcome back",
@@ -760,11 +772,11 @@ export const en = {
     repeatPw: "Repeat new password",
     resetting: "Resetting…",
     resetBtn: "Reset password",
-    lostCode: "Lost your recovery code too? Ask your company owner to reset your password from Settings → Team, or back to log in.",
+    lostCode: "Lost your recovery code too? Ask your company owner to reset your password from Settings → Team, or back to log in."
   },
   pub: {
     login: "Log in",
-    backHome: "Back to home",
+    backHome: "Back to home"
   },
   terms: {
     title: "Terms of Service",
@@ -787,7 +799,7 @@ export const en = {
     s6p0: "You may stop using the service at any time — export your data first from Settings. We may update these terms; material changes will be announced in the app. Continued use after changes take effect means you accept them.",
     s7h: "8. Contact",
     s7p0: "Questions about these terms? Reach us through the contact details published on {brand}'s website.",
-    privacyLink: "Privacy Policy",
+    privacyLink: "Privacy Policy"
   },
   privacy: {
     title: "Privacy Policy",
@@ -814,7 +826,7 @@ export const en = {
     s6p0: "We may update this policy as the product evolves; material changes will be announced in the app. Continued use after changes take effect means you accept the updated policy.",
     s7h: "8. Contact",
     s7p0: "Questions about your data? Reach us through the contact details published on {brand}'s website.",
-    termsLink: "Terms of Service",
+    termsLink: "Terms of Service"
   },
   support: {
     title: "Support",
@@ -824,7 +836,7 @@ export const en = {
     hoursLabel: "Support hours",
     formTitle: "Send a support request",
     formSub: "Tell us what happened and how to reach you. Requests are answered by our team via email or phone — there are no automated replies, so please allow some time during support hours.",
-    changelogLink: "Changelog",
+    changelogLink: "Changelog"
   },
   supportform: {
     nameLabel: "Your name",
@@ -838,25 +850,25 @@ export const en = {
     sendBtn: "Send message",
     sendError: "Could not send your message.",
     sentTitle: "Message received.",
-    sentSub: "Thanks for writing in — our team will get back to you via email or phone.",
+    sentSub: "Thanks for writing in — our team will get back to you via email or phone."
   },
   changelog: {
     title: "Changelog",
     intro: "Everything we ship, newest first. Release notes stay in English so every version reads the same everywhere.",
-    supportLink: "Support",
+    supportLink: "Support"
   },
   notfound: {
     title: "Page not found",
     sub: "This page does not exist or was moved. Your books are safe — pick a place to go next.",
     dashboard: "Go to dashboard",
     pos: "Open POS",
-    home: "Home page",
+    home: "Home page"
   },
   errorpage: {
     title: "Something went wrong",
     sub: "This page hit an unexpected error. Your saved data is not affected — try again or head back to the dashboard.",
     retry: "Try again",
-    dashboard: "Go to dashboard",
+    dashboard: "Go to dashboard"
   },
   authlayout: {
     headline: "Your entire business hisaab, finally in one place.",
@@ -868,7 +880,7 @@ export const en = {
     p2d: "P&L, stock and ledgers in one click.",
     p3t: "Safe for up to 10 years",
     p3d: "Balanced books, secure and permanent.",
-    footer: "© 2026 {brand} · Built for every business",
+    footer: "© 2026 {brand} · Built for every business"
   },
   landing: {
     navFeatures: "Features",
@@ -1017,7 +1029,7 @@ export const en = {
     footPrivacy: "Privacy",
     footSupport: "Support",
     footChangelog: "Changelog",
-    footTagline: "Complete hisaab-kitab for every business.",
+    footTagline: "Complete hisaab-kitab for every business."
   },
   balances: {
     outstanding: "Total outstanding:",
@@ -1062,7 +1074,7 @@ export const en = {
     bills: "Bills",
     daysLate: "{days}d late",
     notDueYet: "not due",
-    payables: "Payables",
+    payables: "Payables"
   },
   pos: {
     doneTitle: "Bill saved",
@@ -1163,6 +1175,9 @@ export const en = {
     batch: "Batch",
     batchAuto: "Auto (FIFO)",
     printReceipt: "Print receipt",
+    defaultNote: "POS sale",
+    errNoName: "Every item needs a name.",
+    errRate: "Rates cannot be negative."
   },
   settings: {
     navAria: "Settings sections",
@@ -1226,7 +1241,7 @@ export const en = {
     activityTitle: "Activity log",
     activityHint: "Who did what, and when — the audit trail.",
     viewLog: "View log",
-    auditRetention: "Audit entries are kept for {years} years and are never auto-deleted.",
+    auditRetention: "Audit entries are kept for {years} years and are never auto-deleted."
   },
   settingsbackups: {
     title: "Automatic backups",
@@ -1276,7 +1291,7 @@ export const en = {
     restoring: "Restoring… please keep this page open.",
     restoreDone: "Restore complete. Your company data now matches the backup.",
     reloadPage: "Reload page",
-    close: "Close",
+    close: "Close"
   },
   perms: {
     groupDaily: "Daily work",
@@ -1318,7 +1333,7 @@ export const en = {
     period_lock: "Period lock",
     period_lockDesc: "Lock accounting periods",
     audit: "Audit trail",
-    auditDesc: "View the activity and audit log",
+    auditDesc: "View the activity and audit log"
   },
   settingsteam: {
     title: "Team",
@@ -1360,7 +1375,7 @@ export const en = {
     pwShort: "Password must be at least 8 characters.",
     resetError: "Could not reset password.",
     resetDone: "Password reset for {name}. They have been logged out everywhere.",
-    updateError: "Could not update.",
+    updateError: "Could not update."
   },
   settingssecurity: {
     title: "Password & recovery",
@@ -1384,6 +1399,7 @@ export const en = {
     generating: "Generating…",
     generateCode: "Generate new recovery code",
     codeError: "Could not generate code.",
+    newCode: "Generate new code"
   },
   settingssessions: {
     title: "Sessions & devices",
@@ -1393,7 +1409,7 @@ export const en = {
     loggingOut: "Logging out…",
     logoutAll: "Log out all devices",
     logoutConfirm: "Log out on all devices, including this one? You will need to sign in again.",
-    logoutError: "Could not log out everywhere.",
+    logoutError: "Could not log out everywhere."
   },
   settingssyncdevices: {
     title: "Synced devices",
@@ -1405,7 +1421,7 @@ export const en = {
     revoked: "Revoked",
     revokeError: "Could not revoke the device.",
     lastUsed: "Last synced {date}",
-    neverUsed: "Never synced",
+    neverUsed: "Never synced"
   },
   settingslock: {
     title: "Accounting period lock",
@@ -1424,12 +1440,12 @@ export const en = {
     saving: "Saving…",
     lockPeriod: "Lock period",
     clearLock: "Clear lock",
-    ownerOnly: "Only the owner can change the period lock.",
+    ownerOnly: "Only the owner can change the period lock."
   },
   settingshealth: {
     title: "System health",
     hint: "Recent unexpected server errors. If something breaks for your team, it shows up here.",
-    noErrors: "No errors logged.",
+    noErrors: "No errors logged."
   },
   settingsdanger: {
     title: "Danger zone",
@@ -1443,7 +1459,7 @@ export const en = {
     cancel: "Cancel",
     nameMismatch: "Type your company name exactly as shown to confirm.",
     pwRequired: "Enter your current password.",
-    deleteError: "Could not delete the company.",
+    deleteError: "Could not delete the company."
   },
   settingsactivity: {
     title: "Activity log",
@@ -1453,7 +1469,7 @@ export const en = {
     emptyHint: "Logins, bills, payments and team changes will appear here.",
     events: "{count} events",
     newer: "← Newer",
-    older: "Older →",
+    older: "Older →"
   },
   activityactions: {
     auth: {
@@ -1462,6 +1478,7 @@ export const en = {
       password_reset: "Password reset with recovery code",
       password_changed: "Password changed",
       recovery_code_regenerated: "Recovery code regenerated",
+      logout_everywhere: "Signed out all devices"
     },
     sale: {
       invoice_created: "Sale invoice created",
@@ -1473,6 +1490,8 @@ export const en = {
       price_override: "Below-minimum price sale",
       advance_applied: "Advance applied",
       credit_limit_override: "Credit-limit override",
+      receipt_created: "Receipt created",
+      updated: "Sale invoice updated"
     },
     purchase: {
       bill_created: "Purchase bill created",
@@ -1480,6 +1499,8 @@ export const en = {
       grn_created: "GRN created",
       return_created: "Purchase return created",
       converted: "Converted to bill",
+      payment_created: "Purchase payment recorded",
+      updated: "Purchase bill updated"
     },
     pos: {
       checkout: "POS bill completed",
@@ -1487,36 +1508,61 @@ export const en = {
       held_deleted: "Parked bill removed",
       price_override: "POS price override",
       advance_applied: "POS advance applied",
-      credit_limit_override: "POS credit-limit override",
+      credit_limit_override: "POS credit-limit override"
     },
     party: {
       created: "Party created",
       updated: "Party updated",
       deleted: "Party removed",
-      setoff: "Party set-off",
+      setoff: "Party set-off"
     },
     product: {
       created: "Product created",
       updated: "Product updated",
       deleted: "Product removed",
+      bundle_updated: "Bundle updated"
     },
     settings: {
       updated: "Business settings updated",
-      period_lock: "Period lock updated",
+      period_lock: "Period lock updated"
     },
-    data: { imported: "CSV data imported" },
-    payment: { created: "Payment recorded" },
-    expense: { created: "Expense recorded" },
+    data: {
+      imported: "CSV data imported"
+    },
+    payment: {
+      created: "Payment recorded"
+    },
+    expense: {
+      created: "Expense recorded"
+    },
     user: {
       invited: "Staff member added",
       updated: "Team member updated",
-      password_reset: "Staff password reset",
+      password_reset: "Staff password reset"
     },
     billing: {
       payment_submitted: "PRO payment submitted",
       payment_approved: "PRO subscription activated",
-      payment_rejected: "PRO payment rejected",
+      payment_rejected: "PRO payment rejected"
     },
+    backup: {
+      created: "Backup created",
+      restored: "Backup restored",
+      upload_verified: "Backup file verified"
+    },
+    pdc: {
+      cleared: "Cheque cleared",
+      recorded: "Cheque recorded"
+    },
+    sample: {
+      loaded: "Sample data loaded",
+      removed: "Sample data removed"
+    },
+    sync: {
+      conflict: "Sync conflict",
+      enroll: "Device enrolled",
+      revoke: "Device revoked"
+    }
   },
   billing: {
     title: "Billing",
@@ -1567,7 +1613,7 @@ export const en = {
     rejected: "Rejected",
     methodBank: "Bank transfer",
     methodJazzcash: "JazzCash",
-    methodEasypaisa: "EasyPaisa",
+    methodEasypaisa: "EasyPaisa"
   },
   adminbilling: {
     title: "Billing admin",
@@ -1599,24 +1645,24 @@ export const en = {
       bankDetails: "Bank details",
       jazzcash: "JazzCash",
       easypaisa: "EasyPaisa",
-      instructions: "Payment instructions",
+      instructions: "Payment instructions"
     },
     supportTitle: "Support contact details",
     supportHint: "(shown on the public /support page)",
     supportLabels: {
       email: "Support email",
       phone: "Support phone / WhatsApp",
-      hours: "Support hours",
+      hours: "Support hours"
     },
     securityTitle: "Security",
     securityHint: "(applies to every company)",
     securityLabels: {
-      idleTimeout: "Idle session timeout (hours, 1–720)",
+      idleTimeout: "Idle session timeout (hours, 1–720)"
     },
     saved: "Saved.",
     saving: "Saving…",
     saveSettings: "Save settings",
-    saveError: "Could not save settings.",
+    saveError: "Could not save settings."
   },
   adminsupport: {
     title: "Support requests",
@@ -1632,7 +1678,7 @@ export const en = {
     all: "All",
     noRequests: "No {filter} requests",
     markResolved: "Mark resolved",
-    reopen: "Reopen",
+    reopen: "Reopen"
   },
   reportsindex: {
     title: "Reports",
@@ -1669,7 +1715,7 @@ export const en = {
     dayBook: "Day book",
     dayBookText: "Every voucher of a day, in time order.",
     taxSummary: "Tax summary",
-    taxSummaryText: "GST collected vs paid, and the net payable.",
+    taxSummaryText: "GST collected vs paid, and the net payable."
   },
   statements: {
     title: "{party} statement",
@@ -1710,7 +1756,7 @@ export const en = {
     csvCredit: "Credit (Rs)",
     csvBalance: "Balance (Rs)",
     csvOpening: "OPENING BALANCE",
-    csvClosing: "CLOSING BALANCE",
+    csvClosing: "CLOSING BALANCE"
   },
   salesummary: {
     title: "Sale summary",
@@ -1744,7 +1790,7 @@ export const en = {
     csvTax: "Tax (Rs)",
     csvReturns: "Returns (Rs)",
     csvGrand: "Grand total (Rs)",
-    csvTotal: "TOTAL",
+    csvTotal: "TOTAL"
   },
   purchasesummary: {
     title: "Purchase summary",
@@ -1778,7 +1824,7 @@ export const en = {
     csvTax: "Tax (Rs)",
     csvReturns: "Returns (Rs)",
     csvGrand: "Grand total (Rs)",
-    csvTotal: "TOTAL",
+    csvTotal: "TOTAL"
   },
   bankbook: {
     title: "Bank book",
@@ -1805,7 +1851,7 @@ export const en = {
     csvCredit: "Credit (Rs)",
     csvBalance: "Balance (Rs)",
     csvOpening: "OPENING BALANCE",
-    csvClosing: "CLOSING BALANCE",
+    csvClosing: "CLOSING BALANCE"
   },
   daybook: {
     title: "Day book",
@@ -1824,7 +1870,7 @@ export const en = {
     csvAccount: "Account",
     csvParty: "Party",
     csvDebit: "Debit (Rs)",
-    csvCredit: "Credit (Rs)",
+    csvCredit: "Credit (Rs)"
   },
   taxsummary: {
     title: "Tax summary",
@@ -1849,7 +1895,7 @@ export const en = {
     csvDebit: "Debit (Rs)",
     csvCredit: "Credit (Rs)",
     csvNet: "Net (Rs)",
-    csvNetPayable: "NET PAYABLE",
+    csvNetPayable: "NET PAYABLE"
   },
   trialbalance: {
     title: "Trial balance",
@@ -1863,7 +1909,7 @@ export const en = {
     colCredit: "Credit",
     csvDebit: "Debit (Rs)",
     csvCredit: "Credit (Rs)",
-    csvTotal: "TOTAL",
+    csvTotal: "TOTAL"
   },
   pl: {
     title: "Profit & loss",
@@ -1874,7 +1920,7 @@ export const en = {
     errLoadWith: "Could not load the report — {error}",
     tryAgain: "Try again",
     csvItem: "Item",
-    csvAmount: "Amount (Rs)",
+    csvAmount: "Amount (Rs)"
   },
   balancesheet: {
     title: "Balance sheet",
@@ -1886,7 +1932,7 @@ export const en = {
     equity: "Equity",
     csvSection: "Section",
     csvAccount: "Account",
-    csvAmount: "Amount (Rs)",
+    csvAmount: "Amount (Rs)"
   },
   journal: {
     title: "Journal",
@@ -1916,7 +1962,7 @@ export const en = {
     csvAccount: "Account",
     csvParty: "Party",
     csvDebit: "Debit (Rs)",
-    csvCredit: "Credit (Rs)",
+    csvCredit: "Credit (Rs)"
   },
   partyledger: {
     title: "{party} ledger",
@@ -1964,6 +2010,7 @@ export const en = {
     statReceived: "Received",
     statPaid: "Paid",
     statOutstanding: "Outstanding",
+    errTooMuch: "Set-off amount exceeds the maximum ({max})."
   },
   dayclose: {
     title: "Day close",
@@ -1983,7 +2030,8 @@ export const en = {
     cardCashReceived: "Cash received",
     cardCashPaid: "Cash paid",
     cardExpenses: "Expenses",
-    viewSales: "View sales",    viewPurchases: "View purchases",
+    viewSales: "View sales",
+    viewPurchases: "View purchases",
     viewPayments: "View payments",
     viewExpenses: "View expenses",
     entryOne: "entry",
@@ -1997,20 +2045,391 @@ export const en = {
     csvPurchaseReturns: "Purchase returns",
     csvTotalCashIn: "Total cash in",
     csvTotalCashOut: "Total cash out",
-    csvNetCash: "Net cash",
+    csvNetCash: "Net cash"
   },
-  /** Adaptive business vocabulary (mirrors lib/business-types.ts profiles). */
   bp: {
-    WHOLESALE: { partyOne: "Customer", partyMany: "Customers", productOne: "Product", productMany: "Products", salesNav: "Sales", newSale: "New sale bill", saveSale: "Save sale bill", receivables: "Receivables", stock: "Stock", docTitle: "Sale Invoice", billTitle: "Purchase Bill" },
-    RETAIL: { partyOne: "Customer", partyMany: "Customers", productOne: "Product", productMany: "Products", salesNav: "Billing", newSale: "New counter bill", saveSale: "Save counter bill", receivables: "Receivables", stock: "Stock", docTitle: "Sale Bill", billTitle: "Purchase Bill" },
-    DISTRIBUTION: { partyOne: "Customer", partyMany: "Customers", productOne: "Product", productMany: "Products", salesNav: "Sales", newSale: "New sale bill", saveSale: "Save sale bill", receivables: "Receivables", stock: "Stock", docTitle: "Sale Invoice", billTitle: "Purchase Bill" },
-    PHARMACY: { partyOne: "Customer", partyMany: "Customers", productOne: "Medicine", productMany: "Medicines", salesNav: "Sales", newSale: "New sale bill", saveSale: "Save sale bill", receivables: "Receivables", stock: "Medicine stock", docTitle: "Sale Invoice", billTitle: "Purchase Bill" },
-    CLINIC: { partyOne: "Patient", partyMany: "Patients", productOne: "Treatment", productMany: "Treatments", salesNav: "Treatments", newSale: "New treatment bill", saveSale: "Save treatment bill", receivables: "Patient dues", stock: "Medicine stock", docTitle: "Treatment Bill", billTitle: "Purchase Bill" },
-    RESTAURANT: { partyOne: "Guest", partyMany: "Guests", productOne: "Menu item", productMany: "Menu items", salesNav: "Billing", newSale: "New bill", saveSale: "Save bill", receivables: "Receivables", stock: "Stock", docTitle: "Bill", billTitle: "Purchase Bill" },
-    SERVICES: { partyOne: "Client", partyMany: "Clients", productOne: "Service", productMany: "Services", salesNav: "Invoices", newSale: "New invoice", saveSale: "Save invoice", receivables: "Receivables", stock: "Stock", docTitle: "Invoice", billTitle: "Purchase Bill" },
-    MANUFACTURING: { partyOne: "Customer", partyMany: "Customers", productOne: "Product", productMany: "Products", salesNav: "Sales", newSale: "New sale bill", saveSale: "Save sale bill", receivables: "Receivables", stock: "Stock", docTitle: "Sale Invoice", billTitle: "Purchase Bill" },
-    OTHER: { partyOne: "Customer", partyMany: "Customers", productOne: "Product", productMany: "Products", salesNav: "Sales", newSale: "New sale bill", saveSale: "Save sale bill", receivables: "Receivables", stock: "Stock", docTitle: "Sale Invoice", billTitle: "Purchase Bill" },
+    WHOLESALE: {
+      partyOne: "Customer",
+      partyMany: "Customers",
+      productOne: "Product",
+      productMany: "Products",
+      salesNav: "Sales",
+      newSale: "New sale bill",
+      saveSale: "Save sale bill",
+      receivables: "Receivables",
+      stock: "Stock",
+      docTitle: "Sale Invoice",
+      billTitle: "Purchase Bill"
+    },
+    RETAIL: {
+      partyOne: "Customer",
+      partyMany: "Customers",
+      productOne: "Product",
+      productMany: "Products",
+      salesNav: "Billing",
+      newSale: "New counter bill",
+      saveSale: "Save counter bill",
+      receivables: "Receivables",
+      stock: "Stock",
+      docTitle: "Sale Bill",
+      billTitle: "Purchase Bill"
+    },
+    DISTRIBUTION: {
+      partyOne: "Customer",
+      partyMany: "Customers",
+      productOne: "Product",
+      productMany: "Products",
+      salesNav: "Sales",
+      newSale: "New sale bill",
+      saveSale: "Save sale bill",
+      receivables: "Receivables",
+      stock: "Stock",
+      docTitle: "Sale Invoice",
+      billTitle: "Purchase Bill"
+    },
+    PHARMACY: {
+      partyOne: "Customer",
+      partyMany: "Customers",
+      productOne: "Medicine",
+      productMany: "Medicines",
+      salesNav: "Sales",
+      newSale: "New sale bill",
+      saveSale: "Save sale bill",
+      receivables: "Receivables",
+      stock: "Medicine stock",
+      docTitle: "Sale Invoice",
+      billTitle: "Purchase Bill"
+    },
+    CLINIC: {
+      partyOne: "Patient",
+      partyMany: "Patients",
+      productOne: "Treatment",
+      productMany: "Treatments",
+      salesNav: "Treatments",
+      newSale: "New treatment bill",
+      saveSale: "Save treatment bill",
+      receivables: "Patient dues",
+      stock: "Medicine stock",
+      docTitle: "Treatment Bill",
+      billTitle: "Purchase Bill"
+    },
+    RESTAURANT: {
+      partyOne: "Guest",
+      partyMany: "Guests",
+      productOne: "Menu item",
+      productMany: "Menu items",
+      salesNav: "Billing",
+      newSale: "New bill",
+      saveSale: "Save bill",
+      receivables: "Receivables",
+      stock: "Stock",
+      docTitle: "Bill",
+      billTitle: "Purchase Bill"
+    },
+    SERVICES: {
+      partyOne: "Client",
+      partyMany: "Clients",
+      productOne: "Service",
+      productMany: "Services",
+      salesNav: "Invoices",
+      newSale: "New invoice",
+      saveSale: "Save invoice",
+      receivables: "Receivables",
+      stock: "Stock",
+      docTitle: "Invoice",
+      billTitle: "Purchase Bill"
+    },
+    MANUFACTURING: {
+      partyOne: "Customer",
+      partyMany: "Customers",
+      productOne: "Product",
+      productMany: "Products",
+      salesNav: "Sales",
+      newSale: "New sale bill",
+      saveSale: "Save sale bill",
+      receivables: "Receivables",
+      stock: "Stock",
+      docTitle: "Sale Invoice",
+      billTitle: "Purchase Bill"
+    },
+    OTHER: {
+      partyOne: "Customer",
+      partyMany: "Customers",
+      productOne: "Product",
+      productMany: "Products",
+      salesNav: "Sales",
+      newSale: "New sale bill",
+      saveSale: "Save sale bill",
+      receivables: "Receivables",
+      stock: "Stock",
+      docTitle: "Sale Invoice",
+      billTitle: "Purchase Bill"
+    }
   },
+  delete: {
+    linkedRecordsParty: "Cannot delete this party: linked records exist.",
+    linkedRecordsProduct: "Cannot delete this product: linked records exist."
+  },
+  biztypes: {
+    clinic: "Clinic / healthcare",
+    clinicHint: "Doctors, clinics & care centres",
+    distribution: "Distributor",
+    distributionHint: "Brands, areas & order bookers",
+    manufacturing: "Manufacturer",
+    manufacturingHint: "Production & factory accounts",
+    other: "Other business",
+    otherHint: "Anything else",
+    pharmacy: "Pharmacy / medical store",
+    pharmacyHint: "Medicines & healthcare retail",
+    restaurant: "Restaurant / food",
+    restaurantHint: "Dine-in, takeaway & delivery",
+    retail: "Retail shop",
+    retailHint: "Counter sales, walk-in customers",
+    services: "Services business",
+    servicesHint: "Repairs, agencies & professionals",
+    wholesale: "Wholesale trader",
+    wholesaleHint: "Bulk buying & selling, distributors"
+  },
+  bs: {
+    ap: "Accounts payable",
+    ar: "Accounts receivable",
+    capital: "Owner's capital",
+    cashBank: "Cash & bank",
+    inputTax: "Sales tax recoverable",
+    inventory: "Inventory",
+    otherLiab: "Loans & other liabilities",
+    retained: "Retained earnings (P&L)",
+    taxPayable: "Sales tax payable",
+    totalAssets: "Total assets",
+    totalEquity: "Total equity",
+    totalLiab: "Total liabilities"
+  },
+  pnl: {
+    addDiscountsReceived: "Add: Discounts received",
+    grossProfit: "Gross profit",
+    lessCogs: "Less: Cost of goods sold",
+    lessDiscountsGiven: "Less: Discounts given",
+    lessExpenses: "Less: Expenses",
+    lessSalesReturns: "Less: Sales returns",
+    netProfit: "Net profit",
+    netSales: "Net sales",
+    sales: "Sales"
+  },
+  globalerror: {
+    body: "The application could not start. Your saved data is safe on the server. Please reload the page.",
+    reload: "Reload",
+    title: "LedgerPro ran into a problem"
+  },
+  fix3: {
+    adjAccount: "Affected account",
+    adjAccountHint: "The expense account that absorbs the loss (or gain). Defaults to General Expenses.",
+    adjAddLine: "Add line",
+    adjColAccount: "Account",
+    adjColCost: "Cost",
+    adjColDate: "Date",
+    adjColDoc: "Doc no.",
+    adjColLineValue: "Value",
+    adjColProduct: "Product",
+    adjColQty: "Qty",
+    adjColReason: "Reason",
+    adjColValue: "Value",
+    adjDate: "Date",
+    adjDetail: "Stock adjustment",
+    adjEmpty: "No stock adjustments yet.",
+    adjEmptyHint: "Record breakage, expired goods, theft, found stock or a stock correction.",
+    adjIn: "In",
+    adjLines: "Lines",
+    adjNew: "New adjustment",
+    adjNotes: "Notes",
+    adjNotesPh: "What happened?",
+    adjOut: "Out",
+    adjProduct: "Product",
+    adjQty: "Qty (out − / in +)",
+    adjQtyHint: "Negative removes stock, positive adds it.",
+    adjReason: "Reason",
+    adjReasonBreakage: "Breakage",
+    adjReasonCorrection: "Correction",
+    adjReasonExpired: "Expired",
+    adjReasonFound: "Found stock",
+    adjReasonTheft: "Theft",
+    adjSave: "Save adjustment",
+    adjSubtitle: "Record breakage, expiry, theft, found stock and corrections.",
+    adjTitle: "Stock adjustments",
+    taxAmount: "Tax amount",
+    taxAmountHint: "Sales tax paid on this expense, if any (posts to Input Sales Tax).",
+    trAmount: "Amount",
+    trColAmount: "Amount",
+    trColDate: "Date",
+    trColDoc: "Doc no.",
+    trColFrom: "From",
+    trColTo: "To",
+    trDate: "Date",
+    trEmpty: "No transfers yet.",
+    trEmptyHint: "Move money between cash in hand and your bank accounts.",
+    trFrom: "From account",
+    trNew: "New transfer",
+    trNotes: "Note",
+    trNotesPh: "Optional note",
+    trSave: "Save transfer",
+    trSubtitle: "Move money between your own cash and bank accounts.",
+    trTitle: "Bank / cash transfers",
+    trTo: "To account",
+    unallocate: "Unallocate",
+    unallocateConfirm: "Free this amount back to unallocated credit? The journal stays untouched.",
+    unallocating: "Unallocating…",
+    voidExpense: "Void expense",
+    voidExpenseConfirm: "Void this expense? A reversing journal will be posted — the original stays on record.",
+    voidPayment: "Void payment",
+    voidPaymentConfirm: "Void this payment? A reversing journal will be posted — the original stays on record.",
+    voidReason: "Reason (optional)",
+    voidReasonPh: "Why is this being voided?",
+    voided: "Voided",
+    voiding: "Voiding…",
+    woAccount: "Bad-debts account",
+    woAccountHint: "The expense account that absorbs the loss. Defaults to General Expenses.",
+    woAmount: "Write-off amount",
+    woButton: "Write off",
+    woColAmount: "Amount",
+    woColDate: "Date",
+    woColDoc: "Doc no.",
+    woColInvoice: "Invoice",
+    woColParty: "Party",
+    woColStatus: "Status",
+    woConfirm: "Write off {amount} on invoice {docNo}? This posts Dr Bad Debts / Cr Receivables.",
+    woDate: "Date",
+    woInvoice: "Invoice",
+    woList: "Write-offs",
+    woNotes: "Notes",
+    woNotesPh: "Why is this uncollectible?",
+    woOutstanding: "Outstanding",
+    woRecover: "Recover",
+    woRecoverConfirm: "Reverse this write-off? The collectible balance and party balance will be restored.",
+    woRecovered: "Recovered",
+    woSave: "Write off",
+    woTitle: "Bad-debt write-off",
+    trDayCloseCard: "Bank & cash transfers",
+    trView: "View transfers"
+  },
+  fix4: {
+    note: {
+      account: "Ledger account",
+      accountHint: "Credit notes post to a discount/expense account; debit notes to a discount/income account.",
+      amount: "Amount",
+      colAmount: "Amount",
+      colDate: "Date",
+      colDoc: "Doc no.",
+      colNote: "Note",
+      colParty: "Party",
+      creditTitle: "Credit Note",
+      customer: "Customer",
+      date: "Date",
+      debitTitle: "Debit Note",
+      errSave: "Could not save the note.",
+      linkedTitle: "Credit / Debit Notes",
+      listCreditTitle: "Credit notes",
+      listDebitTitle: "Debit notes",
+      listSubtitle: "Amount-only adjustments posted against parties.",
+      newCreditTitle: "New Credit Note",
+      newDebitTitle: "New Debit Note",
+      newNote: "New note",
+      newSubtitle: "Post an amount-only adjustment against a party.",
+      noSourceDoc: "No linked document",
+      notes: "Notes",
+      postNote: "Post note",
+      posting: "Posting...",
+      selectAccount: "Select account",
+      selectParty: "Select party",
+      sourceDoc: "Against document (optional)",
+      sourceDocHint: "Link the note to the original invoice or bill it adjusts.",
+      supplier: "Supplier"
+    },
+    print: {
+      amountInWords: "Amount in words: {words}",
+      copyDuplicate: "Duplicate",
+      copyLabel: "Copy",
+      copyOffice: "Office Copy",
+      copyOriginal: "Original"
+    },
+    psr: {
+      allParties: "All customers",
+      allProducts: "All products",
+      catTotal: "Category total",
+      category: "Category",
+      categoryPh: "Filter by category",
+      cogsNote: "COGS per product is allocated from the posted journal cost of goods sold ({posted}); the total matches the P&L exactly.",
+      colCogs: "COGS",
+      colGross: "Gross profit",
+      colMargin: "Margin",
+      colProduct: "Product",
+      colQty: "Qty sold",
+      colSaleValue: "Sale value",
+      csvCatTotal: "Category total",
+      csvCategory: "Category",
+      csvCogs: "COGS",
+      csvGross: "Gross profit",
+      csvMargin: "Margin %",
+      csvProduct: "Product",
+      csvQty: "Qty sold",
+      csvSaleValue: "Sale value",
+      csvSku: "SKU",
+      csvTotal: "Total",
+      errLoad: "Could not load the report.",
+      from: "From",
+      galleryText: "Per-product sales, cost of goods sold, and gross profit with drill-down to documents.",
+      groupByCategory: "Group by category",
+      noData: "No sales found for the selected filters.",
+      party: "Customer",
+      product: "Product",
+      statCogs: "COGS",
+      statDocs: "Documents",
+      statGross: "Gross profit",
+      statMargin: "Margin",
+      statSaleValue: "Sale value",
+      subtitle: "Sales, COGS, and gross profit per product.",
+      title: "Product Sales Report",
+      to: "To",
+      total: "Total",
+      tryAgain: "Try again"
+    },
+    recon: {
+      account: "Bank account",
+      allClear: "All lines are cleared. Nothing pending.",
+      bookBalance: "Book balance",
+      clearedBalance: "Cleared balance",
+      clearedDate: "Cleared date",
+      clearedOn: "Cleared {date}",
+      colCredit: "Credit",
+      colDate: "Date",
+      colDebit: "Debit",
+      colDetails: "Details",
+      colRef: "Reference",
+      colStatus: "Status",
+      difference: "Difference",
+      errLoad: "Could not load reconciliation data.",
+      errSave: "Could not save the changes.",
+      loading: "Loading...",
+      markCleared: "Mark {count} cleared",
+      markUncleared: "Mark {count} uncleared",
+      pdcSuggest: "PDC suggests {date}",
+      pending: "{count} lines pending",
+      reconciled: "Reconciled",
+      select: "Select",
+      selectAll: "Select all",
+      showCleared: "Show cleared lines",
+      subtitle: "Match the book balance with the bank statement.",
+      title: "Bank Reconciliation",
+      tryAgain: "Try again",
+      uncleared: "Uncleared",
+      working: "Working..."
+    },
+    settings: {
+      defaultFormat: "Default invoice format",
+      defaultFormatHint: "Used as the default print format on document pages. You can still switch per document.",
+      fmt80mm: "Thermal receipt (80mm)",
+      fmtA4: "A4",
+      fmtChallan: "Delivery challan"
+    }
+  }
 } as const;
 
 export type EnDict = typeof en;

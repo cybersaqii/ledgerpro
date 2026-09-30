@@ -32,18 +32,21 @@ export async function GET(req: NextRequest) {
   const grossProfit = netSales - discountGiven - cogs;
   const netProfit = grossProfit + discountReceived - expenses;
 
+  // Labels are i18n keys (resolved client-side via t()); `sign` marks
+  // subtraction/addition lines so the client can style them without
+  // parsing English text (-1 = "Less:", +1 = "Add:", 0 = plain).
   return json({
     from, to,
     lines: [
-      { label: "Sales", amount: sales.toString() },
-      { label: "Less: Sales returns", amount: (-salesReturns).toString() },
-      { label: "Net sales", amount: netSales.toString(), bold: true },
-      { label: "Less: Cost of goods sold", amount: (-cogs).toString() },
-      { label: "Less: Discounts given", amount: (-discountGiven).toString() },
-      { label: "Gross profit", amount: grossProfit.toString(), bold: true },
-      { label: "Add: Discounts received", amount: discountReceived.toString() },
-      { label: "Less: Expenses", amount: (-expenses).toString() },
-      { label: "Net profit", amount: netProfit.toString(), bold: true, total: true },
+      { label: "pnl.sales", amount: sales.toString(), sign: 0 },
+      { label: "pnl.lessSalesReturns", amount: (-salesReturns).toString(), sign: -1 },
+      { label: "pnl.netSales", amount: netSales.toString(), bold: true, sign: 0 },
+      { label: "pnl.lessCogs", amount: (-cogs).toString(), sign: -1 },
+      { label: "pnl.lessDiscountsGiven", amount: (-discountGiven).toString(), sign: -1 },
+      { label: "pnl.grossProfit", amount: grossProfit.toString(), bold: true, sign: 0 },
+      { label: "pnl.addDiscountsReceived", amount: discountReceived.toString(), sign: 1 },
+      { label: "pnl.lessExpenses", amount: (-expenses).toString(), sign: -1 },
+      { label: "pnl.netProfit", amount: netProfit.toString(), bold: true, total: true, sign: 0 },
     ],
   });
 }

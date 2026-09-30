@@ -217,8 +217,10 @@ export async function postSalesDoc(tx: DbTx, input: PostSalesInput): Promise<str
       await restoreLineageBatches(tx, input.companyId, input.sourceDocId, m.productId, m.qtyMilli);
     } else if (m.batchId) {
       // Legacy path: a RETURN posted directly (no source doc, e.g. pre-lineage
-      // documents) restores the explicitly chosen batch, as before.
+      // documents) restores the explicitly chosen batch, as before — and now
+      // records the lineage too, so the audit trail has no gaps.
       await restoreBatchStock(tx, input.companyId, m.productId, m.batchId, m.qtyMilli);
+      await recordBatchUsage(tx, input.companyId, input.docId, m.productId, m.batchId, m.qtyMilli);
     }
   }
 
@@ -384,7 +386,10 @@ export async function postPurchaseDoc(tx: DbTx, input: PostPurchaseInput): Promi
     } else if (input.sourceDocId) {
       await deductLineageBatches(tx, input.companyId, input.sourceDocId, i.productId, i.qtyMilli);
     } else if (i.batchId) {
+      // Direct purchase return against an explicit batch: deduct it and
+      // record the lineage (negative = batch deduction), like bills do.
       await deductBatchStock(tx, input.companyId, i.productId, i.qtyMilli, i.batchId);
+      await recordBatchUsage(tx, input.companyId, input.docId, i.productId, i.batchId, -i.qtyMilli);
     }
   }
 
@@ -691,6 +696,8 @@ export type PostExpenseInput = {
   taxAmount: bigint;
   notes?: string;
   createdById: string;
+  /** Human voucher number; minted from the EXPENSE sequence when omitted. */
+  docNo?: string;
 };
 
 export async function postExpense(tx: DbTx, input: PostExpenseInput): Promise<string> {
@@ -730,10 +737,14 @@ export async function postExpense(tx: DbTx, input: PostExpenseInput): Promise<st
   });
 
   const expenseId = input.id ?? crypto.randomUUID();
+  // Human voucher number (EXP-0001 …). The API route mints it explicitly;
+  // other callers (sync push) get one allocated here.
+  const docNo = input.docNo ?? (await nextDocNo(tx, input.companyId, "EXPENSE"));
   await tx.insert(expenses).values({
     id: expenseId,
     companyId: input.companyId,
     branchId: input.branchId,
+    docNo,
     date: input.date,
     accountId: gl.id,
     bankAccountId: bank.id,

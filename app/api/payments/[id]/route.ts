@@ -1,5 +1,5 @@
 import { NextRequest } from "next/server";
-import { eq } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 import {
   bankAccounts,
   parties,
@@ -43,6 +43,7 @@ export async function GET(_req: NextRequest, ctx: Ctx) {
       const amountPaid = doc?.amountPaid ?? 0n;
       const returnedTotal = doc?.returnedTotal ?? 0n;
       return {
+        id: a.id,
         docId: doc?.id ?? null,
         docNo: doc?.docNo ?? "—",
         docType: doc?.docType ?? null,
@@ -54,8 +55,16 @@ export async function GET(_req: NextRequest, ctx: Ctx) {
       };
     });
 
+    // Void markers live outside db/schema.ts (migration 0027) — read raw.
+    const voidRows = (
+      await db.run(
+        sql`SELECT voided_at AS v, void_journal_entry_id AS j FROM payments WHERE id = ${id}`
+      )
+    ).rows as unknown as { v: number | null; j: string | null }[];
+    const voidedAt = voidRows[0]?.v ?? null;
+
     return json({
-      data: { ...row.p, partyName: row.partyName, bankName: row.bankName, allocations },
+      data: { ...row.p, partyName: row.partyName, bankName: row.bankName, allocations, voidedAt, voidJournalEntryId: voidRows[0]?.j ?? null },
     });
   } catch (e) {
     return toApiError(e, { route: "/api/payments/[id]", companyId });

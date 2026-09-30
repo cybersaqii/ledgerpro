@@ -595,3 +595,13 @@ input[type="number"] {
   -moz-appearance: textfield;
   appearance: textfield;
 }
+
+/* Print: only the page content prints — the app chrome (header, sidebars,
+   banners) is hidden everywhere. Mirrors the rules doc-detail.tsx applies
+   for its own print view. */
+@media print {
+  header, aside { display: none !important; }
+  main { padding: 0 !important; }
+  body { background: #fff !important; }
+  thead { display: table-header-group; }
+}

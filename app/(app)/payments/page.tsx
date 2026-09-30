@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useState, Fragment } from "react";
-import { Plus, CalendarDays, Wallet } from "lucide-react";
+import { Plus, CalendarDays, Wallet, ArrowLeftRight, Landmark } from "lucide-react";
 import { PageHeader, EmptyState, FilterBar, SummaryChips, Pagination } from "@/components/ui";
 import { api, fmtMoney, fmtDate, toBig } from "@/lib/format";
 import { useLang } from "@/components/lang-provider";
@@ -85,6 +85,8 @@ export default function PaymentsPage() {
         icon={<Wallet size={20} />}
         actions={
           <>
+            <Link href="/payments/transfers" className="btn btn-ghost text-sm"><ArrowLeftRight size={16} /> {t("payments.transfers")}</Link>
+            <Link href="/payments/banks/reconciliation" className="btn btn-ghost text-sm"><Landmark size={16} /> {t("payments.reconcile")}</Link>
             <Link href="/payments/new?kind=PAYMENT" className="btn btn-ghost text-sm"><Plus size={16} /> {t("payments.paySupplier")}</Link>
             <Link href="/payments/new?kind=RECEIPT" className="btn btn-primary text-sm"><Plus size={16} /> {t("payments.receivePayment")}</Link>
           </>

@@ -1,20 +1,21 @@
-/** Canonical business types. Registration captures one; the interface adapts to it. */
+/** Canonical business types. Labels/hints are i18n keys resolved client-side
+ * via t() — never render .label/.hint raw. */
 export const BUSINESS_TYPES = [
-  { value: "WHOLESALE", label: "Wholesale trader", hint: "Bulk buying & selling, distributors" },
-  { value: "RETAIL", label: "Retail shop", hint: "Counter sales, walk-in customers" },
-  { value: "DISTRIBUTION", label: "Distributor", hint: "Brands, areas & order bookers" },
-  { value: "PHARMACY", label: "Pharmacy / medical store", hint: "Medicines & healthcare retail" },
-  { value: "CLINIC", label: "Clinic / healthcare", hint: "Doctors, clinics & care centres" },
-  { value: "RESTAURANT", label: "Restaurant / food", hint: "Dine-in, takeaway & delivery" },
-  { value: "SERVICES", label: "Services business", hint: "Repairs, agencies & professionals" },
-  { value: "MANUFACTURING", label: "Manufacturer", hint: "Production & factory accounts" },
-  { value: "OTHER", label: "Other business", hint: "Anything else" },
+  { value: "WHOLESALE", label: "biztypes.wholesale", hint: "biztypes.wholesaleHint" },
+  { value: "RETAIL", label: "biztypes.retail", hint: "biztypes.retailHint" },
+  { value: "DISTRIBUTION", label: "biztypes.distribution", hint: "biztypes.distributionHint" },
+  { value: "PHARMACY", label: "biztypes.pharmacy", hint: "biztypes.pharmacyHint" },
+  { value: "CLINIC", label: "biztypes.clinic", hint: "biztypes.clinicHint" },
+  { value: "RESTAURANT", label: "biztypes.restaurant", hint: "biztypes.restaurantHint" },
+  { value: "SERVICES", label: "biztypes.services", hint: "biztypes.servicesHint" },
+  { value: "MANUFACTURING", label: "biztypes.manufacturing", hint: "biztypes.manufacturingHint" },
+  { value: "OTHER", label: "biztypes.other", hint: "biztypes.otherHint" },
 ] as const;
 
 export type BusinessType = (typeof BUSINESS_TYPES)[number]["value"];
 
 export function businessTypeLabel(value: string | null | undefined): string {
-  return BUSINESS_TYPES.find((b) => b.value === value)?.label ?? "Wholesale trader";
+  return BUSINESS_TYPES.find((b) => b.value === value)?.label ?? "biztypes.wholesale";
 }
 
 /**

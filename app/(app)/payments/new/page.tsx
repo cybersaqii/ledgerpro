@@ -3,9 +3,11 @@
 import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useRef, useState, Suspense } from "react";
 import { PageHeader, Field, ErrorNote } from "@/components/ui";
+import { useDismiss } from "@/components/use-dismiss";
 import { ReceiptText } from "lucide-react";
 import { api, fmtMoney, fmtDate, fmtDateInput } from "@/lib/format";
 import { parseDecimalToPaisa } from "@/lib/decimal";
+import { useBusinessProfile } from "@/components/business-type";
 import { useLang } from "@/components/lang-provider";
 
 type Party = { id: string; name: string };
@@ -16,6 +18,7 @@ function PaymentFormInner() {
   const router = useRouter();
   const sp = useSearchParams();
   const { t } = useLang();
+  const bp = useBusinessProfile();
   const [kind, setKind] = useState<"RECEIPT" | "PAYMENT">(sp.get("kind") === "PAYMENT" ? "PAYMENT" : "RECEIPT");
   const [payPartyKind, setPayPartyKind] = useState<"CUSTOMER" | "SUPPLIER">("SUPPLIER");
   const isReceipt = kind === "RECEIPT";
@@ -24,6 +27,7 @@ function PaymentFormInner() {
   const [partyQ, setPartyQ] = useState("");
   const [partyId, setPartyId] = useState(sp.get("partyId") ?? "");
   const [showPartyList, setShowPartyList] = useState(false);
+  const partyBoxRef = useDismiss<HTMLDivElement>(() => setShowPartyList(false));
   const [banks, setBanks] = useState<Bank[]>([]);
   const [bankId, setBankId] = useState("");
   const [date, setDate] = useState(fmtDateInput());
@@ -111,7 +115,7 @@ function PaymentFormInner() {
   async function submit(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
-    if (!partyId) { setError(t("payform.errParty", { party: t(partyKind === "CUSTOMER" ? "payform.customer" : "payform.supplier").toLowerCase() })); return; }
+    if (!partyId) { setError(t("payform.errParty", { party: (partyKind === "CUSTOMER" ? bp.partyOne : t("payform.supplier")).toLowerCase() })); return; }
     if (!bankId) { setError(t("payform.errAccount")); return; }
     if (!(parseFloat(amount || "0") > 0)) { setError(t("payform.errAmount")); return; }
     if (allocTotal > amountPaisa) { setError(t("payform.errAlloc")); return; }
@@ -137,7 +141,7 @@ function PaymentFormInner() {
   return (
     <div>
       <PageHeader title={isReceipt ? t("payform.receiveTitle") : t("payform.payTitle")}
-        subtitle={isReceipt ? t("payform.receiveSub") : t("payform.paySub")} />
+        subtitle={isReceipt ? t("payform.receiveSub", { party: bp.partyOne.toLowerCase() }) : t("payform.paySub")} />
       <form onSubmit={submit} className="grid items-start gap-5 lg:grid-cols-[minmax(0,1fr)_380px]">
         <div className="min-w-0 space-y-5">
         <ErrorNote message={error} />
@@ -147,7 +151,7 @@ function PaymentFormInner() {
             {(["RECEIPT", "PAYMENT"] as const).map((k) => (
               <button key={k} type="button" onClick={() => { setKind(k); setPartyId(""); }}
                 className={`flex-1 rounded-lg px-4 py-2.5 text-sm font-bold transition ${kind === k ? "bg-primary text-primary-foreground shadow" : "text-muted-foreground hover:text-foreground"}`}>
-                {k === "RECEIPT" ? t("payform.tabReceive") : t("payform.tabPay")}
+                {k === "RECEIPT" ? t("payform.tabReceive", { party: bp.partyOne.toLowerCase() }) : t("payform.tabPay")}
               </button>
             ))}
           </div>
@@ -158,7 +162,7 @@ function PaymentFormInner() {
                 {(["SUPPLIER", "CUSTOMER"] as const).map((k) => (
                   <button key={k} type="button" onClick={() => { setPayPartyKind(k); setPartyId(""); }}
                     className={`flex-1 rounded-lg px-3 py-1.5 text-xs font-bold transition ${payPartyKind === k ? "bg-primary text-primary-foreground shadow" : "text-muted-foreground hover:text-foreground"}`}>
-                    {k === "SUPPLIER" ? t("payform.supplier") : t("payform.customer")}
+                    {k === "SUPPLIER" ? t("payform.supplier") : bp.partyOne}
                   </button>
                 ))}
               </div>
@@ -167,8 +171,8 @@ function PaymentFormInner() {
           )}
 
           <div className="grid gap-4 sm:grid-cols-2">
-            <Field label={t(partyKind === "CUSTOMER" ? "payform.customer" : "payform.supplier")}>
-              <div className="relative">
+            <Field label={partyKind === "CUSTOMER" ? bp.partyOne : t("payform.supplier")}>
+              <div className="relative" ref={partyBoxRef}>
                 <button type="button" onClick={() => setShowPartyList((s) => !s)} className="field flex items-center justify-between text-left">
                   <span className={selectedParty ? "" : "text-muted-foreground"}>{selectedParty ? selectedParty.name : t("payform.selectPlaceholder")}</span>
                 </button>
@@ -226,7 +230,7 @@ function PaymentFormInner() {
             {outstanding.length > 0 ? (
             <>
             <p className="mt-0.5 text-sm text-muted-foreground">
-              {t("payform.allocateSummary", { count: outstanding.length, allocated: `Rs ${(allocTotal / 100).toLocaleString()}`, total: `Rs ${(amountPaisa / 100).toLocaleString() || "0"}` })}
+              {t("payform.allocateSummary", { count: outstanding.length, allocated: fmtMoney(allocTotal), total: fmtMoney(amountPaisa || 0) })}
             </p>
             <ul className="mt-4 max-h-[52vh] space-y-2 overflow-y-auto pr-1">
               {outstanding.map((o) => (
@@ -254,8 +258,8 @@ function PaymentFormInner() {
               </span>
               <p className="max-w-[26ch] text-sm text-muted-foreground">
                 {!partyId
-                  ? t("payform.allocEmpty", { party: t(partyKind === "CUSTOMER" ? "payform.customer" : "payform.supplier").toLowerCase() })
-                  : t("payform.allocClear", { party: t(partyKind === "CUSTOMER" ? "payform.customer" : "payform.supplier").toLowerCase() })}
+                  ? t("payform.allocEmpty", { party: (partyKind === "CUSTOMER" ? bp.partyOne : t("payform.supplier")).toLowerCase() })
+                  : t("payform.allocClear", { party: (partyKind === "CUSTOMER" ? bp.partyOne : t("payform.supplier")).toLowerCase() })}
               </p>
             </div>
             )}

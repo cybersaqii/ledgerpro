@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { ShieldCheck, Check, X } from "lucide-react";
 import { PageHeader, Field, ErrorNote, EmptyState } from "@/components/ui";
@@ -88,7 +88,11 @@ export default function AdminBillingPage() {
     return () => { alive = false; };
   }, [t]);
 
+  // The mount effect above already fetched the default filter's list;
+  // skip the filter effect's first run so we don't fetch PENDING twice.
+  const firstFilterRun = useRef(true);
   useEffect(() => {
+    if (firstFilterRun.current) { firstFilterRun.current = false; return; }
     let alive = true;
     (async () => { if (alive) await load(filter); })();
     return () => { alive = false; };

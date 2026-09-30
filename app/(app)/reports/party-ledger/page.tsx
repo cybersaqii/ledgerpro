@@ -5,7 +5,10 @@ import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { Users, TriangleAlert, RotateCcw } from "lucide-react";
 import { PageHeader, Field, ExportCsv } from "@/components/ui";
+import { useDismiss } from "@/components/use-dismiss";
 import { csvMoney } from "@/lib/csv";
+import { parseDecimalToPaisa } from "@/lib/decimal";
+import { paisaToRupees } from "@/lib/pos";
 import { useBusinessProfile } from "@/components/business-type";
 import { useLang } from "@/components/lang-provider";
 import { api, fmtMoney, fmtDate, fmtDateInput } from "@/lib/format";
@@ -30,6 +33,7 @@ function PartyLedgerInner() {
   const [partyQ, setPartyQ] = useState("");
   const [partyId, setPartyId] = useState(() => searchParams.get("party") ?? "");
   const [showList, setShowList] = useState(false);
+  const listBoxRef = useDismiss<HTMLDivElement>(() => setShowList(false));
   const [from, setFrom] = useState("");
   const [to, setTo] = useState(fmtDateInput());
   const [entries, setEntries] = useState<Entry[]>([]);
@@ -101,7 +105,7 @@ function PartyLedgerInner() {
       <div className="card mb-4 flex flex-wrap items-end gap-3 p-4">
         <div className="min-w-52 flex-1">
           <Field label={t("partyledger.party")}>
-            <div className="relative">
+            <div className="relative" ref={listBoxRef}>
               <button type="button" onClick={() => setShowList((s) => !s)} className="field text-left">
                 <span className={selected ? "" : "text-muted-foreground"}>{selected ? selected.name : t("partyledger.selectParty")}</span>
               </button>
@@ -201,6 +205,7 @@ function SetOffDialog({ partyId, kind, name, balance, onDone }: {
   partyId: string; kind: string; name: string; balance: string; onDone: () => void;
 }) {
   const { t } = useLang();
+  const bp = useBusinessProfile();
   const [open, setOpen] = useState(false);
   const [q, setQ] = useState("");
   const [options, setOptions] = useState<{ id: string; name: string; balance: string }[]>([]);
@@ -236,10 +241,13 @@ function SetOffDialog({ partyId, kind, name, balance, onDone }: {
   async function submit(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
-    const counterWord = (opposite === "CUSTOMER" ? t("payform.customer") : t("payform.supplier")).toLowerCase();
+    const counterWord = (opposite === "CUSTOMER" ? bp.partyOne : t("payform.supplier")).toLowerCase();
     if (!counterId) { setError(t("partyledger.errCounter", { counter: counterWord })); return; }
-    const amt = amount.trim() || (Number(maxSetoff) / 100).toString();
-    if (!(parseFloat(amt) > 0)) { setError(t("partyledger.errAmount")); return; }
+    const amt = amount.trim() || paisaToRupees(maxSetoff);
+    let amtPaisa: bigint;
+    try { amtPaisa = parseDecimalToPaisa(amt); } catch { setError(t("partyledger.errAmount")); return; }
+    if (!(amtPaisa > 0n)) { setError(t("partyledger.errAmount")); return; }
+    if (amtPaisa > maxSetoff) { setError(t("partyledger.errTooMuch", { max: fmtMoney(maxSetoff.toString()) })); return; }
     setBusy(true);
     try {
       await api("/api/parties/setoff", {
@@ -258,7 +266,7 @@ function SetOffDialog({ partyId, kind, name, balance, onDone }: {
     } finally { setBusy(false); }
   }
 
-  const counterLabel = opposite === "CUSTOMER" ? t("payform.customer") : t("payform.supplier");
+  const counterLabel = opposite === "CUSTOMER" ? bp.partyOne : t("payform.supplier");
 
   return (
     <>
@@ -296,7 +304,7 @@ function SetOffDialog({ partyId, kind, name, balance, onDone }: {
             <Field label={t("partyledger.amount")}>
               <input className="field" inputMode="decimal" value={amount}
                 onChange={(e) => setAmount(e.target.value)}
-                placeholder={maxSetoff > 0n ? (Number(maxSetoff) / 100).toString() : "0"} />
+                placeholder={maxSetoff > 0n ? paisaToRupees(maxSetoff) : "0"} />
             </Field>
             {error && <p className="mt-2 text-xs font-semibold text-danger">{error}</p>}
             <div className="mt-4 flex gap-2">

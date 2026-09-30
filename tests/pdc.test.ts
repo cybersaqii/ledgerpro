@@ -203,6 +203,7 @@ describe("PDC engine", () => {
     expect(pay.kind).toBe("RECEIPT");
     expect(pay.method).toBe("CHEQUE");
     expect(pay.reference).toBe("CHQ-2001");
+    expect(pay.docNo).toMatch(/^REC-\d+$/); // PDC-cleared payments get real doc numbers
     expect(pay.journalEntryId).toBeTruthy();
     const sums = await entrySums(pay.journalEntryId!);
     expect(sums.d).toBe(sums.c);
@@ -238,6 +239,7 @@ describe("PDC engine", () => {
     expect(BigInt(before[0]!.b) - BigInt(after[0]!.b)).toBe(parseMoney("4000"));
     const pay = (await db.select().from(s.payments).where(eq(s.payments.id, paymentId)).limit(1))[0]!;
     expect(pay.kind).toBe("PAYMENT");
+    expect(pay.docNo).toMatch(/^PAY-\d+$/); // PDC-cleared payments get real doc numbers
     const d = (await db.select().from(s.purchaseDocs).where(eq(s.purchaseDocs.id, bill)).limit(1))[0]!;
     expect(d.status).toBe("PAID");
   });

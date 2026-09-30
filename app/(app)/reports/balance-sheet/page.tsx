@@ -7,16 +7,16 @@ import { csvMoney } from "@/lib/csv";
 import { api, fmtMoney } from "@/lib/format";
 import { useLang } from "@/components/lang-provider";
 
-type Line = { label: string; amount: string; bold?: boolean; total?: boolean };
+type Line = { label: string; amount: string; bold?: boolean; total?: boolean; sign?: number };
 
-function Section({ title, lines }: { title: string; lines: Line[] }) {
+function Section({ title, lines, t }: { title: string; lines: Line[]; t: (key: string) => string }) {
   return (
     <div className="card p-6">
       <h2 className="text-base font-extrabold tracking-tight">{title}</h2>
       <div className="mt-2">
         {lines.map((l) => (
           <div key={l.label} className={`flex items-center justify-between py-2 ${l.total ? "border-t-2 border-border pt-3" : "border-b border-border/60"}`}>
-            <span className={l.bold ? "font-extrabold" : "text-muted-foreground"}>{l.label}</span>
+            <span className={l.bold ? "font-extrabold" : "text-muted-foreground"}>{t(l.label)}</span>
             <span className={`num font-bold ${l.total ? "text-lg text-primary" : ""}`}>{fmtMoney(l.amount)}</span>
           </div>
         ))}
@@ -48,16 +48,16 @@ export default function BalanceSheetPage() {
             : <span className="badge bg-danger-soft text-danger !text-xs !py-1.5 !px-3"><TriangleAlert size={13} /> {t("balancesheet.outOfBalance")}</span>}
           <ExportCsv filename="balance-sheet" rows={() => [
             [t("balancesheet.csvSection"), t("balancesheet.csvAccount"), t("balancesheet.csvAmount")],
-            ...data.assets.map((l) => [t("balancesheet.assets"), l.label, csvMoney(l.amount)]),
-            ...data.liabilities.map((l) => [t("balancesheet.liabilities"), l.label, csvMoney(l.amount)]),
-            ...data.equity.map((l) => [t("balancesheet.equity"), l.label, csvMoney(l.amount)]),
+            ...data.assets.map((l) => [t("balancesheet.assets"), t(l.label), csvMoney(l.amount)]),
+            ...data.liabilities.map((l) => [t("balancesheet.liabilities"), t(l.label), csvMoney(l.amount)]),
+            ...data.equity.map((l) => [t("balancesheet.equity"), t(l.label), csvMoney(l.amount)]),
           ]} />
         </>}
       />
       <div className="grid gap-4 lg:grid-cols-3">
-        <Section title={t("balancesheet.assets")} lines={data.assets} />
-        <Section title={t("balancesheet.liabilities")} lines={data.liabilities} />
-        <Section title={t("balancesheet.equity")} lines={data.equity} />
+        <Section title={t("balancesheet.assets")} lines={data.assets} t={t} />
+        <Section title={t("balancesheet.liabilities")} lines={data.liabilities} t={t} />
+        <Section title={t("balancesheet.equity")} lines={data.equity} t={t} />
       </div>
     </div>
   );

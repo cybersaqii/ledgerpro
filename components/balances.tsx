@@ -79,7 +79,7 @@ export function BalancesPage({ kind }: { kind: "CUSTOMER" | "SUPPLIER" }) {
                     <td className="num font-extrabold text-accent">{fmtMoney(r.balance)}</td>
                     <td><LimitCell balance={r.balance} limit={r.creditLimit} /></td>
                     <td className="text-right">
-                      <Link href={`/reports/party-ledger`} className="text-sm font-bold text-primary hover:underline">{t("balances.ledger")}</Link>
+                      <Link href={`/reports/party-ledger?party=${r.id}`} className="text-sm font-bold text-primary hover:underline">{t("balances.ledger")}</Link>
                     </td>
                   </tr>
                 ))}
@@ -153,7 +153,7 @@ function AgingView({ kind }: { kind: "CUSTOMER" | "SUPPLIER" }) {
           {t("balances.agingHintPre")} <span className="font-bold text-danger">{t("balances.agingHot")}</span> {t("balances.agingHintPost")}
         </p>
         <ExportCsv filename={kind === "CUSTOMER" ? "receivables-aging" : "payables-aging"} disabled={loading || rows.length === 0} rows={() => [
-          [t("balances.csvParty"), t("balances.csvPhone"), `${t("balances.chipNotDue")} (Rs)`, `1-30 (Rs)`, `31-60 (Rs)`, `61-90 (Rs)`, `90+ (Rs)`, `${t("balances.total")} (Rs)`],
+          [t("balances.csvParty"), t("balances.csvPhone"), `${t("balances.chipNotDue")} (${t("common.currencyNote")})`, `${t("balances.chipD30")} (${t("common.currencyNote")})`, `${t("balances.chipD60")} (${t("common.currencyNote")})`, `${t("balances.chipD90")} (${t("common.currencyNote")})`, `${t("balances.chipD90plus")} (${t("common.currencyNote")})`, `${t("balances.total")} (${t("common.currencyNote")})`],
           ...rows.map((r) => [r.name, r.phone ?? "", csvMoney(r.notDue), csvMoney(r.d30), csvMoney(r.d60), csvMoney(r.d90), csvMoney(r.d90plus), csvMoney(r.total)]),
           [t("balances.csvTotal"), "", csvMoney(totals.notDue), csvMoney(totals.d30), csvMoney(totals.d60), csvMoney(totals.d90), csvMoney(totals.d90plus), csvMoney(totals.total)],
         ]} />
@@ -238,7 +238,7 @@ function AgingView({ kind }: { kind: "CUSTOMER" | "SUPPLIER" }) {
               </tbody>
               <tfoot>
                 <tr className="border-t-2 border-border">
-                  <td className="!py-3 font-extrabold">Total</td>
+                  <td className="!py-3 font-extrabold">{t("balances.total")}</td>
                   <td className="num !py-3 font-bold">{fmtMoney(totals.notDue)}</td>
                   <td className="num !py-3 font-bold">{fmtMoney(totals.d30)}</td>
                   <td className="num !py-3 font-bold">{fmtMoney(totals.d60)}</td>

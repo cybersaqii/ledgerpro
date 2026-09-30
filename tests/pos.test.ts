@@ -92,8 +92,10 @@ describe("toDocItems", () => {
 
 describe("validateCart", () => {
   it("rejects empty carts and bad qtys", () => {
-    expect(validateCart([])).toBe("Add at least one item.");
-    expect(validateCart([line({ qty: "0" })])).toBe("Quantities must be positive.");
+    expect(validateCart([])).toBe("pos.errNoItems");
+    expect(validateCart([line({ qty: "0" })])).toBe("pos.errQty");
+    expect(validateCart([line({ name: "  " })])).toBe("pos.errNoName");
+    expect(validateCart([line({ rate: "-1" })])).toBe("pos.errRate");
     expect(validateCart([line()])).toBeNull();
   });
 });

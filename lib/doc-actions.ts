@@ -194,7 +194,7 @@ export async function createSalesReturn(
   const docDiscount = srcSubtotal > 0n && srcDiscount > 0n ? (srcDiscount * returnedSubtotal) / srcSubtotal : 0n;
 
   const totals = computeTotals(items, docDiscount);
-  const docNo = await nextDocNo(tx, input.companyId, "RETURN");
+  const docNo = await nextDocNo(tx, input.companyId, "SALE_RETURN");
   const docId = input.docId ?? crypto.randomUUID();
   const date = new Date();
   const tsMap = await trackStockMap(tx, items.map((i) => i.productId));
@@ -393,7 +393,7 @@ export async function createPurchaseReturn(
   const docDiscount = srcSubtotal > 0n && srcDiscount > 0n ? (srcDiscount * returnedSubtotal) / srcSubtotal : 0n;
 
   const totals = computeTotals(items, docDiscount);
-  const docNo = await nextDocNo(tx, input.companyId, "RETURN");
+  const docNo = await nextDocNo(tx, input.companyId, "PURCHASE_RETURN");
   const docId = input.docId ?? crypto.randomUUID();
   const date = new Date();
   const tsMap = await trackStockMap(tx, items.map((i) => i.productId));

@@ -443,8 +443,11 @@ export function DocForm({ mode }: { mode: "SALES" | "PURCHASE" }) {
       } else if (results.length > 0) {
         const hit = results.find((p) => p.sku.trim().toLowerCase() === q.toLowerCase());
         addLine(hit ?? results[0], { focusQty: true, viaBarcode: hit ? true : undefined });
+      } else {
+        // no results at all: tell the user instead of silently doing nothing
+        // (the dropdown stays open on the "add as custom line" option)
+        showToast(t("docform.noResults", { q }));
       }
-      // no results at all: leave the dropdown open on the "add as custom line" option
     } else if (e.key === "Escape") {
       setShowProdList(false);
       setActiveIdx(-1);
@@ -527,7 +530,7 @@ export function DocForm({ mode }: { mode: "SALES" | "PURCHASE" }) {
       if ((isSales && docType === "INVOICE") || (!isSales && docType === "BILL")) {
         const rcptAmt = parseFloat(rcptAmount || "0");
         if (rcptAmt > 0) {
-          if (!rcptAccountId) { setError(t("docform.errReceiptAccount")); return; }
+          if (!rcptAccountId) { setSaving(false); setError(t("docform.errReceiptAccount")); return; }
           body.receipt = {
             date: rcptDate,
             bankAccountId: rcptAccountId,
@@ -590,7 +593,7 @@ export function DocForm({ mode }: { mode: "SALES" | "PURCHASE" }) {
                         <button type="button"
                           className="flex w-full items-center gap-2 px-4 py-2.5 text-left text-sm font-bold text-primary hover:bg-muted"
                           onClick={() => setShowQuickAdd((s) => !s)}>
-                          <Plus size={15} /> {isSales ? t("docform.addCustomer") : t("docform.addSupplier")}
+                          <Plus size={15} /> {isSales ? t("parties.addParty", { party: bp.partyOne.toLowerCase() }) : t("docform.addSupplier")}
                         </button>
                       </li>
                       {showQuickAdd && (
@@ -627,7 +630,7 @@ export function DocForm({ mode }: { mode: "SALES" | "PURCHASE" }) {
                               value={quickPhone} onChange={(e) => setQuickPhone(e.target.value)} />
                             <button type="button" className="btn btn-primary shrink-0 !py-2 text-sm"
                               disabled={creatingParty} onClick={createPartyInline}>
-                              {creatingParty ? t("common.adding") : isSales ? t("docform.addCustomer") : t("docform.addSupplier")}
+                              {creatingParty ? t("common.adding") : isSales ? t("parties.addParty", { party: bp.partyOne.toLowerCase() }) : t("docform.addSupplier")}
                             </button>
                           </div>
                         </li>
@@ -889,7 +892,7 @@ export function DocForm({ mode }: { mode: "SALES" | "PURCHASE" }) {
                   <div key={c.key} className="flex items-center gap-2">
                     <input className="field flex-1" placeholder={t("docform.freight")} value={c.label}
                       onChange={(e) => updateExtraCost(c.key, { label: e.target.value })} />
-                    <input className="field num !w-32" type="number" min="0" step="0.01" placeholder="Rs"
+                    <input className="field num !w-32" type="number" min="0" step="0.01" placeholder={t("docform.extraAmountPh")}
                       value={c.amount} onChange={(e) => updateExtraCost(c.key, { amount: e.target.value })} />
                     <button type="button" onClick={() => removeExtraCost(c.key)}
                       className="rounded-lg p-1.5 text-danger hover:bg-danger-soft" aria-label={t("docform.removeExtra")}>
@@ -993,7 +996,7 @@ export function DocForm({ mode }: { mode: "SALES" | "PURCHASE" }) {
 
       {/* barcode/keyboard add toast */}
       {toast && (
-        <div role="status" className="modal-pop fixed bottom-6 left-1/2 z-50 -translate-x-1/2 whitespace-nowrap rounded-full bg-foreground px-4 py-2 text-sm font-semibold text-background shadow-xl">
+        <div role="status" className="modal-pop fixed bottom-6 left-1/2 z-50 max-w-[90vw] -translate-x-1/2 rounded-full bg-foreground px-4 py-2 text-center text-sm font-semibold text-background shadow-xl">
           {toast}
         </div>
       )}

@@ -4,6 +4,7 @@ import { expenses, accounts, bankAccounts } from "@/db/schema";
 import { expenseSchema } from "@/lib/validators";
 import { parseMoney } from "@/lib/money";
 import { postExpense } from "@/lib/posting";
+import { nextDocNo } from "@/lib/setup";
 import { json, err } from "@/lib/api";
 import { toApiError } from "@/lib/errors";
 import { requirePermission, db, parseDateOnly, defaultBranchId, assertBranch } from "@/lib/route-helpers";
@@ -53,8 +54,22 @@ export async function GET(req: NextRequest) {
     .where(and(...conds));
   const toBig = (v: unknown) => { try { return BigInt(String(v ?? "0").split(".")[0] || "0"); } catch { return 0n; } };
   const sumTotal = String(toBig(sums[0]?.a) + toBig(sums[0]?.t));
+
+  // Void markers live outside db/schema.ts (migration 0027) — read raw.
+  const ids = rows.map((r) => r.e.id);
+  let voided = new Map<string, number | null>();
+  if (ids.length > 0) {
+    const vr = ((await db.run(
+      sql`SELECT id, voided_at AS v FROM expenses WHERE id IN ${sql.join(
+        ids.map((x) => sql`${x}`),
+        sql`, `
+      )}`
+    )).rows) as unknown as { id: string; v: number | null }[];
+    voided = new Map(vr.map((x) => [x.id, x.v]));
+  }
+
   return json({
-    data: rows.map((r) => ({ ...r.e, accountName: r.accountName, bankName: r.bankName })),
+    data: rows.map((r) => ({ ...r.e, accountName: r.accountName, bankName: r.bankName, voidedAt: voided.get(r.e.id) ?? null })),
     total: total[0]?.n ?? 0,
     sumTotal,
     page,
@@ -77,10 +92,11 @@ export async function POST(req: NextRequest) {
   if (lockErr) return err(lockErr, 422);
 
   try {
-    const expenseId = await db.transaction(async (tx) => {
+    const { expenseId, docNo } = await db.transaction(async (tx) => {
       const branchId = b.branchId || (await defaultBranchId(tx, companyId));
       await assertBranch(tx, companyId, branchId);
-      return postExpense(tx, {
+      const docNo = await nextDocNo(tx, companyId, "EXPENSE");
+      const expenseId = await postExpense(tx, {
         companyId,
         branchId,
         accountId: b.accountId,
@@ -90,14 +106,16 @@ export async function POST(req: NextRequest) {
         taxAmount: parseMoney(b.taxAmount || "0"),
         notes: b.notes || undefined,
         createdById: session.uid,
+        docNo,
  });
+      return { expenseId, docNo };
  });
     await logAudit(db, {
       companyId, userId: session.uid, userName: session.name,
       action: "expense.created", entity: "expense", entityId: expenseId,
-      detail: `Expense ${expenseId.slice(0, 8)}`,
+      detail: `Expense ${docNo}`,
  });
-    return json({ data: { id: expenseId } }, { status: 201 });
+    return json({ data: { id: expenseId, docNo } }, { status: 201 });
  } catch (e) {
     return toApiError(e, { route: "/api/expenses", companyId });
  }

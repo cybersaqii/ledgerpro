@@ -7,7 +7,7 @@ import {
   purchaseDocs,
   salesDocs,
 } from "@/db/schema";
-import { SYS, accountMap } from "./setup";
+import { SYS, accountMap, nextDocNo } from "./setup";
 import type { DbTx } from "./db";
 import { UserError } from "./errors";
 import { createJournal, allocatePaymentToDoc } from "./posting";
@@ -214,11 +214,13 @@ export async function clearPdc(tx: DbTx, input: ClearPdcInput): Promise<string> 
   // Book it as a real CHEQUE payment so it appears in Receipts/Payments and
   // the allocation breakdown works exactly like a normal payment.
   const paymentId = crypto.randomUUID();
+  const paymentDocNo = await nextDocNo(tx, input.companyId, isReceived ? "RECEIPT" : "PAYMENT");
   await tx.insert(payments).values({
     id: paymentId,
     companyId: input.companyId,
     branchId: input.branchId,
     kind: isReceived ? "RECEIPT" : "PAYMENT",
+    docNo: paymentDocNo, // REC- / PAY- so PDC-cleared payments show in doc lists like normal ones
     date: input.date,
     partyId: pdc.partyId,
     bankAccountId: bank.id,

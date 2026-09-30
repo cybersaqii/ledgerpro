@@ -8,6 +8,7 @@ import { getBundleComponents, bundlesUsingProduct } from "@/lib/bundles";
 import { json, err } from "@/lib/api";
 import { requireCompany, db, requirePermission } from "@/lib/route-helpers";
 import { logAudit } from "@/lib/audit";
+import { isForeignKeyViolation } from "@/lib/company-delete";
 
 async function find(companyId: string, id: string) {
   const rows = await db
@@ -102,7 +103,12 @@ export async function DELETE(_req: NextRequest, { params }: { params: Promise<{ 
       409
     );
   }
-  await db.update(products).set({ isActive: false }).where(eq(products.id, id));
+  try {
+    await db.update(products).set({ isActive: false }).where(eq(products.id, id));
+  } catch (e) {
+    if (isForeignKeyViolation(e)) return err("Cannot delete this product: linked records exist.", 409);
+    throw e;
+  }
   await logAudit(db, {
     companyId, userId: session.uid, userName: session.name,
     action: "product.deleted", entity: "product", entityId: id,

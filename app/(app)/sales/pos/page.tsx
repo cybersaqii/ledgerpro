@@ -8,6 +8,7 @@ import {
   SplitSquareHorizontal,
 } from "lucide-react";
 import { ErrorNote } from "@/components/ui";
+import { useDismiss } from "@/components/use-dismiss";
 import { api, ApiError, fmtMoney, fmtQty, fmtDate, fmtDateInput } from "@/lib/format";
 import {
   addToCart, addAsNewLine, cartTotals, lineTotalPaisa, toDocItems, validateCart, priceWarnings,
@@ -85,6 +86,10 @@ export default function PosPage() {
   const [partyQ, setPartyQ] = useState("");
   const [parties, setParties] = useState<ApiParty[]>([]);
   const [khataId, setKhataId] = useState("");
+  /** Retyping the party search invalidates any previously picked party. */
+  function onPartyQ(v: string) { setPartyQ(v); setKhataId(""); }
+  const [partyOpen, setPartyOpen] = useState(false);
+  const partyBoxRef = useDismiss<HTMLDivElement>(() => setPartyOpen(false));
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [done, setDone] = useState<DoneInfo | null>(null);
@@ -292,7 +297,7 @@ export default function PosPage() {
 
   async function completeSale(priceOverride = false, creditOverride = false) {
     const err = validateCart(lines);
-    if (err) { setError(err); return; }
+    if (err) { setError(t(err)); return; }
     setError(null);
 
     // minimum sale price lock — ask once, then re-enter with the override flag
@@ -360,7 +365,7 @@ export default function PosPage() {
           partyId,
           date,
           discountTotal: discount || "0",
-          notes: notes.trim() || "POS sale",
+          notes: notes.trim() || t("pos.defaultNote"),
           items: toDocItems(lines),
           payments,
           tendered: tenderedVal,
@@ -536,8 +541,8 @@ export default function PosPage() {
             className="btn btn-primary flex-1 !py-3.5 text-base">
             <ReceiptText size={18} /> {t("pos.newBill")} <kbd className="ml-1 rounded bg-white/20 px-1.5 text-xs">Enter</kbd>
           </button>
-          <Link href={`/sales/${done.docId}`} className="btn flex-1 !py-3.5 text-base">{t("pos.viewBill")}</Link>
-          <a href={`/sales/${done.docId}`} target="_blank" rel="noopener" className="btn flex-1 !py-3.5 text-base">
+          <Link href={`/sales/${done.docId}`} className="btn btn-ghost flex-1 !py-3.5 text-base">{t("pos.viewBill")}</Link>
+          <a href={`/sales/${done.docId}?print=1`} target="_blank" rel="noopener" className="btn btn-accent flex-1 !py-3.5 text-base">
             <Printer size={18} /> {t("pos.printReceipt")}
           </a>
         </div>
@@ -658,7 +663,7 @@ export default function PosPage() {
                         <span className="min-w-0">
                           <span className="block truncate text-sm font-bold">{p.name}</span>
                           <span className="block text-xs text-muted-foreground">
-                            {p.sku}{Number(p.totalQty) <= 0 ? t("pos.outOfStock") : t("pos.inStock", { qty: p.totalQty })}
+                            {p.sku}{" "}{Number(p.totalQty) <= 0 ? t("pos.outOfStock") : t("pos.inStock", { qty: p.totalQty })}
                           </span>
                         </span>
                         <span className="shrink-0 text-sm font-extrabold text-primary">{fmtMoney(p.salePrice)}</span>
@@ -881,14 +886,14 @@ export default function PosPage() {
                   <span className="text-sm font-bold">{t("pos.remainderKhata")}</span>
                 </label>
                 {splitKhata && (
-                  <div className="rise space-y-2">
+                  <div className="rise space-y-2" ref={partyBoxRef}>
                     <input className="field !py-2.5" placeholder={t("pos.searchPartiesPh", { parties: bp.partyMany.toLowerCase() })}
-                      value={partyQ} onChange={(e) => setPartyQ(e.target.value)} />
-                    {partyQ.trim().length > 0 && (
+                      value={partyQ} onChange={(e) => { onPartyQ(e.target.value); setPartyOpen(true); }} />
+                    {partyOpen && partyQ.trim().length > 0 && (
                       <ul className="max-h-44 overflow-y-auto rounded-xl border border-border">
                         {parties.map((p) => (
                           <li key={p.id}>
-                            <button onClick={() => { setKhataId(p.id); setPartyQ(p.name); }}
+                            <button onClick={() => { setKhataId(p.id); setPartyQ(p.name); setPartyOpen(false); }}
                               className={`flex w-full items-center justify-between px-4 py-2.5 text-left text-sm hover:bg-muted ${p.id === khataId ? "bg-primary/10 font-bold text-primary" : ""}`}>
                               <span>{p.name}</span>
                               {p.phone && <span className="text-xs text-muted-foreground">{p.phone}</span>}
@@ -919,17 +924,17 @@ export default function PosPage() {
 
             {stage === "khata" && (
               <div className="rise mt-4 space-y-3">
-                <div>
+                <div ref={partyBoxRef}>
                   <label className="mb-1.5 block text-sm font-bold" htmlFor="pos-party">
                     {t("pos.khataLabel", { party: bp.partyOne })}
                   </label>
                   <input id="pos-party" className="field !py-2.5" placeholder={t("pos.searchPartiesPh", { parties: bp.partyMany.toLowerCase() })}
-                    value={partyQ} onChange={(e) => setPartyQ(e.target.value)} />
-                  {partyQ.trim().length > 0 && (
+                    value={partyQ} onChange={(e) => { onPartyQ(e.target.value); setPartyOpen(true); }} />
+                  {partyOpen && partyQ.trim().length > 0 && (
                     <ul className="mt-2 max-h-44 overflow-y-auto rounded-xl border border-border">
                       {parties.map((p) => (
                         <li key={p.id}>
-                          <button onClick={() => { setKhataId(p.id); setPartyQ(p.name); }}
+                          <button onClick={() => { setKhataId(p.id); setPartyQ(p.name); setPartyOpen(false); }}
                             className={`flex w-full items-center justify-between px-4 py-2.5 text-left text-sm hover:bg-muted ${p.id === khataId ? "bg-primary/10 font-bold text-primary" : ""}`}>
                             <span>{p.name}</span>
                             {p.phone && <span className="text-xs text-muted-foreground">{p.phone}</span>}

@@ -3,12 +3,15 @@
 import { use, useEffect, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
-import { ArrowLeft, ArrowRightLeft, MessageCircle, Printer, Undo2, Wallet } from "lucide-react";
+import { ArrowLeft, ArrowRightLeft, Ban, MessageCircle, Printer, Undo2, Wallet } from "lucide-react";
 import { PageHeader, StatusPill } from "@/components/ui";
 import { api, fmtMoney, fmtMoneyPlain, fmtQty, fmtDate, toBig } from "@/lib/format";
 import { brand } from "@/lib/brand";
 import { useLang } from "@/components/lang-provider";
 import { useBusinessProfile } from "@/components/business-type";
+import { usePermissions } from "@/components/permissions";
+import { fx } from "@/components/fix3-lang";
+import { WriteOffModal, recoverWriteOff } from "@/components/write-off-modal";
 import { tr, type Lang } from "@/lib/i18n";
 
 type Item = {
@@ -20,7 +23,7 @@ type Item = {
 type Doc = {
   id: string; docNo: string; docType: string; date: number; dueDate: number | null;
   status: string; subtotal: string; discountTotal: string; taxTotal: string; grandTotal: string;
-  amountPaid: string; returnedTotal?: string | null;
+  amountPaid: string; returnedTotal?: string | null; writtenOffAmount?: string | null;
   notes: string | null; terms: string | null; refNo: string | null; partyName: string | null; partyId: string | null;
   partyPhone: string | null; sourceDocId: string | null;
   items: Item[];
@@ -28,10 +31,52 @@ type Doc = {
 };
 type Company = {
   name: string; phone: string | null; address: string | null; city: string | null; ntn: string | null;
-  bankInfo: string | null; invoiceFooter: string | null;
+  bankInfo: string | null; invoiceFooter: string | null; defaultInvoiceFormat: string | null;
 };
 
 type PrintFormat = "a4" | "80mm" | "challan";
+type CopyKind = "ORIGINAL" | "DUPLICATE" | "OFFICE_COPY";
+
+/** Amount in words (Pakistani numbering: thousand/lakh/crore/arab), for the A4 print. */
+const ONES = ["", "One", "Two", "Three", "Four", "Five", "Six", "Seven", "Eight", "Nine", "Ten",
+  "Eleven", "Twelve", "Thirteen", "Fourteen", "Fifteen", "Sixteen", "Seventeen", "Eighteen", "Nineteen"];
+const TENS = ["", "", "Twenty", "Thirty", "Forty", "Fifty", "Sixty", "Seventy", "Eighty", "Ninety"];
+function twoDigitWords(n: number): string {
+  if (n < 20) return ONES[n];
+  return TENS[Math.floor(n / 10)] + (n % 10 ? ` ${ONES[n % 10]}` : "");
+}
+function threeDigitWords(n: number): string {
+  const h = Math.floor(n / 100);
+  const rest = n % 100;
+  return (h > 0 ? `${ONES[h]} Hundred` : "") + (h > 0 && rest > 0 ? " " : "") + (rest > 0 ? twoDigitWords(rest) : "");
+}
+function intWords(n: bigint): string {
+  if (n === 0n) return "Zero";
+  const scales = ["", "Thousand", "Lakh", "Crore", "Arab", "Kharab"];
+  const parts: string[] = [];
+  let rest = n;
+  let i = 0;
+  let first = true;
+  while (rest > 0n) {
+    const mod = first ? 1000n : 100n;
+    const chunk = Number(rest % mod);
+    rest = rest / mod;
+    if (chunk > 0) {
+      const w = first ? threeDigitWords(chunk) : twoDigitWords(chunk);
+      parts.unshift(scales[i] ? `${w} ${scales[i]}` : w);
+    }
+    i++;
+    first = false;
+  }
+  return parts.join(" ");
+}
+function amountInWords(paisa: bigint): string {
+  const rupees = paisa / 100n;
+  const ps = paisa % 100n;
+  let s = `${intWords(rupees)} Rupees`;
+  if (ps > 0n) s += ` and ${intWords(ps)} Paisa`;
+  return `${s} only`;
+}
 
 /** "1600" bps -> "16%". taxBps is stored as basis points (1600 = 16%). */
 function bpsLabel(bps: number | null | undefined): string {
@@ -85,14 +130,24 @@ function ItemSubLines({ it, className }: { it: Item; className?: string }) {
   );
 }
 
-export function DocDetail({ mode, id }: { mode: "SALES" | "PURCHASE"; id: string }) {
+export function DocDetail({ mode, id }: { mode: "SALES" | "PURCHASE" | "NOTE"; id: string }) {
   const { t, lang } = useLang();
+  const f = (k: string, vars?: Record<string, string | number>) => fx(t, k, vars);
   const bp = useBusinessProfile();
+  const { permissions } = usePermissions();
+  const canWriteOff = permissions.includes("payments");
   const [doc, setDoc] = useState<Doc | null>(null);
   const [company, setCompany] = useState<Company | null>(null);
   const [formatSel, setFormatSel] = useState<PrintFormat | null>(null);
+  const [copySel, setCopySel] = useState<CopyKind>("ORIGINAL");
   const [error, setError] = useState<string | null>(null);
-  const isSales = mode === "SALES";
+  const [linkedNotes, setLinkedNotes] = useState<{ id: string; kind: string; docNo: string; date: number; amount: string }[]>([]);
+  const [woModal, setWoModal] = useState(false);
+  const [recovering, setRecovering] = useState(false);
+  const noteMode = mode === "NOTE";
+  // In NOTE mode the side comes from the note kind once loaded (credit notes
+  // live on the sales side, debit notes on the purchase side).
+  const isSales = mode === "SALES" || (noteMode && (!doc || doc.docType === "CREDIT_NOTE"));
   const searchParams = useSearchParams();
   const router = useRouter();
   const printedRef = useRef(false);
@@ -111,8 +166,9 @@ export function DocDetail({ mode, id }: { mode: "SALES" | "PURCHASE"; id: string
   }, [doc, searchParams, id, isSales, router]);
 
   useEffect(() => {
+    const docUrl = noteMode ? `/api/notes/${id}` : `${isSales ? "/api/sales" : "/api/purchases"}/${id}`;
     Promise.all([
-      api<{ data: Doc }>(`${isSales ? "/api/sales" : "/api/purchases"}/${id}`),
+      api<{ data: Doc }>(docUrl),
       api<{ data: Company }>("/api/company").catch(() => null),
     ])
       .then(([d, c]) => {
@@ -120,23 +176,78 @@ export function DocDetail({ mode, id }: { mode: "SALES" | "PURCHASE"; id: string
         if (c) setCompany(c.data);
       })
       .catch((e) => setError(e instanceof Error ? e.message : t("docdetail.loadError")));
-  }, [id, isSales, t]);
+  }, [id, isSales, noteMode, t]);
 
-  // Invoices open in the thermal-receipt style by default (matches the paper invoice).
+  // Notes linked to this document (credit/debit notes against the invoice/bill).
+  const linkedDocId = doc?.id;
+  useEffect(() => {
+    if (noteMode || !linkedDocId) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- clear stale notes when the doc context changes, then fetch
+      setLinkedNotes([]);
+      return;
+    }
+    api<{ data: { id: string; kind: string; docNo: string; date: number; amount: string }[] }>(
+      `/api/notes?sourceDocId=${linkedDocId}`
+    )
+      .then((d) => setLinkedNotes(d.data))
+      .catch(() => {});
+  }, [noteMode, linkedDocId]);
+
+  // Default format: the company's chosen default wins; invoices/bills/notes
+  // still fall back to the thermal style, everything else to A4.
+  const companyFmt: PrintFormat | null =
+    company?.defaultInvoiceFormat === "a4" || company?.defaultInvoiceFormat === "80mm" || company?.defaultInvoiceFormat === "challan"
+      ? company.defaultInvoiceFormat
+      : null;
   const format: PrintFormat =
-    formatSel ?? (doc && (doc.docType === "INVOICE" || doc.docType === "BILL") ? "80mm" : "a4");
+    formatSel ??
+    companyFmt ??
+    (doc && (doc.docType === "INVOICE" || doc.docType === "BILL" || doc.docType === "CREDIT_NOTE" || doc.docType === "DEBIT_NOTE")
+      ? "80mm"
+      : "a4");
 
   if (error) return <PageHeader title={t("docdetail.notFound")} subtitle={error} actions={<Link href={isSales ? "/sales" : "/purchases"} className="btn btn-ghost text-sm"><ArrowLeft size={15} /> {t("docdetail.printBack")}</Link>} />;
   if (!doc) return <div className="card h-64 animate-pulse" />;
+
+  // Bad-debt write-off (G7): only sales invoices with something left to collect.
+  // Written-off amounts net off the outstanding balance (they are no longer collectible).
+  const outstanding = toBig(doc.grandTotal) - toBig(doc.amountPaid) - toBig(doc.returnedTotal ?? "0") - toBig(doc.writtenOffAmount ?? "0");
+  const canPostWo = isSales && doc.docType === "INVOICE" && doc.partyId &&
+    (doc.status === "POSTED" || doc.status === "PARTIAL") && outstanding > 0n;
+  const canRecoverWo = isSales && doc.docType === "INVOICE" && doc.partyId &&
+    doc.status === "WRITTEN_OFF";
+
+  function reloadDoc() {
+    const docUrl = noteMode ? `/api/notes/${id}` : `${isSales ? "/api/sales" : "/api/purchases"}/${id}`;
+    api<{ data: Doc }>(docUrl).then((d) => setDoc(d.data)).catch(() => {});
+  }
+
+  async function doRecover() {
+    if (!doc?.partyId || !window.confirm(f("fix3.woRecoverConfirm"))) return;
+    setRecovering(true);
+    try {
+      await recoverWriteOff(doc.partyId, doc.id);
+      reloadDoc();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Could not recover.");
+    } finally {
+      setRecovering(false);
+    }
+  }
 
   // Business-type-adapted titles: a clinic prints "Treatment Bill" for its
   // patients, a restaurant prints "Bill" for its guests — same document, own words.
   const salesTitle = bpTitle(lang, bp.type, "docTitle", bp.docTitle);
   const purchTitle = bpTitle(lang, bp.type, "billTitle", bp.billTitle);
-  const typeLabel: Record<string, string> = isSales
-    ? { INVOICE: salesTitle, RETURN: t("docdetail.typeSalesReturn"), QUOTATION: t("docdetail.typeQuotation"), ORDER: t("docdetail.typeSaleOrder"), CHALLAN: t("docdetail.typeChallan") }
-    : { BILL: purchTitle, RETURN: t("docdetail.typePurchaseReturn"), ORDER: t("docdetail.typePurchaseOrder"), GRN: t("docdetail.typeGrn") };
+  const typeLabel: Record<string, string> = noteMode
+    ? { CREDIT_NOTE: t("fix4.note.creditTitle"), DEBIT_NOTE: t("fix4.note.debitTitle") }
+    : isSales
+      ? { INVOICE: salesTitle, RETURN: t("docdetail.typeSalesReturn"), QUOTATION: t("docdetail.typeQuotation"), ORDER: t("docdetail.typeSaleOrder"), CHALLAN: t("docdetail.typeChallan") }
+      : { BILL: purchTitle, RETURN: t("docdetail.typePurchaseReturn"), ORDER: t("docdetail.typePurchaseOrder"), GRN: t("docdetail.typeGrn") };
   const docTitle = typeLabel[doc.docType] ?? doc.docType;
+  const copyLabel =
+    copySel === "ORIGINAL" ? t("fix4.print.copyOriginal") :
+    copySel === "DUPLICATE" ? t("fix4.print.copyDuplicate") : t("fix4.print.copyOffice");
   const partyLabel = isSales ? bp.partyOne : t("docdetail.supplier");
   const itemColLabel = isSales ? bp.productOne : t("docdetail.colItem");
   const sellerName = company?.name ?? brand.name;
@@ -144,9 +255,9 @@ export function DocDetail({ mode, id }: { mode: "SALES" | "PURCHASE"; id: string
     .filter(Boolean)
     .join(" · ");
   const paidTotal = doc.amountPaid ?? "0";
-  // Balance nets off returns (M3): a returned invoice must not show the
-  // returned amount as still outstanding.
-  const balanceTotal = (BigInt(doc.grandTotal) - BigInt(paidTotal) - BigInt(doc.returnedTotal ?? "0")).toString();
+  // Balance nets off returns (M3) and write-offs (G7): a returned or
+  // written-off invoice must not show those amounts as still outstanding.
+  const balanceTotal = (BigInt(doc.grandTotal) - BigInt(paidTotal) - BigInt(doc.returnedTotal ?? "0") - BigInt(doc.writtenOffAmount ?? "0")).toString();
   const extraCostTotal = doc.items.reduce((a, it) => a + toBig(it.extraCost), 0n).toString();
   const hasExtraCosts = toBig(extraCostTotal) > 0n;
 
@@ -204,7 +315,30 @@ export function DocDetail({ mode, id }: { mode: "SALES" | "PURCHASE"; id: string
               <a href={waLink(doc)} target="_blank" rel="noopener noreferrer" className="btn btn-ghost text-sm">
                 <MessageCircle size={15} /> WhatsApp
               </a>
-              <DocActions doc={doc} isSales={isSales} />
+              {!noteMode && <DocActions doc={doc} isSales={isSales} />}
+              {canWriteOff && canPostWo && (
+                <button className="btn btn-ghost text-sm text-danger" onClick={() => setWoModal(true)}>
+                  <Ban size={15} /> {f("fix3.woTitle")}
+                </button>
+              )}
+              {canWriteOff && canRecoverWo && (
+                <button className="btn btn-ghost text-sm" disabled={recovering} onClick={doRecover}>
+                  <Undo2 size={15} /> {recovering ? f("fix3.woRecovering") : f("fix3.woRecover")}
+                </button>
+              )}
+              {(format === "a4" || format === "80mm") && (
+                <select
+                  className="field !w-auto py-2 text-sm font-bold"
+                  value={copySel}
+                  onChange={(e) => setCopySel(e.target.value as CopyKind)}
+                  aria-label={t("fix4.print.copyLabel")}
+                  title={t("fix4.print.copyLabel")}
+                >
+                  <option value="ORIGINAL">{t("fix4.print.copyOriginal")}</option>
+                  <option value="DUPLICATE">{t("fix4.print.copyDuplicate")}</option>
+                  <option value="OFFICE_COPY">{t("fix4.print.copyOffice")}</option>
+                </select>
+              )}
               <div className="inline-flex overflow-hidden rounded-xl border border-border text-sm font-bold">
                 {((["a4", "80mm"] as PrintFormat[]).concat(
                   isSales && (doc.docType === "INVOICE" || doc.docType === "ORDER") ? ["challan" as PrintFormat] : []
@@ -263,11 +397,11 @@ export function DocDetail({ mode, id }: { mode: "SALES" | "PURCHASE"; id: string
           <div className="mt-12 grid grid-cols-2 gap-8 text-sm">
             <div>
               <p className="font-bold">{t("docdetail.preparedBy")}</p>
-              <p className="mt-10 border-t border-black pt-1 text-xs text-muted-foreground">{t("docdetail.nameSignature")}</p>
+              <p className="mt-10 border-t border-neutral-900 pt-1 text-xs text-muted-foreground dark:border-neutral-100">{t("docdetail.nameSignature")}</p>
             </div>
             <div>
               <p className="font-bold">{t("docdetail.receivedBy")}</p>
-              <p className="mt-10 border-t border-black pt-1 text-xs text-muted-foreground">{t("docdetail.nameSignature")}</p>
+              <p className="mt-10 border-t border-neutral-900 pt-1 text-xs text-muted-foreground dark:border-neutral-100">{t("docdetail.nameSignature")}</p>
             </div>
           </div>
 
@@ -281,6 +415,7 @@ export function DocDetail({ mode, id }: { mode: "SALES" | "PURCHASE"; id: string
               {sellerLines && <p className="mt-1 max-w-sm text-sm text-muted-foreground">{sellerLines}</p>}
               {company?.ntn && <p className="mt-0.5 text-xs text-muted-foreground">NTN: {company.ntn}</p>}
               <p className="mt-2 text-sm font-bold text-primary">{docTitle}</p>
+              <p className="mt-1 text-xs font-bold uppercase tracking-widest text-muted-foreground">{copyLabel}</p>
             </div>
             <div className="text-right">
               <p className="text-lg font-extrabold">{doc.docNo}</p>
@@ -358,6 +493,9 @@ export function DocDetail({ mode, id }: { mode: "SALES" | "PURCHASE"; id: string
               <div className="flex justify-between"><span className="text-muted-foreground">{t("docdetail.invoiceBalance")}</span><span className="font-bold">{fmtMoney(balanceTotal)}</span></div>
             </div>
           </div>
+          <p className="mt-2 text-right text-xs italic text-muted-foreground">
+            {t("fix4.print.amountInWords", { words: amountInWords(BigInt(doc.grandTotal)) })}
+          </p>
 
           {doc.notes && (
             <div className="mt-6">
@@ -399,6 +537,7 @@ export function DocDetail({ mode, id }: { mode: "SALES" | "PURCHASE"; id: string
           </div>
 
           <p className="mt-2 text-[19px] font-extrabold leading-tight">{docTitle}</p>
+          <p className="mt-0.5 text-center text-[10px] font-bold uppercase tracking-widest">{copyLabel}</p>
 
           {/* customer / meta block */}
           <div className="mt-1 flex items-start justify-between gap-2 text-[11px]">
@@ -505,6 +644,34 @@ export function DocDetail({ mode, id }: { mode: "SALES" | "PURCHASE"; id: string
         </div>
       )}
 
+      {/* Credit/debit notes linked to this document (screen only — hidden in print) */}
+      {linkedNotes.length > 0 && (
+        <div className="card mx-auto mt-5 max-w-3xl p-5 print:hidden sm:p-6">
+          <h2 className="font-extrabold">{t("fix4.note.linkedTitle")}</h2>
+          <div className="mt-3 overflow-x-auto">
+            <table className="tbl">
+              <thead><tr><th>{t("fix4.note.colNote")}</th><th>{t("fix4.note.colDate")}</th><th className="num">{t("fix4.note.colAmount")}</th></tr></thead>
+              <tbody>
+                {linkedNotes.map((n) => (
+                  <tr key={n.id}>
+                    <td className="whitespace-nowrap">
+                      <Link
+                        href={`${n.kind === "CREDIT_NOTE" ? "/sales" : "/purchases"}/notes/${n.id}`}
+                        className="font-bold text-primary hover:underline"
+                      >
+                        {n.kind === "CREDIT_NOTE" ? t("fix4.note.creditTitle") : t("fix4.note.debitTitle")} {n.docNo}
+                      </Link>
+                    </td>
+                    <td className="whitespace-nowrap text-muted-foreground">{fmtDate(n.date)}</td>
+                    <td className="num font-bold">{fmtMoney(n.amount)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
       {/* Payments allocated against this document (screen only — hidden in print) */}
       {doc.payments && doc.payments.length > 0 && (
         <div className="card mx-auto mt-5 max-w-3xl p-5 print:hidden sm:p-6">
@@ -541,6 +708,16 @@ export function DocDetail({ mode, id }: { mode: "SALES" | "PURCHASE"; id: string
           @page { margin: ${format === "80mm" ? "4mm" : "12mm"}; }
         }
       `}</style>
+
+      {woModal && doc.partyId && (
+        <WriteOffModal
+          partyId={doc.partyId}
+          docId={doc.id}
+          outstanding={outstanding}
+          onClose={() => setWoModal(false)}
+          onDone={() => { setWoModal(false); reloadDoc(); }}
+        />
+      )}
     </div>
   );
 }

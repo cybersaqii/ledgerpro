@@ -1,15 +1,17 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { Plus, CalendarDays, ReceiptText } from "lucide-react";
+import { Plus, CalendarDays, ReceiptText, Ban } from "lucide-react";
 import { PageHeader, EmptyState, Field, ErrorNote, FilterBar, SummaryChips, Pagination } from "@/components/ui";
 import { Modal } from "@/components/modal";
 import { api, fmtMoney, fmtDate, fmtDateInput, toBig } from "@/lib/format";
 import { useLang } from "@/components/lang-provider";
+import { usePermissions } from "@/components/permissions";
+import { fx } from "@/components/fix3-lang";
 
 type Expense = {
   id: string; date: number; amount: string; taxAmount: string; notes: string | null;
-  accountName: string | null; bankName: string | null;
+  accountName: string | null; bankName: string | null; voidedAt: number | null;
 };
 type Account = { id: string; name: string; code: string };
 type Bank = { id: string; name: string };
@@ -18,6 +20,9 @@ const PER_PAGE = 20;
 
 export default function ExpensesPage() {
   const { t } = useLang();
+  const f = (k: string, vars?: Record<string, string | number>) => fx(t, k, vars);
+  const { permissions } = usePermissions();
+  const canVoid = permissions.includes("expenses");
   const [rows, setRows] = useState<Expense[]>([]);
   const [total, setTotal] = useState(0);
   const [sum, setSum] = useState("0");
@@ -32,6 +37,10 @@ export default function ExpensesPage() {
   const [form, setForm] = useState({ accountId: "", bankAccountId: "", date: fmtDateInput(), amount: "", taxAmount: "", notes: "" });
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [voidTarget, setVoidTarget] = useState<Expense | null>(null);
+  const [voidReason, setVoidReason] = useState("");
+  const [voidError, setVoidError] = useState<string | null>(null);
+  const [voiding, setVoiding] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -91,6 +100,22 @@ export default function ExpensesPage() {
   const set = (k: keyof typeof form) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) =>
     setForm((f) => ({ ...f, [k]: e.target.value }));
 
+  async function doVoid(e: React.FormEvent) {
+    e.preventDefault();
+    if (!voidTarget) return;
+    setVoiding(true);
+    setVoidError(null);
+    try {
+      await api(`/api/expenses/${voidTarget.id}/void`, { method: "POST", body: JSON.stringify({ reason: voidReason }) });
+      setVoidTarget(null);
+      load();
+    } catch (err) {
+      setVoidError(err instanceof Error ? err.message : "Could not void.");
+    } finally {
+      setVoiding(false);
+    }
+  }
+
   return (
     <div>
       <PageHeader
@@ -136,15 +161,27 @@ export default function ExpensesPage() {
         ) : (
           <div className="overflow-x-auto">
             <table className="tbl">
-              <thead><tr><th>{t("expenses.colDate")}</th><th>{t("expenses.colAccount")}</th><th>{t("expenses.colPaidFrom")}</th><th>{t("expenses.colNotes")}</th><th className="num">{t("expenses.colAmount")}</th></tr></thead>
+              <thead><tr><th>{t("expenses.colDate")}</th><th>{t("expenses.colAccount")}</th><th>{t("expenses.colPaidFrom")}</th><th>{t("expenses.colNotes")}</th><th className="num">{t("expenses.colAmount")}</th>{canVoid && <th><span className="sr-only">{f("fix3.voidExpense")}</span></th>}</tr></thead>
               <tbody>
                 {rows.map((x) => (
-                  <tr key={x.id}>
+                  <tr key={x.id} className={x.voidedAt ? "opacity-60" : ""}>
                     <td className="whitespace-nowrap text-muted-foreground">{fmtDate(x.date)}</td>
-                    <td><span className="badge bg-muted text-foreground">{x.accountName ?? "—"}</span></td>
+                    <td><span className="badge bg-muted text-foreground">{x.accountName ?? "—"}</span>
+                      {x.voidedAt && <span className="badge ml-1 bg-danger/15 text-danger">{f("fix3.voided")}</span>}</td>
                     <td className="text-muted-foreground">{x.bankName ?? "—"}</td>
                     <td className="max-w-52 truncate text-muted-foreground">{x.notes ?? "—"}</td>
                     <td className="num font-extrabold">{fmtMoney(toBig(x.amount) + toBig(x.taxAmount))}</td>
+                    {canVoid && (
+                      <td className="text-right">
+                        {!x.voidedAt && (
+                          <button className="btn btn-ghost !p-2 text-muted-foreground hover:text-danger"
+                            title={f("fix3.voidExpense")}
+                            onClick={() => { setVoidReason(""); setVoidError(null); setVoidTarget(x); }}>
+                            <Ban size={15} />
+                          </button>
+                        )}
+                      </td>
+                    )}
                   </tr>
                 ))}
               </tbody>
@@ -174,11 +211,31 @@ export default function ExpensesPage() {
               </Field>
               <Field label={t("expenses.date")}><input type="date" className="field" required value={form.date} onChange={set("date")} /></Field>
               <Field label={t("expenses.amount")}><input className="field num" type="number" min="0" step="0.01" required value={form.amount} onChange={set("amount")} placeholder="0.00" /></Field>
+              <Field label={f("fix3.taxAmount")} hint={f("fix3.taxAmountHint")}>
+                <input className="field num" type="number" min="0" step="0.01" value={form.taxAmount} onChange={set("taxAmount")} placeholder="0.00" />
+              </Field>
             </div>
             <Field label={t("expenses.notes")}><input className="field" value={form.notes} onChange={set("notes")} placeholder={t("expenses.notesPlaceholder")} /></Field>
             <div className="flex justify-end gap-2 pt-2">
               <button type="button" className="btn btn-ghost" onClick={() => setModal(false)}>{t("common.cancel")}</button>
               <button className="btn btn-primary" disabled={saving}>{saving ? t("common.saving") : t("expenses.saveExpense")}</button>
+            </div>
+          </form>
+        </Modal>
+      )}
+      {voidTarget && (
+        <Modal title={f("fix3.voidExpense")} onClose={() => setVoidTarget(null)}>
+          <form onSubmit={doVoid} className="space-y-4">
+            <ErrorNote message={voidError} />
+            <p className="text-sm text-muted-foreground">{f("fix3.voidExpenseConfirm")}</p>
+            <Field label={f("fix3.voidReason")}>
+              <input className="field" value={voidReason} onChange={(e) => setVoidReason(e.target.value)} placeholder={f("fix3.voidReasonPh")} />
+            </Field>
+            <div className="flex justify-end gap-2 pt-2">
+              <button type="button" className="btn btn-ghost" onClick={() => setVoidTarget(null)}>{t("common.cancel")}</button>
+              <button className="btn text-sm text-danger border-danger/40 hover:bg-danger/10" disabled={voiding}>
+                {voiding ? f("fix3.voiding") : f("fix3.voidExpense")}
+              </button>
             </div>
           </form>
         </Modal>

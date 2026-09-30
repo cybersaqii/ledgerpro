@@ -32,6 +32,7 @@ export const companies = sqliteTable("companies", {
   ntn: text("ntn"),
   bankInfo: text("bank_info"), // bank/payment lines printed on invoices
   invoiceFooter: text("invoice_footer"), // default note printed under every invoice
+  defaultInvoiceFormat: text("default_invoice_format").notNull().default("80mm"), // 80mm | a4 | challan (migration 0026)
   logoUrl: text("logo_url"),
   businessType: text("business_type").notNull().default("WHOLESALE"),
   currency: text("currency").notNull().default("PKR"),
@@ -171,6 +172,7 @@ export const parties = sqliteTable(
     priceListId: text("price_list_id"), // party-wise price level (sales)
     isActive: flag("is_active", true),
     notes: text("notes"),
+    category: text("category"), // free-text grouping, e.g. "Retailer" (migration 0026)
     createdAt: createdAt(),
     updatedAt: updatedAt(),
   },
@@ -220,12 +222,21 @@ export const stockLevels = sqliteTable(
 // A product is "batch-tracked" when it has at least one product_batches row.
 // qty_thousandths is the remaining quantity (milli-units) attributed to the
 // batch; it may be lower than total stock when some receipts were unbatched.
+//
+// FK honesty (migration 0023): the references below are real DB-level foreign
+// keys — plain REFERENCES with no ON DELETE CASCADE, DEFERRABLE INITIALLY
+// DEFERRED. Deleting a parent that still has children fails loudly instead of
+// cascading silently; the app deletes child-before-parent explicitly.
 export const productBatches = sqliteTable(
   "product_batches",
   {
     id: id(),
-    companyId: text("company_id").notNull(),
-    productId: text("product_id").notNull(),
+    companyId: text("company_id")
+      .notNull()
+      .references(() => companies.id),
+    productId: text("product_id")
+      .notNull()
+      .references(() => products.id),
     batchNo: text("batch_no").notNull(),
     expiryDate: text("expiry_date"), // YYYY-MM-DD or NULL
     qtyThousandths: qty("qty_thousandths"), // remaining, milli-units
@@ -245,10 +256,16 @@ export const docBatchUsage = sqliteTable(
   "doc_batch_usage",
   {
     id: id(),
-    companyId: text("company_id").notNull(),
+    companyId: text("company_id")
+      .notNull()
+      .references(() => companies.id),
     docId: text("doc_id").notNull(),
-    productId: text("product_id").notNull(),
-    batchId: text("batch_id").notNull(),
+    productId: text("product_id")
+      .notNull()
+      .references(() => products.id),
+    batchId: text("batch_id")
+      .notNull()
+      .references(() => productBatches.id),
     qtyThousandths: qty("qty_thousandths"),
     createdAt: createdAt(),
   },
@@ -264,11 +281,15 @@ export const setoffAllocations = sqliteTable(
   "setoff_allocations",
   {
     id: id(),
-    companyId: text("company_id").notNull(),
+    companyId: text("company_id")
+      .notNull()
+      .references(() => companies.id),
     setoffEntryId: text("setoff_entry_id").notNull(),
-    partyId: text("party_id").notNull(),
-    salesDocId: text("sales_doc_id"),
-    purchaseDocId: text("purchase_doc_id"),
+    partyId: text("party_id")
+      .notNull()
+      .references(() => parties.id),
+    salesDocId: text("sales_doc_id").references(() => salesDocs.id),
+    purchaseDocId: text("purchase_doc_id").references(() => purchaseDocs.id),
     amount: money("amount"),
     createdAt: createdAt(),
   },
@@ -317,9 +338,15 @@ export const bundleComponents = sqliteTable(
   "bundle_components",
   {
     id: id(),
-    companyId: text("company_id").notNull(),
-    bundleProductId: text("bundle_product_id").notNull(),
-    componentProductId: text("component_product_id").notNull(),
+    companyId: text("company_id")
+      .notNull()
+      .references(() => companies.id),
+    bundleProductId: text("bundle_product_id")
+      .notNull()
+      .references(() => products.id),
+    componentProductId: text("component_product_id")
+      .notNull()
+      .references(() => products.id),
     // component units per one bundle unit, in thousandths (2500 = 2.5 units)
     qtyThousandths: integer("qty_thousandths").notNull(),
     createdAt: createdAt(),
@@ -353,6 +380,7 @@ export const salesDocs = sqliteTable(
     grandTotal: money("grand_total"),
     amountPaid: money("amount_paid"),
     returnedTotal: money("returned_total"), // sum of linked RETURN docs' grand totals
+    writtenOffAmount: money("written_off_amount"), // collectible balance removed by write-off (migration 0027)
     notes: text("notes"),
     journalEntryId: text("journal_entry_id").unique(),
     sourceDocId: text("source_doc_id"), // quotation/order this invoice was converted from
@@ -401,6 +429,7 @@ export const purchaseDocs = sqliteTable(
     grandTotal: money("grand_total"),
     amountPaid: money("amount_paid"),
     returnedTotal: money("returned_total"), // sum of linked RETURN docs' grand totals
+    writtenOffAmount: money("written_off_amount"), // collectible balance removed by write-off (migration 0027)
     notes: text("notes"),
     journalEntryId: text("journal_entry_id").unique(),
     sourceDocId: text("source_doc_id"), // order this bill was converted from
@@ -451,6 +480,9 @@ export const payments = sqliteTable(
     createdById: text("created_by_id").notNull(),
     createdAt: createdAt(),
     updatedAt: updatedAt(),
+    voidedAt: ts("voided_at"), // set when voided (migration 0027)
+    voidJournalEntryId: text("void_journal_entry_id"),
+    voidedById: text("voided_by_id"),
   },
   (t) => [index("payments_company_kind_date").on(t.companyId, t.kind, t.date)]
 );
@@ -472,17 +504,23 @@ export const pdcCheques = sqliteTable(
   "pdc_cheques",
   {
     id: id(),
-    companyId: text("company_id").notNull(),
-    branchId: text("branch_id").notNull(),
+    companyId: text("company_id")
+      .notNull()
+      .references(() => companies.id),
+    branchId: text("branch_id")
+      .notNull()
+      .references(() => branches.id),
     kind: text("kind").notNull(), // RECEIVED | ISSUED
-    partyId: text("party_id").notNull(),
+    partyId: text("party_id")
+      .notNull()
+      .references(() => parties.id),
     chequeNo: text("cheque_no").notNull(),
     bankName: text("bank_name"),
     amount: money("amount"),
     chequeDate: ts("cheque_date").notNull(),
     refNo: text("ref_no"),
     status: text("status").notNull().default("PENDING"), // PENDING | CLEARED | BOUNCED | CANCELLED
-    bankAccountId: text("bank_account_id"),
+    bankAccountId: text("bank_account_id").references(() => bankAccounts.id),
     journalEntryId: text("journal_entry_id").unique(),
     clearedAt: ts("cleared_at"),
     notes: text("notes"),
@@ -516,6 +554,7 @@ export const expenses = sqliteTable(
     id: id(),
     companyId: text("company_id").notNull(),
     branchId: text("branch_id").notNull(),
+    docNo: text("doc_no"), // EXP-0001 … (migration 0024 backfills)
     date: ts("date").notNull(),
     accountId: text("account_id").notNull(),
     bankAccountId: text("bank_account_id").notNull(),
@@ -526,6 +565,9 @@ export const expenses = sqliteTable(
     createdById: text("created_by_id").notNull(),
     createdAt: createdAt(),
     updatedAt: updatedAt(),
+    voidedAt: ts("voided_at"), // set when voided (migration 0027)
+    voidJournalEntryId: text("void_journal_entry_id"),
+    voidedById: text("voided_by_id"),
   },
   (t) => [index("expenses_company_date").on(t.companyId, t.date)]
 );
@@ -787,4 +829,106 @@ export const syncOperations = sqliteTable(
     createdAt: createdAt(),
   },
   (t) => [index("sync_operations_device").on(t.deviceId, t.createdAt)]
+);
+
+// ─── QA wave: stock adjustments, transfers, write-offs (migration 0027) ──
+
+/** G1 — stock adjustment document (date, reason, affected expense account). */
+export const stockAdjustments = sqliteTable("stock_adjustments", {
+  id: id(),
+  companyId: text("company_id").notNull(),
+  branchId: text("branch_id").notNull(),
+  docNo: text("doc_no").notNull(), // ADJ-0001
+  date: ts("date").notNull(),
+  reason: text("reason").notNull(), // BREAKAGE | EXPIRED | THEFT | FOUND | CORRECTION
+  accountId: text("account_id").notNull(),
+  notes: text("notes"),
+  journalEntryId: text("journal_entry_id").unique(),
+  createdById: text("created_by_id").notNull(),
+  createdAt: createdAt(),
+});
+
+export const stockAdjustmentLines = sqliteTable("stock_adjustment_lines", {
+  id: id(),
+  adjustmentId: text("adjustment_id").notNull(),
+  productId: text("product_id").notNull(),
+  qtyMilli: qty("qty_milli"), // signed: negative = out, positive = in
+  costPaisa: money("cost_paisa"), // per-unit moving-average cost used
+  createdAt: createdAt(),
+});
+
+/** G2 — bank <-> cash transfer between the company's own accounts. */
+export const transfers = sqliteTable("transfers", {
+  id: id(),
+  companyId: text("company_id").notNull(),
+  branchId: text("branch_id").notNull(),
+  docNo: text("doc_no").notNull(), // TRF-0001
+  date: ts("date").notNull(),
+  fromBankAccountId: text("from_bank_account_id").notNull(),
+  toBankAccountId: text("to_bank_account_id").notNull(),
+  amount: money("amount"),
+  notes: text("notes"),
+  journalEntryId: text("journal_entry_id").unique(),
+  createdById: text("created_by_id").notNull(),
+  createdAt: createdAt(),
+});
+
+/** G7 — bad-debt write-off on an overdue invoice (Dr Bad Debts / Cr AR). */
+export const writeOffs = sqliteTable("write_offs", {
+  id: id(),
+  companyId: text("company_id").notNull(),
+  branchId: text("branch_id").notNull(),
+  docNo: text("doc_no").notNull(), // WO-0001
+  date: ts("date").notNull(),
+  partyId: text("party_id").notNull(),
+  salesDocId: text("sales_doc_id"),
+  accountId: text("account_id").notNull(), // bad-debts expense account
+  amount: money("amount"),
+  journalEntryId: text("journal_entry_id").unique(),
+  recoveredAt: ts("recovered_at"),
+  recoveredJournalEntryId: text("recovered_journal_entry_id"),
+  notes: text("notes"),
+  createdById: text("created_by_id").notNull(),
+  createdAt: createdAt(),
+});
+
+// ─── QA wave: bank reconciliation + notes (migrations 0025/0026) ────────
+
+export const reconciliationClears = sqliteTable(
+  "reconciliation_clears",
+  {
+    id: id(),
+    companyId: text("company_id").notNull(),
+    bankAccountId: text("bank_account_id").notNull(),
+    journalLineId: text("journal_line_id").notNull().unique(),
+    clearedAt: ts("cleared_at").notNull(),
+    clearedById: text("cleared_by_id").notNull(),
+    createdAt: createdAt(),
+  },
+  (t) => [index("recon_clears_company_bank").on(t.companyId, t.bankAccountId)]
+);
+
+export const notes = sqliteTable(
+  "notes",
+  {
+    id: id(),
+    companyId: text("company_id").notNull(),
+    branchId: text("branch_id").notNull(),
+    kind: text("kind").notNull(), // CREDIT_NOTE | DEBIT_NOTE
+    docNo: text("doc_no").notNull(), // CN-0001 | DN-0001
+    date: ts("date").notNull(),
+    partyId: text("party_id").notNull(),
+    accountId: text("account_id").notNull(), // ledger account carrying the amount
+    sourceDocId: text("source_doc_id"), // sales_docs.id | purchase_docs.id (optional link)
+    amount: money("amount"),
+    notes: text("notes"),
+    journalEntryId: text("journal_entry_id").unique(),
+    createdById: text("created_by_id").notNull(),
+    createdAt: createdAt(),
+  },
+  (t) => [
+    index("notes_company_kind_date").on(t.companyId, t.kind, t.date),
+    index("notes_company_party").on(t.companyId, t.partyId),
+    index("notes_source_doc").on(t.sourceDocId),
+  ]
 );

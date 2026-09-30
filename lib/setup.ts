@@ -58,12 +58,21 @@ const DOC_PREFIXES: Record<string, string> = {
   QUOTATION: "QUO-",
   ORDER: "ORD-",
   CHALLAN: "CHL-",
+  // Legacy shared return sequence (pre-split). Existing SR- purchase returns
+  // keep their numbers; new code must use SALE_RETURN / PURCHASE_RETURN.
   RETURN: "SR-",
+  SALE_RETURN: "SR-",
+  PURCHASE_RETURN: "PR-",
   BILL: "BIL-",
   GRN: "GRN-",
   PAYMENT: "PAY-",
   RECEIPT: "REC-",
   EXPENSE: "EXP-",
+  TRANSFER: "TRF-",
+  STOCK_ADJUSTMENT: "ADJ-",
+  WRITE_OFF: "WO-",
+  CREDIT_NOTE: "CN-",
+  DEBIT_NOTE: "DN-",
 };
 
 /** Next document number, e.g. INV-0001. Must be called inside a transaction. */
@@ -189,13 +198,26 @@ export async function setupCompany(db: Db, companyId: string, opts: { defaultBra
     const haveSeq = new Set(seqRows.map((r) => r.docType));
     const missingSeq = Object.entries(DOC_PREFIXES).filter(([docType]) => !haveSeq.has(docType));
     if (missingSeq.length > 0) {
+      // SALE_RETURN continues the legacy shared RETURN sequence: old SR-
+      // numbers (both sale and purchase returns drew from it) are the high-
+      // water mark, so new SR- numbers can never collide with them.
+      // PURCHASE_RETURN starts fresh — the PR- prefix never existed before.
+      let legacyReturnLastNo = 0;
+      if (missingSeq.some(([docType]) => docType === "SALE_RETURN")) {
+        const legacy = await tx
+          .select({ lastNo: numberSequences.lastNo })
+          .from(numberSequences)
+          .where(and(eq(numberSequences.companyId, companyId), eq(numberSequences.docType, "RETURN")))
+          .limit(1);
+        legacyReturnLastNo = legacy[0]?.lastNo ?? 0;
+      }
       await tx.insert(numberSequences).values(
         missingSeq.map(([docType, prefix]) => ({
           id: crypto.randomUUID(),
           companyId,
           docType,
           prefix,
-          lastNo: 0,
+          lastNo: docType === "SALE_RETURN" ? legacyReturnLastNo : 0,
         }))
       );
     }

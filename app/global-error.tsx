@@ -1,10 +1,37 @@
 "use client";
 
-// Root-level fallback. It renders without the app's layout or global styles,
-// so everything is inline. Must include its own <html> and <body>.
+import { useState } from "react";
+
+// Root-level fallback. It renders without the app's layout or global styles
+// (and without the i18n provider), so everything is inline. Copy below mirrors
+// the `globalerror.*` dictionary keys; the language comes from localStorage
+// ("lp-lang") since the provider is unavailable here.
+const COPY: Record<"en" | "ur", { title: string; body: string; reload: string }> = {
+  en: {
+    title: "LedgerPro ran into a problem",
+    body: "The application could not start. Your saved data is safe on the server. Please reload the page.",
+    reload: "Reload",
+  },
+  ur: {
+    title: "لیجرپرو میں مسئلہ پیش آیا",
+    body: "ایپلیکیشن شروع نہیں ہو سکی۔ آپ کا محفوظ ڈیٹا سرور پر موجود ہے۔ براہ کرم صفحہ دوبارہ لوڈ کریں۔",
+    reload: "دوبارہ لوڈ کریں",
+  },
+};
+
 export default function GlobalError({ reset }: { error: Error & { digest?: string }; reset: () => void }) {
+  // The i18n provider is unavailable here, so the language comes from
+  // localStorage at first render (SSR-safe: English on the server).
+  const [lang] = useState<"en" | "ur">(() => {
+    try {
+      return typeof window !== "undefined" && window.localStorage.getItem("lp-lang") === "ur" ? "ur" : "en";
+    } catch {
+      return "en";
+    }
+  });
+  const c = COPY[lang];
   return (
-    <html lang="en">
+    <html lang={lang} dir={lang === "ur" ? "rtl" : "ltr"}>
       <body style={{ margin: 0, fontFamily: "system-ui, sans-serif", background: "#0a2e25", color: "#ecfdf5" }}>
         <div
           style={{
@@ -32,11 +59,8 @@ export default function GlobalError({ reset }: { error: Error & { digest?: strin
             >
               !
             </div>
-            <h1 style={{ margin: "20px 0 0", fontSize: 28 }}>LedgerPro ran into a problem</h1>
-            <p style={{ color: "rgba(236,253,245,.7)", lineHeight: 1.6 }}>
-              The application could not start. Your saved data is safe on the server.
-              Please reload the page.
-            </p>
+            <h1 style={{ margin: "20px 0 0", fontSize: 28 }}>{c.title}</h1>
+            <p style={{ color: "rgba(236,253,245,.7)", lineHeight: 1.6 }}>{c.body}</p>
             <button
               onClick={reset}
               style={{
@@ -51,7 +75,7 @@ export default function GlobalError({ reset }: { error: Error & { digest?: strin
                 cursor: "pointer",
               }}
             >
-              Reload
+              {c.reload}
             </button>
           </div>
         </div>

@@ -1,10 +1,11 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useState, Fragment } from "react";
 import { Plus, Search, Pencil, TriangleAlert, Package } from "lucide-react";
 import { PageHeader, EmptyState, Field, ErrorNote } from "@/components/ui";
 import { Modal } from "@/components/modal";
 import { api, fmtMoney, fmtQty } from "@/lib/format";
+import { paisaToRupees } from "@/lib/pos";
 import { useBusinessProfile } from "@/components/business-type";
 import { useLang } from "@/components/lang-provider";
 
@@ -31,12 +32,20 @@ const emptyForm = {
   location: "",
 };
 
+type ProductDetail = {
+  id: string; sku: string; name: string; barcode: string | null;
+  unit: string; category: string | null; purchasePrice: string; salePrice: string;
+  trackStock: boolean; reorderLevel: string; minSalePrice: string | null;
+  location: string | null; isBundle: boolean;
+};
+
 const UNITS = ["PCS", "KG", "G", "LTR", "ML", "MTR", "BOX", "CTN", "DOZ", "BAG"];
 
 /** thousandths (2500) -> display units ("2.5"), exact, no floats. */
-function thousandthsToStr(n: number): string {
-  const whole = Math.trunc(n / 1000);
-  const frac = String(Math.abs(n % 1000)).padStart(3, "0").replace(/0+$/, "");
+function thousandthsToStr(n: string | number | bigint): string {
+  const v = BigInt(n);
+  const whole = v / 1000n;
+  const frac = String(v % 1000n).padStart(3, "0").replace(/0+$/, "");
   return frac ? `${whole}.${frac}` : `${whole}`;
 }
 
@@ -84,33 +93,41 @@ export default function ProductsPage() {
     setCompQuery(""); setCompResults([]);
     setModal({ mode: "add" });
   }
-  function openEdit(p: Product) {
-    setForm({
-      sku: p.sku, name: p.name, barcode: "", category: p.category ?? "", unit: p.unit,
-      purchasePrice: (Number(BigInt(p.purchasePrice)) / 100).toString(),
-      salePrice: (Number(BigInt(p.salePrice)) / 100).toString(),
-      trackStock: p.trackStock,
-      reorderLevel: (Number(BigInt(p.reorderLevel)) / 1000).toString(),
-      minSalePrice: (Number(BigInt(p.minSalePrice ?? "0")) / 100).toString(),
-      location: p.location ?? "",
-    });
+  // Fetch the full row first: the list omits barcode and several flags, and
+  // sending those back blank would silently wipe them on save.
+  async function openEdit(p: Product) {
     setError(null);
-    setComponents([]); setComponentsLoaded(false);
-    setCompQuery(""); setCompResults([]);
-    setModal({ mode: "edit", p });
-    // load bundle components for the editor
-    api<{ data: { componentProductId: string; componentName: string; componentSku: string; componentUnit: string; qtyThousandths: number }[] }>(
-      `/api/products/${p.id}/bundles`
-    ).then((d) => {
-      setComponents(d.data.map((c) => ({
-        productId: c.componentProductId,
-        name: c.componentName,
-        sku: c.componentSku,
-        unit: c.componentUnit,
-        qty: thousandthsToStr(c.qtyThousandths),
-      })));
-      setComponentsLoaded(true);
-    }).catch(() => setError(t("bundles.loadError")));
+    try {
+      const d = await api<{ data: ProductDetail }>(`/api/products/${p.id}`);
+      const full = d.data;
+      setForm({
+        sku: full.sku, name: full.name, barcode: full.barcode ?? "", category: full.category ?? "", unit: full.unit,
+        purchasePrice: paisaToRupees(full.purchasePrice),
+        salePrice: paisaToRupees(full.salePrice),
+        trackStock: full.trackStock,
+        reorderLevel: thousandthsToStr(full.reorderLevel),
+        minSalePrice: paisaToRupees(full.minSalePrice ?? "0"),
+        location: full.location ?? "",
+      });
+      setComponents([]); setComponentsLoaded(false);
+      setCompQuery(""); setCompResults([]);
+      setModal({ mode: "edit", p });
+      // load bundle components for the editor
+      api<{ data: { componentProductId: string; componentName: string; componentSku: string; componentUnit: string; qtyThousandths: number }[] }>(
+        `/api/products/${p.id}/bundles`
+      ).then((d) => {
+        setComponents(d.data.map((c) => ({
+          productId: c.componentProductId,
+          name: c.componentName,
+          sku: c.componentSku,
+          unit: c.componentUnit,
+          qty: thousandthsToStr(c.qtyThousandths),
+        })));
+        setComponentsLoaded(true);
+      }).catch(() => setError(t("bundles.loadError")));
+    } catch (e) {
+      setError(e instanceof Error ? e.message : t("products.loadError"));
+    }
   }
 
   async function searchComponents(q: string) {
@@ -205,6 +222,7 @@ export default function ProductsPage() {
           <TriangleAlert size={15} className="text-accent" /> {t("products.lowStockOnly")}
         </label>
       </div>
+      {!modal && <ErrorNote message={error} />}
 
       <div className="card rise rise-1 overflow-hidden">
         {loading ? (
@@ -222,7 +240,7 @@ export default function ProductsPage() {
                   const expanded = openBatches === p.id;
                   const batches = batchRows[p.id] ?? [];
                   return (
-                    <>
+                    <Fragment key={p.id}>
                     <tr key={p.id}>
                       <td>
                         <span className="font-bold">{p.name}</span>
@@ -281,7 +299,7 @@ export default function ProductsPage() {
                         </td>
                       </tr>
                     )}
-                    </>
+                    </Fragment>
                   );
                 })}
               </tbody>

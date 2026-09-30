@@ -2,6 +2,7 @@ import { NextRequest } from "next/server";
 import { eq } from "drizzle-orm";
 import { z } from "zod";
 import { companies, users } from "@/db/schema";
+
 import { json, err } from "@/lib/api";
 import { requireCompany, requireOwner, requirePermission, db } from "@/lib/route-helpers";
 import { logAudit } from "@/lib/audit";
@@ -20,6 +21,7 @@ const companySchema = z.object({
   bankInfo: z.string().trim().max(500).optional().or(z.literal("")),
   invoiceFooter: z.string().trim().max(500).optional().or(z.literal("")),
   businessType: z.enum(["WHOLESALE", "RETAIL", "DISTRIBUTION", "PHARMACY", "CLINIC", "RESTAURANT", "SERVICES", "MANUFACTURING", "OTHER"]),
+  defaultInvoiceFormat: z.enum(["a4", "80mm", "challan"]).default("80mm"),
 });
 
 // GET /api/company — current company's profile
@@ -29,6 +31,8 @@ export async function GET() {
   const rows = await db.select().from(companies).where(eq(companies.id, gate.companyId)).limit(1);
   const c = rows[0];
   if (!c) return err("Company not found.", 404);
+  const fmtRows = await db.select().from(companies).where(eq(companies.id, gate.companyId)).limit(1);
+  const defaultInvoiceFormat = fmtRows[0]?.defaultInvoiceFormat ?? "80mm";
   return json({
     data: {
       id: c.id, name: c.name, email: c.email, phone: c.phone,
@@ -36,6 +40,7 @@ export async function GET() {
       bankInfo: c.bankInfo, invoiceFooter: c.invoiceFooter,
       businessType: c.businessType, businessTypeLabel: businessTypeLabel(c.businessType),
       currency: c.currency,
+      defaultInvoiceFormat: String(defaultInvoiceFormat),
       lockedUntil: c.lockedUntil ? c.lockedUntil.toISOString().slice(0, 10) : null,
     },
   });
@@ -61,6 +66,7 @@ export async function PUT(req: NextRequest) {
     businessType: d.businessType,
     updatedAt: new Date(),
   }).where(eq(companies.id, gate.companyId));
+  await db.update(companies).set({ defaultInvoiceFormat: d.defaultInvoiceFormat }).where(eq(companies.id, gate.companyId));
   await logAudit(db, {
     companyId: gate.companyId, userId: gate.session.uid, userName: gate.session.name,
     action: "settings.updated", entity: "company", entityId: gate.companyId,

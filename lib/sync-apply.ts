@@ -444,19 +444,25 @@ async function resolveDocNo(
   docType: string,
   proposed?: string
 ): Promise<ResolvedDocNo> {
+  // Return sequences split in 0023+: sale returns draw SR- from SALE_RETURN,
+  // purchase returns draw PR- from PURCHASE_RETURN (legacy "RETURN" kept only
+  // as a fallback prefix inside nextDocNo).
+  const seqType = docType === "RETURN" ? (sales ? "SALE_RETURN" : "PURCHASE_RETURN") : docType;
   if (proposed) {
     if (!(await docNoTaken(tx, sales, companyId, docType, proposed)))
       return { docNo: proposed, reassigned: false };
-    return { docNo: await nextDocNo(tx, companyId, docType), reassigned: true, from: proposed };
+    return { docNo: await nextDocNo(tx, companyId, seqType), reassigned: true, from: proposed };
   }
-  return { docNo: await nextDocNo(tx, companyId, docType), reassigned: false };
+  return { docNo: await nextDocNo(tx, companyId, seqType), reassigned: false };
 }
 
-/** Run the doc insert; on a residual unique race, reallocate once via nextDocNo(). */
+/** Run the doc insert; on a residual unique race, reallocate once via nextDocNo().
+ * `seqType` is the number_sequences key (may differ from the doc table's
+ * docType — e.g. SALE_RETURN vs RETURN). */
 async function insertDocWithNoFallback(
   tx: DbTx,
   companyId: string,
-  docType: string,
+  seqType: string,
   resolved: ResolvedDocNo,
   insert: (docNo: string) => Promise<unknown>
 ): Promise<ResolvedDocNo> {
@@ -466,7 +472,7 @@ async function insertDocWithNoFallback(
   } catch (e) {
     if (!isUniqueViolation(e)) throw e;
     from = docNo;
-    docNo = await nextDocNo(tx, companyId, docType);
+    docNo = await nextDocNo(tx, companyId, seqType);
     reassigned = true;
     await insert(docNo);
   }
@@ -730,7 +736,7 @@ async function applySalesCreate(db: Db, ds: DeviceSession, op: SyncOp): Promise<
       notes: b.notes || null,
       createdById: userId,
     };
-    const no = await insertDocWithNoFallback(tx, companyId, b.docType, resolved, (docNo) =>
+    const no = await insertDocWithNoFallback(tx, companyId, b.docType === "RETURN" ? "SALE_RETURN" : b.docType, resolved, (docNo) =>
       tx.insert(salesDocs).values({ ...base, docNo })
     );
     await tx.insert(salesDocItems).values(
@@ -1066,7 +1072,7 @@ async function applyPurchaseCreate(db: Db, ds: DeviceSession, op: SyncOp): Promi
       notes: b.notes || null,
       createdById: userId,
     };
-    const no = await insertDocWithNoFallback(tx, companyId, b.docType, resolved, (docNo) =>
+    const no = await insertDocWithNoFallback(tx, companyId, b.docType === "RETURN" ? "PURCHASE_RETURN" : b.docType, resolved, (docNo) =>
       tx.insert(purchaseDocs).values({ ...base, docNo })
     );
     await tx.insert(purchaseDocItems).values(
