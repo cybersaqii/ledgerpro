@@ -3,24 +3,12 @@
 import { useTheme } from "next-themes";
 import { Moon, Sun, BookOpenCheck, ChevronLeft, ChevronRight, Download, Languages } from "lucide-react";
 import { useEffect, useState, type ReactNode } from "react";
-import { brand } from "@/lib/brand";
+import { BrandLockup } from "@/components/brand-logo";
 import { downloadCsv } from "@/lib/csv";
 import { useLang } from "./lang-provider";
 
 export function Logo({ compact = false }: { compact?: boolean }) {
-  return (
-    <span className="inline-flex items-center gap-2.5">
-      <span className="grid h-10 w-10 place-items-center rounded-2xl bg-gradient-to-br from-primary via-primary to-emerald-900 text-primary-foreground shadow-lg shadow-primary/30">
-        <BookOpenCheck size={20} strokeWidth={2.4} />
-      </span>
-      {!compact && (
-        <span className="leading-tight">
-          <span className="block text-[1.05rem] font-extrabold tracking-tight">{brand.name}</span>
-          <span className="hidden text-[0.68rem] font-medium text-muted-foreground sm:block">{brand.tagline}</span>
-        </span>
-      )}
-    </span>
-  );
+  return <BrandLockup markSize={40} wordClass="text-[1.05rem] leading-tight" tagline={!compact} />;
 }
 
 export function ThemeToggle() {

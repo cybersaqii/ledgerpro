@@ -10,7 +10,7 @@ export const SUPPORT_SETTING_KEYS = [
 ] as const;
 
 export const SUPPORT_DEFAULTS: Record<string, string> = {
-  "support.email": "support@ledgerpro.app",
+  "support.email": "support@ledgerprosolution.com",
   "support.phone": "",
   "support.hours": "Mon–Sat, 9am–6pm PKT",
 };

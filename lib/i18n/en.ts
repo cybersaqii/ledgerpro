@@ -314,6 +314,13 @@ export const en = {
     typePurchaseOrder: "Purchase Order",
     typeGrn: "GRN",
     printBack: "Back",
+    emailBtn: "Email",
+    emailTitle: "Email this document",
+    emailTo: "Recipient email",
+    emailSend: "Send email",
+    emailSending: "Sending…",
+    emailSent: "Document emailed successfully.",
+    emailFailed: "Could not send the email.",
     print: "Print",
     fmtA4: "A4",
     fmt80mm: "80mm",
@@ -772,7 +779,23 @@ export const en = {
     repeatPw: "Repeat new password",
     resetting: "Resetting…",
     resetBtn: "Reset password",
-    lostCode: "Lost your recovery code too? Ask your company owner to reset your password from Settings → Team, or back to log in."
+    lostCode: "Lost your recovery code too? Ask your company owner to reset your password from Settings → Team, or back to log in.",
+    googleBtn: "Continue with Google",
+    googleNotConfigured: "Google sign-in is not set up yet. Please use your email and password.",
+    otpInstead: "Log in with an email code instead",
+    passwordInstead: "Use password instead",
+    sendCode: "Send code",
+    sendingCode: "Sending…",
+    codeSentTo: "Code sent to {email}",
+    enterCode: "Enter the 6-digit code",
+    codeHint: "Check your email — the code expires in 10 minutes.",
+    verifyCode: "Verify code",
+    verifying: "Verifying…",
+    resendCode: "Resend code",
+    editDetails: "Edit details",
+    noAccount: "No account found for this email.",
+    verifyFirst: "Please verify your email with the code first.",
+    googlePrefill: "Signed in with Google — just set a password to finish creating your account."
   },
   pub: {
     login: "Log in",
@@ -1265,7 +1288,7 @@ export const en = {
     verifiedBad: "Verification found problems:",
     dialogLabel: "Upload and restore a backup",
     restoreTitle: "Restore from backup",
-    pickHint: "Choose a LedgerPro backup JSON file. It will be verified first — nothing changes until you confirm.",
+    pickHint: "Choose a LedgerProSolution backup JSON file. It will be verified first — nothing changes until you confirm.",
     chooseFile: "Choose a backup file",
     fileHint: "JSON only, max 8 MB",
     chooseFirst: "Choose a backup JSON file first.",
@@ -2218,7 +2241,7 @@ export const en = {
   globalerror: {
     body: "The application could not start. Your saved data is safe on the server. Please reload the page.",
     reload: "Reload",
-    title: "LedgerPro ran into a problem"
+    title: "LedgerProSolution ran into a problem"
   },
   fix3: {
     adjAccount: "Affected account",

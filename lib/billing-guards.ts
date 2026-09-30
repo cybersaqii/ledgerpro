@@ -1,10 +1,12 @@
 // Server-side billing guards: PRO feature gating + platform-admin checks.
 // Follows the same gate pattern as lib/route-helpers (requireOwner / requireCompany).
 import { NextResponse } from "next/server";
-import { eq } from "drizzle-orm";
-import { companies, platformSettings, billingPayments } from "@/db/schema";
+import { and, eq } from "drizzle-orm";
+import { companies, platformSettings, billingPayments, users } from "@/db/schema";
 import { json, requireAuth } from "@/lib/api";
 import { db } from "@/lib/route-helpers";
+import { sendEmail, brandEmailHeader } from "@/lib/email";
+import { brand } from "@/lib/brand";
 import type { Db, DbTx } from "@/lib/db";
 import {
   canAccess,
@@ -180,6 +182,38 @@ export async function activatePro(
     .update(companies)
     .set({ plan: "PRO", proExpiresAt: expires, trialEndsAt: now, updatedAt: new Date() })
     .where(eq(companies.id, companyId));
+  // PRO-activated email — best effort, never breaks activation.
+  try {
+    const [comp] = await dbc
+      .select({ email: companies.email, name: companies.name })
+      .from(companies)
+      .where(eq(companies.id, companyId))
+      .limit(1);
+    const [owner] = await dbc
+      .select({ email: users.email, name: users.name })
+      .from(users)
+      .where(and(eq(users.companyId, companyId), eq(users.role, "OWNER")))
+      .limit(1);
+    const to = owner?.email || comp?.email;
+    if (to) {
+      await sendEmail({
+        to,
+        subject: `${brand.name} PRO activated — welcome to the full plan`,
+        html: `<div style="font-family:sans-serif;max-width:560px;margin:0 auto">
+          ${brandEmailHeader()}
+          <div style="padding:16px 8px 0">
+          <h2>${brand.name} PRO is now active</h2>
+          <p>Hi ${owner?.name || "there"},</p>
+          <p>Your company <strong>${comp?.name || ""}</strong> is now on the <strong>${brand.name} PRO</strong> plan, valid until <strong>${expires.toDateString()}</strong>. All premium features are unlocked — enjoy!</p>
+          <hr/><p style="color:#555">آپ کا ${brand.name} PRO پلان فعال ہو گیا ہے — میعاد <strong>${expires.toDateString()}</strong> تک ہے۔ تمام پریمیم فیچرز دستیاب ہیں۔</p>
+          </div>
+        </div>`,
+        text: `Your ${brand.name} PRO plan is active until ${expires.toDateString()}. All premium features are unlocked.\n\nآپ کا ${brand.name} PRO پلان فعال ہو گیا ہے۔`,
+      });
+    }
+  } catch (e) {
+    console.error("[activatePro] pro-activated email failed", e);
+  }
   return expires;
 }
 

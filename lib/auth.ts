@@ -97,6 +97,38 @@ export async function verifySessionToken(token: string): Promise<boolean> {
   return verifyTokenEdge(token);
 }
 
+// ─── Email verification tokens ────────────────────────────────
+// After a successful OTP check, the API mints one of these (15 min) and the
+// signup form submits it with the account creation request. The signup route
+// verifies the signature + email match before setting email_verified_at, so
+// the "verified" flag can never be obtained by skipping the OTP step.
+
+export interface EmailVerificationClaims {
+  email: string;
+  purpose: "signup";
+}
+
+export async function signEmailVerificationToken(email: string): Promise<string> {
+  return new SignJWT({ email: email.toLowerCase(), purpose: "signup", kind: "email-verify" })
+    .setProtectedHeader({ alg: "HS256" })
+    .setIssuedAt()
+    .setExpirationTime("15m")
+    .sign(secret);
+}
+
+export async function verifyEmailVerificationToken(token: string): Promise<string | null> {
+  try {
+    const { payload } = await jwtVerify(token, secret);
+    const p = payload as unknown as Record<string, unknown>;
+    if (p.kind !== "email-verify" || p.purpose !== "signup" || typeof p.email !== "string") {
+      return null;
+    }
+    return p.email;
+  } catch {
+    return null;
+  }
+}
+
 // ─── Backup-restore tokens ──────────────────────────────────────
 // Step 1 of the upload flow (POST /api/backups/restore with a file) signs a
 // short-lived token; step 2 (confirm) verifies it. The token is bound to the

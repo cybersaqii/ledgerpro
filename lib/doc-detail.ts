@@ -73,7 +73,7 @@ async function paymentsForDoc(
  */
 export async function getSalesDocDetail(db: Db, companyId: string, id: string) {
   const docs = await db
-    .select({ doc: salesDocs, partyName: parties.name, partyPhone: parties.phone })
+    .select({ doc: salesDocs, partyName: parties.name, partyPhone: parties.phone, partyEmail: parties.email })
     .from(salesDocs)
     .leftJoin(parties, eq(salesDocs.partyId, parties.id))
     .where(and(eq(salesDocs.id, id), eq(salesDocs.companyId, companyId)))
@@ -101,12 +101,12 @@ export async function getSalesDocDetail(db: Db, companyId: string, id: string) {
       .limit(1);
     journal = je[0] ?? null;
   }
-  return { ...row.doc, partyName: row.partyName, partyPhone: row.partyPhone, items, journal, payments: await paymentsForDoc(db, id, "SALES") };
+  return { ...row.doc, partyName: row.partyName, partyPhone: row.partyPhone, partyEmail: row.partyEmail, items, journal, payments: await paymentsForDoc(db, id, "SALES") };
 }
 
 export async function getPurchaseDocDetail(db: Db, companyId: string, id: string) {
   const docs = await db
-    .select({ doc: purchaseDocs, partyName: parties.name, partyPhone: parties.phone })
+    .select({ doc: purchaseDocs, partyName: parties.name, partyPhone: parties.phone, partyEmail: parties.email })
     .from(purchaseDocs)
     .leftJoin(parties, eq(purchaseDocs.partyId, parties.id))
     .where(and(eq(purchaseDocs.id, id), eq(purchaseDocs.companyId, companyId)))
@@ -125,5 +125,5 @@ export async function getPurchaseDocDetail(db: Db, companyId: string, id: string
     sku: r.sku,
     batches: r.item.productId ? batches.get(r.item.productId) ?? [] : [],
   }));
-  return { ...row.doc, partyName: row.partyName, partyPhone: row.partyPhone, items, payments: await paymentsForDoc(db, id, "PURCHASE") };
+  return { ...row.doc, partyName: row.partyName, partyPhone: row.partyPhone, partyEmail: row.partyEmail, items, payments: await paymentsForDoc(db, id, "PURCHASE") };
 }

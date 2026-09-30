@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { FileText, Wallet, BarChart3, ShieldCheck } from "lucide-react";
 import { Logo, ThemeToggle, LangToggle } from "./ui";
+import { BrandLockup } from "./brand-logo";
 import { brand } from "@/lib/brand";
 import { useLang } from "./lang-provider";
 import type { ReactNode } from "react";
@@ -28,14 +29,8 @@ export function AuthLayout({ children }: { children: ReactNode }) {
           <div className="absolute inset-0 opacity-[0.07]" style={{ backgroundImage: "radial-gradient(circle at 1px 1px, #fff 1px, transparent 0)", backgroundSize: "28px 28px" }} />
         </div>
         <div className="relative flex h-full flex-col justify-between p-6 text-white lg:p-10">
-          <Link href="/" className="rise inline-flex items-center gap-3">
-            <span className="grid h-11 w-11 place-items-center rounded-2xl bg-white/15 shadow-lg backdrop-blur">
-              <FileText size={22} className="text-white" />
-            </span>
-            <span>
-              <span className="block text-lg font-extrabold tracking-tight">{brand.name}</span>
-              <span className="block text-xs text-emerald-100/80">{brand.tagline}</span>
-            </span>
+          <Link href="/" className="rise inline-flex items-center">
+            <BrandLockup markSize={44} wordClass="text-lg leading-tight text-white" tagline dark />
           </Link>
           <div>
             <h2 className="rise rise-1 max-w-md text-2xl font-extrabold leading-tight tracking-tight xl:text-4xl">

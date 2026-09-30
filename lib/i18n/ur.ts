@@ -316,6 +316,13 @@ export const ur: DeepPartial<EnDict> = {
     typePurchaseOrder: "خریداری آرڈر",
     typeGrn: "GRN",
     printBack: "واپس",
+    emailBtn: "ای میل",
+    emailTitle: "یہ دستاویز ای میل کریں",
+    emailTo: "وصول کنندہ کا ای میل",
+    emailSend: "ای میل بھیجیں",
+    emailSending: "بھیجی جا رہی ہے…",
+    emailSent: "دستاویز کامیابی سے ای میل ہو گئی۔",
+    emailFailed: "ای میل نہیں بھیجی جا سکی۔",
     print: "پرنٹ",
     fmtA4: "A4",
     fmt80mm: "80mm",
@@ -774,7 +781,23 @@ export const ur: DeepPartial<EnDict> = {
     repeatPw: "نیا پاس ورڈ دہرائیں",
     resetting: "ری سیٹ ہو رہا ہے…",
     resetBtn: "پاس ورڈ ری سیٹ کریں",
-    lostCode: "ریکوری کوڈ بھی کھو گیا؟ اپنی کمپنی کے مالک سے کہیں کہ Settings → Team سے آپ کا پاس ورڈ ری سیٹ کرے، یا واپس لاگ اِن کریں۔"
+    lostCode: "ریکوری کوڈ بھی کھو گیا؟ اپنی کمپنی کے مالک سے کہیں کہ Settings → Team سے آپ کا پاس ورڈ ری سیٹ کرے، یا واپس لاگ اِن کریں۔",
+    googleBtn: "گوگل کے ساتھ جاری رکھیں",
+    googleNotConfigured: "گوگل سائن اِن ابھی سیٹ اپ نہیں ہوا۔ براہ کرم اپنا ای میل اور پاس ورڈ استعمال کریں۔",
+    otpInstead: "اس کے بجائے ای میل کوڈ سے لاگ اِن کریں",
+    passwordInstead: "پاس ورڈ استعمال کریں",
+    sendCode: "کوڈ بھیجیں",
+    sendingCode: "بھیجا جا رہا ہے…",
+    codeSentTo: "{email} پر کوڈ بھیج دیا گیا",
+    enterCode: "6 ہندسوں کا کوڈ درج کریں",
+    codeHint: "اپنا ای میل دیکھیں — کوڈ 10 منٹ میں ختم ہو جائے گا۔",
+    verifyCode: "کوڈ کی تصدیق کریں",
+    verifying: "تصدیق ہو رہی ہے…",
+    resendCode: "کوڈ دوبارہ بھیجیں",
+    editDetails: "تفصیلات بدلیں",
+    noAccount: "اس ای میل کا کوئی اکاؤنٹ نہیں ملا۔",
+    verifyFirst: "پہلے کوڈ سے اپنے ای میل کی تصدیق کریں۔",
+    googlePrefill: "گوگل سے سائن اِن ہو گیا — اکاؤنٹ بنانے کے لیے بس پاس ورڈ رکھیں۔"
   },
   pub: {
     login: "لاگ اِن",
@@ -1267,7 +1290,7 @@ export const ur: DeepPartial<EnDict> = {
     verifiedBad: "تصدیق میں مسائل ملے:",
     dialogLabel: "بیک اپ اپ لوڈ اور بحال کریں",
     restoreTitle: "بیک اپ سے بحال کریں",
-    pickHint: "LedgerPro بیک اپ JSON فائل منتخب کریں۔ پہلے اس کی تصدیق ہو گی — آپ کی تصدیق تک کچھ نہیں بدلے گا۔",
+    pickHint: "LedgerProSolution بیک اپ JSON فائل منتخب کریں۔ پہلے اس کی تصدیق ہو گی — آپ کی تصدیق تک کچھ نہیں بدلے گا۔",
     chooseFile: "بیک اپ فائل منتخب کریں",
     fileHint: "صرف JSON، زیادہ سے زیادہ 8 MB",
     chooseFirst: "پہلے بیک اپ JSON فائل منتخب کریں۔",
@@ -2220,7 +2243,7 @@ export const ur: DeepPartial<EnDict> = {
   globalerror: {
     body: "ایپلیکیشن شروع نہیں ہو سکی۔ آپ کا محفوظ ڈیٹا سرور پر موجود ہے۔ براہ کرم صفحہ دوبارہ لوڈ کریں۔",
     reload: "دوبارہ لوڈ کریں",
-    title: "لیجرپرو میں مسئلہ پیش آیا"
+    title: "LedgerProSolution میں مسئلہ پیش آیا"
   },
   fix3: {
     adjAccount: "متاثرہ کھاتہ",

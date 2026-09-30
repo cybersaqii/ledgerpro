@@ -72,6 +72,8 @@ export const users = sqliteTable(
     isActive: flag("is_active", true),
     tokenVersion: integer("token_version").notNull().default(0),
     recoveryCodeHash: text("recovery_code_hash"), // bcrypt hash of the account recovery code
+    emailVerifiedAt: ts("email_verified_at"), // proven via OTP signup flow or Google (verified emails only)
+    googleSub: text("google_sub"), // Google OAuth subject id, linked on first Google sign-in
     lastLoginAt: ts("last_login_at"),
     lastActivityAt: ts("last_activity_at"), // idle-timeout tracking; null = pre-migration, start tracking on next request
     createdAt: createdAt(),
@@ -707,6 +709,24 @@ export const rateLimits = sqliteTable("rate_limits", {
   key: text("key").primaryKey(),
   hits: text("hits").notNull().default("[]"), // JSON array of epoch-ms timestamps
 });
+
+// Email OTP codes (migration 0028). Only the SHA-256 hash of the 6-digit code
+// is stored — the raw code is emailed once and never persisted.
+export const otpCodes = sqliteTable(
+  "otp_codes",
+  {
+    id: id(),
+    email: text("email").notNull(),
+    codeHash: text("code_hash").notNull(),
+    purpose: text("purpose").notNull(), // 'signup' | 'login'
+    expiresAt: ts("expires_at").notNull(),
+    attempts: integer("attempts").notNull().default(0),
+    consumedAt: ts("consumed_at"),
+    ip: text("ip"),
+    createdAt: createdAt(),
+  },
+  (t) => [index("otp_codes_email").on(t.email, t.purpose, t.createdAt)]
+);
 
 // Server-side error log: unexpected 500s. Owners can view recent entries in Settings.
 export const errorLogs = sqliteTable(

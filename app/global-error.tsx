@@ -8,12 +8,12 @@ import { useState } from "react";
 // ("lp-lang") since the provider is unavailable here.
 const COPY: Record<"en" | "ur", { title: string; body: string; reload: string }> = {
   en: {
-    title: "LedgerPro ran into a problem",
+    title: "LedgerProSolution ran into a problem",
     body: "The application could not start. Your saved data is safe on the server. Please reload the page.",
     reload: "Reload",
   },
   ur: {
-    title: "لیجرپرو میں مسئلہ پیش آیا",
+    title: "LedgerProSolution میں مسئلہ پیش آیا",
     body: "ایپلیکیشن شروع نہیں ہو سکی۔ آپ کا محفوظ ڈیٹا سرور پر موجود ہے۔ براہ کرم صفحہ دوبارہ لوڈ کریں۔",
     reload: "دوبارہ لوڈ کریں",
   },

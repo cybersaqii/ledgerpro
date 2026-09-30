@@ -3,11 +3,12 @@
 import Link from "next/link";
 import {
   ArrowRight, BarChart3, Boxes, CheckCircle2, FileText, Landmark,
-  ScanBarcode, ShieldCheck, Smartphone, Sparkles, ReceiptText, TrendingUp, Users, Wallet,
+  ScanBarcode, ShieldCheck, Smartphone, Sparkles, TrendingUp, Users, Wallet,
   Store, Factory, Stethoscope, Pill, UtensilsCrossed, Briefcase, Truck,
   TriangleAlert, XCircle, BadgeCheck,
 } from "lucide-react";
 import { ThemeToggle, LangToggle } from "@/components/ui";
+import { BrandLockup, BrandMark } from "@/components/brand-logo";
 import { brand } from "@/lib/brand";
 import { useLang } from "@/components/lang-provider";
 
@@ -77,13 +78,7 @@ export default function LandingContent() {
       <header className="fixed inset-x-0 top-0 z-40 border-b border-white/10 bg-[#0a2e25]/85 backdrop-blur-xl">
         <div className="flex h-16 items-center justify-between px-4 sm:px-8 lg:px-12">
           <Link href="/" className="flex min-w-0 items-center gap-2.5">
-            <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-white/15 shadow-lg">
-              <FileText size={18} className="text-white" />
-            </span>
-            <span className="hidden min-[420px]:block">
-              <span className="block text-[1.05rem] font-extrabold leading-none tracking-tight text-white">{b}</span>
-              <span className="hidden text-[0.68rem] text-emerald-100/70 sm:block">{brand.tagline}</span>
-            </span>
+            <BrandLockup markSize={36} wordClass="text-[1.05rem] leading-none text-white hidden min-[420px]:block" tagline dark />
           </Link>
           <nav className="hidden items-center gap-7 text-sm font-semibold text-emerald-50/85 md:flex">
             <a href="#features" className="transition hover:text-white">{L("navFeatures")}</a>
@@ -112,6 +107,9 @@ export default function LandingContent() {
         </div>
         <div className="relative grid items-center gap-12 px-4 pb-16 pt-32 sm:px-8 sm:pt-40 lg:grid-cols-2 lg:gap-12 lg:px-12 lg:pb-20">
           <div className="text-center lg:text-left">
+            <div className="rise mb-6 flex justify-center lg:justify-start">
+              <BrandMark size={64} className="drop-shadow-[0_8px_24px_rgba(16,185,129,0.45)]" />
+            </div>
             <div className="rise inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/10 px-4 py-1.5 text-xs font-semibold text-emerald-50 shadow-sm backdrop-blur">
               <BadgeCheck size={14} className="text-amber-300" />
               {L("heroBadge")}
@@ -209,7 +207,7 @@ export default function LandingContent() {
         </div>
       </section>
 
-      {/* Paper vs LedgerPro */}
+      {/* Paper vs LedgerProSolution */}
       <section className="relative overflow-hidden">
         <div className="pointer-events-none absolute inset-0">
           <div className="absolute -left-24 top-10 h-72 w-72 rounded-full bg-emerald-200/40 blur-[110px] dark:bg-emerald-400/10" />
@@ -421,15 +419,7 @@ export default function LandingContent() {
         </div>
         <div className="relative mx-auto grid max-w-[1400px] gap-10 px-4 py-14 sm:px-8 md:grid-cols-[1.4fr_1fr_1fr]">
           <div>
-            <div className="flex items-center gap-2.5">
-              <span className="grid h-10 w-10 place-items-center rounded-2xl bg-gradient-to-br from-emerald-400 to-teal-600 text-white shadow-lg">
-                <ReceiptText size={20} />
-              </span>
-              <div className="leading-tight">
-                <p className="text-lg font-extrabold tracking-tight text-white">{b}</p>
-                <p className="text-[0.68rem] font-medium text-emerald-200/60">{brand.tagline}</p>
-              </div>
-            </div>
+            <BrandLockup markSize={40} wordClass="text-lg leading-tight text-white" tagline dark />
             <p className="mt-4 max-w-sm text-sm leading-relaxed text-emerald-100/60">{L("footDesc")}</p>
             <Link href="/signup" className="btn mt-5 !border-0 !bg-white !px-6 !py-2.5 !text-sm !text-[#0a2e25] shadow-lg hover:!bg-emerald-50">
               {L("footStart")} <ArrowRight size={16} />

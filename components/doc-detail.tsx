@@ -3,7 +3,7 @@
 import { use, useEffect, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
-import { ArrowLeft, ArrowRightLeft, Ban, MessageCircle, Printer, Undo2, Wallet } from "lucide-react";
+import { ArrowLeft, ArrowRightLeft, Ban, Mail, MessageCircle, Printer, Undo2, Wallet } from "lucide-react";
 import { PageHeader, StatusPill } from "@/components/ui";
 import { api, fmtMoney, fmtMoneyPlain, fmtQty, fmtDate, toBig } from "@/lib/format";
 import { brand } from "@/lib/brand";
@@ -25,7 +25,7 @@ type Doc = {
   status: string; subtotal: string; discountTotal: string; taxTotal: string; grandTotal: string;
   amountPaid: string; returnedTotal?: string | null; writtenOffAmount?: string | null;
   notes: string | null; terms: string | null; refNo: string | null; partyName: string | null; partyId: string | null;
-  partyPhone: string | null; sourceDocId: string | null;
+  partyPhone: string | null; partyEmail: string | null; sourceDocId: string | null;
   items: Item[];
   payments?: { id: string; docNo: string | null; kind: string; date: number; amount: string }[] | null;
 };
@@ -741,6 +741,30 @@ function DocActions({ doc, isSales }: { doc: Doc; isSales: boolean }) {
   const [showReturn, setShowReturn] = useState(false);
   const [returnQtys, setReturnQtys] = useState<Record<string, string>>({});
   const [returnError, setReturnError] = useState<string | null>(null);
+  // Email-this-document modal state.
+  const [showEmail, setShowEmail] = useState(false);
+  const [emailTo, setEmailTo] = useState("");
+  const [emailBusy, setEmailBusy] = useState(false);
+  const [emailError, setEmailError] = useState<string | null>(null);
+  const [emailSent, setEmailSent] = useState(false);
+
+  async function sendDocEmail(e: React.FormEvent) {
+    e.preventDefault();
+    if (!doc) return;
+    setEmailError(null);
+    setEmailBusy(true);
+    try {
+      await api(`/api/docs/${doc.id}/email`, {
+        method: "POST",
+        body: JSON.stringify({ to: emailTo }),
+      });
+      setEmailSent(true);
+    } catch (err) {
+      setEmailError(err instanceof Error ? err.message : t("docdetail.emailFailed"));
+    } finally {
+      setEmailBusy(false);
+    }
+  }
 
   // milli -> plain decimal string for the qty input
   function milliToDisplay(m: bigint): string {
@@ -819,6 +843,12 @@ function DocActions({ doc, isSales }: { doc: Doc; isSales: boolean }) {
 
   return (
     <>
+      <button
+        className="btn btn-ghost text-sm"
+        onClick={() => { setEmailTo(doc.partyEmail || ""); setEmailSent(false); setEmailError(null); setShowEmail(true); }}
+      >
+        <Mail size={15} /> {t("docdetail.emailBtn")}
+      </button>
       {sourceNo && (
         <span className="inline-flex items-center gap-1.5 rounded-xl bg-muted px-3 py-2 text-xs font-semibold text-muted-foreground">
           <ArrowRightLeft size={13} /> {t("docdetail.convertedFrom", { no: sourceNo })}
@@ -874,6 +904,43 @@ function DocActions({ doc, isSales }: { doc: Doc; isSales: boolean }) {
                 {busy ? t("docdetail.posting") : t("docdetail.postReturn")}
               </button>
             </div>
+          </div>
+        </div>
+      )}
+      {showEmail && doc && (
+        <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/50 p-0 sm:items-center sm:p-4" onClick={() => !emailBusy && setShowEmail(false)}>
+          <div role="dialog" aria-modal="true" aria-label={t("docdetail.emailTitle")}
+            className="w-full max-w-md rounded-t-2xl bg-card p-5 shadow-xl sm:rounded-2xl" onClick={(e) => e.stopPropagation()}>
+            <h3 className="text-base font-bold">{t("docdetail.emailTitle")}</h3>
+            <p className="mt-1 text-xs text-muted-foreground">{doc.docNo}</p>
+            {emailSent ? (
+              <p className="mt-4 rounded-xl bg-primary-soft/60 px-4 py-3 text-sm font-semibold text-primary">
+                {t("docdetail.emailSent")}
+              </p>
+            ) : (
+              <form onSubmit={sendDocEmail} className="mt-4 space-y-4">
+                <div>
+                  <label className="mb-1 block text-sm font-semibold">{t("docdetail.emailTo")}</label>
+                  <input className="field" type="email" required autoFocus
+                    placeholder="customer@example.com"
+                    value={emailTo} onChange={(e) => setEmailTo(e.target.value)} disabled={emailBusy} />
+                </div>
+                {emailError && <p className="text-xs font-semibold text-danger">{emailError}</p>}
+                <div className="flex gap-2">
+                  <button type="button" className="btn btn-ghost flex-1" disabled={emailBusy} onClick={() => setShowEmail(false)}>
+                    {t("common.cancel")}
+                  </button>
+                  <button type="submit" className="btn btn-primary flex-1" disabled={emailBusy || !emailTo.trim()}>
+                    <Mail size={15} /> {emailBusy ? t("docdetail.emailSending") : t("docdetail.emailSend")}
+                  </button>
+                </div>
+              </form>
+            )}
+            {emailSent && (
+              <button className="btn btn-ghost mt-4 w-full" onClick={() => setShowEmail(false)}>
+                {t("common.close")}
+              </button>
+            )}
           </div>
         </div>
       )}
