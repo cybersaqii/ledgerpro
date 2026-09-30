@@ -123,7 +123,7 @@ export default function LandingContent() {
               <BadgeCheck size={14} className="text-amber-300" />
               {L("heroBadge")}
             </div>
-            <h1 className="rise rise-1 mt-6 text-4xl font-extrabold leading-[1.06] tracking-tight text-white sm:text-6xl lg:text-[3.6rem]">
+            <h1 className="rise rise-1 font-display mt-6 text-4xl font-extrabold leading-[1.06] tracking-tight text-white sm:text-6xl lg:text-[3.6rem]">
               {L("heroTitleA")}{" "}
               <span className="bg-gradient-to-r from-amber-300 to-emerald-300 bg-clip-text text-transparent">{L("heroTitleMid")}</span>
               {L("heroTitleB")}
@@ -133,7 +133,7 @@ export default function LandingContent() {
               <Typewriter
                 phrases={typePhrases}
                 caretClassName="text-amber-200"
-                className="bg-gradient-to-r from-amber-200 via-emerald-100 to-amber-200 bg-clip-text text-lg font-bold text-transparent sm:text-xl"
+                className="font-display bg-gradient-to-r from-amber-200 via-emerald-100 to-amber-200 bg-clip-text text-lg font-bold text-transparent sm:text-xl"
               />
             </div>
             <p className="rise rise-2 mt-5 max-w-xl text-base text-emerald-50/80 sm:text-lg lg:mx-0">

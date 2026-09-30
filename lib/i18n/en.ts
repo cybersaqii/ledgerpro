@@ -905,7 +905,15 @@ export const en = {
     p3d: "Balanced books, secure and permanent.",
     footer: "© 2026 {brand} · Built for every business",
     tp0: "Complete hisaab-kitab for every business.",
-    tp1: "Bills, udhaar and profit — in seconds."
+    tp1: "Bills, udhaar and profit — in seconds.",
+    d0t: "Payment received",
+    d0d: "Ahmed Traders · just now",
+    d1t: "Profit this week",
+    d1d: "+18% vs last week",
+    d2t: "Udhaar recovered",
+    d2d: "Collected today",
+    d3t: "Stock alert",
+    d3d: "3 items running low"
   },
   landing: {
     navFeatures: "Features",

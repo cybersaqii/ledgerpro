@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { FileText, Wallet, BarChart3, ShieldCheck } from "lucide-react";
+import { FileText, Wallet, BarChart3, ShieldCheck, BadgeCheck, TrendingUp, HandCoins, TriangleAlert } from "lucide-react";
 import { ThemeToggle, LangToggle } from "./ui";
 import { BrandLockup, BrandMark } from "./brand-logo";
 import { Typewriter, type TwPhrase } from "./typewriter";
@@ -17,6 +17,8 @@ const points = [
   { icon: BarChart3, t: "p2t", d: "p2d" },
   { icon: ShieldCheck, t: "p3t", d: "p3d" },
 ];
+
+const bars = [35, 55, 42, 68, 56, 82, 100];
 
 /**
  * Immersive auth shell — one full-bleed deep-emerald stage (no split panels),
@@ -50,13 +52,70 @@ export function AuthLayout({ children }: { children: ReactNode }) {
       {/* Top bar */}
       <header className="relative z-10 flex h-16 items-center justify-between px-4 sm:px-8">
         <Link href="/" aria-label={brand.name}>
-          <BrandLockup markSize={34} wordClass="text-[1.02rem] leading-none text-white" tagline dark />
+          <BrandLockup markSize={34} wordClass="font-display text-[1.02rem] leading-none text-white" tagline dark />
         </Link>
         <div className="flex items-center gap-2">
           <LangToggle />
           <ThemeToggle />
         </div>
       </header>
+
+      {/* Side decorations — wide screens only, purely ornamental */}
+      <div className="pointer-events-none absolute inset-y-0 left-0 z-[5] hidden w-[17rem] flex-col justify-center gap-5 pl-10 min-[1400px]:flex" aria-hidden="true">
+        <div className="floaty rounded-2xl border border-white/10 bg-white/[0.05] p-4 shadow-xl shadow-black/20 backdrop-blur-md" style={{ animationDelay: "-2s" }}>
+          <div className="flex items-center gap-3">
+            <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-emerald-400/15 text-emerald-300">
+              <BadgeCheck size={18} />
+            </span>
+            <span>
+              <span className="block text-xs font-bold text-white">{L("d0t")}</span>
+              <span className="block text-[0.7rem] text-emerald-100/60">{L("d0d")}</span>
+            </span>
+          </div>
+          <p className="font-display mt-2.5 text-[1.35rem] font-extrabold tracking-tight text-white">Rs 48,500</p>
+        </div>
+        <div className="floaty rounded-2xl border border-white/10 bg-white/[0.05] p-4 shadow-xl shadow-black/20 backdrop-blur-md" style={{ animationDelay: "-5s" }}>
+          <div className="flex items-center justify-between">
+            <p className="text-xs font-bold text-white">{L("d1t")}</p>
+            <TrendingUp size={15} className="text-emerald-300" />
+          </div>
+          <div className="mt-3 flex h-12 items-end gap-1.5">
+            {bars.map((h, i) => (
+              <span
+                key={i}
+                className="w-full rounded-sm bg-gradient-to-t from-emerald-500/40 to-emerald-300/90"
+                style={{ height: `${h}%`, opacity: 0.45 + (i / bars.length) * 0.55 }}
+              />
+            ))}
+          </div>
+          <p className="mt-2 text-[0.7rem] font-bold text-emerald-300">{L("d1d")}</p>
+        </div>
+      </div>
+      <div className="pointer-events-none absolute inset-y-0 right-0 z-[5] hidden w-[17rem] flex-col justify-center gap-5 pr-10 min-[1400px]:flex" aria-hidden="true">
+        <div className="floaty rounded-2xl border border-white/10 bg-white/[0.05] p-4 shadow-xl shadow-black/20 backdrop-blur-md" style={{ animationDelay: "-3.5s" }}>
+          <div className="flex items-center gap-3">
+            <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-teal-400/15 text-teal-200">
+              <HandCoins size={18} />
+            </span>
+            <span>
+              <span className="block text-xs font-bold text-white">{L("d2t")}</span>
+              <span className="block text-[0.7rem] text-emerald-100/60">{L("d2d")}</span>
+            </span>
+          </div>
+          <p className="font-display mt-2.5 text-[1.35rem] font-extrabold tracking-tight text-white">Rs 12,000</p>
+        </div>
+        <div className="floaty rounded-2xl border border-white/10 bg-white/[0.05] p-4 shadow-xl shadow-black/20 backdrop-blur-md" style={{ animationDelay: "-6.5s" }}>
+          <div className="flex items-center gap-3">
+            <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-amber-400/15 text-amber-300">
+              <TriangleAlert size={18} />
+            </span>
+            <span>
+              <span className="block text-xs font-bold text-white">{L("d3t")}</span>
+              <span className="block text-[0.7rem] text-emerald-100/60">{L("d3d")}</span>
+            </span>
+          </div>
+        </div>
+      </div>
 
       {/* Center stage */}
       <main className="relative z-10 mx-auto flex w-full max-w-xl flex-col items-center px-4 pb-14 pt-4 sm:pt-8">
@@ -67,7 +126,7 @@ export function AuthLayout({ children }: { children: ReactNode }) {
           <Typewriter
             phrases={phrases}
             caretClassName="text-emerald-300"
-            className="bg-gradient-to-r from-emerald-100 via-white to-emerald-100 bg-clip-text text-2xl font-extrabold tracking-tight text-transparent sm:text-[2rem] sm:leading-snug"
+            className="font-display bg-gradient-to-r from-emerald-100 via-white to-emerald-100 bg-clip-text text-2xl font-extrabold tracking-tight text-transparent sm:text-[2rem] sm:leading-snug"
           />
         </div>
 
