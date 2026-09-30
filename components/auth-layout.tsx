@@ -1,8 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { FileText, Wallet, BarChart3, ShieldCheck, BadgeCheck, TrendingUp, HandCoins, TriangleAlert } from "lucide-react";
-import { ThemeToggle, LangToggle } from "./ui";
+import { usePathname } from "next/navigation";
+import { LangToggle } from "./ui";
 import { BrandLockup, BrandMark } from "./brand-logo";
 import { Typewriter, type TwPhrase } from "./typewriter";
 import { brand } from "@/lib/brand";
@@ -11,147 +11,190 @@ import { en } from "@/lib/i18n/en";
 import { ur } from "@/lib/i18n/ur";
 import type { ReactNode } from "react";
 
-const points = [
-  { icon: FileText, t: "p0t", d: "p0d" },
-  { icon: Wallet, t: "p1t", d: "p1d" },
-  { icon: BarChart3, t: "p2t", d: "p2d" },
-  { icon: ShieldCheck, t: "p3t", d: "p3d" },
+const DONUT_C = 2 * Math.PI * 30;
+
+const legend = [
+  { color: "#10b981", key: "c1l0" },
+  { color: "#f59e0b", key: "c1l1" },
+  { color: "#cbd5e1", key: "c1l2" },
 ];
 
-const bars = [35, 55, 42, 68, 56, 82, 100];
+const allocations = [
+  { color: "#10b981", key: "c3i0", value: "Rs 5,20,000" },
+  { color: "#38bdf8", key: "c3i1", value: "Rs 3,10,000" },
+  { color: "#f59e0b", key: "c3i2", value: "Rs 1,45,000" },
+];
 
 /**
- * Immersive auth shell — one full-bleed deep-emerald stage (no split panels),
- * bilingual typewriter headline, glass feature pills. Always renders in the
- * dark brand theme so the experience is identical in both app themes.
+ * Split-card auth shell: a light floating card with the form on the left and a
+ * deep-emerald showcase panel on the right (floating mini dashboard cards,
+ * typewriter headline). Original LedgerPro content and emerald brand only.
  */
-export function AuthLayout({ children }: { children: ReactNode }) {
+export function AuthLayout({
+  children,
+  heading,
+  sub,
+  tabs,
+}: {
+  children: ReactNode;
+  heading?: ReactNode;
+  sub?: ReactNode;
+  /** Force the Sign In / Sign Up tab switcher on or off (default: on for /login and /signup). */
+  tabs?: boolean;
+}) {
   const { t } = useLang();
+  const pathname = usePathname();
   const L = (k: string, vars?: Record<string, string | number>) => t(`authlayout.${k}`, vars);
+  const showTabs = tabs ?? (pathname === "/login" || pathname === "/signup");
   const phrases: TwPhrase[] = [
     { text: en.authlayout.tp0 },
     { text: ur.authlayout?.tp0 ?? en.authlayout.tp0, rtl: true },
     { text: en.authlayout.tp1 },
     { text: ur.authlayout?.tp1 ?? en.authlayout.tp1, rtl: true },
   ];
+
   return (
-    <div className="dark relative min-h-screen overflow-hidden bg-[#071f19] text-white">
-      {/* Immersive background — single continuous stage */}
-      <div className="absolute inset-0 bg-gradient-to-b from-[#071f19] via-[#0a2e25] to-[#0c3f30]" aria-hidden="true" />
+    <div className="relative flex min-h-screen items-center justify-center overflow-hidden bg-[#e9f1ee] px-3 py-8 sm:px-6 sm:py-12">
+      {/* Page backdrop */}
       <div className="pointer-events-none absolute inset-0" aria-hidden="true">
-        <div className="orb-drift absolute -top-32 left-1/2 h-[30rem] w-[46rem] -translate-x-1/2 rounded-full bg-emerald-400/15 blur-[130px]" />
-        <div className="orb-drift-rev absolute top-1/3 -left-40 h-96 w-96 rounded-full bg-teal-300/10 blur-[110px]" />
-        <div className="orb-drift absolute bottom-0 -right-32 h-[26rem] w-[26rem] rounded-full bg-emerald-500/10 blur-[120px]" />
+        <div className="absolute -top-24 left-[8%] h-96 w-96 rounded-full bg-emerald-200/50 blur-[120px]" />
+        <div className="absolute right-[4%] bottom-0 h-80 w-80 rounded-full bg-teal-200/50 blur-[110px]" />
         <div
-          className="absolute inset-0 opacity-[0.05]"
-          style={{ backgroundImage: "radial-gradient(circle at 1px 1px, #fff 1px, transparent 0)", backgroundSize: "30px 30px" }}
+          className="absolute inset-0 opacity-[0.35]"
+          style={{ backgroundImage: "radial-gradient(circle at 1px 1px, #0f766e 1px, transparent 0)", backgroundSize: "34px 34px", opacity: 0.05 }}
         />
-        <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-emerald-300/50 to-transparent" />
+      </div>
+      <div className="absolute top-4 right-4 z-20 sm:top-6 sm:right-6">
+        <LangToggle />
       </div>
 
-      {/* Top bar — floating pill */}
-      <header className="absolute inset-x-0 top-3 z-20 px-3 sm:top-4 sm:px-6">
-        <div className="mx-auto flex h-14 max-w-6xl items-center justify-between rounded-full border border-white/15 bg-black/25 py-1.5 pl-4 pr-2 shadow-xl shadow-black/20 backdrop-blur-xl sm:h-16 sm:pl-5">
-          <Link href="/" aria-label={brand.name}>
-            <BrandLockup markSize={32} wordClass="font-display text-[1rem] leading-none text-white" tagline dark />
+      {/* Card */}
+      <div className="relative z-10 grid w-full max-w-5xl overflow-hidden rounded-[1.75rem] bg-white shadow-2xl shadow-emerald-950/15 md:grid-cols-[1fr_1.05fr]">
+        {/* Left — form side */}
+        <div className="flex flex-col p-6 sm:p-10 lg:px-12">
+          <Link href="/" aria-label={brand.name} className="self-start">
+            <BrandLockup markSize={34} wordClass="font-display text-[1.05rem] leading-none" tagline />
           </Link>
-          <div className="flex items-center gap-1 sm:gap-2">
-            <LangToggle />
-            <ThemeToggle />
-          </div>
-        </div>
-      </header>
 
-      {/* Side decorations — wide screens only, purely ornamental */}
-      <div className="pointer-events-none absolute inset-y-0 left-0 z-[5] hidden w-[17rem] flex-col justify-center gap-5 pl-10 min-[1400px]:flex" aria-hidden="true">
-        <div className="floaty rounded-2xl border border-white/10 bg-white/[0.05] p-4 shadow-xl shadow-black/20 backdrop-blur-md" style={{ animationDelay: "-2s" }}>
-          <div className="flex items-center gap-3">
-            <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-emerald-400/15 text-emerald-300">
-              <BadgeCheck size={18} />
-            </span>
-            <span>
-              <span className="block text-xs font-bold text-white">{L("d0t")}</span>
-              <span className="block text-[0.7rem] text-emerald-100/60">{L("d0d")}</span>
-            </span>
-          </div>
-          <p className="font-display mt-2.5 text-[1.35rem] font-extrabold tracking-tight text-white">Rs 48,500</p>
+          {heading ? (
+            <h1 className="font-display mt-8 text-[1.65rem] font-extrabold tracking-tight text-slate-900">{heading}</h1>
+          ) : null}
+          {sub ? <p className="mt-2 text-sm leading-relaxed text-slate-500">{sub}</p> : null}
+
+          {showTabs && (
+            <div className="mt-6 grid grid-cols-2 rounded-xl bg-slate-100 p-1 text-sm font-bold" role="tablist" aria-label={L("tabIn")}>
+              <Link
+                href="/login"
+                role="tab"
+                aria-selected={pathname === "/login"}
+                className={`rounded-lg py-2.5 text-center transition ${
+                  pathname === "/login"
+                    ? "bg-white text-slate-900 shadow-sm"
+                    : "text-slate-500 hover:text-slate-800"
+                }`}
+              >
+                {L("tabIn")}
+              </Link>
+              <Link
+                href="/signup"
+                role="tab"
+                aria-selected={pathname === "/signup"}
+                className={`rounded-lg py-2.5 text-center transition ${
+                  pathname === "/signup"
+                    ? "bg-white text-slate-900 shadow-sm"
+                    : "text-slate-500 hover:text-slate-800"
+                }`}
+              >
+                {L("tabUp")}
+              </Link>
+            </div>
+          )}
+
+          <div className="mt-6 flex-1">{children}</div>
+
+          <p className="mt-8 text-center text-xs text-slate-400">{L("footer", { brand: brand.name })}</p>
         </div>
-        <div className="floaty rounded-2xl border border-white/10 bg-white/[0.05] p-4 shadow-xl shadow-black/20 backdrop-blur-md" style={{ animationDelay: "-5s" }}>
-          <div className="flex items-center justify-between">
-            <p className="text-xs font-bold text-white">{L("d1t")}</p>
-            <TrendingUp size={15} className="text-emerald-300" />
+
+        {/* Right — showcase side */}
+        <div className="relative hidden flex-col overflow-hidden bg-[#0a2e25] p-8 md:flex lg:p-10">
+          <div className="absolute inset-0 bg-gradient-to-br from-[#0d4434] via-[#0a2e25] to-[#071f19]" aria-hidden="true" />
+          <div className="pointer-events-none absolute inset-0" aria-hidden="true">
+            <div className="absolute -top-20 right-0 h-72 w-72 rounded-full bg-emerald-400/15 blur-[100px]" />
+            <div className="absolute bottom-10 -left-16 h-64 w-64 rounded-full bg-teal-300/10 blur-[90px]" />
+            <div
+              className="absolute inset-0 opacity-[0.06]"
+              style={{ backgroundImage: "radial-gradient(circle at 1px 1px, #fff 1px, transparent 0)", backgroundSize: "28px 28px" }}
+            />
           </div>
-          <div className="mt-3 flex h-12 items-end gap-1.5">
-            {bars.map((h, i) => (
-              <span
-                key={i}
-                className="w-full rounded-sm bg-gradient-to-t from-emerald-500/40 to-emerald-300/90"
-                style={{ height: `${h}%`, opacity: 0.45 + (i / bars.length) * 0.55 }}
+
+          {/* Floating dashboard cards */}
+          <div className="relative mb-4 h-64 shrink-0" aria-hidden="true">
+            <div className="floaty absolute top-0 left-0 w-44 rounded-2xl bg-white p-4 shadow-xl shadow-black/25" style={{ animationDelay: "-1.2s" }}>
+              <p className="text-[0.65rem] font-bold tracking-wider text-slate-400 uppercase">{L("c1t")}</p>
+              <div className="mt-2 flex justify-center">
+                <svg viewBox="0 0 76 76" className="h-[4.4rem] w-[4.4rem] -rotate-90" role="img">
+                  <circle cx="38" cy="38" r="30" fill="none" stroke="#edf2f4" strokeWidth="11" />
+                  <circle cx="38" cy="38" r="30" fill="none" stroke="#10b981" strokeWidth="11" strokeLinecap="round" strokeDasharray={`${DONUT_C * 0.55} ${DONUT_C}`} />
+                  <circle cx="38" cy="38" r="30" fill="none" stroke="#f59e0b" strokeWidth="11" strokeDasharray={`${DONUT_C * 0.3} ${DONUT_C}`} strokeDashoffset={-(DONUT_C * 0.55)} />
+                  <circle cx="38" cy="38" r="30" fill="none" stroke="#cbd5e1" strokeWidth="11" strokeDasharray={`${DONUT_C * 0.15} ${DONUT_C}`} strokeDashoffset={-(DONUT_C * 0.85)} />
+                </svg>
+              </div>
+              <p className="font-display mt-1 text-center text-[1.05rem] font-extrabold text-slate-900">Rs 84,500</p>
+              <ul className="mt-2 space-y-1">
+                {legend.map((l) => (
+                  <li key={l.key} className="flex items-center gap-1.5 text-[0.68rem] font-semibold text-slate-500">
+                    <span className="h-2 w-2 rounded-full" style={{ backgroundColor: l.color }} />
+                    {L(l.key)}
+                  </li>
+                ))}
+              </ul>
+            </div>
+            <div className="floaty absolute top-8 right-0 w-52 rounded-2xl bg-white p-4 shadow-xl shadow-black/25" style={{ animationDelay: "-3.4s" }}>
+              <p className="text-[0.65rem] font-bold tracking-wider text-slate-400 uppercase">{L("c2t")}</p>
+              <p className="mt-1.5 text-sm font-extrabold text-slate-900">{L("c2d")}</p>
+              <div className="mt-2.5 h-2 overflow-hidden rounded-full bg-slate-100">
+                <div className="h-full w-[72%] rounded-full bg-gradient-to-r from-emerald-500 to-teal-400" />
+              </div>
+              <p className="mt-1.5 text-[0.7rem] font-semibold text-slate-500">{L("c2p")}</p>
+            </div>
+            <div className="floaty absolute bottom-0 left-12 w-60 rounded-2xl bg-white p-4 shadow-xl shadow-black/25" style={{ animationDelay: "-5.6s" }}>
+              <p className="text-[0.65rem] font-bold tracking-wider text-slate-400 uppercase">{L("c3t")}</p>
+              <ul className="mt-2 space-y-2">
+                {allocations.map((a) => (
+                  <li key={a.key} className="flex items-center justify-between text-[0.72rem]">
+                    <span className="flex items-center gap-1.5 font-semibold text-slate-500">
+                      <span className="h-2 w-2 rounded-full" style={{ backgroundColor: a.color }} />
+                      {L(a.key)}
+                    </span>
+                    <span className="font-extrabold text-slate-900">{a.value}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          </div>
+
+          {/* Brand + headline */}
+          <div className="relative flex flex-1 flex-col items-center justify-center px-2 text-center">
+            <BrandMark size={52} className="drop-shadow-[0_10px_30px_rgba(16,185,129,0.45)]" />
+            <div className="mt-5 min-h-[3.2rem]">
+              <Typewriter
+                phrases={phrases}
+                caretClassName="text-emerald-300"
+                className="font-display bg-gradient-to-r from-emerald-100 via-white to-emerald-100 bg-clip-text text-[1.45rem] leading-snug font-extrabold tracking-tight text-transparent"
               />
-            ))}
+            </div>
+            <p className="mt-3 max-w-sm text-[0.83rem] leading-relaxed text-emerald-100/70">{L("scSub")}</p>
           </div>
-          <p className="mt-2 text-[0.7rem] font-bold text-emerald-300">{L("d1d")}</p>
-        </div>
-      </div>
-      <div className="pointer-events-none absolute inset-y-0 right-0 z-[5] hidden w-[17rem] flex-col justify-center gap-5 pr-10 min-[1400px]:flex" aria-hidden="true">
-        <div className="floaty rounded-2xl border border-white/10 bg-white/[0.05] p-4 shadow-xl shadow-black/20 backdrop-blur-md" style={{ animationDelay: "-3.5s" }}>
-          <div className="flex items-center gap-3">
-            <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-teal-400/15 text-teal-200">
-              <HandCoins size={18} />
-            </span>
-            <span>
-              <span className="block text-xs font-bold text-white">{L("d2t")}</span>
-              <span className="block text-[0.7rem] text-emerald-100/60">{L("d2d")}</span>
-            </span>
-          </div>
-          <p className="font-display mt-2.5 text-[1.35rem] font-extrabold tracking-tight text-white">Rs 12,000</p>
-        </div>
-        <div className="floaty rounded-2xl border border-white/10 bg-white/[0.05] p-4 shadow-xl shadow-black/20 backdrop-blur-md" style={{ animationDelay: "-6.5s" }}>
-          <div className="flex items-center gap-3">
-            <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-amber-400/15 text-amber-300">
-              <TriangleAlert size={18} />
-            </span>
-            <span>
-              <span className="block text-xs font-bold text-white">{L("d3t")}</span>
-              <span className="block text-[0.7rem] text-emerald-100/60">{L("d3d")}</span>
-            </span>
+
+          {/* Carousel dots (decorative) */}
+          <div className="relative mt-6 flex items-center justify-center gap-2" aria-hidden="true">
+            <span className="h-1.5 w-10 rounded-full bg-white/80" />
+            <span className="h-1.5 w-10 rounded-full bg-white/25" />
+            <span className="h-1.5 w-10 rounded-full bg-white/25" />
+            <span className="h-1.5 w-10 rounded-full bg-white/25" />
           </div>
         </div>
       </div>
-
-      {/* Center stage */}
-      <main className="relative z-10 mx-auto flex w-full max-w-xl flex-col items-center px-4 pb-14 pt-24 sm:pt-28">
-        <div className="rise">
-          <BrandMark size={58} className="drop-shadow-[0_10px_30px_rgba(16,185,129,0.5)]" />
-        </div>
-        <div className="rise rise-1 mt-5 min-h-[3.5rem] text-center sm:min-h-[4rem]">
-          <Typewriter
-            phrases={phrases}
-            caretClassName="text-emerald-300"
-            className="font-display bg-gradient-to-r from-emerald-100 via-white to-emerald-100 bg-clip-text text-2xl font-extrabold tracking-tight text-transparent sm:text-[2rem] sm:leading-snug"
-          />
-        </div>
-
-        <div className="rise rise-2 mt-6 w-full">{children}</div>
-
-        {/* Feature pills */}
-        <ul className="stagger-rise mt-7 grid w-full grid-cols-2 gap-2.5 sm:grid-cols-4">
-          {points.map((p) => (
-            <li
-              key={p.t}
-              className="rise flex items-center gap-2.5 rounded-2xl border border-white/10 bg-white/[0.06] px-3.5 py-3 backdrop-blur-md transition-colors duration-300 hover:bg-white/[0.1]"
-              title={L(p.d)}
-            >
-              <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-emerald-400/15 text-emerald-200">
-                <p.icon size={17} />
-              </span>
-              <span className="text-[0.8rem] font-bold leading-tight text-emerald-50">{L(p.t)}</span>
-            </li>
-          ))}
-        </ul>
-
-        <p className="rise rise-4 mt-8 text-center text-xs text-emerald-100/50">{L("footer", { brand: brand.name })}</p>
-      </main>
     </div>
   );
 }

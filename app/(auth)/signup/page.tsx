@@ -3,8 +3,9 @@
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useState, useEffect, Suspense } from "react";
-import { UserPlus, Eye, EyeOff, KeyRound, Copy, Check } from "lucide-react";
+import { UserPlus, Eye, EyeOff, Copy, Check } from "lucide-react";
 import { AuthLayout } from "@/components/auth-layout";
+import { GoogleGlyph } from "@/components/google-glyph";
 import { Field, ErrorNote } from "@/components/ui";
 import { api } from "@/lib/format";
 import { BUSINESS_TYPES } from "@/lib/business-types";
@@ -138,21 +139,13 @@ function SignupForm() {
   }
 
   return (
-    <AuthLayout>
-      <div className="relative">
-        <div className="auth-glow" aria-hidden="true" />
-        <div className="auth-card rise p-7 sm:p-9">
-        <div className="pointer-events-none absolute inset-x-10 top-0 h-[3px] rounded-full bg-gradient-to-r from-transparent via-primary/70 to-transparent" />
+    <AuthLayout
+      heading={recoveryCode ? t("auth.saveCodeTitle") : t("auth.signupTitle")}
+      sub={recoveryCode ? t("auth.saveCodeHint") : t("auth.signupSub")}
+      tabs={!recoveryCode}
+    >
         {recoveryCode ? (
           <div className="text-center">
-            <div className="auth-medallion mx-auto">
-              <KeyRound size={24} />
-            </div>
-            <span className="auth-eyebrow mt-4">{t("auth.signupEyebrow")}</span>
-            <h1 className="mt-1 text-2xl font-extrabold tracking-tight">{t("auth.saveCodeTitle")}</h1>
-            <p className="mt-2 text-sm text-muted-foreground">
-              {t("auth.saveCodeHint")}
-            </p>
             <button
               type="button"
               onClick={copy}
@@ -173,43 +166,13 @@ function SignupForm() {
           </div>
         ) : (
         <>
-        <div className="rise rise-1 flex items-center gap-4">
-          <span className="auth-medallion"><UserPlus size={24} /></span>
-          <span>
-            <span className="auth-eyebrow">{t("auth.signupEyebrow")}</span>
-            <h1 className="mt-0.5 text-2xl font-extrabold tracking-tight">{t("auth.signupTitle")}</h1>
-          </span>
-        </div>
-        <p className="rise rise-1 mt-3 text-sm text-muted-foreground">{t("auth.signupSub")}</p>
-        {googleOn && (
-          <>
-            <button
-              type="button"
-              onClick={googleSignIn}
-              className="rise rise-2 mt-5 flex w-full items-center justify-center gap-2.5 rounded-xl border border-border bg-background px-4 py-3 text-sm font-semibold shadow-sm transition hover:bg-muted"
-            >
-              <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true">
-                <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 0 1-2.2 3.32v2.77h3.57c2.08-1.92 3.27-4.74 3.27-8.1z"/>
-                <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84A11 11 0 0 0 12 23z"/>
-                <path fill="#FBBC05" d="M5.84 14.1a6.6 6.6 0 0 1 0-4.2V7.06H2.18a11 11 0 0 0 0 9.88l3.66-2.84z"/>
-                <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15A11 11 0 0 0 2.18 7.06l3.66 2.84C6.71 7.31 9.14 5.38 12 5.38z"/>
-              </svg>
-              {t("auth.googleBtn")}
-            </button>
-            <div className="rise rise-2 mt-4 flex items-center gap-3 text-xs text-muted-foreground">
-              <span className="h-px flex-1 bg-border" />
-              <span>or</span>
-              <span className="h-px flex-1 bg-border" />
-            </div>
-          </>
-        )}
         {googlePrefill && (
-          <p className="rise rise-2 mt-4 rounded-xl bg-primary-soft/60 px-4 py-3 text-sm font-semibold text-primary">
+          <p className="rise rise-2 mb-5 rounded-xl bg-primary-soft/60 px-4 py-3 text-sm font-semibold text-primary">
             {t("auth.googlePrefill")}
           </p>
         )}
         {step === 1 ? (
-        <form onSubmit={sendCode} className="rise rise-2 mt-6 space-y-4">
+        <form onSubmit={sendCode} className="rise rise-2 space-y-4">
           <ErrorNote message={error} />
           <Field label={t("auth.businessName")}>
             <input className="field" required placeholder={t("auth.businessNamePh")}
@@ -284,14 +247,29 @@ function SignupForm() {
           </button>
         </form>
         )}
+        {googleOn && (
+          <>
+            <div className="rise rise-2 mt-6 flex items-center gap-3 text-xs text-slate-400">
+              <span className="h-px flex-1 bg-slate-200" />
+              <span>{t("authlayout.orContinue")}</span>
+              <span className="h-px flex-1 bg-slate-200" />
+            </div>
+            <button
+              type="button"
+              onClick={googleSignIn}
+              className="rise rise-2 mt-4 flex w-full items-center justify-center gap-2.5 rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm font-semibold text-slate-700 shadow-sm transition hover:bg-slate-50"
+            >
+              <GoogleGlyph />
+              {t("auth.googleBtn")}
+            </button>
+          </>
+        )}
         <p className="rise rise-3 mt-6 text-center text-sm text-muted-foreground">
           {t("auth.haveAccount")}{" "}
           <Link href="/login" className="font-bold text-primary hover:underline">{t("auth.loginLink")}</Link>
         </p>
         </>
         )}
-        </div>
-      </div>
     </AuthLayout>
   );
 }

@@ -117,10 +117,12 @@ export function ErrorNote({ message }: { message: string | null }) {
   );
 }
 
-export function Field({ label, children, hint }: { label: string; children: ReactNode; hint?: string }) {
+export function Field({ label, children, hint, required }: { label: string; children: ReactNode; hint?: string; required?: boolean }) {
   return (
     <label className="block">
-      <span className="mb-1.5 block text-[0.8rem] font-semibold text-foreground/90">{label}</span>
+      <span className="mb-1.5 block text-[0.8rem] font-semibold text-foreground/90">
+        {label}{required && <span className="text-red-500"> *</span>}
+      </span>
       {children}
       {hint && <span className="mt-1 block text-xs text-muted-foreground">{hint}</span>}
     </label>
