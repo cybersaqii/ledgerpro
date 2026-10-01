@@ -1,5 +1,6 @@
 import { NextRequest } from "next/server";
 import { z } from "zod";
+import { journalEntries } from "@/db/schema";
 import { json, err } from "@/lib/api";
 import { toApiError } from "@/lib/errors";
 import { requirePermission, db, defaultBranchId, parseDateOnly } from "@/lib/route-helpers";
@@ -7,6 +8,11 @@ import { periodLockError } from "@/lib/period";
 import { parseMoney } from "@/lib/money";
 import { postSetoff } from "@/lib/setoff";
 import { logAudit } from "@/lib/audit";
+import {
+  extractIdempotencyKey,
+  findByIdempotencyKey,
+  isIdempotencyConflict,
+} from "@/lib/idempotency";
 
 const moneyStr = z.string().regex(/^-?\d{1,12}(\.\d{1,2})?$/, "Invalid amount");
 
@@ -31,6 +37,20 @@ export async function POST(req: NextRequest) {
   const lockErr = await periodLockError(db, companyId, date);
   if (lockErr) return err(lockErr, 422, "PERIOD_LOCKED");
 
+  // Idempotency (Module 5): a retried submission returns the original
+  // SETOFF entry instead of netting twice.
+  let idemKey: string | undefined;
+  try {
+    idemKey = extractIdempotencyKey(req, body);
+  } catch (e) {
+    return toApiError(e, { route: "/api/parties/setoff", companyId });
+  }
+  if (idemKey) {
+    const existing = await findByIdempotencyKey(db, journalEntries, companyId, idemKey);
+    if (existing)
+      return json({ data: { entryId: existing.id, idempotentReplay: true } }, { status: 200 });
+  }
+
   try {
     const entryId = await db.transaction(async (tx) => {
       const branchId = await defaultBranchId(tx, companyId);
@@ -43,6 +63,7 @@ export async function POST(req: NextRequest) {
         date,
         notes: b.data.notes || undefined,
         createdById: session.uid,
+        ...(idemKey ? { idempotencyKey: idemKey } : {}),
  });
  });
     await logAudit(db, {
@@ -53,6 +74,12 @@ export async function POST(req: NextRequest) {
  });
     return json({ data: { entryId } }, { status: 201 });
  } catch (e) {
+    // Lost the idempotency race: return the winning entry with 200.
+    if (idemKey && isIdempotencyConflict(e)) {
+      const existing = await findByIdempotencyKey(db, journalEntries, companyId, idemKey);
+      if (existing)
+        return json({ data: { entryId: existing.id, idempotentReplay: true } }, { status: 200 });
+    }
     return toApiError(e, { route: "/api/parties/setoff", companyId });
  }
 }

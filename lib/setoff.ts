@@ -14,6 +14,8 @@ export type SetoffInput = {
   date: Date;
   notes?: string;
   createdById: string;
+  /** Module 5: double-submit protection — stored on the SETOFF journal entry. */
+  idempotencyKey?: string;
 };
 
 /**
@@ -56,6 +58,7 @@ export async function postSetoff(tx: DbTx, input: SetoffInput): Promise<string> 
     date: input.date,
     memo: `Set-off: ${customer.name} ↔ ${supplier.name}${input.notes ? ` — ${input.notes}` : ""}`,
     source: "SETOFF",
+    idempotencyKey: input.idempotencyKey,
     createdById: input.createdById,
     lines: [
       { accountId: ac[SYS.AP], debit: input.amount, credit: 0n, partyId: supplier.id },

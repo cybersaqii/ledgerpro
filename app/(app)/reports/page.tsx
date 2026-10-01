@@ -2,14 +2,14 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { Scale, TrendingUp, Landmark, BookOpen, ArrowDownToLine, ArrowUpFromLine, Boxes, BarChart3, ScrollText, Crown, Sunrise, Star, Search, FileText, ClipboardList, ClipboardCheck, Wallet, CalendarDays, Percent, Package } from "lucide-react";
+import { Scale, TrendingUp, Landmark, BookOpen, ArrowDownToLine, ArrowUpFromLine, Boxes, BarChart3, ScrollText, Crown, Sunrise, Star, Search, FileText, ClipboardList, ClipboardCheck, Wallet, CalendarDays, Percent, Package, ListTree, BookMarked } from "lucide-react";
 import { PageHeader } from "@/components/ui";
 import { useBusinessProfile } from "@/components/business-type";
 import { useLang } from "@/components/lang-provider";
 import { useCan } from "@/components/permissions";
 import { api } from "@/lib/format";
 
-const PRO_HREFS = new Set(["/reports/profit-loss", "/reports/balance-sheet", "/reports/journal", "/reports/tax-summary"]);
+const PRO_HREFS = new Set(["/reports/profit-loss", "/reports/balance-sheet", "/reports/journal", "/reports/tax-summary", "/reports/account-ledger", "/settings/chart-of-accounts"]);
 
 type ReportDef = { key: string; href: string; icon: typeof Scale; title: string; text: string };
 
@@ -44,6 +44,8 @@ export default function ReportsHub() {
   const reports: ReportDef[] = [
     { key: "day-close", href: "/reports/day-close", icon: Sunrise, title: t("reportsindex.dayClose"), text: t("reportsindex.dayCloseText") },
     { key: "trial-balance", href: "/reports/trial-balance", icon: Scale, title: t("reportsindex.trialBalance"), text: t("reportsindex.trialBalanceText") },
+    { key: "account-ledger", href: "/reports/account-ledger", icon: BookMarked, title: t("reportsindex.accountLedger"), text: t("reportsindex.accountLedgerText") },
+    { key: "chart-of-accounts", href: "/settings/chart-of-accounts", icon: ListTree, title: t("reportsindex.chartOfAccounts"), text: t("reportsindex.chartOfAccountsText") },
     { key: "profit-loss", href: "/reports/profit-loss", icon: TrendingUp, title: t("reportsindex.profitLoss"), text: t("reportsindex.profitLossText", { sales: bp.salesNav }) },
     { key: "balance-sheet", href: "/reports/balance-sheet", icon: Landmark, title: t("reportsindex.balanceSheet"), text: t("reportsindex.balanceSheetText") },
     { key: "party-ledger", href: "/reports/party-ledger", icon: BookOpen, title: t("reportsindex.partyLedgerTitle", { party: bp.partyOne }), text: t("reportsindex.partyLedgerText", { party: bp.partyOne.toLowerCase() }) },

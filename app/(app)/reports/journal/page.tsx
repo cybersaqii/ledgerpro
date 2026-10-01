@@ -1,20 +1,24 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { BookOpen, ChevronDown, Search } from "lucide-react";
+import { BookOpen, ChevronDown, Search, Plus, Undo2 } from "lucide-react";
+import Link from "next/link";
 import { PageHeader, ErrorNote, ExportCsv } from "@/components/ui";
 import { csvMoney } from "@/lib/csv";
 import { api, fmtMoney, fmtDate } from "@/lib/format";
 import { DocRefLink } from "@/components/doc-link";
 import { useLang } from "@/components/lang-provider";
+import { useCan } from "@/components/permissions";
 
 type JLine = { accountCode: string; accountName: string; partyName: string | null; debit: string; credit: string };
-type Entry = { id: string; date: number | string; memo: string; reference: string | null; source: string; sourceId: string | null; lines: JLine[] };
+type Entry = { id: string; date: number | string; memo: string; reference: string | null; docNo: string | null; source: string; sourceId: string | null; lines: JLine[] };
 
 export default function JournalPage() {
   const { t } = useLang();
+  const canPost = useCan("payments");
   const SOURCE_LABEL: Record<string, string> = {
     SALES: t("journal.srcSale"), PURCHASE: t("journal.srcPurchase"), PAYMENT: t("journal.srcPayment"), EXPENSE: t("journal.srcExpense"), MANUAL: t("journal.srcManual"),
+    SETOFF: t("journal.srcSetoff"), CLOSING: t("journal.srcClosing"), OPENING: t("journal.srcOpening"),
   };
   const [entries, setEntries] = useState<Entry[]>([]);
   const [total, setTotal] = useState(0);
@@ -25,6 +29,21 @@ export default function JournalPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [open, setOpen] = useState<string | null>(null);
+  const [reversing, setReversing] = useState<string | null>(null);
+
+  async function reverseEntry(e: Entry) {
+    if (!confirm(t("journal.reverseConfirm", { ref: e.docNo ?? e.reference ?? e.memo }))) return;
+    setReversing(e.id); setError(null);
+    try {
+      const d = await api<{ data: { id: string; docNo: string } }>(`/api/journal-vouchers/${e.id}/reverse`, { method: "POST" });
+      load(page, q, from, to);
+      setOpen(d.data.id);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : t("journal.errReverse"));
+    } finally {
+      setReversing(null);
+    }
+  }
 
   function load(p: number, query: string, f: string, toDate: string) {
     setLoading(true);
@@ -55,15 +74,21 @@ export default function JournalPage() {
         title={t("journal.title")}
         subtitle={t("journal.subtitle")}
         icon={<BookOpen size={20} />}
-        actions={<ExportCsv filename="journal" disabled={loading || entries.length === 0} rows={() => {
+        actions={<>
+          {canPost && (
+            <Link href="/reports/journal/new" className="btn btn-primary !py-2 text-sm">
+              <Plus size={14} /> {t("journal.newVoucher")}
+            </Link>
+          )}
+          <ExportCsv filename="journal" disabled={loading || entries.length === 0} rows={() => {
           const rows: (string | number)[][] = [[t("journal.csvDate"), t("journal.csvMemo"), t("journal.csvReference"), t("journal.csvSource"), t("journal.csvAccount"), t("journal.csvParty"), t("journal.csvDebit"), t("journal.csvCredit")]];
           for (const e of entries) {
             for (const l of e.lines) {
-              rows.push([fmtDate(e.date), e.memo, e.reference ?? "", e.source, `${l.accountCode} ${l.accountName}`, l.partyName ?? "", csvMoney(l.debit), csvMoney(l.credit)]);
+              rows.push([fmtDate(e.date), e.memo, e.docNo ?? e.reference ?? "", e.source, `${l.accountCode} ${l.accountName}`, l.partyName ?? "", csvMoney(l.debit), csvMoney(l.credit)]);
             }
           }
           return rows;
-        }} />}
+        }} /></>}
       />
       <div className="card mb-4 flex flex-wrap items-end gap-3 p-4">
         <div className="relative min-w-0 flex-1 basis-48">
@@ -99,18 +124,29 @@ export default function JournalPage() {
                     <div className="min-w-0 flex-1">
                       <p className="truncate text-sm font-bold">{e.memo}</p>
                       <p className="mt-0.5 text-xs text-muted-foreground">
-                        {fmtDate(e.date)} · {SOURCE_LABEL[e.source] ?? e.source}{e.reference ? ` · ${e.reference}` : ""}
+                        {fmtDate(e.date)} · {SOURCE_LABEL[e.source] ?? e.source}{(e.docNo ?? e.reference) ? ` · ${e.docNo ?? e.reference}` : ""}
                       </p>
                     </div>
                     <span className="shrink-0 text-sm font-extrabold">{fmtMoney(totalD.toString())}</span>
                   </button>
                   {isOpen && (
                     <div className="border-t border-border bg-muted/40 px-4 py-3 sm:px-5">
-                      <p className="mb-2 text-xs text-muted-foreground">
-                        <DocRefLink source={e.source} sourceId={e.sourceId}
-                          label={e.reference ? `${SOURCE_LABEL[e.source] ?? e.source} · ${e.reference}` : (SOURCE_LABEL[e.source] ?? e.source)}
-                          className="font-bold text-primary hover:underline" />
-                      </p>
+                      <div className="mb-2 flex items-center justify-between gap-2">
+                        <p className="text-xs text-muted-foreground">
+                          <DocRefLink source={e.source} sourceId={e.sourceId}
+                            label={e.docNo ?? (e.reference ? `${SOURCE_LABEL[e.source] ?? e.source} · ${e.reference}` : (SOURCE_LABEL[e.source] ?? e.source))}
+                            className="font-bold text-primary hover:underline" />
+                        </p>
+                        {canPost && e.source === "MANUAL" && (
+                          <button
+                            className="btn btn-ghost !py-1.5 text-xs text-danger"
+                            disabled={reversing === e.id}
+                            onClick={() => reverseEntry(e)}
+                          >
+                            <Undo2 size={13} /> {reversing === e.id ? t("journal.reversing") : t("journal.reverse")}
+                          </button>
+                        )}
+                      </div>
                       <table className="tbl !bg-transparent">
                         <thead><tr><th>{t("journal.colAccount")}</th><th className="num">{t("journal.colDebit")}</th><th className="num">{t("journal.colCredit")}</th></tr></thead>
                         <tbody>

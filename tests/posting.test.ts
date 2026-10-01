@@ -111,9 +111,9 @@ function salesItem(qty: string, rate: string): DocItemInput {
 // ─── tests ──────────────────────────────────────────────────
 
 describe("company setup", () => {
-  it("creates 25 system accounts, a branch, sequences and a cash account", async () => {
+  it("creates 26 system accounts, a branch, sequences and a cash account", async () => {
     const accs = await db.select().from(s.accounts).where(eq(s.accounts.companyId, companyId));
-    expect(accs).toHaveLength(26); // 25 system + 1 cash-in-hand GL account (Module 3 added 6010, 4030)
+    expect(accs).toHaveLength(27); // 26 system + 1 cash-in-hand GL account (Module 5 added 3003 Retained Earnings)
     const branches = await db.select().from(s.branches).where(eq(s.branches.companyId, companyId));
     expect(branches).toHaveLength(1);
     expect(branches[0]!.isDefault).toBe(true);
@@ -448,7 +448,7 @@ describe("report account mappings", () => {
     await setupCompany(db, c3);
     await setupCompany(db, c3); // second run must not duplicate anything
     const accs = await db.select().from(s.accounts).where(eq(s.accounts.companyId, c3));
-    expect(accs).toHaveLength(26); // 25 system + 1 cash-in-hand GL account (Module 3 added 6010, 4030)
+    expect(accs).toHaveLength(27); // 26 system + 1 cash-in-hand GL account (Module 5 added 3003 Retained Earnings)
     const brs = await db.select().from(s.branches).where(eq(s.branches.companyId, c3));
     expect(brs).toHaveLength(1);
     const seqs = await db.select().from(s.numberSequences).where(eq(s.numberSequences.companyId, c3));
@@ -464,7 +464,7 @@ describe("report account mappings", () => {
     await db.delete(s.accounts).where(eq(s.accounts.id, exp.id));
     await setupCompany(db, c3);
     const accs2 = await db.select().from(s.accounts).where(eq(s.accounts.companyId, c3));
-    expect(accs2).toHaveLength(26); // 25 system + 1 cash-in-hand GL account
+    expect(accs2).toHaveLength(27); // 26 system + 1 cash-in-hand GL account (Module 5 added 3003)
     expect(accs2.some((a) => a.code === SYS.EXPENSES)).toBe(true);
   });
 

@@ -197,6 +197,7 @@ describe("idempotency keys + money-create rate limits", () => {
     expect(idxNames).toEqual([
       "bank_adjustments_idem_key", // Module 3
       "expenses_idem_key",
+      "journal_entries_idem_key", // Module 5: manual journal vouchers + set-off entries
       "parties_idem_key",
       "payments_idem_key",
       "purchase_docs_idem_key",

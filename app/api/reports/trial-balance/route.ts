@@ -19,6 +19,7 @@ export async function GET() {
       const debit = s?.debit ?? 0n;
       const credit = s?.credit ?? 0n;
       return {
+        id: a.id,
         code: a.code,
         name: a.name,
         type: a.type,

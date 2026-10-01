@@ -3,10 +3,10 @@
 import { useEffect, useState, useCallback } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Building2, Database, Download, Save, Upload, Users, UserPlus, ScrollText, KeyRound, Copy, Check, Lock, Activity, TriangleAlert, MonitorSmartphone, LogOut, CircleCheck, History, ShieldCheck, RefreshCw, Crown, Store } from "lucide-react";
+import { Building2, Database, Download, Save, Upload, Users, UserPlus, ScrollText, KeyRound, Copy, Check, Lock, Activity, TriangleAlert, MonitorSmartphone, LogOut, CircleCheck, History, ShieldCheck, RefreshCw, Crown, Store, CalendarCheck } from "lucide-react";
 import { PageHeader, Field, ErrorNote } from "@/components/ui";
 import { useLang } from "@/components/lang-provider";
-import { api, fmtDate } from "@/lib/format";
+import { api, fmtDate, fmtMoney } from "@/lib/format";
 import { BUSINESS_TYPES } from "@/lib/business-types";
 import { AUDIT_LOG_RETENTION_YEARS } from "@/lib/audit";
 import { PERMISSION_GROUPS } from "@/lib/permission-keys";
@@ -220,6 +220,7 @@ export default function SettingsPage() {
       <SecurityCard />
       <SessionsCard />
       <PeriodLockCard />
+      <YearEndCloseCard />
       <SystemHealthCard isOwner={pageIsOwner} />
       <DangerZoneCard isOwner={pageIsOwner} />
       <div id="sec-activity" className="card card-gloss anchor-scroll mt-6 mx-auto max-w-2xl p-6 sm:p-8">
@@ -1288,6 +1289,107 @@ function PeriodLockCard() {
 }
 
 type ErrorRow = { id: string; route: string; message: string; createdAt: number | string };
+
+// Module 5.5 — Year-End Close card: zeroes revenue/expense accounts into
+// Retained Earnings (3003) and locks the fiscal year. Shown only to users
+// with the period_lock permission.
+function YearEndCloseCard() {
+  const { t } = useLang();
+  const [visible, setVisible] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [status, setStatus] = useState<{
+    fiscalYearStart: string;
+    candidates: { fiscalYear: string; start: string; end: string; closed: boolean; current: boolean }[];
+    closes: { fiscalYear: string; entryId: string | null; netIncome: string; closedAt: number | string }[];
+  } | null>(null);
+  const [selected, setSelected] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [done, setDone] = useState<string | null>(null);
+
+  useEffect(() => {
+    api<{ data: typeof status }>("/api/closing/year-end")
+      .then((d) => {
+        setStatus(d.data); setVisible(true);
+        const first = d.data?.candidates.find((c) => !c.closed && !c.current);
+        if (first) setSelected(first.fiscalYear);
+      })
+      .catch(() => setVisible(false))
+      .finally(() => setLoading(false));
+  }, []);
+
+  async function close() {
+    if (!selected || !confirm(t("closeyear.confirm", { year: selected }))) return;
+    setBusy(true); setError(null); setDone(null);
+    try {
+      const d = await api<{ data: { fiscalYear: string; docNo: string | null; netIncome: string } }>(
+        "/api/closing/year-end",
+        { method: "POST", body: JSON.stringify({ fiscalYear: selected }) }
+      );
+      setDone(t("closeyear.done", {
+        year: d.data.fiscalYear,
+        doc: d.data.docNo ?? "—",
+        amount: fmtMoney(d.data.netIncome),
+      }));
+      const s = await api<{ data: typeof status }>("/api/closing/year-end");
+      setStatus(s.data);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : t("closeyear.errClose"));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  if (!visible) return null;
+  return (
+    <div className="card card-gloss anchor-scroll mt-6 mx-auto max-w-2xl p-6 sm:p-8">
+      <h2 className="inline-flex items-center gap-2 text-lg font-extrabold"><CalendarCheck size={19} /> {t("closeyear.title")}</h2>
+      <p className="mt-1 text-sm text-muted-foreground">{t("closeyear.hint")}</p>
+      {loading ? (
+        <div className="mt-4 h-12 animate-pulse rounded-xl bg-muted" />
+      ) : (
+        <div className="mt-4">
+          <ErrorNote message={error} />
+          {done && <p className="rounded-xl bg-primary-soft px-4 py-2.5 text-sm font-semibold text-primary">{done}</p>}
+          <div className="overflow-x-auto">
+            <table className="tbl">
+              <thead><tr><th>{t("closeyear.colYear")}</th><th>{t("closeyear.colPeriod")}</th><th className="num">{t("closeyear.colNet")}</th><th className="!text-end">{t("closeyear.colStatus")}</th></tr></thead>
+              <tbody>
+                {status?.candidates.map((c) => {
+                  const rec = status.closes.find((x) => x.fiscalYear === c.fiscalYear);
+                  return (
+                    <tr key={c.fiscalYear} className={c.fiscalYear === selected ? "!bg-primary-soft/40" : ""}>
+                      <td className="font-bold">{c.fiscalYear}</td>
+                      <td className="text-muted-foreground">{c.start} → {c.end}</td>
+                      <td className="num">{rec ? fmtMoney(rec.netIncome) : "—"}</td>
+                      <td className="!text-end">
+                        {c.closed ? (
+                          <span className="badge bg-success-soft text-success !text-[10px]">{t("closeyear.closed")}</span>
+                        ) : c.current ? (
+                          <span className="badge bg-muted text-muted-foreground !text-[10px]">{t("closeyear.current")}</span>
+                        ) : (
+                          <button className="btn btn-ghost !py-1.5 text-xs" disabled={busy} onClick={() => setSelected(c.fiscalYear)}>
+                            {t("closeyear.select")}
+                          </button>
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+          <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
+            <p className="text-xs text-muted-foreground">{t("closeyear.lockNote")}</p>
+            <button className="btn btn-primary text-sm" disabled={busy || !selected} onClick={close}>
+              {busy ? t("closeyear.closing") : t("closeyear.closeYear", { year: selected })}
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
 
 function fmtErrorTime(v: number | string): string {
   const d = new Date(typeof v === "number" ? v : v);

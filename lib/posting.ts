@@ -54,6 +54,10 @@ export async function createJournal(
     reference?: string;
     source: string;
     sourceId?: string;
+    /** Module 5: printable voucher number (JV-YYYY-0001). */
+    docNo?: string;
+    /** Module 5: double-submit protection key (partial unique index). */
+    idempotencyKey?: string;
     createdById: string;
     lines: JournalLineInput[];
   }
@@ -70,6 +74,8 @@ export async function createJournal(
     reference: opts.reference,
     source: opts.source,
     sourceId: opts.sourceId,
+    docNo: opts.docNo ?? null,
+    idempotencyKey: opts.idempotencyKey ?? null,
     createdById: opts.createdById,
   });
   await tx.insert(journalLines).values(

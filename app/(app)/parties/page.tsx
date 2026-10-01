@@ -2,13 +2,14 @@
 
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
-import { Plus, Search, Pencil, Phone, Users, Eye } from "lucide-react";
+import { Plus, Search, Pencil, Phone, Users, Eye, ArrowLeftRight } from "lucide-react";
 import { PageHeader, EmptyState, Field, ErrorNote } from "@/components/ui";
 import { Modal } from "@/components/modal";
 import { api, fmtMoney } from "@/lib/format";
 import { paisaToRupees } from "@/lib/pos";
 import { useBusinessProfile } from "@/components/business-type";
 import { useLang } from "@/components/lang-provider";
+import { useCan } from "@/components/permissions";
 
 type Party = {
   id: string; kind: string; name: string; phone: string | null; city: string | null;
@@ -38,6 +39,7 @@ const emptyForm = {
 export default function PartiesPage() {
   const bp = useBusinessProfile();
   const { t } = useLang();
+  const canSetoff = useCan("payments");
   const [kind, setKind] = useState<"CUSTOMER" | "SUPPLIER">("CUSTOMER");
   const [q, setQ] = useState("");
   const [category, setCategory] = useState("");
@@ -126,7 +128,10 @@ export default function PartiesPage() {
         title={partyMany}
         subtitle={t("parties.subtitle", { total })}
         icon={<Users size={20} />}
-        actions={<button className="btn btn-primary text-sm" onClick={openAdd}><Plus size={16} /> {t("parties.addParty", { party: partyWord })}</button>}
+        actions={<>
+          {canSetoff && <Link href="/parties/setoff" className="btn btn-ghost text-sm"><ArrowLeftRight size={16} /> {t("setoff.title")}</Link>}
+          <button className="btn btn-primary text-sm" onClick={openAdd}><Plus size={16} /> {t("parties.addParty", { party: partyWord })}</button>
+        </>}
       />
 
       <div className="mb-4 flex flex-wrap items-center gap-3">

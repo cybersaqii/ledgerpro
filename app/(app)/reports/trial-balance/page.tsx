@@ -1,13 +1,14 @@
 "use client";
 
 import { useEffect, useState, Fragment } from "react";
+import Link from "next/link";
 import { CheckCircle2, TriangleAlert } from "lucide-react";
 import { PageHeader, ExportCsv } from "@/components/ui";
 import { csvMoney } from "@/lib/csv";
 import { api, fmtMoney } from "@/lib/format";
 import { useLang } from "@/components/lang-provider";
 
-type Line = { code: string; name: string; type: string; debit: string; credit: string };
+type Line = { id: string; code: string; name: string; type: string; debit: string; credit: string };
 
 export default function TrialBalancePage() {
   const { t } = useLang();
@@ -57,7 +58,9 @@ export default function TrialBalancePage() {
                     {ls.map((l) => (
                       <tr key={l.code}>
                         <td className="text-muted-foreground">{l.code}</td>
-                        <td className="font-semibold">{l.name}</td>
+                        <td className="font-semibold">
+                          <Link href={`/reports/account-ledger?accountId=${l.id}`} className="text-primary hover:underline">{l.name}</Link>
+                        </td>
                         <td className="text-muted-foreground">{l.type}</td>
                         <td className="num">{BigInt(l.debit) ? fmtMoney(l.debit) : "—"}</td>
                         <td className="num">{BigInt(l.credit) ? fmtMoney(l.credit) : "—"}</td>

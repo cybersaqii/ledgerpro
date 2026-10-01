@@ -25,6 +25,7 @@ export const SYS = {
   PDC_PAYABLE: "2110",
   CAPITAL: "3001",
   OPENING_EQUITY: "3002",
+  RETAINED_EARNINGS: "3003", // Module 5: year-end close destination (net profit/loss)
   SALES: "4001",
   SALES_RETURN: "4002",
   FREIGHT_INCOME: "4020",
@@ -53,6 +54,7 @@ const SYSTEM_ACCOUNTS: { code: string; name: string; type: string }[] = [
   { code: SYS.PDC_PAYABLE, name: "PDC Payable (Cheques Issued)", type: "LIABILITY" },
   { code: SYS.CAPITAL, name: "Owner's Capital", type: "EQUITY" },
   { code: SYS.OPENING_EQUITY, name: "Opening Balance Equity", type: "EQUITY" },
+  { code: SYS.RETAINED_EARNINGS, name: "Retained Earnings", type: "EQUITY" },
   { code: SYS.SALES, name: "Sales Revenue", type: "INCOME" },
   { code: SYS.SALES_RETURN, name: "Sales Returns", type: "INCOME" },
   { code: SYS.FREIGHT_INCOME, name: "Freight Income", type: "INCOME" },
@@ -92,12 +94,19 @@ const DOC_PREFIXES: Record<string, string> = {
   DEBIT_NOTE: "DN-",
 };
 
-/** Next document number, e.g. INV-0001. Must be called inside a transaction. */
-export async function nextDocNo(tx: DbTx, companyId: string, docType: string): Promise<string> {
-  const prefix = DOC_PREFIXES[docType] ?? `${docType}-`;
+/** Next document number, e.g. INV-0001. Must be called inside a transaction.
+ *  Pass `prefix` to override the static DOC_PREFIXES mapping — used for
+ *  yearly sequences like JV-2026-0001 (docType JOURNAL_VOUCHER_2026). */
+export async function nextDocNo(
+  tx: DbTx,
+  companyId: string,
+  docType: string,
+  prefix?: string
+): Promise<string> {
+  const pfx = prefix ?? DOC_PREFIXES[docType] ?? `${docType}-`;
   await tx
     .insert(numberSequences)
-    .values({ id: crypto.randomUUID(), companyId, docType, prefix, lastNo: 1 })
+    .values({ id: crypto.randomUUID(), companyId, docType, prefix: pfx, lastNo: 1 })
     .onConflictDoUpdate({
       target: [numberSequences.companyId, numberSequences.docType],
       set: { lastNo: sql`${numberSequences.lastNo} + 1` },
@@ -107,7 +116,7 @@ export async function nextDocNo(tx: DbTx, companyId: string, docType: string): P
     .from(numberSequences)
     .where(and(eq(numberSequences.companyId, companyId), eq(numberSequences.docType, docType)));
   const lastNo = rows[0]?.lastNo ?? 1;
-  return `${prefix}${String(lastNo).padStart(4, "0")}`;
+  return `${pfx}${String(lastNo).padStart(4, "0")}`;
 }
 
 /** Next GL code for a new bank/cash account (1010, 1011, ...). */

@@ -72,6 +72,7 @@ export async function GET(req: NextRequest) {
       date: e.date,
       memo: e.memo,
       reference: e.reference,
+      docNo: e.docNo,
       source: e.source,
       sourceId: e.sourceId,
       lines: (linesByEntry.get(e.id) ?? []).map((r) => ({

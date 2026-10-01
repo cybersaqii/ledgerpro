@@ -684,10 +684,20 @@ export const journalEntries = sqliteTable(
     reference: text("reference"),
     source: text("source").notNull().default("MANUAL"),
     sourceId: text("source_id"),
+    // ── Module 5 (migration 0036): printable voucher number (JV-YYYY-0001)
+    // for manual journal vouchers; NULL for system-generated entries.
+    docNo: text("doc_no"),
+    // Double-submit protection for manual journal / set-off creates.
+    idempotencyKey: text("idempotency_key"),
     createdById: text("created_by_id").notNull(),
     createdAt: createdAt(),
   },
-  (t) => [index("je_company_date").on(t.companyId, t.date), index("je_company_source").on(t.companyId, t.source)]
+  (t) => [
+    index("je_company_date").on(t.companyId, t.date),
+    index("je_company_source").on(t.companyId, t.source),
+    uniqueIndex("journal_entries_company_docno").on(t.companyId, t.docNo).where(sql`doc_no IS NOT NULL`),
+    uniqueIndex("journal_entries_idem_key").on(t.companyId, t.idempotencyKey).where(sql`idempotency_key IS NOT NULL`),
+  ]
 );
 
 export const journalLines = sqliteTable(
@@ -702,6 +712,28 @@ export const journalLines = sqliteTable(
     memo: text("memo"),
   },
   (t) => [index("jl_entry").on(t.entryId), index("jl_account").on(t.accountId)]
+);
+
+// ─── Year-end closing ────────────────────────────────────────────
+// Module 5 (migration 0036): one row per closed fiscal year. The unique
+// (company_id, fiscal_year) is the idempotency guard — a second close of
+// the same year is rejected instead of double-posting.
+/** G5 — year-end close log. */
+export const yearEndCloses = sqliteTable(
+  "year_end_closes",
+  {
+    id: id(),
+    companyId: text("company_id").notNull(),
+    fiscalYear: text("fiscal_year").notNull(), // e.g. "2025-26"
+    entryId: text("entry_id"), // closing journal entry (NULL when nothing to close)
+    netIncome: money("net_income"), // paisa, signed: +profit / -loss
+    closedBy: text("closed_by"),
+    closedAt: ts("closed_at").notNull(),
+  },
+  (t) => [
+    uniqueIndex("year_end_closes_company_year").on(t.companyId, t.fiscalYear),
+    index("year_end_closes_company").on(t.companyId, t.closedAt),
+  ]
 );
 
 // ─── Helpers ───────────────────────────────────────────────────

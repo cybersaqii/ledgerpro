@@ -1,7 +1,6 @@
 import { eq, and, sql } from "drizzle-orm";
 import { accounts, journalEntries, journalLines } from "@/db/schema";
-import type { Db } from "@/lib/db";
-import { SYS } from "@/lib/setup";
+import type { Db, DbTx } from "@/lib/db";
 
 /** Date range filter (inclusive from, exclusive to+1day), or null for all time. */
 export function dateRange(from?: string | null, to?: string | null) {
@@ -19,7 +18,7 @@ export function dateRange(from?: string | null, to?: string | null) {
 
 /** Sum of debits/credits per account code for a company (+ optional date range). */
 export async function glSums(
-  db: Db,
+  db: Db | DbTx,
   companyId: string,
   from?: string | null,
   to?: string | null
@@ -90,22 +89,20 @@ export function sumByTypeCredit(
  * Net profit for a company over an optional date range, using the same
  * double-entry GL math as the profit & loss report (SYS account codes).
  * Returns a paisa bigint as string.
+ *
+ * Module 5: computed from ALL income/expense accounts by type — the old
+ * version only broke out a fixed list of SYS codes and silently dropped
+ * other income accounts (e.g. 4030 Interest Income, 4040 Adjustment Gain,
+ * and any custom income accounts).
  */
 export async function netProfit(
-  db: Db,
+  db: Db | DbTx,
   companyId: string,
   from?: string | null,
   to?: string | null
 ): Promise<string> {
   const sums = await glSums(db, companyId, from, to);
-  const sales = netOf(sums, SYS.SALES, true);
-  const salesReturns = netOf(sums, SYS.SALES_RETURN); // debit balance
-  const discountGiven = netOf(sums, SYS.DISCOUNT_GIVEN);
-  const discountReceived = netOf(sums, SYS.DISCOUNT_RECEIVED, true);
-  const freightIncome = netOf(sums, SYS.FREIGHT_INCOME, true);
-  const cogs = netOf(sums, SYS.COGS);
-  const expenses = sumByType(sums, "EXPENSE", [SYS.COGS, SYS.DISCOUNT_GIVEN]);
-  const netSales = sales - salesReturns;
-  const grossProfit = netSales - discountGiven - cogs;
-  return (grossProfit + discountReceived + freightIncome - expenses).toString();
+  const incomeTotal = sumByTypeCredit(sums, "INCOME"); // contra-revenue (4002) nets automatically
+  const expenseTotal = sumByType(sums, "EXPENSE");
+  return (incomeTotal - expenseTotal).toString();
 }
