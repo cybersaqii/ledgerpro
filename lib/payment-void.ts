@@ -170,6 +170,9 @@ export async function voidPayment(
       credit: l.debit,
       partyId: l.partyId,
       memo: l.memo ?? undefined,
+      // Module 13: the project tag mirrors with the lines — a void nets the
+      // project P&L back to zero.
+      projectId: l.projectId ?? undefined,
     })),
   });
   // Module 10: reverse any FX settlement gain/loss journals this payment
@@ -205,6 +208,9 @@ export async function voidPayment(
         credit: l.debit,
         partyId: l.partyId,
         memo: l.memo ?? undefined,
+        // Module 13: the project tag mirrors with the lines — a void nets the
+        // project P&L back to zero.
+        projectId: l.projectId ?? undefined,
       })),
     });
   }
@@ -361,6 +367,9 @@ export async function voidExpense(
       credit: l.debit,
       partyId: l.partyId,
       memo: l.memo ?? undefined,
+      // Module 13: the project tag mirrors with the lines — a void nets the
+      // project P&L back to zero.
+      projectId: l.projectId ?? undefined,
     })),
   });
 
@@ -430,6 +439,9 @@ export async function voidSundryReceipt(
       credit: l.debit,
       partyId: l.partyId,
       memo: l.memo ?? undefined,
+      // Module 13: the project tag mirrors with the lines — a void nets the
+      // project P&L back to zero.
+      projectId: l.projectId ?? undefined,
     })),
   });
 

@@ -4,6 +4,7 @@ import {
 } from "@/db/schema";
 import { computeTotals, type DocItemInput } from "./totals";
 import { postSalesDoc } from "./posting";
+import { validateProjectId } from "./projects";
 import { nextDocNo } from "./setup";
 import { carryDocCurrency } from "./fx-docs";
 import { floorErrorMessage } from "./min-price";
@@ -191,6 +192,9 @@ export async function fulfillSalesOrder(
   const totals = computeTotals(docItems, docDiscount, docFreight);
   const docNo = await nextDocNo(tx, input.companyId, input.docType);
   const docId = crypto.randomUUID();
+  // Module 13: the order's project tag follows onto the fulfillment document
+  // (re-validated — the project may have been cancelled since the order).
+  const fulfilProjectId = await validateProjectId(tx, input.companyId, order.projectId);
   const date = new Date();
   const tsMap = await trackStockMap(tx, docItems.map((i) => i.productId));
   const isPosted = input.docType === "INVOICE";
@@ -219,6 +223,7 @@ export async function fulfillSalesOrder(
     notes: `Fulfillment of order ${order.docNo}`,
     sourceDocId: order.id,
     createdById: input.userId,
+    projectId: fulfilProjectId,
   });
   await tx.insert(salesDocItems).values(
     totals.items.map((i) => ({
@@ -251,6 +256,7 @@ export async function fulfillSalesOrder(
       freightTotal: docFreight,
       grandTotal: totals.grandTotal,
       createdById: input.userId,
+      projectId: fulfilProjectId,
     });
     await tx.update(salesDocs).set({ journalEntryId: entryId }).where(eq(salesDocs.id, docId));
     if (input.applyAdvance !== false) {

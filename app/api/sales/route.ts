@@ -8,6 +8,7 @@ import { parseQty } from "@/lib/qty";
 import { resolveDocCurrency } from "@/lib/fx-docs";
 import { minorToDecimalString } from "@/lib/fx";
 import { postSalesDoc, postPayment } from "@/lib/posting";
+import { validateProjectId } from "@/lib/projects";
 import { approvalRequired, stageApprovalRequest, findApprovalRequestByIdemKey } from "@/lib/approvals";
 import { clientIp } from "@/lib/rate-limit-db";
 import { periodLockError } from "@/lib/period";
@@ -287,6 +288,8 @@ export async function POST(req: NextRequest) {
       await assertBranch(tx, companyId, branchId);
       const docNo = await nextDocNo(tx, companyId, b.docType === "RETURN" ? "SALE_RETURN" : b.docType);
       const docId = crypto.randomUUID();
+      // Module 13: validate the project tag before anything is written.
+      const projectId = await validateProjectId(tx, companyId, b.projectId);
 
       await tx.insert(salesDocs).values({
         id: docId,
@@ -297,6 +300,7 @@ export async function POST(req: NextRequest) {
         docNo,
         date,
         dueDate,
+        projectId,
         status: needsApproval ? "PENDING_APPROVAL" : isPosted ? "POSTED" : "DRAFT",
         subtotal: totals.subtotal,
         discountTotal: fx.pkrDiscountTotal,
@@ -374,6 +378,7 @@ export async function POST(req: NextRequest) {
           taxTotal: totals.taxTotal,
           grandTotal: totals.grandTotal,
           createdById: session.uid,
+          projectId,
         });
         await tx.update(salesDocs).set({ journalEntryId: entryId }).where(eq(salesDocs.id, docId));
         // advance auto-deduction: consume the customer's unallocated credit
@@ -416,6 +421,7 @@ export async function POST(req: NextRequest) {
             notes: `Receipt against ${docNo}`,
             allocations: [{ docId, docKind: "SALES", amount: alloc }],
             createdById: session.uid,
+            projectId,
           });
           receiptDocNo = rp.docNo;
         }

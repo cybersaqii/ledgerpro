@@ -452,9 +452,9 @@ describe("report account mappings", () => {
     const brs = await db.select().from(s.branches).where(eq(s.branches.companyId, c3));
     expect(brs).toHaveLength(1);
     const seqs = await db.select().from(s.numberSequences).where(eq(s.numberSequences.companyId, c3));
-    expect(seqs).toHaveLength(24); // 10 legacy doc prefixes + 7 QA-wave prefixes + 2 Module 3 (sundry receipt, bank adjustment) + 1 Module 4 (stock transfer) + 2 Module 8 (payroll run, employee advance) + 1 Module 9 (depreciation run) + 1 Module 12 (work order), none duplicated
+    expect(seqs).toHaveLength(25); // 10 legacy doc prefixes + 7 QA-wave prefixes + 2 Module 3 (sundry receipt, bank adjustment) + 1 Module 4 (stock transfer) + 2 Module 8 (payroll run, employee advance) + 1 Module 9 (depreciation run) + 1 Module 12 (work order) + 1 Module 13 (project), none duplicated
     const seqTypes = new Set(seqs.map((x) => x.docType));
-    for (const t of ["SALE_RETURN", "PURCHASE_RETURN", "TRANSFER", "STOCK_ADJUSTMENT", "WRITE_OFF", "CREDIT_NOTE", "DEBIT_NOTE", "SUNDRY_RECEIPT", "BANK_ADJUSTMENT", "PAYROLL_RUN", "EMPLOYEE_ADVANCE", "WORK_ORDER"]) {
+    for (const t of ["SALE_RETURN", "PURCHASE_RETURN", "TRANSFER", "STOCK_ADJUSTMENT", "WRITE_OFF", "CREDIT_NOTE", "DEBIT_NOTE", "SUNDRY_RECEIPT", "BANK_ADJUSTMENT", "PAYROLL_RUN", "EMPLOYEE_ADVANCE", "WORK_ORDER", "PROJECT"]) {
       expect(seqTypes.has(t)).toBe(true);
     }
     const banks = await db.select().from(s.bankAccounts).where(eq(s.bankAccounts.companyId, c3));

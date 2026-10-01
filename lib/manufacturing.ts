@@ -604,6 +604,8 @@ async function reverseJournal(
       debit: l.credit,
       credit: l.debit,
       memo: l.memo ?? undefined,
+      // Module 13: the project tag mirrors with the lines.
+      projectId: l.projectId ?? undefined,
     })),
   });
 }

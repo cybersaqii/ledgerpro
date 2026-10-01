@@ -6,6 +6,7 @@ import { toApiError } from "@/lib/errors";
 import { requirePermission, db, defaultBranchId, assertBranch, parseDateOnly } from "@/lib/route-helpers";
 import { periodLockError } from "@/lib/period";
 import { postManualJournal, parseLineAmount } from "@/lib/journal-vouchers";
+import { validateProjectId } from "@/lib/projects";
 import { approvalRequired, stageApprovalRequest, findApprovalRequestByIdemKey } from "@/lib/approvals";
 import { clientIp } from "@/lib/rate-limit-db";
 import { logAudit } from "@/lib/audit";
@@ -28,6 +29,8 @@ const jvSchema = z.object({
   date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Invalid date"),
   memo: z.string().trim().min(1, "A memo / narration is required.").max(500),
   branchId: z.string().min(1).optional(),
+  /** Module 13: project tag — stamped on every voucher line. */
+  projectId: z.string().min(1).optional(),
   lines: z.array(lineSchema).min(2, "A voucher needs at least two lines.").max(40),
 });
 
@@ -99,6 +102,8 @@ export async function POST(req: NextRequest) {
     const { entryId, docNo, approvalId } = await db.transaction(async (tx) => {
       const branchId = b.data.branchId || (await defaultBranchId(tx, companyId));
       await assertBranch(tx, companyId, branchId);
+      // Module 13: validate the project tag before staging or posting.
+      const projectId = await validateProjectId(tx, companyId, b.data.projectId);
       if (needsApproval) {
         const stagedId = await stageApprovalRequest(tx, {
           companyId,
@@ -108,6 +113,7 @@ export async function POST(req: NextRequest) {
             branchId,
             dateISO: date.toISOString(),
             memo: b.data.memo,
+            projectId: projectId ?? undefined,
             lines: lines.map((l) => ({
               accountId: l.accountId,
               debitPaisa: l.debit.toString(),
@@ -129,6 +135,7 @@ export async function POST(req: NextRequest) {
         memo: b.data.memo,
         lines,
         createdById: session.uid,
+        projectId,
         ...(idemKey ? { idempotencyKey: idemKey } : {}),
       });
       return { ...posted, approvalId: null as string | null };

@@ -17,6 +17,7 @@ import {
 } from "@/lib/pos";
 import { useBusinessProfile } from "@/components/business-type";
 import { ProductImage } from "@/components/product-image";
+import { ProjectSelect } from "@/components/project-select";
 import { useLang } from "@/components/lang-provider";
 
 type ApiProduct = PosProduct & { totalQty: string };
@@ -52,6 +53,8 @@ export default function PosPage() {
   const [lines, setLines] = useState<PosLine[]>([]);
   const [discount, setDiscount] = useState("");
   const [notes, setNotes] = useState("");
+  // Module 13: project tag ("" = untagged).
+  const [projectId, setProjectId] = useState("");
   const keyRef = useRef(0);
 
   // search
@@ -377,6 +380,8 @@ export default function PosPage() {
           tendered: tenderedVal,
           priceOverride,
           overrideCreditLimit: creditOverride,
+          // Module 13: project tag rides on the sale + its receipt(s).
+          projectId: projectId || undefined,
         }),
       });
       const docId = res.data.docId;
@@ -412,6 +417,7 @@ export default function PosPage() {
     setLines([]);
     setDiscount("");
     setNotes("");
+    setProjectId("");
     setTendered("");
     setTenders([]);
     setSplitKhata(false);
@@ -771,6 +777,10 @@ export default function PosPage() {
               <input id="pos-discount" className="field !w-28 !py-1.5 text-end text-sm" inputMode="decimal"
                 placeholder="0.00" value={discount}
                 onChange={(e) => setDiscount(e.target.value.replace(/[^0-9.]/g, ""))} />
+            </div>
+            {/* Module 13: project tag — visible only when the company has projects */}
+            <div className="mt-3">
+              <ProjectSelect value={projectId} onChange={setProjectId} />
             </div>
             <div className="mt-4 flex items-end justify-between border-t border-border pt-4">
               <span className="text-sm font-bold uppercase tracking-wide text-muted-foreground">{t("pos.total")}</span>

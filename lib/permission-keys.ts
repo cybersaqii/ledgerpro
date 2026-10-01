@@ -37,6 +37,9 @@ export const PERMISSIONS = [
   // Module 12: manufacturing & BOM (BOMs, work orders, production posting).
   // Kept out of the staff defaults: production moves stock and posts journals.
   "manufacturing",
+  // Module 13: projects & job costing (project master, job-cost P&L).
+  // Kept out of the staff defaults: margins are sensitive.
+  "projects",
 ] as const;
 
 export type Permission = (typeof PERMISSIONS)[number];
@@ -78,6 +81,8 @@ export const PERMISSION_GROUPS: { key: string; permissions: Permission[] }[] = [
   { key: "assets", permissions: ["assets"] },
   // Module 12: manufacturing stands alone — production posts journals.
   { key: "mfg", permissions: ["manufacturing"] },
+  // Module 13: projects stands alone — margins are sensitive.
+  { key: "projects", permissions: ["projects"] },
 ];
 
 /** Label/description i18n keys for a permission: perms.<key>, perms.<key>Desc. */

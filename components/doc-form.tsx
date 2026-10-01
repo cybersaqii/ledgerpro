@@ -11,6 +11,7 @@ import { foreignToPaisa, paisaToForeignMinor, formatForeign, minorToDecimalStrin
 import { parseDecimalToMinor } from "@/lib/decimal";
 import { whtRateBps, type WhtCategory, type FilerStatus } from "@/lib/wht";
 import { useBusinessProfile } from "@/components/business-type";
+import { ProjectSelect } from "@/components/project-select";
 import { useLang } from "@/components/lang-provider";
 
 type Party = { id: string; name: string; phone: string | null; paymentTerms?: string | null; whtCategory?: string | null; activeTaxPayer?: boolean | null; filerStatus?: string | null };
@@ -190,6 +191,8 @@ export function DocForm({ mode }: { mode: "SALES" | "PURCHASE" }) {
   const [notes, setNotes] = useState("");
   const [refNo, setRefNo] = useState("");
   const [terms, setTerms] = useState("");
+  // Module 13: project tag (optional; "" = untagged).
+  const [projectId, setProjectId] = useState("");
   /** Module 2.4: WHT rate on purchase bills (percent string; blank = supplier default). */
   const [whtPct, setWhtPct] = useState("");
   /** Module 2.6: purchase returns deduct stock by default; off = pure-ledger return. */
@@ -677,6 +680,8 @@ export function DocForm({ mode }: { mode: "SALES" | "PURCHASE" }) {
         ...(freightDocTypes ? { freightTotal: freightTotal || "0" } : {}),
         notes: notes || undefined,
         refNo: refNo.trim() || undefined,
+        // Module 13: project tag rides on every journal line the doc posts.
+        projectId: projectId || undefined,
         terms: terms.trim() || undefined,
         items: lines.map((l) => ({
           productId: l.productId || undefined,
@@ -876,6 +881,8 @@ export function DocForm({ mode }: { mode: "SALES" | "PURCHASE" }) {
                 onChange={(e) => setRefNo(e.target.value)}
                 placeholder={isSales ? t("docform.refPlaceholderSales") : t("docform.refPlaceholder")} />
             </Field>
+            {/* Module 13: project tag — visible only when the company has projects */}
+            <ProjectSelect value={projectId} onChange={setProjectId} />
             {/* Module 2.4: WHT on purchase bills — blank = supplier default */}
             {!isSales && docType === "BILL" && (
               <Field label={t("docform.whtRate")} hint={t("docform.whtRateHint")}>

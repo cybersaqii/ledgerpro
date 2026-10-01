@@ -33,6 +33,8 @@ export type JournalLineInput = {
   credit: bigint;
   partyId?: string | null;
   memo?: string;
+  /** Module 13: project tag (rides on the line; never changes the balance). */
+  projectId?: string | null;
 };
 
 /** Hard invariant: debits must equal credits, and total must be positive. */
@@ -90,9 +92,24 @@ export async function createJournal(
       credit: l.credit,
       partyId: l.partyId ?? null,
       memo: l.memo,
+      // Module 13: project tag on the line. Tagging never changes the
+      // journal balance (assertBalanced ran above).
+      projectId: l.projectId ?? null,
     }))
   );
   return entryId;
+}
+
+/**
+ * Module 13 — stamp every line of a document's journal with the document's
+ * project tag. Pure helper: the journal balance is unchanged by the tag.
+ */
+export function withProject(
+  lines: JournalLineInput[],
+  projectId: string | null | undefined
+): JournalLineInput[] {
+  if (!projectId) return lines;
+  return lines.map((l) => ({ ...l, projectId }));
 }
 
 export type StockMove = {
@@ -258,6 +275,8 @@ export type PostSalesInput = {
   createdById: string;
   /** RETURN docs: the source INVOICE id, used to restore its exact batches. */
   sourceDocId?: string;
+  /** Module 13: project tag — stamped on every journal line (balance unchanged). */
+  projectId?: string | null;
 };
 
 export async function postSalesDoc(tx: DbTx, input: PostSalesInput): Promise<string> {
@@ -400,7 +419,7 @@ export async function postSalesDoc(tx: DbTx, input: PostSalesInput): Promise<str
     source: "SALES",
     sourceId: input.docId,
     createdById: input.createdById,
-    lines,
+    lines: withProject(lines, input.projectId),
   });
 
   await bumpPartyBalance(tx, input.partyId, input.docType === "INVOICE" ? input.grandTotal : -input.grandTotal);
@@ -465,6 +484,8 @@ export type PostPurchaseInput = {
   taxTotal: bigint;
   grandTotal: bigint;
   createdById: string;
+  /** Module 13: project tag — stamped on every journal line (balance unchanged). */
+  projectId?: string | null;
   /** Landed extra costs (freight, labour): distributed into stock unit cost. */
   extraCosts?: ExtraCostInput[];
   /** How the extra costs were paid: cash/bank account, or added to the supplier bill. */
@@ -777,7 +798,7 @@ export async function postPurchaseDoc(tx: DbTx, input: PostPurchaseInput): Promi
     source: "PURCHASE",
     sourceId: input.docId,
     createdById: input.createdById,
-    lines,
+    lines: withProject(lines, input.projectId),
   });
 
   // The AP credit is net of WHT (the withheld tax is owed to the tax
@@ -834,6 +855,8 @@ export type PostPaymentInput = {
   docNo?: string;
   allocations: AllocationInput[];
   createdById: string;
+  /** Module 13: project tag — stamped on every journal line (balance unchanged). */
+  projectId?: string | null;
   /** Double-submit protection: stored on the row; the route checks it first (migration 0031). */
   idempotencyKey?: string;
   /**
@@ -1161,7 +1184,8 @@ export async function postPayment(tx: DbTx, input: PostPaymentInput): Promise<{ 
     source: "PAYMENT",
     sourceId: paymentId,
     createdById: input.createdById,
-    lines: isReceipt
+    lines: withProject(
+      isReceipt
       ? [
           { accountId: bank.accountId, debit: input.amount - whtAmount, credit: 0n },
           // Module 7.2 — the customer withheld tax on our invoice: a tax
@@ -1192,6 +1216,8 @@ export async function postPayment(tx: DbTx, input: PostPaymentInput): Promise<{ 
             { accountId: arApAccount, debit: input.amount, credit: 0n, partyId: input.partyId },
             { accountId: bank.accountId, debit: 0n, credit: input.amount },
           ],
+      input.projectId
+    ),
   });
 
   await tx.insert(payments).values({
@@ -1209,6 +1235,8 @@ export async function postPayment(tx: DbTx, input: PostPaymentInput): Promise<{ 
     notes: input.notes,
     journalEntryId: entryId,
     createdById: input.createdById,
+    // Module 13: project tagging (journal lines carry the tag too).
+    projectId: input.projectId ?? null,
     // Module 7.2 — payment/receipt-time WHT (detail lives in wht_deductions).
     whtAmount,
     whtSection: whtAmount > 0n ? whtSection : null,
@@ -1289,6 +1317,8 @@ export type PostExpenseInput = {
   idempotencyKey?: string;
   /** Module 3: spawned from a bank statement line. */
   statementLineId?: string;
+  /** Module 13: project tag — stamped on every journal line (balance unchanged). */
+  projectId?: string | null;
 };
 
 export async function postExpense(tx: DbTx, input: PostExpenseInput): Promise<string> {
@@ -1323,11 +1353,14 @@ export async function postExpense(tx: DbTx, input: PostExpenseInput): Promise<st
     memo: input.notes || `Expense — ${gl.name}`,
     source: "EXPENSE",
     createdById: input.createdById,
-    lines: [
-      { accountId: gl.id, debit: input.amount, credit: 0n },
-      ...(input.taxAmount > 0n ? [{ accountId: ac[SYS.INPUT_TAX], debit: input.taxAmount, credit: 0n }] : []),
-      { accountId: bank.accountId, debit: 0n, credit: total },
-    ],
+    lines: withProject(
+      [
+        { accountId: gl.id, debit: input.amount, credit: 0n },
+        ...(input.taxAmount > 0n ? [{ accountId: ac[SYS.INPUT_TAX], debit: input.taxAmount, credit: 0n }] : []),
+        { accountId: bank.accountId, debit: 0n, credit: total },
+      ],
+      input.projectId
+    ),
   });
 
   const expenseId = input.id ?? crypto.randomUUID();
@@ -1348,6 +1381,8 @@ export async function postExpense(tx: DbTx, input: PostExpenseInput): Promise<st
     journalEntryId: entryId,
     ...(input.statementLineId ? { statementLineId: input.statementLineId } : {}),
     createdById: input.createdById,
+    // Module 13: project tagging (journal lines carry the tag too).
+    projectId: input.projectId ?? null,
     ...(input.idempotencyKey ? { idempotencyKey: input.idempotencyKey } : {}),
   });
 

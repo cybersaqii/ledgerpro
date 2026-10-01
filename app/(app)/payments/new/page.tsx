@@ -10,6 +10,7 @@ import { parseDecimalToPaisa } from "@/lib/decimal";
 import { WHT_SECTIONS, whtSectionRateBps } from "@/lib/wht";
 import { useBusinessProfile } from "@/components/business-type";
 import { useLang } from "@/components/lang-provider";
+import { ProjectSelect } from "@/components/project-select";
 
 type Party = { id: string; name: string; filerStatus?: "FILER" | "NON_FILER" | null; activeTaxPayer?: boolean | null; whtCategory?: string | null; ntn?: string | null };
 type Bank = { id: string; name: string; kind: string };
@@ -36,6 +37,8 @@ function PaymentFormInner() {
   const [method, setMethod] = useState("CASH");
   const [reference, setReference] = useState("");
   const [notes, setNotes] = useState("");
+  // Module 13: project tag ("" = untagged).
+  const [projectId, setProjectId] = useState("");
   const [outstanding, setOutstanding] = useState<Outstanding[]>([]);
   const [alloc, setAlloc] = useState<Record<string, string>>({});
   const [saving, setSaving] = useState(false);
@@ -189,6 +192,8 @@ function PaymentFormInner() {
         body: JSON.stringify({
           kind, partyId, bankAccountId: bankId, date, amount,
           idempotencyKey: idemRef.current,
+          // Module 13: project tag rides on the payment journal lines.
+          projectId: projectId || undefined,
           method, reference: reference || undefined, notes: notes || undefined,
           whtSection: whtSection || undefined,
           whtBps: whtSection && whtBps > 0 ? whtBps : undefined,
@@ -284,6 +289,10 @@ function PaymentFormInner() {
           </div>
           <div className="mt-4">
             <Field label={t("payform.notes")}><input className="field" value={notes} onChange={(e) => setNotes(e.target.value)} /></Field>
+          </div>
+          {/* Module 13: project tag — visible only when the company has projects */}
+          <div className="mt-4 max-w-md">
+            <ProjectSelect value={projectId} onChange={setProjectId} />
           </div>
         </div>
 

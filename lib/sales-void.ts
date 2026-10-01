@@ -142,6 +142,9 @@ export async function voidSalesInvoice(
       credit: l.debit,
       partyId: l.partyId,
       memo: l.memo ?? undefined,
+      // Module 13: the project tag mirrors with the lines — a void nets the
+      // project P&L back to zero.
+      projectId: l.projectId ?? undefined,
     })),
   });
 

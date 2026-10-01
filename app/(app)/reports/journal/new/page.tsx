@@ -6,6 +6,7 @@ import { Plus, Trash2, ReceiptText, CheckCircle2 } from "lucide-react";
 import { PageHeader, ErrorNote, Field } from "@/components/ui";
 import { api, fmtMoney } from "@/lib/format";
 import { useLang } from "@/components/lang-provider";
+import { ProjectSelect } from "@/components/project-select";
 
 type Account = { id: string; code: string; name: string; type: string; isActive: boolean };
 type Party = { id: string; name: string; kind: string };
@@ -29,6 +30,8 @@ export default function NewJournalVoucherPage() {
   const [parties, setParties] = useState<Party[]>([]);
   const [date, setDate] = useState(() => new Date().toISOString().slice(0, 10));
   const [memo, setMemo] = useState("");
+  // Module 13: voucher-level project tag ("" = untagged).
+  const [projectId, setProjectId] = useState("");
   const [lines, setLines] = useState<Line[]>([blankLine(), blankLine()]);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -62,6 +65,8 @@ export default function NewJournalVoucherPage() {
         body: JSON.stringify({
           date,
           memo: memo.trim(),
+          // Module 13: voucher-level project tag — stamped on every line.
+          projectId: projectId || undefined,
           lines: validLines.map((l) => ({
             accountId: l.accountId,
             debit: l.debit.trim() || "0",
@@ -97,6 +102,8 @@ export default function NewJournalVoucherPage() {
               <input className="input" value={memo} onChange={(e) => setMemo(e.target.value)} placeholder={t("jv.memoPh")} maxLength={500} />
             </Field>
           </div>
+          {/* Module 13: project tag — visible only when the company has projects */}
+          <ProjectSelect value={projectId} onChange={setProjectId} />
         </div>
       </div>
 

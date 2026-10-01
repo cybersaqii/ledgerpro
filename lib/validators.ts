@@ -139,6 +139,8 @@ export const salesDocSchema = z.object({
   priceOverride: z.boolean().default(false), // explicit override of minimum sale price
   applyAdvance: z.boolean().default(true), // auto-consume customer's unallocated advance on invoices
   overrideCreditLimit: z.boolean().default(false), // owner-confirmed: post even if udhaar crosses the credit limit
+  // Module 13: project tag — validated server-side (company + taggable status).
+  projectId: z.string().min(1).optional(),
   // Add Receipt / Add Payment: collected with the doc, posted in the same
   // transaction (INVOICE → RECEIPT allocated to the new invoice,
   // BILL → PAYMENT allocated to the new bill).
@@ -192,6 +194,8 @@ export const paymentSchema = z.object({
   docNo: z.string().trim().min(1).max(40).optional(),
   /** Module 1: FIFO auto-allocate to the party's oldest open documents (server-computed, oldest first). */
   autoAllocate: z.boolean().default(false),
+  /** Module 13: project tag (journal lines carry it; P&L-neutral by design). */
+  projectId: z.string().min(1).optional(),
   /** Module 7.2: WHT deducted at payment/receipt time (section + rate bps). */
   whtSection: z.string().trim().max(20).optional().or(z.literal("")),
   whtBps: z.number().int().min(0).max(10000).optional(),
@@ -216,6 +220,8 @@ export const expenseSchema = z.object({
   notes: z.string().trim().max(500).optional().or(z.literal("")),
   // Module 3: spawn the expense from a bank statement line
   statementLineId: z.string().min(1).optional(),
+  /** Module 13: project tag — direct cost on the project P&L. */
+  projectId: z.string().min(1).optional(),
 });
 
 export const posCheckoutSchema = z.object({
@@ -240,6 +246,8 @@ export const posCheckoutSchema = z.object({
   tendered: moneyStr.optional().or(z.literal("")),
   priceOverride: z.boolean().default(false), // explicit override of minimum sale price
   overrideCreditLimit: z.boolean().default(false), // owner-confirmed: post even if udhaar crosses the credit limit
+  // Module 13: project tag — validated server-side (company + taggable status).
+  projectId: z.string().min(1).optional(),
 });
 
 // POST /api/pos/held — park a bill on the server (durable, user-owned).

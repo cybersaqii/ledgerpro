@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { Plus, CalendarDays, ReceiptText, Ban } from "lucide-react";
 import { PageHeader, EmptyState, Field, ErrorNote, FilterBar, SummaryChips, Pagination } from "@/components/ui";
 import { Modal } from "@/components/modal";
+import { ProjectSelect } from "@/components/project-select";
 import { api, fmtMoney, fmtDate, fmtDateInput, toBig } from "@/lib/format";
 import { useLang } from "@/components/lang-provider";
 import { usePermissions } from "@/components/permissions";
@@ -33,7 +34,7 @@ export default function ExpensesPage() {
   const [banks, setBanks] = useState<Bank[]>([]);
   const [loading, setLoading] = useState(true);
   const [modal, setModal] = useState(false);
-  const [form, setForm] = useState({ accountId: "", bankAccountId: "", date: fmtDateInput(), amount: "", taxAmount: "", notes: "" });
+  const [form, setForm] = useState({ accountId: "", bankAccountId: "", date: fmtDateInput(), amount: "", taxAmount: "", notes: "", projectId: "" });
   // One idempotency key per user submission: kept across save attempts so a
   // retry after a network blip replays instead of double-creating. Cleared
   // on success so the next expense gets a fresh key.
@@ -72,7 +73,7 @@ export default function ExpensesPage() {
 
   async function openModal() {
     setError(null);
-    setForm({ accountId: "", bankAccountId: "", date: fmtDateInput(), amount: "", taxAmount: "", notes: "" });
+    setForm({ accountId: "", bankAccountId: "", date: fmtDateInput(), amount: "", taxAmount: "", notes: "", projectId: "" });
     try {
       const [a, b] = await Promise.all([
         api<{ data: Account[] }>("/api/accounts?type=EXPENSE"),
@@ -95,7 +96,8 @@ export default function ExpensesPage() {
       // One idempotency key per user submission (kept across retries so a
       // retry after a network blip replays instead of double-creating).
       idemRef.current ??= crypto.randomUUID();
-      await api("/api/expenses", { method: "POST", body: JSON.stringify({ ...form, idempotencyKey: idemRef.current }) });
+      await api("/api/expenses", { method: "POST", body: JSON.stringify({ ...form, projectId: form.projectId || undefined, idempotencyKey: idemRef.current }) });
+      setForm((f) => ({ ...f, projectId: "" }));
       idemRef.current = null;
       setModal(false);
       load();
@@ -223,6 +225,7 @@ export default function ExpensesPage() {
               </Field>
             </div>
             <Field label={t("expenses.notes")}><input className="field" value={form.notes} onChange={set("notes")} placeholder={t("expenses.notesPlaceholder")} /></Field>
+            <ProjectSelect value={form.projectId} onChange={(v) => setForm((f) => ({ ...f, projectId: v }))} />
             <div className="flex justify-end gap-2 pt-2">
               <button type="button" className="btn btn-ghost" onClick={() => setModal(false)}>{t("common.cancel")}</button>
               <button className="btn btn-primary" disabled={saving}>{saving ? t("common.saving") : t("expenses.saveExpense")}</button>

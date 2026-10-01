@@ -9,7 +9,7 @@ import { and, eq, sql } from "drizzle-orm";
 import { accounts, bankAccounts, expenses, journalEntries, journalLines } from "@/db/schema";
 import type { DbTx } from "@/lib/db";
 import { accountMap, SYS } from "@/lib/setup";
-import { createJournal } from "@/lib/posting";
+import { createJournal, withProject } from "@/lib/posting";
 import { parseMoney } from "@/lib/money";
 import { assertPeriodOpen } from "@/lib/period";
 import { UserError } from "@/lib/errors";
@@ -99,11 +99,15 @@ export async function updateExpense(tx: DbTx, input: UpdateExpenseInput) {
     source: "EXPENSE",
     sourceId: expense.id,
     createdById: input.userId,
-    lines: [
-      { accountId: gl.id, debit: newAmount, credit: 0n },
-      ...(newTax > 0n ? [{ accountId: ac[SYS.INPUT_TAX], debit: newTax, credit: 0n }] : []),
-      { accountId: bank.accountId, debit: 0n, credit: newTotal },
-    ],
+    // Module 13: the edit re-post keeps the expense's project tag.
+    lines: withProject(
+      [
+        { accountId: gl.id, debit: newAmount, credit: 0n },
+        ...(newTax > 0n ? [{ accountId: ac[SYS.INPUT_TAX], debit: newTax, credit: 0n }] : []),
+        { accountId: bank.accountId, debit: 0n, credit: newTotal },
+      ],
+      expense.projectId
+    ),
   });
   await tx
     .update(bankAccounts)

@@ -5,6 +5,7 @@ import {
 } from "@/db/schema";
 import { computeTotals, type DocItemInput, type ComputedItem } from "./totals";
 import { postSalesDoc, postPurchaseDoc, createJournal } from "./posting";
+import { validateProjectId } from "./projects";
 import { SYS, accountMap, nextDocNo } from "./setup";
 import { carryDocCurrency } from "./fx-docs";
 import { floorErrorMessage } from "./min-price";
@@ -61,6 +62,9 @@ export async function convertSalesDoc(
     throw new UserError("Only quotations, orders and challans can be converted.");
   if (src.status === "CONVERTED") throw new UserError("This document was already converted.");
   await assertPeriodOpen(tx, input.companyId, src.date);
+  // Module 13: the project tag follows the document through conversion
+  // (re-validated — the project may have been cancelled since it was tagged).
+  const projectId = await validateProjectId(tx, input.companyId, src.projectId);
 
   // Orders convert through the fulfillment engine (Module 1.3): the created
   // challan/invoice fulfills the order's remaining quantities and the order
@@ -112,6 +116,7 @@ export async function convertSalesDoc(
       docNo: orderNo,
       date: new Date(),
       status: "PENDING",
+      projectId,
       subtotal: totals.subtotal,
       discountTotal: src.discountTotal ?? 0n,
       freightTotal: totals.freightPaisa,
@@ -189,6 +194,7 @@ export async function convertSalesDoc(
     docNo,
     date,
     status: "POSTED",
+    projectId,
     subtotal: totals.subtotal,
     discountTotal: srcDiscount,
     freightTotal: srcFreight,
@@ -230,6 +236,7 @@ export async function convertSalesDoc(
     taxTotal: totals.taxTotal,
     grandTotal: totals.grandTotal,
     createdById: input.userId,
+    projectId,
   });
   await tx.update(salesDocs).set({ journalEntryId: entryId }).where(eq(salesDocs.id, docId));
   // advance auto-deduction against the new invoice (same as the invoice form)
@@ -270,6 +277,8 @@ export async function createSalesReturn(
     throw new UserError("Only posted invoices can be returned.");
   if (src.status === "RETURNED") throw new UserError("This invoice was already fully returned.");
   await assertPeriodOpen(tx, input.companyId, src.date);
+  // Module 13: a sales return mirrors its invoice's project tag (re-validated).
+  const returnProjectId = await validateProjectId(tx, input.companyId, src.projectId);
 
   const srcItems = await tx.select().from(salesDocItems).where(eq(salesDocItems.docId, src.id));
   if (srcItems.length === 0) throw new UserError("Source invoice has no items.");
@@ -327,6 +336,7 @@ export async function createSalesReturn(
     docNo,
     date,
     status: "POSTED",
+    projectId: returnProjectId,
     subtotal: totals.subtotal,
     discountTotal: docDiscount,
     taxTotal: totals.taxTotal,
@@ -375,6 +385,7 @@ export async function createSalesReturn(
     grandTotal: totals.grandTotal,
     createdById: input.userId,
     sourceDocId: src.id, // restores the invoice's exact batches (M4)
+    projectId: returnProjectId,
   });
   await tx.update(salesDocs).set({ journalEntryId: entryId }).where(eq(salesDocs.id, docId));
   // M3: grow the source's returnedTotal, release over-allocations, fix status.
@@ -413,6 +424,8 @@ export async function convertPurchaseDoc(
 
   const srcItems = await tx.select().from(purchaseDocItems).where(eq(purchaseDocItems.docId, src.id));
   if (srcItems.length === 0) throw new UserError("Source document has no items.");
+  // Module 13: the project tag follows the order onto the bill (re-validated).
+  const billProjectId = await validateProjectId(tx, input.companyId, src.projectId);
 
   const items: DocItemInput[] = srcItems.map((i) => ({
     productId: i.productId,
@@ -452,6 +465,7 @@ export async function convertPurchaseDoc(
     refNo,
     date,
     status: "POSTED",
+    projectId: billProjectId,
     subtotal: totals.subtotal,
     discountTotal: srcDiscount,
     taxTotal: totals.taxTotal,
@@ -494,6 +508,7 @@ export async function convertPurchaseDoc(
     grandTotal: totals.grandTotal,
     whtAmount,
     createdById: input.userId,
+    projectId: billProjectId,
   });
   await tx.update(purchaseDocs).set({ journalEntryId: entryId }).where(eq(purchaseDocs.id, docId));
   await tx.update(purchaseDocs).set({ status: "CONVERTED" }).where(eq(purchaseDocs.id, src.id));
@@ -528,6 +543,8 @@ export async function createPurchaseReturn(
     throw new UserError("Only posted bills can be returned.");
   if (src.status === "RETURNED") throw new UserError("This bill was already fully returned.");
   await assertPeriodOpen(tx, input.companyId, src.date);
+  // Module 13: a purchase return mirrors its bill's project tag (re-validated).
+  const pretProjectId = await validateProjectId(tx, input.companyId, src.projectId);
 
   const srcItems = await tx.select().from(purchaseDocItems).where(eq(purchaseDocItems.docId, src.id));
   if (srcItems.length === 0) throw new UserError("Source bill has no items.");
@@ -585,6 +602,7 @@ export async function createPurchaseReturn(
     docNo,
     date,
     status: "POSTED",
+    projectId: pretProjectId,
     subtotal: totals.subtotal,
     discountTotal: docDiscount,
     taxTotal: totals.taxTotal,
@@ -627,6 +645,7 @@ export async function createPurchaseReturn(
     createdById: input.userId,
     sourceDocId: src.id, // deducts from the bill's exact batches (M4)
     deductFromInventory, // Module 2.6: pure-ledger returns skip stock + batch moves
+    projectId: pretProjectId,
   });
   await tx.update(purchaseDocs).set({ journalEntryId: entryId }).where(eq(purchaseDocs.id, docId));
   // M3: grow the source's returnedTotal, release over-allocations, fix status.

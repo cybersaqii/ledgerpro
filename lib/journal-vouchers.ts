@@ -6,6 +6,8 @@ import { assertPeriodOpen } from "./period";
 import { parseMoney } from "./money";
 import { UserError } from "./errors";
 import type { DbTx } from "./db";
+import { withProject } from "./posting";
+import { validateProjectId } from "./projects";
 
 export type ManualJournalLineInput = {
   accountId: string;
@@ -18,6 +20,8 @@ export type ManualJournalLineInput = {
 export type PostManualJournalInput = {
   companyId: string;
   branchId?: string;
+  /** Module 13: project tag — stamped on every line (balance unchanged). */
+  projectId?: string | null;
   date: Date;
   memo: string;
   lines: ManualJournalLineInput[];
@@ -76,6 +80,9 @@ export async function postManualJournal(
     }
   }
 
+  // Module 13: project tag must belong to this company and be taggable.
+  const projectId = await validateProjectId(tx, companyId, input.projectId);
+
   const { docType, prefix } = journalVoucherNumbering(input.date);
   const docNo = await nextDocNo(tx, companyId, docType, prefix);
 
@@ -89,13 +96,16 @@ export async function postManualJournal(
     source: "MANUAL",
     idempotencyKey: input.idempotencyKey,
     createdById: input.createdById,
-    lines: lines.map((l) => ({
-      accountId: l.accountId,
-      debit: l.debit,
-      credit: l.credit,
-      partyId: l.partyId,
-      memo: l.memo,
-    })),
+    lines: withProject(
+      lines.map((l) => ({
+        accountId: l.accountId,
+        debit: l.debit,
+        credit: l.credit,
+        partyId: l.partyId,
+        memo: l.memo,
+      })),
+      projectId
+    ),
   });
 
   await movePartyBalances(tx, companyId, lines, 1n);
@@ -182,6 +192,8 @@ export async function reverseJournal(
     credit: l.debit,
     partyId: l.partyId ?? undefined,
     memo: l.memo ?? undefined,
+    // Module 13: the project tag mirrors with the lines.
+    projectId: l.projectId ?? undefined,
   }));
 
   const { docType, prefix } = journalVoucherNumbering(date);

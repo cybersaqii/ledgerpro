@@ -124,6 +124,7 @@ const DOC_PREFIXES: Record<string, string> = {
   BANK_ADJUSTMENT: "BADJ-", // Module 3: bank charges / interest adjustments
   STOCK_ADJUSTMENT: "ADJ-",
   WORK_ORDER: "MWO-", // Module 12: manufacturing work orders (MWO- avoids WRITE_OFF's WO-)
+  PROJECT: "PRJ-", // Module 13: project codes (PRJ-0001, unique per company)
   WRITE_OFF: "WO-",
   CREDIT_NOTE: "CN-",
   DEBIT_NOTE: "DN-",

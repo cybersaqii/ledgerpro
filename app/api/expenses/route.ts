@@ -4,6 +4,7 @@ import { expenses, accounts, bankAccounts } from "@/db/schema";
 import { expenseSchema } from "@/lib/validators";
 import { parseMoney } from "@/lib/money";
 import { postExpense } from "@/lib/posting";
+import { validateProjectId } from "@/lib/projects";
 import { nextDocNo } from "@/lib/setup";
 import { json, err } from "@/lib/api";
 import { toApiError } from "@/lib/errors";
@@ -114,6 +115,9 @@ export async function POST(req: NextRequest) {
       const branchId = b.branchId || (await defaultBranchId(tx, companyId));
       await assertBranch(tx, companyId, branchId);
       const docNo = await nextDocNo(tx, companyId, "EXPENSE");
+      // Module 13: validate the project tag before posting (expense hits
+      // the project P&L as a direct cost).
+      const projectId = await validateProjectId(tx, companyId, b.projectId);
       const expenseId = await postExpense(tx, {
         companyId,
         branchId,
@@ -124,6 +128,7 @@ export async function POST(req: NextRequest) {
         taxAmount: parseMoney(b.taxAmount || "0"),
         notes: b.notes || undefined,
         createdById: session.uid,
+        projectId,
         docNo,
         ...(b.statementLineId ? { statementLineId: b.statementLineId } : {}),
         ...(idemKey ? { idempotencyKey: idemKey } : {}),

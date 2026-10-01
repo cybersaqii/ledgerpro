@@ -6,6 +6,7 @@ import { computeTotals, type DocItemInput } from "@/lib/totals";
 import { parseMoney } from "@/lib/money";
 import { parseQty } from "@/lib/qty";
 import { postSalesDoc, postPayment } from "@/lib/posting";
+import { validateProjectId } from "@/lib/projects";
 import { periodLockError } from "@/lib/period";
 import { nextDocNo } from "@/lib/setup";
 import { applyCustomerAdvance } from "@/lib/advance";
@@ -187,6 +188,8 @@ export async function POST(req: NextRequest) {
     const result = await db.transaction(async (tx) => {
       const branchId = await defaultBranchId(tx, companyId);
       await assertBranch(tx, companyId, branchId);
+      // Module 13: validate the project tag before anything is written.
+      const projectId = await validateProjectId(tx, companyId, b.projectId);
       const docNo = await nextDocNo(tx, companyId, "INVOICE");
       const docId = crypto.randomUUID();
 
@@ -199,6 +202,7 @@ export async function POST(req: NextRequest) {
         docNo,
         date,
         dueDate: null,
+        projectId,
         status: "POSTED",
         subtotal: totals.subtotal,
         discountTotal: parseMoney(b.discountTotal),
@@ -241,6 +245,8 @@ export async function POST(req: NextRequest) {
         taxTotal: totals.taxTotal,
         grandTotal: totals.grandTotal,
         createdById: session.uid,
+        // Module 13: the POS sale's project tag rides on every journal line.
+        projectId,
  });
       await tx.update(salesDocs).set({ journalEntryId: entryId }).where(eq(salesDocs.id, docId));
 
@@ -264,6 +270,9 @@ export async function POST(req: NextRequest) {
           notes: "POS sale",
           allocations: [{ docId, docKind: "SALES", amount: alloc }],
           createdById: session.uid,
+          // Module 13: the checkout receipt carries the same project tag
+          // (P&L-neutral — tagged payments are for cash-flow visibility).
+          projectId,
  });
         paymentIds.push(pid);
         remaining -= alloc;

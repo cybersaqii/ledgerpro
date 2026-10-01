@@ -7,6 +7,7 @@ import { parseMoney } from "@/lib/money";
 import { parseQty } from "@/lib/qty";
 import { resolveDocCurrency } from "@/lib/fx-docs";
 import { postPurchaseDoc, distributeExtraCost, postPayment } from "@/lib/posting";
+import { validateProjectId } from "@/lib/projects";
 import { approvalRequired, stageApprovalRequest, findApprovalRequestByIdemKey } from "@/lib/approvals";
 import { clientIp } from "@/lib/rate-limit-db";
 import { createGrn } from "@/lib/grn";
@@ -345,6 +346,8 @@ export async function POST(req: NextRequest) {
         stockNets.forEach((s, j) => { landed[s.idx] = dist[j] ?? 0n; });
       }
 
+      // Module 13: validate the project tag before anything is written.
+      const projectId = await validateProjectId(tx, companyId, b.projectId);
       await tx.insert(purchaseDocs).values({
         id: docId,
         companyId,
@@ -355,6 +358,7 @@ export async function POST(req: NextRequest) {
         refNo: b.refNo || null,
         date,
         dueDate,
+        projectId,
         status: needsApproval ? "PENDING_APPROVAL" : isPosted ? "POSTED" : "DRAFT",
         subtotal: totals.subtotal,
         discountTotal: fx.pkrDiscountTotal,
@@ -453,6 +457,7 @@ export async function POST(req: NextRequest) {
           whtBps: b.docType === "BILL" ? whtBps : undefined,
           whtSection:
             b.docType === "BILL" && whtAmount > 0n ? whtSectionForCategory(party.whtCategory) : undefined,
+          projectId,
           deductFromInventory: b.docType === "RETURN" ? b.deductFromInventory : undefined,
         });
         await tx.update(purchaseDocs).set({ journalEntryId: entryId }).where(eq(purchaseDocs.id, docId));
@@ -482,6 +487,9 @@ export async function POST(req: NextRequest) {
             notes: `Payment against ${docNo}`,
             allocations: [{ docId, docKind: "PURCHASE", amount: alloc }],
             createdById: session.uid,
+            // Module 13: the bill's project tag rides on the bundled payment
+            // too (P&L-neutral — tagged payments are for traceability).
+            projectId,
           });
           paymentDocNo = rp.docNo;
           alreadyPaid = alloc;

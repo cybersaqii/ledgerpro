@@ -34,6 +34,7 @@ import { postSalesDoc } from "./posting";
 import { postPurchaseDoc, type ExtraCostInput } from "./posting";
 import { postPayment, type PostPaymentInput } from "./posting";
 import { postManualJournal } from "./journal-vouchers";
+import { validateProjectId } from "./projects";
 import { assertPeriodOpen } from "./period";
 import { enforceCreditLimit, newUdhaarForInvoice } from "./credit-limit";
 import { fifoAllocations } from "./auto-allocate";
@@ -129,12 +130,16 @@ export type StagedPaymentPayload = {
   /** Module 7.2: WHT deducted at payment/receipt time (replayed on approve). */
   whtSection?: string;
   whtBps?: number;
+  /** Module 13: project tag (validated at staging; replayed on approve). */
+  projectId?: string;
 };
 
 export type StagedJournalPayload = {
   branchId: string;
   dateISO: string;
   memo: string;
+  /** Module 13: project tag (validated at staging; replayed on approve). */
+  projectId?: string;
   lines: {
     accountId: string;
     debitPaisa: string;
@@ -298,6 +303,9 @@ async function finalizeSalesInvoice(
       : [];
   const trackById = new Map(prodRows.map((p) => [p.id, !!p.trackStock]));
 
+  // Module 13: re-validate the tag — the project may have been cancelled
+  // after the invoice was staged.
+  const projectId = await validateProjectId(tx, companyId, doc.projectId);
   const entryId = await postSalesDoc(tx, {
     companyId,
     branchId: doc.branchId,
@@ -317,6 +325,8 @@ async function finalizeSalesInvoice(
     freightTotal: doc.freightTotal ?? 0n,
     grandTotal: doc.grandTotal,
     createdById: approverId,
+    // Module 13: project tag rides on the doc row into the replay.
+    projectId,
   });
   await tx
     .update(salesDocs)
@@ -380,6 +390,9 @@ async function finalizePurchaseBill(
     amount: parseMoney(c.amountPaisa),
   }));
 
+  // Module 13: re-validate the tag — the project may have been cancelled
+  // after the bill was staged.
+  const projectId2 = await validateProjectId(tx, companyId, doc.projectId);
   const entryId = await postPurchaseDoc(tx, {
     companyId,
     branchId: doc.branchId,
@@ -407,6 +420,8 @@ async function finalizePurchaseBill(
     // Module 7: replay the staged bill's WHT rate so the register row carries
     // it (the section is derived from the supplier's WHT category downstream).
     whtBps: doc.whtBps ?? undefined,
+    // Module 13: project tag rides on the doc row into the replay.
+    projectId: projectId2,
   });
   await tx
     .update(purchaseDocs)
@@ -454,6 +469,8 @@ async function finalizePayment(
     createdById: approverId,
     // Module 7.2: replay the staged WHT deduction on approve.
     wht: payload.whtSection ? { section: payload.whtSection, rateBps: payload.whtBps ?? 0 } : undefined,
+    // Module 13: project tag replayed from the staged payload.
+    projectId: payload.projectId,
   });
 }
 
@@ -477,6 +494,8 @@ async function finalizeJournal(
       memo: l.memo || undefined,
     })),
     createdById: approverId,
+    // Module 13: project tag replayed from the staged payload.
+    projectId: payload.projectId,
   });
   return { id: entryId, docNo };
 }

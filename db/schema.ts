@@ -447,6 +447,8 @@ export const salesDocs = sqliteTable(
     sourceDocId: text("source_doc_id"), // quotation/order this invoice was converted from
     createdById: text("created_by_id").notNull(),
     idempotencyKey: text("idempotency_key"), // double-submit protection (migration 0031)
+    // ── Module 13 (migration 0044): project tagging.
+    projectId: text("project_id"),
     createdAt: createdAt(),
     updatedAt: updatedAt(),
   },
@@ -455,6 +457,7 @@ export const salesDocs = sqliteTable(
     index("sales_company_type_status").on(t.companyId, t.docType, t.status),
     index("sales_company_party").on(t.companyId, t.partyId),
     uniqueIndex("sales_docs_idem_key").on(t.companyId, t.idempotencyKey).where(sql`idempotency_key IS NOT NULL`),
+    index("sales_docs_project").on(t.companyId, t.projectId),
   ]
 );
 
@@ -513,6 +516,8 @@ export const purchaseDocs = sqliteTable(
     sourceDocId: text("source_doc_id"), // order this bill was converted from
     createdById: text("created_by_id").notNull(),
     idempotencyKey: text("idempotency_key"), // double-submit protection (migration 0031)
+    // ── Module 13 (migration 0044): project tagging.
+    projectId: text("project_id"),
     createdAt: createdAt(),
     updatedAt: updatedAt(),
   },
@@ -521,6 +526,7 @@ export const purchaseDocs = sqliteTable(
     index("purch_company_type_status").on(t.companyId, t.docType, t.status),
     index("purch_company_party").on(t.companyId, t.partyId),
     uniqueIndex("purchase_docs_idem_key").on(t.companyId, t.idempotencyKey).where(sql`idempotency_key IS NOT NULL`),
+    index("purchase_docs_project").on(t.companyId, t.projectId),
   ]
 );
 
@@ -635,10 +641,13 @@ export const payments = sqliteTable(
     // (tax_section e.g. 153-GOODS, 236G). Full detail lives in wht_deductions.
     whtAmount: money("wht_amount"),
     whtSection: text("wht_section"),
+    // ── Module 13 (migration 0044): project tagging.
+    projectId: text("project_id"),
   },
   (t) => [
     index("payments_company_kind_date").on(t.companyId, t.kind, t.date),
     uniqueIndex("payments_idem_key").on(t.companyId, t.idempotencyKey).where(sql`idempotency_key IS NOT NULL`),
+    index("payments_project").on(t.companyId, t.projectId),
   ]
 );
 
@@ -800,10 +809,13 @@ export const expenses = sqliteTable(
     voidJournalEntryId: text("void_journal_entry_id"),
     voidedById: text("voided_by_id"),
     idempotencyKey: text("idempotency_key"), // double-submit protection (migration 0031)
+    // ── Module 13 (migration 0044): project tagging.
+    projectId: text("project_id"),
   },
   (t) => [
     index("expenses_company_date").on(t.companyId, t.date),
     uniqueIndex("expenses_idem_key").on(t.companyId, t.idempotencyKey).where(sql`idempotency_key IS NOT NULL`),
+    index("expenses_project").on(t.companyId, t.projectId),
   ]
 );
 
@@ -846,8 +858,15 @@ export const journalLines = sqliteTable(
     credit: money("credit"),
     partyId: text("party_id"),
     memo: text("memo"),
+    // ── Module 13 (migration 0044): project tag. Tenant isolation comes
+    // from the join to journal_entries (company_id) in every query.
+    projectId: text("project_id"),
   },
-  (t) => [index("jl_entry").on(t.entryId), index("jl_account").on(t.accountId)]
+  (t) => [
+    index("jl_entry").on(t.entryId),
+    index("jl_account").on(t.accountId),
+    index("jl_project").on(t.projectId),
+  ]
 );
 
 // ─── Year-end closing ────────────────────────────────────────────
@@ -1989,4 +2008,34 @@ export const workOrderComponents = sqliteTable(
     createdAt: createdAt(),
   },
   (t) => [index("work_order_components_wo").on(t.companyId, t.workOrderId)]
+);
+
+// ─── Projects & Job Costing (Module 13, migration 0044) ───────────────
+// Project master. Budget stays a simple field on the row; cost detail
+// comes from tagged ledger lines (see docs/module13-projects.md).
+// WIP-by-project reuses Manufacturing's 1250 WIP account sliced by the
+// project tag on journal_lines — no new SYS account.
+export const projects = sqliteTable(
+  "projects",
+  {
+    id: id(),
+    companyId: text("company_id").notNull(),
+    code: text("code").notNull(), // PRJ-0001, unique per company
+    name: text("name").notNull(),
+    customerId: text("customer_id"), // parties.id (customer link, optional)
+    startDate: ts("start_date"),
+    endDate: ts("end_date"),
+    contractValue: money("contract_value_paisa"),
+    budget: money("budget_paisa"),
+    status: text("status").notNull().default("ACTIVE"), // ACTIVE | ON_HOLD | COMPLETED | CANCELLED
+    notes: text("notes"),
+    createdById: text("created_by_id"),
+    createdAt: createdAt(),
+    updatedAt: updatedAt(),
+  },
+  (t) => [
+    uniqueIndex("projects_company_code").on(t.companyId, t.code),
+    index("projects_company_status").on(t.companyId, t.status),
+    index("projects_company_customer").on(t.companyId, t.customerId),
+  ]
 );

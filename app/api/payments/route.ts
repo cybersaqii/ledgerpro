@@ -4,6 +4,7 @@ import { payments, parties, bankAccounts } from "@/db/schema";
 import { paymentSchema } from "@/lib/validators";
 import { parseMoney } from "@/lib/money";
 import { postPayment } from "@/lib/posting";
+import { validateProjectId } from "@/lib/projects";
 import { fifoAllocations } from "@/lib/auto-allocate";
 import { json, err } from "@/lib/api";
 import { toApiError, UserError } from "@/lib/errors";
@@ -148,6 +149,9 @@ export async function POST(req: NextRequest) {
         partyName = pr[0].name;
       }
 
+      // Module 13: validate the project tag (P&L-neutral by design — tagged
+      // payments move AR/AP/Bank; the tag is for cash-flow visibility).
+      const projectId = await validateProjectId(tx, companyId, b.projectId);
       if (needsApproval) {
         const approvalId = await stageApprovalRequest(tx, {
           companyId,
@@ -156,6 +160,7 @@ export async function POST(req: NextRequest) {
           partyName: partyName ?? undefined,
           amountPaisa: amount,
           payload: {
+            projectId: projectId ?? undefined,
             kind: b.kind,
             partyId,
             branchId,
@@ -191,6 +196,7 @@ export async function POST(req: NextRequest) {
         date,
         amount,
         method: b.method,
+        projectId,
         reference: b.reference || undefined,
         notes: b.notes || undefined,
         // Module 1.5: FIFO auto-allocate ("Auto-fill oldest-first") — the

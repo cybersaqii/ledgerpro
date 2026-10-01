@@ -10,7 +10,7 @@ import {
   whtDeductions,
 } from "@/db/schema";
 import { SYS, accountMap } from "./setup";
-import { createJournal, applyStock, adjustStockCost } from "./posting";
+import { createJournal, applyStock, adjustStockCost, withProject } from "./posting";
 import { deductLineageBatches, restoreLineageBatches } from "./batches";
 import { assertPeriodOpen } from "./period";
 import { UserError } from "./errors";
@@ -87,10 +87,14 @@ export async function voidPurchaseBill(
       source: FIX3_SOURCES.PURCHASE_VOID,
       sourceId: doc.id,
       createdById: input.userId,
-      lines: [
-        { accountId: ac[SYS.ADVANCE_SUPPLIERS], debit: released, credit: 0n },
-        { accountId: ac[SYS.AP], debit: 0n, credit: released, partyId: doc.partyId },
-      ],
+      // Module 13: balance-sheet only (never touches project P&L); tag for traceability.
+      lines: withProject(
+        [
+          { accountId: ac[SYS.ADVANCE_SUPPLIERS], debit: released, credit: 0n },
+          { accountId: ac[SYS.AP], debit: 0n, credit: released, partyId: doc.partyId },
+        ],
+        doc.projectId
+      ),
     });
     await tx
       .update(parties)
@@ -189,6 +193,9 @@ export async function voidPurchaseBill(
       credit: l.debit,
       partyId: l.partyId,
       memo: l.memo ?? undefined,
+      // Module 13: the project tag mirrors with the lines — a void nets the
+      // project P&L back to zero.
+      projectId: l.projectId ?? undefined,
     })),
   });
 

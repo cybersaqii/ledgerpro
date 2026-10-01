@@ -51,6 +51,7 @@ import {
   salesDocSchema,
 } from "@/lib/validators";
 import { parseMoney } from "@/lib/money";
+import { validateProjectId } from "@/lib/projects";
 import { parseQty } from "@/lib/qty";
 import { computeTotals, type DocItemInput, type DocTotals } from "@/lib/totals";
 import {
@@ -1601,6 +1602,9 @@ async function applyPaymentCreate(db: Db, ds: DeviceSession, op: SyncOp): Promis
 
     // postPayment re-validates the bank account and allocations (company +
     // party scoping) and throws UserError on violations → mapped by caller.
+    // Module 13: the offline payload may carry a project tag (validators
+    // accept it); validate it in-company before it reaches the journal.
+    const syncProjectId = await validateProjectId(tx, companyId, b.projectId);
     const { id, docNo } = await postPayment(tx, {
       id: op.refId,
       companyId,
@@ -1614,6 +1618,7 @@ async function applyPaymentCreate(db: Db, ds: DeviceSession, op: SyncOp): Promis
       reference: b.reference || undefined,
       notes: b.notes || undefined,
       docNo: paymentDocNo,
+      projectId: syncProjectId,
       // Module 1.5: FIFO auto-allocate, same as POST /api/payments.
       allocations:
         b.autoAllocate && b.allocations.length === 0
@@ -1675,6 +1680,8 @@ async function applyExpenseCreate(db: Db, ds: DeviceSession, op: SyncOp): Promis
     await assertBranch(tx, companyId, branchId);
 
     // postExpense validates the bank + expense GL accounts (company-scoped).
+    // Module 13: carry the offline payload's project tag (validated in-company).
+    const syncExpenseProjectId = await validateProjectId(tx, companyId, b.projectId);
     return postExpense(tx, {
       id: op.refId,
       companyId,
@@ -1686,6 +1693,7 @@ async function applyExpenseCreate(db: Db, ds: DeviceSession, op: SyncOp): Promis
       taxAmount: parseMoney(b.taxAmount || "0"),
       notes: b.notes || undefined,
       createdById: userId,
+      projectId: syncExpenseProjectId,
     });
   });
 
