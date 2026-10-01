@@ -25,6 +25,7 @@ import { logAudit } from "@/lib/audit";
 import { belowMinPrice, floorErrorMessage } from "@/lib/min-price";
 import { applyCustomerAdvance } from "@/lib/advance";
 import { enforceCreditLimit, CreditLimitError, newUdhaarForInvoice } from "@/lib/credit-limit";
+import { evaluateCreditHold, assertCreditOk, CreditHoldError } from "@/lib/credit-control";
 import { userHasPermission } from "@/lib/permissions";
 import type { Permission } from "@/lib/permissions";
 import {
@@ -481,6 +482,33 @@ export async function POST(req: NextRequest) {
           });
           receiptDocNo = rp.docNo;
         }
+        // Module 23: credit-control hard stop — refresh the customer's hold
+        // status from the aging/utilization rules, then block the sale when
+        // on hold (unless the user confirmed an override). Only the unpaid
+        // remainder counts: a fully-paid cash invoice never trips the hold,
+        // mirroring the credit-limit rule.
+        if (b.docType === "INVOICE" && !b.overrideCreditHold) {
+          const decision = await evaluateCreditHold(tx, {
+            companyId,
+            partyId: party.id,
+            actor: session.uid,
+          });
+          assertCreditOk(
+            {
+              name: party.name,
+              creditStatus: decision.held ? "HOLD" : "OK",
+              creditHoldReason: decision.reason,
+              creditHoldAt: decision.held ? new Date() : null,
+            },
+            {
+              newCreditPaisa: newUdhaarForInvoice({
+                grandTotalPaisa: totals.grandTotal,
+                advanceAppliedPaisa: advanceApplied,
+                receiptAllocatedPaisa: receiptAllocated,
+              }),
+            }
+          );
+        }
         // udhaar control: block posted invoices that cross the credit limit
         // (checked after posting so payments/advances are already reflected).
         // Only the unpaid remainder counts as new udhaar — a receipt recorded
@@ -560,6 +588,14 @@ export async function POST(req: NextRequest) {
         detail: `Posted ${result.docNo} with credit-limit override`,
       });
     }
+    if (b.overrideCreditHold) {
+      await logAudit(db, {
+        companyId, userId: session.uid, userName: session.name,
+        action: "sale.credit_hold_override",
+        entity: "sale", entityId: result.docId,
+        detail: `Posted ${result.docNo} with credit-hold override`,
+      });
+    }
     return json({ data: result }, { status: 201 });
   } catch (e) {
     // Lost the idempotency race: a concurrent request already created the
@@ -587,6 +623,8 @@ export async function POST(req: NextRequest) {
     }
     if (e instanceof CreditLimitError)
       return json({ error: e.message, code: "CREDIT_LIMIT_EXCEEDED", details: e.details }, { status: 409 });
+    if (e instanceof CreditHoldError)
+      return json({ error: e.message, code: "CREDIT_ON_HOLD", details: e.details }, { status: 409 });
     return toApiError(e, { route: "/api/sales", companyId });
   }
 }

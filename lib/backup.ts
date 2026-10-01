@@ -11,9 +11,14 @@ import {
   bankAccounts,
   branches,
   companies,
+  creditHoldEvents,
+  creditRules,
   expenses,
+  ipAllowlist,
+  ipBypassUsers,
   journalEntries,
   journalLines,
+  loginAttempts,
   numberSequences,
   parties,
   paymentAllocations,
@@ -22,6 +27,8 @@ import {
   products,
   purchaseDocItems,
   purchaseDocs,
+  recurringRuns,
+  recurringTemplates,
   salesDocItems,
   salesDocs,
   stockLevels,
@@ -87,6 +94,16 @@ export async function buildBackupPayload(dbc: Db | DbTx, companyId: string) {
       .where(eq(products.companyId, c))
       .then((rows) => rows.map((r) => r.s)),
     numberSequences: await dbc.select().from(numberSequences).where(eq(numberSequences.companyId, c)),
+    // Module 23: credit-control rules + hold audit trail.
+    creditRules: await dbc.select().from(creditRules).where(eq(creditRules.companyId, c)),
+    creditHoldEvents: await dbc.select().from(creditHoldEvents).where(eq(creditHoldEvents.companyId, c)),
+    // Module 24: recurring invoice templates + run history.
+    recurringTemplates: await dbc.select().from(recurringTemplates).where(eq(recurringTemplates.companyId, c)),
+    recurringRuns: await dbc.select().from(recurringRuns).where(eq(recurringRuns.companyId, c)),
+    // Module 25: IP allowlist + bypasses + login-attempt audit.
+    ipAllowlist: await dbc.select().from(ipAllowlist).where(eq(ipAllowlist.companyId, c)),
+    ipBypassUsers: await dbc.select().from(ipBypassUsers).where(eq(ipBypassUsers.companyId, c)),
+    loginAttempts: await dbc.select().from(loginAttempts).where(eq(loginAttempts.companyId, c)),
   };
   const rowCounts: Record<string, number> = {};
   for (const [k, v] of Object.entries(data)) {
@@ -269,10 +286,17 @@ export async function hasCronToken(dbc: Db): Promise<boolean> {
 
 // Every array section of the backup payload, parents before children.
 // Exported so the restore path covers exactly the payload's sections.
+//
+// Module 23/24/25 sections: every id-bearing table is restored. credit_rules
+// and ip_bypass_users are exported in the payload but NOT restored — they
+// have no surrogate `id` (natural keys), so a restore preserves the live
+// rows instead (the documented default for new tables). Losing credit rules
+// on restore is a safe degradation: both rules default to disabled.
 export const BACKUP_ARRAY_KEYS = [
   "branches",
   "accounts",
   "parties",
+  "creditHoldEvents",
   "products",
   "bankAccounts",
   "salesDocs",
@@ -286,6 +310,10 @@ export const BACKUP_ARRAY_KEYS = [
   "journalLines",
   "stockLevels",
   "numberSequences",
+  "recurringTemplates",
+  "recurringRuns",
+  "ipAllowlist",
+  "loginAttempts",
 ] as const;
 
 export interface VerifyResult {

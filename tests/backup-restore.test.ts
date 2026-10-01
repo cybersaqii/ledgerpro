@@ -87,6 +87,8 @@ async function snapshot(cid: string): Promise<string> {
       purchaseDocs: s.purchaseDocs, purchaseDocItems: s.purchaseDocItems, payments: s.payments,
       paymentAllocations: s.paymentAllocations, expenses: s.expenses, journalEntries: s.journalEntries,
       journalLines: s.journalLines, stockLevels: s.stockLevels, numberSequences: s.numberSequences,
+      creditHoldEvents: s.creditHoldEvents, recurringTemplates: s.recurringTemplates,
+      recurringRuns: s.recurringRuns, ipAllowlist: s.ipAllowlist, loginAttempts: s.loginAttempts,
     }[key];
     const rows = await db.select().from(table as never);
     out[key] = stringify(rows);

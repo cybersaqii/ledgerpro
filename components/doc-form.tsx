@@ -843,8 +843,8 @@ export function DocForm({ mode }: { mode: "SALES" | "PURCHASE" }) {
   /** PKR equivalent of the live grand total (preview; the server converts per line). */
   const grandPkr = fxToPkr(grand);
 
-  async function submit(e: React.FormEvent, opts: { priceOverride?: boolean; creditOverride?: boolean; printAfter?: boolean; idemKey?: string } = {}) {
-    const { priceOverride = false, creditOverride = false, printAfter = false } = opts;
+  async function submit(e: React.FormEvent, opts: { priceOverride?: boolean; creditOverride?: boolean; holdOverride?: boolean; printAfter?: boolean; idemKey?: string } = {}) {
+    const { priceOverride = false, creditOverride = false, holdOverride = false, printAfter = false } = opts;
     e.preventDefault();
     setError(null);
     // One idempotency key per user submission: generated here so the
@@ -950,6 +950,7 @@ export function DocForm({ mode }: { mode: "SALES" | "PURCHASE" }) {
       if (isSales && docType === "INVOICE") {
         body.priceOverride = priceOverride;
         body.overrideCreditLimit = creditOverride;
+        body.overrideCreditHold = holdOverride;
       }
       // Add Receipt / Add Payment: posted together with the doc in one transaction.
       if ((isSales && docType === "INVOICE") || (!isSales && docType === "BILL")) {        const rcptAmt = parseFloat(rcptAmount || "0");
@@ -979,6 +980,17 @@ export function DocForm({ mode }: { mode: "SALES" | "PURCHASE" }) {
         }))) {
           setSaving(false);
           return submit(e, { priceOverride, creditOverride: true, printAfter, idemKey });
+        }
+      }
+      // Module 23: credit hold → one confirm, then retry with override
+      if (!holdOverride && err instanceof ApiError && err.code === "CREDIT_ON_HOLD") {
+        const det = (err.details || {}) as { partyName?: string; reason?: string | null };
+        if (window.confirm(t("docform.creditHoldConfirm", {
+          party: det.partyName || "",
+          reason: det.reason || "",
+        }))) {
+          setSaving(false);
+          return submit(e, { priceOverride, creditOverride, holdOverride: true, printAfter, idemKey });
         }
       }
       setError(localizedApiError(err instanceof Error ? err : null, t, t("docform.errSave")));

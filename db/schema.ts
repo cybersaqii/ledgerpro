@@ -199,6 +199,13 @@ export const parties = sqliteTable(
     shippingAddress: text("shipping_address"),
     shippingCity: text("shipping_city"),
     idempotencyKey: text("idempotency_key"), // double-submit protection (migration 0032)
+    // ── Module 23 (migration 0050): credit control. creditStatus is set
+    // automatically by the rule engine (OK | HOLD); riskCategory is
+    // auto-computed from the worst overdue aging bucket (LOW | MEDIUM | HIGH).
+    creditStatus: text("credit_status").notNull().default("OK"),
+    creditHoldReason: text("credit_hold_reason"),
+    creditHoldAt: ts("credit_hold_at"),
+    riskCategory: text("risk_category").notNull().default("LOW"),
     // ── Module 2 (migration 0033): supplier master completeness ──
     displayName: text("display_name"), // supplier display/trade name
     whtCategory: text("wht_category").notNull().default("NONE"), // NONE | GOODS | SERVICES | CONTRACTS
@@ -2444,4 +2451,118 @@ export const importLogs = sqliteTable(
     createdAt: createdAt(),
   },
   (t) => [index("import_logs_company").on(t.companyId, t.createdAt)]
+);
+
+// ─── Module 23: credit control & hard-stop enforcement ────────────────
+// Per-company credit rules; parties gain an automatic credit_status
+// (OK | HOLD) plus an auto-computed risk_category. credit_hold_events is
+// the audit trail of every automatic or manual hold / release.
+export const creditRules = sqliteTable("credit_rules", {
+  companyId: text("company_id").primaryKey(),
+  blockIfOverdueDays: integer("block_if_overdue_days"), // NULL = disabled
+  blockIfUtilizationPct: integer("block_if_utilization_pct"), // NULL = disabled
+  updatedById: text("updated_by_id"),
+  updatedAt: updatedAt(),
+});
+
+export const creditHoldEvents = sqliteTable(
+  "credit_hold_events",
+  {
+    id: id(),
+    companyId: text("company_id").notNull(),
+    partyId: text("party_id").notNull(),
+    action: text("action").notNull(), // HOLD | RELEASE
+    reason: text("reason"),
+    createdById: text("created_by_id"), // user id, or 'SYSTEM' for automatic holds
+    createdAt: createdAt(),
+  },
+  (t) => [index("che_company_party").on(t.companyId, t.partyId, t.createdAt)]
+);
+
+// ─── Module 24: recurring invoices & subscriptions ─────────────────────
+export const recurringTemplates = sqliteTable(
+  "recurring_templates",
+  {
+    id: id(),
+    companyId: text("company_id").notNull(),
+    branchId: text("branch_id").notNull(),
+    partyId: text("party_id").notNull(),
+    name: text("name").notNull(),
+    frequency: text("frequency").notNull(), // DAILY | WEEKLY | MONTHLY | QUARTERLY | YEARLY
+    startDate: ts("start_date").notNull(),
+    endDate: ts("end_date"), // NULL = runs indefinitely
+    nextRunDate: ts("next_run_date").notNull(),
+    status: text("status").notNull().default("ACTIVE"), // ACTIVE | PAUSED | COMPLETED
+    terms: text("terms"),
+    notes: text("notes"),
+    itemsJson: text("items_json").notNull(), // JSON array of {productId, qty, ratePaisa}
+    skipNext: flag("skip_next", false),
+    lastRunAt: ts("last_run_at"),
+    createdById: text("created_by_id").notNull(),
+    createdAt: createdAt(),
+    updatedAt: updatedAt(),
+  },
+  (t) => [index("rt_company_next").on(t.companyId, t.status, t.nextRunDate)]
+);
+
+export const recurringRuns = sqliteTable(
+  "recurring_runs",
+  {
+    id: id(),
+    companyId: text("company_id").notNull(),
+    templateId: text("template_id").notNull(),
+    periodStart: ts("period_start").notNull(),
+    salesDocId: text("sales_doc_id"),
+    status: text("status").notNull().default("GENERATED"), // GENERATED | SKIPPED | FAILED
+    detail: text("detail"),
+    createdAt: createdAt(),
+  },
+  (t) => [
+    index("rr_company").on(t.companyId, t.templateId, t.periodStart),
+    uniqueIndex("rr_template_period").on(t.templateId, t.periodStart),
+  ]
+);
+
+// ─── Module 25: enterprise security ──────────────────────────────────
+// Per-company IP allowlist (empty = feature OFF, fail-open — documented in
+// lib/ip-allowlist.ts); named-user bypasses; owners always bypass and can
+// never be locked out. login_attempts records every login attempt incl.
+// failures for audit.
+export const ipAllowlist = sqliteTable(
+  "ip_allowlist",
+  {
+    id: id(),
+    companyId: text("company_id").notNull(),
+    cidr: text("cidr").notNull(),
+    label: text("label"),
+    createdById: text("created_by_id").notNull(),
+    createdAt: createdAt(),
+  },
+  (t) => [index("ipa_company").on(t.companyId)]
+);
+
+export const ipBypassUsers = sqliteTable("ip_bypass_users", {
+  companyId: text("company_id").notNull(),
+  userId: text("user_id").notNull(),
+  createdById: text("created_by_id").notNull(),
+  createdAt: createdAt(),
+}, (t) => [primaryKey({ columns: [t.companyId, t.userId] })]);
+
+export const loginAttempts = sqliteTable(
+  "login_attempts",
+  {
+    id: id(),
+    companyId: text("company_id"), // NULL when the email matched no user
+    userId: text("user_id"), // NULL when the email matched no user
+    email: text("email").notNull(),
+    ip: text("ip"),
+    userAgent: text("user_agent"),
+    result: text("result").notNull(), // SUCCESS | FAIL
+    reason: text("reason"),
+    createdAt: createdAt(),
+  },
+  (t) => [
+    index("la_company_time").on(t.companyId, t.createdAt),
+    index("la_email_time").on(t.email, t.createdAt),
+  ]
 );

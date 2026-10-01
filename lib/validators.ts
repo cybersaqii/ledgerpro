@@ -144,6 +144,7 @@ export const salesDocSchema = z.object({
   priceOverride: z.boolean().default(false), // explicit override of minimum sale price
   applyAdvance: z.boolean().default(true), // auto-consume customer's unallocated advance on invoices
   overrideCreditLimit: z.boolean().default(false), // owner-confirmed: post even if udhaar crosses the credit limit
+  overrideCreditHold: z.boolean().default(false), // owner-confirmed: post even if the customer is on credit hold (Module 23)
   // Module 13: project tag — validated server-side (company + taggable status).
   projectId: z.string().min(1).optional(),
   // Module 14: POS session tag (e.g. counter returns) — validated server-side (company + OPEN).
@@ -255,6 +256,7 @@ export const posCheckoutSchema = z.object({
   tendered: moneyStr.optional().or(z.literal("")),
   priceOverride: z.boolean().default(false), // explicit override of minimum sale price
   overrideCreditLimit: z.boolean().default(false), // owner-confirmed: post even if udhaar crosses the credit limit
+  overrideCreditHold: z.boolean().default(false), // owner-confirmed: post even if the customer is on credit hold (Module 23)
   // Module 13: project tag — validated server-side (company + taggable status).
   projectId: z.string().min(1).optional(),
   // Module 14: POS session tag — validated server-side (company + OPEN).

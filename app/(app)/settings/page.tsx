@@ -3,10 +3,10 @@
 import { useEffect, useState, useCallback } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Building2, Database, Download, Save, Upload, Users, UserPlus, ScrollText, KeyRound, Copy, Check, Lock, Activity, TriangleAlert, MonitorSmartphone, LogOut, CircleCheck, History, ShieldCheck, RefreshCw, Crown, Store, CalendarCheck } from "lucide-react";
+import { Building2, Database, Download, Save, Upload, Users, UserPlus, ScrollText, KeyRound, Copy, Check, Lock, Activity, TriangleAlert, MonitorSmartphone, LogOut, CircleCheck, History, ShieldCheck, RefreshCw, Crown, Store, CalendarCheck, Globe, Trash2, Plus } from "lucide-react";
 import { PageHeader, Field, ErrorNote } from "@/components/ui";
 import { useLang } from "@/components/lang-provider";
-import { api, fmtDate, fmtMoney } from "@/lib/format";
+import { api, fmtDate, fmtDateTime, fmtMoney } from "@/lib/format";
 import { BUSINESS_TYPES } from "@/lib/business-types";
 import { AUDIT_LOG_RETENTION_YEARS } from "@/lib/audit";
 import { PERMISSION_GROUPS } from "@/lib/permission-keys";
@@ -31,6 +31,7 @@ const SECTIONS = [
   "sec-backups",
   "sec-team",
   "sec-security",
+  "sec-access",
   "sec-sessions",
   "sec-lock",
   "sec-health",
@@ -48,6 +49,7 @@ const SECTION_KEYS: Record<(typeof SECTIONS)[number], string> = {
   "sec-backups": "navBackups",
   "sec-team": "navTeam",
   "sec-security": "navPassword",
+  "sec-access": "navAccess",
   "sec-sessions": "navSessions",
   "sec-lock": "navLock",
   "sec-health": "navHealth",
@@ -284,6 +286,7 @@ export default function SettingsPage() {
       <TeamCard />
       <BranchesCard />
       <SecurityCard />
+      <AccessSecurityCard />
       <SessionsCard />
       <PeriodLockCard />
       <YearEndCloseCard />
@@ -1519,6 +1522,240 @@ function DangerZoneCard({ isOwner }: { isOwner: boolean }) {
             </button>
           </div>
         </form>
+      )}
+    </div>
+  );
+}
+
+type IpEntry = { id: string; cidr: string; label: string | null; createdAt: string };
+type BypassUser = { userId: string; name: string; email: string; createdAt: string };
+type LoginAttempt = { id: string; email: string; ip: string | null; result: string; reason: string | null; createdAt: string };
+type BackupStatus = {
+  retention: { autoBackupsKept: number; manualBackupsKept: string; schedule: string };
+  latestAuto: { id: string; createdAt: string; byteSize: number; rowCounts: string } | null;
+  latestManual: { id: string; createdAt: string; byteSize: number } | null;
+  counts: { auto: number; manual: number; total: number };
+} | null;
+
+/** Module 25: IP allowlist + login-attempt audit + backup health. */
+function AccessSecurityCard() {
+  const { t } = useLang();
+  const { permissions, role } = usePermissions();
+  const isOwner = role === "OWNER";
+  const canManage = isOwner || permissions.includes("settings");
+  const canViewBackups = isOwner || permissions.includes("backups");
+  const [ips, setIps] = useState<IpEntry[]>([]);
+  const [ipEnabled, setIpEnabled] = useState(false);
+  const [newCidr, setNewCidr] = useState("");
+  const [newLabel, setNewLabel] = useState("");
+  const [bypass, setBypass] = useState<BypassUser[]>([]);
+  const [users, setUsers] = useState<{ id: string; name: string; email: string }[]>([]);
+  const [attempts, setAttempts] = useState<LoginAttempt[]>([]);
+  const [backup, setBackup] = useState<BackupStatus>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+
+  async function load() {
+    setError(null);
+    try {
+      const d = await api<{ data: { enabled: boolean; entries: IpEntry[] } }>("/api/security/ip-allowlist");
+      setIpEnabled(d.data.enabled); setIps(d.data.entries);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : t("settingsaccess.loadError"));
+    }
+    if (isOwner) {
+      try {
+        const [b, u, a] = await Promise.all([
+          api<{ data: BypassUser[] }>("/api/security/ip-bypass"),
+          api<{ data: { id: string; name: string; email: string }[] }>("/api/users"),
+          api<{ data: LoginAttempt[] }>("/api/security/login-attempts"),
+        ]);
+        setBypass(b.data); setUsers(u.data); setAttempts(a.data);
+      } catch (e) {
+        setError(e instanceof Error ? e.message : t("settingsaccess.loadError"));
+      }
+    }
+    if (canViewBackups) {
+      try {
+        const d = await api<{ data: NonNullable<BackupStatus> }>("/api/security/backup-status");
+        setBackup(d.data);
+      } catch { /* backups card already surfaces its own errors */ }
+    }
+  }
+  useEffect(() => { load(); }, []);
+
+  async function addIp() {
+    if (!newCidr.trim()) return;
+    setBusy(true); setError(null);
+    try {
+      await api("/api/security/ip-allowlist", { method: "POST", body: JSON.stringify({ cidr: newCidr.trim(), label: newLabel.trim() || undefined }) });
+      setNewCidr(""); setNewLabel("");
+      await load();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : t("settingsaccess.addIpError"));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function removeIp(id: string) {
+    if (!window.confirm(t("settingsaccess.removeIpConfirm"))) return;
+    setBusy(true); setError(null);
+    try {
+      await api(`/api/security/ip-allowlist/${id}`, { method: "DELETE" });
+      await load();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : t("settingsaccess.removeIpError"));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function addBypass(userId: string) {
+    if (!userId) return;
+    setBusy(true); setError(null);
+    try {
+      await api("/api/security/ip-bypass", { method: "POST", body: JSON.stringify({ userId }) });
+      await load();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : t("settingsaccess.addBypassError"));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function removeBypass(userId: string) {
+    setBusy(true); setError(null);
+    try {
+      await api(`/api/security/ip-bypass?userId=${encodeURIComponent(userId)}`, { method: "DELETE" });
+      await load();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : t("settingsaccess.removeBypassError"));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  if (!canManage && !canViewBackups) return null;
+
+  return (
+    <div id="sec-access" className="card card-gloss anchor-scroll mt-6 mx-auto max-w-2xl p-6 sm:p-8">
+      <h2 className="inline-flex items-center gap-2 text-lg font-extrabold"><Globe size={19} /> {t("settingsaccess.title")}</h2>
+      <p className="mt-1 text-sm text-muted-foreground">{t("settingsaccess.hint")}</p>
+      <ErrorNote message={error} />
+
+      {canManage && (
+        <div className="mt-5 rounded-2xl border border-border p-4">
+          <h3 className="text-sm font-extrabold">{t("settingsaccess.ipTitle")}</h3>
+          <p className="mt-1 text-xs text-muted-foreground">{t("settingsaccess.ipHint")}</p>
+          <p className="mt-2 text-xs font-bold">
+            {ipEnabled ? <span className="text-accent">{t("settingsaccess.ipOn")}</span> : <span className="text-muted-foreground">{t("settingsaccess.ipOff")}</span>}
+          </p>
+          {ips.length > 0 && (
+            <ul className="mt-3 space-y-2">
+              {ips.map((e) => (
+                <li key={e.id} className="flex items-center justify-between gap-3 rounded-xl bg-muted/50 px-3 py-2 text-sm">
+                  <span><code className="font-bold">{e.cidr}</code>{e.label && <span className="ms-2 text-muted-foreground">{e.label}</span>}</span>
+                  <button className="btn btn-ghost !px-2 !py-1 text-xs !text-danger" disabled={busy} onClick={() => removeIp(e.id)}>
+                    <Trash2 size={13} /> {t("settingsaccess.remove")}
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+          <div className="mt-3 grid gap-2 sm:grid-cols-[1fr_1fr_auto]">
+            <Field label={t("settingsaccess.cidr")}>
+              <input className="field font-mono text-sm" dir="ltr" value={newCidr} onChange={(e) => setNewCidr(e.target.value)} placeholder="203.0.113.0/24" />
+            </Field>
+            <Field label={t("settingsaccess.labelOpt")}>
+              <input className="field" value={newLabel} onChange={(e) => setNewLabel(e.target.value)} maxLength={80} placeholder={t("settingsaccess.labelPh")} />
+            </Field>
+            <div className="flex items-end pb-0.5">
+              <button className="btn btn-ghost text-sm" disabled={busy || !newCidr.trim()} onClick={addIp}>
+                <Plus size={15} /> {t("settingsaccess.add")}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {isOwner && (
+        <div className="mt-4 rounded-2xl border border-border p-4">
+          <h3 className="text-sm font-extrabold">{t("settingsaccess.bypassTitle")}</h3>
+          <p className="mt-1 text-xs text-muted-foreground">{t("settingsaccess.bypassHint")}</p>
+          {bypass.length > 0 && (
+            <ul className="mt-3 space-y-2">
+              {bypass.map((b) => (
+                <li key={b.userId} className="flex items-center justify-between gap-3 rounded-xl bg-muted/50 px-3 py-2 text-sm">
+                  <span className="font-bold">{b.name} <span className="font-normal text-muted-foreground">{b.email}</span></span>
+                  <button className="btn btn-ghost !px-2 !py-1 text-xs !text-danger" disabled={busy} onClick={() => removeBypass(b.userId)}>
+                    <Trash2 size={13} /> {t("settingsaccess.remove")}
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+          <div className="mt-3 max-w-xs"><Field label={t("settingsaccess.bypassUser")}>
+            <select className="field" defaultValue="" onChange={(e) => { if (e.target.value) { addBypass(e.target.value); e.target.value = ""; } }}>
+              <option value="">{t("settingsaccess.chooseUser")}</option>
+              {users.filter((u) => !bypass.some((b) => b.userId === u.id)).map((u) => (
+                <option key={u.id} value={u.id}>{u.name} — {u.email}</option>
+              ))}
+            </select>
+          </Field></div>
+        </div>
+      )}
+
+      {isOwner && attempts.length > 0 && (
+        <div className="mt-4 rounded-2xl border border-border p-4">
+          <h3 className="text-sm font-extrabold">{t("settingsaccess.attemptsTitle")}</h3>
+          <p className="mt-1 text-xs text-muted-foreground">{t("settingsaccess.attemptsHint")}</p>
+          <div className="mt-3 max-h-64 overflow-y-auto">
+            <table className="tbl">
+              <thead><tr><th>{t("settingsaccess.colEmail")}</th><th>{t("settingsaccess.colIp")}</th><th>{t("settingsaccess.colResult")}</th><th>{t("settingsaccess.colWhen")}</th></tr></thead>
+              <tbody>
+                {attempts.map((a) => (
+                  <tr key={a.id}>
+                    <td className="text-xs">{a.email}</td>
+                    <td className="font-mono text-xs" dir="ltr">{a.ip ?? "—"}</td>
+                    <td>
+                      <span className={`badge !text-[10px] ${a.result === "SUCCESS" ? "!bg-primary-soft !text-primary" : "!bg-danger-soft !text-danger"}`}>
+                        {a.result}
+                      </span>
+                      {a.reason && <span className="ms-1 text-[11px] text-muted-foreground">{a.reason}</span>}
+                    </td>
+                    <td className="text-xs text-muted-foreground">{fmtDateTime(a.createdAt)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {canViewBackups && backup && (
+        <div className="mt-4 rounded-2xl border border-border p-4">
+          <h3 className="inline-flex items-center gap-2 text-sm font-extrabold"><Database size={15} /> {t("settingsaccess.backupTitle")}</h3>
+          <div className="mt-2 grid gap-2 text-xs sm:grid-cols-3">
+            <div className="rounded-xl bg-muted/50 p-3">
+              <div className="font-bold text-muted-foreground">{t("settingsaccess.backupAuto")}</div>
+              <div className="mt-1 text-lg font-extrabold">{backup.counts.auto}</div>
+              <div className="text-muted-foreground">{t("settingsaccess.backupKept", { n: backup.retention.autoBackupsKept })}</div>
+            </div>
+            <div className="rounded-xl bg-muted/50 p-3">
+              <div className="font-bold text-muted-foreground">{t("settingsaccess.backupManual")}</div>
+              <div className="mt-1 text-lg font-extrabold">{backup.counts.manual}</div>
+              <div className="text-muted-foreground">{t("settingsaccess.backupUnlimited")}</div>
+            </div>
+            <div className="rounded-xl bg-muted/50 p-3">
+              <div className="font-bold text-muted-foreground">{t("settingsaccess.backupLatest")}</div>
+              <div className="mt-1 font-extrabold">
+                {backup.latestAuto ? fmtDateTime(backup.latestAuto.createdAt) : t("settingsaccess.backupNone")}
+              </div>
+              <div className="text-muted-foreground">{t("settingsaccess.backupSchedule")}</div>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

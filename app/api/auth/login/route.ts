@@ -8,25 +8,54 @@ import { setupCompany, SYS } from "@/lib/setup";
 import { json, err } from "@/lib/api";
 import { rateLimitDb, clientIp } from "@/lib/rate-limit-db";
 import { logAudit } from "@/lib/audit";
-import { recordLoginEvent } from "@/lib/security";
+import { recordLoginEvent, recordLoginAttempt } from "@/lib/security";
 
 export async function POST(req: NextRequest) {
-  const rl = await rateLimitDb(`login:${clientIp(req)}`, 10, 60_000);
+  const body = await req.json().catch(() => null);
+  const rawEmail = typeof body?.email === "string" ? body.email.toLowerCase() : "";
+  const ip = clientIp(req);
+  const ua = req.headers.get("user-agent");
+  const rl = await rateLimitDb(`login:${ip}`, 10, 60_000);
   if (!rl.ok) {
+    // Module 25: audit the throttled attempt too — it is often a brute-force signal.
+    await recordLoginAttempt(db, { email: rawEmail || "(unknown)", ip, userAgent: ua, result: "FAIL", reason: "RATE_LIMITED" });
     return json(
       { error: `Too many login attempts. Try again in ${rl.retryAfterSec} seconds.` },
       { status: 429, headers: { "Retry-After": String(rl.retryAfterSec) } }
     );
   }
-  const body = await req.json().catch(() => null);
   const parsed = loginSchema.safeParse(body);
   if (!parsed.success) return err("Please check the form and try again.", 422, "VALIDATION_ERROR");
   const { email, password } = parsed.data;
 
   const rows = await db.select().from(users).where(eq(users.email, email.toLowerCase())).limit(1);
   const user = rows[0];
-  if (!user || !user.isActive) return err("Invalid email or password.", 401, "INVALID_CREDENTIALS");
-  if (!(await verifyPassword(password, user.passwordHash))) return err("Invalid email or password.", 401, "INVALID_CREDENTIALS");
+  // Module 25: failed attempts are audited (same generic message to the
+  // caller — no user-enumeration signal).
+  if (!user || !user.isActive) {
+    await recordLoginAttempt(db, {
+      companyId: user?.companyId ?? null,
+      userId: user?.id ?? null,
+      email,
+      ip,
+      userAgent: ua,
+      result: "FAIL",
+      reason: !user ? "INVALID_CREDENTIALS" : "ACCOUNT_INACTIVE",
+    });
+    return err("Invalid email or password.", 401, "INVALID_CREDENTIALS");
+  }
+  if (!(await verifyPassword(password, user.passwordHash))) {
+    await recordLoginAttempt(db, {
+      companyId: user.companyId,
+      userId: user.id,
+      email,
+      ip,
+      userAgent: ua,
+      result: "FAIL",
+      reason: "INVALID_CREDENTIALS",
+    });
+    return err("Invalid email or password.", 401, "INVALID_CREDENTIALS");
+  }
 
   // Retry bootstrap if a previous signup was interrupted mid-way, or backfill
   // system accounts added after the company was created (setup is idempotent).
@@ -64,6 +93,14 @@ export async function POST(req: NextRequest) {
     companyId: user.companyId,
     ip: clientIp(req),
     userAgent: req.headers.get("user-agent"),
+  });
+  await recordLoginAttempt(db, {
+    companyId: user.companyId,
+    userId: user.id,
+    email: user.email,
+    ip: clientIp(req),
+    userAgent: req.headers.get("user-agent"),
+    result: "SUCCESS",
   });
   await logAudit(db, {
     companyId: user.companyId, userId: user.id, userName: user.name,

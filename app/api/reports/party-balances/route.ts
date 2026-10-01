@@ -41,6 +41,10 @@ export async function GET(req: NextRequest) {
       category: p.category,
       balance: p.balance.toString(),
       creditLimit: p.creditLimit.toString(),
+      // Module 23: credit-control status + auto-computed risk for the UI.
+      creditStatus: p.creditStatus,
+      creditHoldReason: p.creditHoldReason,
+      riskCategory: p.riskCategory,
     })),
     total: total.toString(),
     count: rows.length,

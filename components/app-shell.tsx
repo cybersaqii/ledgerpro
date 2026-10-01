@@ -7,7 +7,7 @@ import {
   LayoutDashboard, ShoppingCart, Truck, Wallet, ReceiptText, Users, Package,
   BarChart3, Menu, X, LogOut, Boxes, Plus, Settings, Crown, ShieldCheck,
   LifeBuoy, ArrowRight, Sparkles, Stamp, Landmark, Briefcase, Factory, KeyRound, Cog,
-  FolderKanban,
+  FolderKanban, Repeat, ShieldAlert,
 } from "lucide-react";
 import { Logo, ThemeToggle, LangToggle } from "./ui";
 import { NotificationBell } from "./notification-bell";
@@ -79,6 +79,8 @@ export function AppShell({ children, initialBusinessType }: { children: ReactNod
   const nav = [
     { href: "/dashboard", label: t("nav.dashboard"), icon: LayoutDashboard, perm: "reports_basic", feature: null as keyof BusinessFeatures | null },
     { href: "/sales", label: bp.salesNav, icon: ShoppingCart, perm: "sales", feature: null },
+    { href: "/sales/recurring", label: t("nav.recurring"), icon: Repeat, perm: "sales", feature: null },
+    { href: "/settings/credit-rules", label: t("nav.creditRules"), icon: ShieldAlert, perm: "settings", feature: null },
     { href: "/purchases", label: t("nav.purchases"), icon: Truck, perm: "purchases", feature: "purchases" as const },
     { href: "/payments", label: t("nav.payments"), icon: Wallet, perm: "payments", feature: null },
     { href: "/expenses", label: t("nav.expenses"), icon: ReceiptText, perm: "expenses", feature: null },

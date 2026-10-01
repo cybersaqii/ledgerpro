@@ -21,6 +21,7 @@ import { requirePro } from "@/lib/billing-guards";
 import { logAudit } from "@/lib/audit";
 import { belowMinPrice, floorErrorMessage } from "@/lib/min-price";
 import { enforceCreditLimit, CreditLimitError } from "@/lib/credit-limit";
+import { evaluateCreditHold, assertCreditOk, CreditHoldError } from "@/lib/credit-control";
 import {
   extractIdempotencyKey,
   findByIdempotencyKey,
@@ -347,6 +348,21 @@ export async function POST(req: NextRequest) {
           alreadyPaid: paidTotal,
  });
  }
+      // Module 23: credit-control hard stop — refresh the hold status, then
+      // block only when the checkout actually adds khata (mirrors the
+      // credit-limit rule: a fully-paid counter sale never trips the hold).
+      if (!b.overrideCreditHold) {
+        const decision = await evaluateCreditHold(tx, { companyId, partyId: party.id, actor: session.uid });
+        assertCreditOk(
+          {
+            name: party.name,
+            creditStatus: decision.held ? "HOLD" : "OK",
+            creditHoldReason: decision.reason,
+            creditHoldAt: decision.held ? new Date() : null,
+          },
+          { newCreditPaisa: remaining - advanceApplied }
+        );
+      }
       // udhaar control: block the checkout only when it actually adds khata
       if (!b.overrideCreditLimit) {
         await enforceCreditLimit(tx, { companyId, partyId: party.id, newCreditPaisa: remaining - advanceApplied });
@@ -384,6 +400,14 @@ export async function POST(req: NextRequest) {
         detail: `POS invoice ${result.docNo} posted with credit-limit override`,
  });
  }
+    if (b.overrideCreditHold) {
+      await logAudit(db, {
+        companyId, userId: session.uid, userName: session.name,
+        action: "pos.credit_hold_override",
+        entity: "sale", entityId: result.docId,
+        detail: `POS invoice ${result.docNo} posted with credit-hold override`,
+ });
+ }
     return json(
       {
         data: {
@@ -407,6 +431,8 @@ export async function POST(req: NextRequest) {
     }
     if (e instanceof CreditLimitError)
       return json({ error: e.message, code: "CREDIT_LIMIT_EXCEEDED", details: e.details }, { status: 409 });
+    if (e instanceof CreditHoldError)
+      return json({ error: e.message, code: "CREDIT_ON_HOLD", details: e.details }, { status: 409 });
     return toApiError(e, { route: "/api/pos/checkout", companyId });
  }
 }

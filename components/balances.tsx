@@ -2,8 +2,8 @@
 
 import Link from "next/link";
 import { Fragment, useEffect, useState } from "react";
-import { Phone, Plus, Hourglass, ChevronDown, MessageCircle } from "lucide-react";
-import { PageHeader, EmptyState, ExportCsv, SummaryChips } from "@/components/ui";
+import { Phone, Plus, Hourglass, ChevronDown, MessageCircle, OctagonX, CircleCheck } from "lucide-react";
+import { PageHeader, EmptyState, ExportCsv, SummaryChips, ErrorNote } from "@/components/ui";
 import { csvMoney } from "@/lib/csv";
 import { api, fmtMoney, fmtDate } from "@/lib/format";
 import { useBusinessProfile } from "@/components/business-type";
@@ -11,24 +11,54 @@ import { waLink, waPhone, reminderText } from "@/lib/whatsapp";
 import { creditUtilization } from "@/lib/credit-limit";
 import { brand } from "@/lib/brand";
 import { useLang } from "@/components/lang-provider";
+import { usePermissions } from "@/components/permissions";
 
-type Row = { id: string; name: string; phone: string | null; city: string | null; balance: string; creditLimit: string };
+type Row = {
+  id: string; name: string; phone: string | null; city: string | null;
+  balance: string; creditLimit: string;
+  creditStatus: "OK" | "HOLD"; creditHoldReason: string | null; riskCategory: "LOW" | "MEDIUM" | "HIGH";
+};
 
 export function BalancesPage({ kind }: { kind: "CUSTOMER" | "SUPPLIER" }) {
   const { t } = useLang();
   const bp = useBusinessProfile();
+  const { permissions, role } = usePermissions();
   const isCustomer = kind === "CUSTOMER";
   const [rows, setRows] = useState<Row[]>([]);
   const [total, setTotal] = useState("0");
   const [loading, setLoading] = useState(true);
   const [tab, setTab] = useState<"list" | "aging">("list");
+  const [holdError, setHoldError] = useState<string | null>(null);
+  const canHold = role === "OWNER" || permissions.includes("parties");
 
-  useEffect(() => {
+  const load = () => {
+    setLoading(true);
     api<{ data: Row[]; total: string }>(`/api/reports/party-balances?kind=${kind}`)
       .then((d) => { setRows(d.data); setTotal(d.total); })
       .catch(() => {})
       .finally(() => setLoading(false));
-  }, [kind]);
+  };
+  useEffect(load, [kind]);
+
+  /** Module 23: manual hold / release with an audit-logged reason. */
+  async function toggleHold(r: Row) {
+    setHoldError(null);
+    const releasing = r.creditStatus === "HOLD";
+    const reason = window.prompt(
+      t(releasing ? "balances.releaseHoldPrompt" : "balances.holdPrompt", { party: r.name })
+    );
+    if (reason === null) return; // cancelled
+    if (reason.trim().length < 3) { setHoldError(t("balances.holdReasonShort")); return; }
+    try {
+      await api(`/api/parties/${r.id}/hold`, {
+        method: releasing ? "DELETE" : "POST",
+        body: JSON.stringify({ reason: reason.trim() }),
+      });
+      load();
+    } catch (e) {
+      setHoldError(e instanceof Error ? e.message : t("balances.holdFailed"));
+    }
+  }
 
   return (
     <div>
@@ -37,9 +67,9 @@ export function BalancesPage({ kind }: { kind: "CUSTOMER" | "SUPPLIER" }) {
         subtitle={<>{t("balances.outstanding")} <span className="font-extrabold text-primary">{fmtMoney(total)}</span></>}
         actions={<>
           <ExportCsv filename={isCustomer ? "receivables" : "payables"} disabled={loading || rows.length === 0} rows={() => [
-            [t("balances.csvParty"), t("balances.csvPhone"), t("balances.csvCity"), t("balances.csvBalance"), t("balances.csvLimit")],
-            ...rows.map((r) => [r.name, r.phone ?? "", r.city ?? "", csvMoney(r.balance), BigInt(r.creditLimit) > 0n ? csvMoney(r.creditLimit) : ""]),
-            [t("balances.csvTotal"), "", "", csvMoney(total), ""],
+            [t("balances.csvParty"), t("balances.csvPhone"), t("balances.csvCity"), t("balances.csvBalance"), t("balances.csvLimit"), t("balances.csvRisk"), t("balances.csvStatus")],
+            ...rows.map((r) => [r.name, r.phone ?? "", r.city ?? "", csvMoney(r.balance), BigInt(r.creditLimit) > 0n ? csvMoney(r.creditLimit) : "", r.riskCategory, r.creditStatus]),
+            [t("balances.csvTotal"), "", "", csvMoney(total), "", "", ""],
           ]} />
           <Link href={`/payments/new?kind=${isCustomer ? "RECEIPT" : "PAYMENT"}`} className="btn btn-primary text-sm">
             <Plus size={16} /> {isCustomer ? t("balances.receivePayment") : t("balances.paySupplier")}
@@ -61,6 +91,8 @@ export function BalancesPage({ kind }: { kind: "CUSTOMER" | "SUPPLIER" }) {
       {tab === "aging" ? (
         <AgingView kind={kind} />
       ) : (
+      <>
+      {holdError && <div className="mb-3"><ErrorNote message={holdError} /></div>}
       <div className="card rise rise-1 overflow-hidden">
         {loading ? (
           <div className="space-y-3 p-5">{[1, 2, 3].map((i) => <div key={i} className="skeleton h-12 rounded-xl" />)}</div>
@@ -69,17 +101,37 @@ export function BalancesPage({ kind }: { kind: "CUSTOMER" | "SUPPLIER" }) {
         ) : (
           <div className="overflow-x-auto">
             <table className="tbl">
-              <thead><tr><th>{t("balances.colParty")}</th><th>{t("balances.colPhone")}</th><th>{t("balances.colCity")}</th><th className="num">{t("balances.colBalance")}</th><th>{t("balances.colLimit")}</th><th></th></tr></thead>
+              <thead><tr><th>{t("balances.colParty")}</th><th>{t("balances.colPhone")}</th><th>{t("balances.colCity")}</th><th className="num">{t("balances.colBalance")}</th><th>{t("balances.colLimit")}</th>{isCustomer && <th>{t("balances.colRisk")}</th>}<th></th></tr></thead>
               <tbody>
                 {rows.map((r) => (
-                  <tr key={r.id}>
-                    <td className="font-bold">{r.name}</td>
+                  <tr key={r.id} className={r.creditStatus === "HOLD" ? "!bg-danger/[0.05]" : ""}>
+                    <td>
+                      <span className="font-bold">{r.name}</span>
+                      {r.creditStatus === "HOLD" && (
+                        <span className="badge ms-2 !bg-danger-soft !text-danger !text-[10px]" title={r.creditHoldReason ?? ""}>
+                          {t("balances.holdBadge")}
+                        </span>
+                      )}
+                    </td>
                     <td className="text-muted-foreground">{r.phone ? <span className="inline-flex items-center gap-1.5"><Phone size={13} />{r.phone}</span> : "—"}</td>
                     <td className="text-muted-foreground">{r.city ?? "—"}</td>
                     <td className="num font-extrabold text-accent">{fmtMoney(r.balance)}</td>
                     <td><LimitCell balance={r.balance} limit={r.creditLimit} /></td>
+                    {isCustomer && <td><RiskCell risk={r.riskCategory} /></td>}
                     <td className="text-end">
-                      <Link href={`/reports/party-ledger?party=${r.id}`} className="text-sm font-bold text-primary hover:underline">{t("balances.ledger")}</Link>
+                      <div className="flex items-center justify-end gap-1">
+                        {isCustomer && canHold && (
+                          <button
+                            className={`btn btn-ghost !px-2 !py-1 text-xs ${r.creditStatus === "HOLD" ? "!text-primary" : "!text-danger"}`}
+                            title={r.creditStatus === "HOLD" ? t("balances.releaseHoldTitle") : t("balances.holdTitle")}
+                            onClick={() => toggleHold(r)}
+                          >
+                            {r.creditStatus === "HOLD" ? <CircleCheck size={14} /> : <OctagonX size={14} />}
+                            <span className="hidden sm:inline">{r.creditStatus === "HOLD" ? t("balances.release") : t("balances.hold")}</span>
+                          </button>
+                        )}
+                        <Link href={`/reports/party-ledger?party=${r.id}`} className="text-sm font-bold text-primary hover:underline">{t("balances.ledger")}</Link>
+                      </div>
                     </td>
                   </tr>
                 ))}
@@ -88,16 +140,27 @@ export function BalancesPage({ kind }: { kind: "CUSTOMER" | "SUPPLIER" }) {
                 <tr className="border-t-2 border-border">
                   <td colSpan={3} className="!py-3 font-extrabold">{t("balances.total")}</td>
                   <td className="num !py-3 font-extrabold">{fmtMoney(total)}</td>
-                  <td colSpan={2} />
+                  <td colSpan={isCustomer ? 3 : 2} />
                 </tr>
               </tfoot>
             </table>
           </div>
         )}
       </div>
+      </>
       )}
     </div>
   );
+}
+
+/** Module 23: risk-category badge for the balances list. */
+function RiskCell({ risk }: { risk: "LOW" | "MEDIUM" | "HIGH" }) {
+  const { t } = useLang();
+  const tone =
+    risk === "HIGH" ? "!bg-danger-soft !text-danger" :
+    risk === "MEDIUM" ? "!bg-accent-soft !text-accent" :
+    "!bg-muted !text-muted-foreground";
+  return <span className={`badge !text-[10px] ${tone}`}>{t(`balances.risk${risk}`)}</span>;
 }
 
 /** Credit-limit utilization bar for the balances list (— when unlimited). */

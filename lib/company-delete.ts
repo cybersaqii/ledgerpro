@@ -136,7 +136,12 @@ export async function wipeCompanyData(
   // 2. FK child tables before their parents (migration 0023: restrict, no
   // cascade). Order within: setoff_allocations references docs; doc_batch_usage
   // references product_batches; both reference products/parties.
+  // Module 23/24: recurring_runs before recurring_templates + sales_docs;
+  // recurring_templates before branches/parties; credit_hold_events before parties.
   const childFirst: SQLiteTable[] = [
+    schema.recurringRuns,
+    schema.recurringTemplates,
+    schema.creditHoldEvents,
     schema.setoffAllocations,
     schema.docBatchUsage,
     schema.productBatches,

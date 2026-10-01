@@ -1,4 +1,5 @@
 import { eq, and } from "drizzle-orm";
+import { headers } from "next/headers";
 import { branches, users } from "@/db/schema";
 import { requireAuth, err, json } from "./api";
 import type { Session } from "./auth";
@@ -7,6 +8,8 @@ import { db } from "./db";
 import type { NextResponse } from "next/server";
 import { UserError } from "./errors";
 import { userHasPermission, type Permission } from "./permissions";
+import { checkIpAllowed } from "./ip-allowlist";
+import { logAudit } from "./audit";
 
 /** Parse "YYYY-MM-DD" as UTC noon (avoids timezone/DST edge cases). */
 export function parseDateOnly(s: string): Date {
@@ -15,14 +18,75 @@ export function parseDateOnly(s: string): Date {
   return d;
 }
 
+/** Client IP using the same semantics as lib/rate-limit-db's clientIp. */
+async function requestIp(): Promise<string> {
+  try {
+    const h = await headers();
+    const fwd = h.get("x-forwarded-for");
+    if (fwd) {
+      const parts = fwd.split(",").map((p: string) => p.trim()).filter(Boolean);
+      const last = parts[parts.length - 1];
+      if (last) return last;
+    }
+    return h.get("x-real-ip")?.trim() || "unknown";
+  } catch {
+    return "unknown";
+  }
+}
+
 /** Auth + company scoping for API routes.
- *  Usage: const gate = await requireCompany(); if (!gate.ok) return gate.response; */
+ *  Usage: const gate = await requireCompany(); if (!gate.ok) return gate.response;
+ *
+ *  Module 25: also enforces the company's IP allowlist. When the company
+ *  has allowlist rows configured, non-owner users without a bypass entry
+ *  whose IP is not allowlisted get a 403 (code IP_NOT_ALLOWED) and the
+ *  attempt is audit-logged. Unconfigured = fail-open (feature OFF).
+ */
 export async function requireCompany(): Promise<
   | { ok: true; session: Session; companyId: string; response: null }
   | { ok: false; session: null; companyId: null; response: NextResponse }
 > {
   const { session, response } = await requireAuth();
   if (!session) return { ok: false, session: null, companyId: null, response: response as NextResponse };
+  // Module 25: IP allowlist — live role re-read so a demoted owner loses the
+  // owner bypass immediately.
+  const [u] = await db
+    .select({ role: users.role, name: users.name })
+    .from(users)
+    .where(eq(users.id, session.uid))
+    .limit(1);
+  const ip = await requestIp();
+  const check = await checkIpAllowed(db, {
+    companyId: session.cid,
+    userId: session.uid,
+    role: u?.role ?? "STAFF",
+    ip,
+  });
+  if (!check.allowed) {
+    // Fire-and-forget: the block must be audited even though we 403.
+    void logAudit(db, {
+      companyId: session.cid,
+      userId: session.uid,
+      userName: u?.name ?? "unknown",
+      action: "security.ip_blocked",
+      entity: "company",
+      entityId: session.cid,
+      detail: `Blocked API request from non-allowlisted IP ${ip} (${check.reason}).`,
+      ip,
+    });
+    return {
+      ok: false,
+      session: null,
+      companyId: null,
+      response: json(
+        {
+          error: "Your IP address is not allowed to access this company. Ask your owner to allowlist it.",
+          code: "IP_NOT_ALLOWED",
+        },
+        { status: 403 }
+      ),
+    };
+  }
   return { ok: true, session, companyId: session.cid, response: null };
 }
 

@@ -3,7 +3,7 @@
 // computeOnboardingSteps) are side-effect free so tests can pin their behaviour.
 
 import { desc, eq } from "drizzle-orm";
-import { loginEvents, platformSettings } from "@/db/schema";
+import { loginAttempts, loginEvents, platformSettings } from "@/db/schema";
 import type { Db, DbTx } from "./db";
 
 /** platform_settings key for the idle session timeout (in hours). */
@@ -184,4 +184,64 @@ export function computeOnboardingSteps(f: OnboardingFacts): OnboardingStep[] {
     });
   }
   return steps;
+}
+
+/** Module 25: login-attempt audit. Records EVERY attempt — successes and
+ * failures — so brute-force probing is visible. Best-effort, never throws. */
+export async function recordLoginAttempt(
+  dbc: Db | DbTx,
+  input: {
+    companyId?: string | null;
+    userId?: string | null;
+    email: string;
+    ip: string | null;
+    userAgent: string | null;
+    result: "SUCCESS" | "FAIL";
+    reason?: string | null;
+  }
+): Promise<void> {
+  try {
+    await dbc.insert(loginAttempts).values({
+      id: crypto.randomUUID(),
+      companyId: input.companyId ?? null,
+      userId: input.userId ?? null,
+      email: input.email.slice(0, 255),
+      ip: (input.ip ?? "").slice(0, 45) || null,
+      userAgent: (input.userAgent ?? "").slice(0, 255) || null,
+      result: input.result,
+      reason: input.reason ?? null,
+    });
+  } catch {
+    /* audit is best-effort */
+  }
+}
+
+/** Recent login attempts for a company, newest first (owner-only view). */
+export async function listLoginAttempts(
+  dbc: Db | DbTx,
+  companyId: string,
+  limit = 50
+): Promise<
+  {
+    id: string;
+    email: string;
+    ip: string | null;
+    result: string;
+    reason: string | null;
+    createdAt: Date;
+  }[]
+> {
+  return dbc
+    .select({
+      id: loginAttempts.id,
+      email: loginAttempts.email,
+      ip: loginAttempts.ip,
+      result: loginAttempts.result,
+      reason: loginAttempts.reason,
+      createdAt: loginAttempts.createdAt,
+    })
+    .from(loginAttempts)
+    .where(eq(loginAttempts.companyId, companyId))
+    .orderBy(desc(loginAttempts.createdAt))
+    .limit(limit);
 }
