@@ -27,6 +27,8 @@ type PartyDetail = {
   filerStatus: string; creditLimit: string; notes: string | null; category: string | null;
   displayName: string | null; whtCategory: string; activeTaxPayer: boolean;
   bankIban: string | null; bankAccountNo: string | null;
+  /** Module 22: party's default price list (sales). */
+  priceListId: string | null;
 };
 
 const emptyForm = {
@@ -35,6 +37,8 @@ const emptyForm = {
   paymentTerms: "", shippingAddress: "", shippingCity: "",
   // Module 2.1: supplier master completeness
   displayName: "", whtCategory: "NONE", activeTaxPayer: false, bankIban: "", bankAccountNo: "",
+  // Module 22: party's default price list
+  priceListId: "",
 };
 
 export default function PartiesPage() {
@@ -48,6 +52,13 @@ export default function PartiesPage() {
   const [category, setCategory] = useState("");
   const [rows, setRows] = useState<Party[]>([]);
   const [total, setTotal] = useState(0);
+  // Module 22: price lists for the party form selector.
+  const [priceLists, setPriceLists] = useState<{ id: string; name: string }[]>([]);
+  useEffect(() => {
+    api<{ data: { id: string; name: string }[] }>("/api/price-lists")
+      .then((d) => setPriceLists(d.data))
+      .catch(() => {});
+  }, []);
   const [loading, setLoading] = useState(true);
   const [modal, setModal] = useState<null | { mode: "add" } | { mode: "edit"; party: Party }>(null);
   const [form, setForm] = useState(emptyForm);
@@ -96,6 +107,7 @@ export default function PartiesPage() {
         activeTaxPayer: !!full.activeTaxPayer,
         bankIban: full.bankIban ?? "",
         bankAccountNo: full.bankAccountNo ?? "",
+        priceListId: full.priceListId ?? "",
       });
       setModal({ mode: "edit", party: p });
     } catch (e) {
@@ -255,6 +267,15 @@ export default function PartiesPage() {
             <div className="grid gap-4 sm:grid-cols-2">
               <Field label={t("parties.creditLimit")} hint={t("parties.creditLimitHint")}>
                 <input className="field" type="number" min="0" step="0.01" placeholder="0.00" value={form.creditLimit} onChange={set("creditLimit")} />
+              </Field>
+              {/* Module 22: the party's default price list — auto-applies on sales docs */}
+              <Field label={t("pricing.priceList")} hint={t("parties.priceListHint")}>
+                <select className="field" value={form.priceListId ?? ""} onChange={set("priceListId")}>
+                  <option value="">{t("pricing.defaultPricing")}</option>
+                  {priceLists.map((l) => (
+                    <option key={l.id} value={l.id}>{l.name}</option>
+                  ))}
+                </select>
               </Field>
               <Field label={t("parties.filerStatus")}>
                 <select className="field" value={form.filerStatus} onChange={set("filerStatus")}>

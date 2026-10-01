@@ -1,6 +1,6 @@
 import { NextRequest } from "next/server";
 import { eq, and } from "drizzle-orm";
-import { parties } from "@/db/schema";
+import { parties, priceLists } from "@/db/schema";
 
 import { partySchema } from "@/lib/validators";
 import { parseMoney } from "@/lib/money";
@@ -79,6 +79,20 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     .where(eq(parties.id, id));
   if (p.category !== undefined) {
     await db.update(parties).set({ category: p.category || null }).where(eq(parties.id, id));
+  }
+  // Module 22: party price list must belong to this company (or be cleared).
+  if (p.priceListId !== undefined) {
+    let plId: string | null = null;
+    if (p.priceListId) {
+      const [pl] = await db
+        .select({ id: priceLists.id })
+        .from(priceLists)
+        .where(and(eq(priceLists.id, p.priceListId), eq(priceLists.companyId, companyId)))
+        .limit(1);
+      if (!pl) return err("The selected price list is invalid.", 422, "VALIDATION_ERROR");
+      plId = pl.id;
+    }
+    await db.update(parties).set({ priceListId: plId }).where(eq(parties.id, id));
   }
   await logAudit(db, {
     companyId, userId: session.uid, userName: session.name,

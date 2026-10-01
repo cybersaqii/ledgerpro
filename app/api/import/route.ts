@@ -1,60 +1,53 @@
 import { NextRequest, NextResponse } from "next/server";
-import { eq, and, inArray } from "drizzle-orm";
-import { parties, products } from "@/db/schema";
-import { parseMoney } from "@/lib/money";
+import { desc, eq } from "drizzle-orm";
+import { importLogs } from "@/db/schema";
 import { json, err } from "@/lib/api";
-import { requireCompany, requirePermission, db } from "@/lib/route-helpers";
+import { requirePermission, db } from "@/lib/route-helpers";
 import { requirePro } from "@/lib/billing-guards";
-
+import { toApiError, UserError } from "@/lib/errors";
 import { logAudit } from "@/lib/audit";
+import {
+  parseCSV,
+  autoMapFields,
+  fieldsFor,
+  validateImport,
+  commitImport,
+  parseKind,
+  MAX_ROWS,
+  MAX_BYTES,
+  MAX_ERRORS,
+  type ImportKind,
+} from "@/lib/importer";
 
-// POST /api/import — CSV import for products and parties.
-// Owner-only: bulk data mutation bypasses the per-record UI flow.
-// multipart/form-data: file (CSV), kind=products|parties.
-// Products columns: SKU, Name, Barcode, Category, Unit, Purchase Price, Sale Price, Min Sale Price, Track Stock, Location
-// Parties columns: Name, Type (CUSTOMER/SUPPLIER), Phone, Email, Address, City, Credit Limit
-// Returns { imported, skipped, errors[] } — valid rows import, bad rows are reported.
+// POST /api/import — universal CSV import (Module 20).
+// multipart/form-data: file (CSV), kind=products|parties|opening_stock,
+// mode=validate|import (default validate), mapping (optional JSON
+// { field: columnIndex } — auto-guessed from headers when absent).
+//
+// Two-pass by design: "validate" runs both validation passes and returns
+// every error with its CSV row number, committing NOTHING. "import"
+// re-validates and commits ALL rows in one transaction ONLY when the error
+// count is zero — otherwise it answers 422 and logs a FAILED attempt.
+// Every commit attempt is written to import_logs.
+//
+// Excel files: save as CSV in Excel first (File → Save As → CSV), then
+// upload — the wizard documents this; only CSV is parsed.
 
-const MAX_ROWS = 2000;
-const MAX_BYTES = 2 * 1024 * 1024;
-
-function parseCSV(text: string): string[][] {
-  const rows: string[][] = [];
-  let row: string[] = [];
-  let cell = "";
-  let inQuotes = false;
-  const t = text.replace(/^\uFEFF/, "");
-  for (let i = 0; i < t.length; i++) {
-    const ch = t[i];
-    if (inQuotes) {
-      if (ch === '"') {
-        if (t[i + 1] === '"') { cell += '"'; i++; }
-        else inQuotes = false;
- } else cell += ch;
- } else if (ch === '"') {
-      inQuotes = true;
- } else if (ch === ",") {
-      row.push(cell); cell = "";
- } else if (ch === "\n") {
-      row.push(cell); rows.push(row); row = []; cell = "";
- } else if (ch === "\r") {
-      // ignore; \n handles the break
- } else {
-      cell += ch;
- }
- }
-  row.push(cell);
-  // drop trailing empty row
-  if (!(row.length === 1 && row[0].trim() === "")) rows.push(row);
-  return rows;
-}
-
-function normHeader(h: string): string {
-  return h.trim().toLowerCase().replace(/[^a-z]/g, "");
-}
-
-function moneyOk(v: string): boolean {
-  return /^\d{1,12}(\.\d{1,2})?$/.test(v.trim());
+function sanitizeMapping(
+  raw: unknown,
+  kind: ImportKind
+): Record<string, number | null> {
+  const fields = fieldsFor(kind).map((f) => f.field);
+  const out: Record<string, number | null> = {};
+  for (const f of fields) out[f] = null;
+  if (raw && typeof raw === "object") {
+    for (const [k, v] of Object.entries(raw as Record<string, unknown>)) {
+      if (!fields.includes(k)) continue;
+      out[k] =
+        typeof v === "number" && Number.isInteger(v) && v >= 0 && v < 100 ? v : null;
+    }
+  }
+  return out;
 }
 
 export async function POST(req: NextRequest) {
@@ -66,205 +59,176 @@ export async function POST(req: NextRequest) {
   const pro = await requirePro("import_export");
   if (!pro.ok) return pro.response;
 
-  const kind = form?.get("kind");
-  const file = form?.get("file");
-  if (kind !== "products" && kind !== "parties") return err("Choose what to import: products or parties.", 422);
-  if (!(file instanceof File)) return err("Please attach a CSV file.", 422);
-  if (file.size > MAX_BYTES) return err("File is too large (max 2 MB).", 422);
+  try {
+    const kind = parseKind(form?.get("kind"));
+    const file = form?.get("file");
+    if (!(file instanceof File)) throw new UserError("Please attach a CSV file.", 422);
+    if (file.size > MAX_BYTES)
+      throw new UserError(`File is too large (max ${MAX_BYTES / 1024 / 1024} MB).`, 422);
+    const modeRaw = form?.get("mode");
+    const mode = modeRaw === "import" ? "import" : "validate";
 
-  const text = await file.text().catch(() => "");
-  if (!text.trim()) return err("The file is empty.", 422);
-  const rows = parseCSV(text);
-  if (rows.length < 2) return err("No data rows found. Keep the header row and add data below it.", 422);
-  if (rows.length - 1 > MAX_ROWS) return err(`Too many rows (max ${MAX_ROWS}). Split the file and try again.`, 422);
+    const text = await file.text().catch(() => "");
+    if (!text.trim()) throw new UserError("The file is empty.", 422);
+    const rows = parseCSV(text);
+    if (rows.length < 2)
+      throw new UserError("No data rows found. Keep the header row and add data below it.", 422);
+    if (rows.length - 1 > MAX_ROWS)
+      throw new UserError(`Too many rows (max ${MAX_ROWS}). Split the file and try again.`, 422);
 
-  const headers = rows[0].map(normHeader);
-  const idx = (names: string[]): number => {
-    for (const n of names) {
-      const i = headers.indexOf(normHeader(n));
-      if (i >= 0) return i;
- }
-    return -1;
- };
-  const cell = (r: string[], i: number): string => (i >= 0 && i < r.length ? r[i].trim() : "");
+    let mapping: Record<string, number | null>;
+    try {
+      const rawMapping = form?.get("mapping");
+      mapping =
+        typeof rawMapping === "string" && rawMapping.trim()
+          ? sanitizeMapping(JSON.parse(rawMapping), kind)
+          : autoMapFields(rows[0], fieldsFor(kind));
+    } catch {
+      throw new UserError("The column mapping is invalid.", 422, "VALIDATION_ERROR");
+    }
 
-  const errors: { row: number; message: string }[] = [];
-  let imported = 0;
-  let skipped = 0;
+    const result = await validateImport(db, companyId, kind, rows, mapping);
+    const fileName = file.name?.slice(0, 120) ?? null;
 
-  if (kind === "products") {
-    const iSku = idx(["sku", "code"]);
-    const iName = idx(["name", "productname", "product"]);
-    const iBarcode = idx(["barcode"]);
-    const iCat = idx(["category"]);
-    const iUnit = idx(["unit"]);
-    const iPP = idx(["purchaseprice", "purchase", "cost"]);
-    const iSP = idx(["saleprice", "sale", "price", "rate"]);
-    const iTrack = idx(["trackstock", "track", "stock"]);
-    const iMin = idx(["minsaleprice", "minprice", "floorprice", "minimumprice"]);
-    const iLoc = idx(["location", "godown", "rack", "godownrack"]);
-    if (iSku < 0 || iName < 0) return err("The CSV needs at least SKU and Name columns.", 422);
+    if (mode === "validate") {
+      return json({
+        data: {
+          kind,
+          totalRows: result.totalRows,
+          validCount: result.valid.length,
+          skipped: result.skipped,
+          errorCount: result.errorCount,
+          errors: result.errors,
+        },
+      });
+    }
 
-    type PRow = { sku: string; name: string; barcode: string | null; category: string | null; unit: string; pp: bigint; sp: bigint; track: boolean; min: bigint; location: string | null };
-    const valid: PRow[] = [];
-    const seen = new Set<string>();
-    rows.slice(1).forEach((r, k) => {
-      const rowNo = k + 2;
-      if (r.every((c) => !c.trim())) { skipped++; return; }
-      const sku = cell(r, iSku);
-      const name = cell(r, iName);
-      if (!sku) { errors.push({ row: rowNo, message: "SKU is required." }); return; }
-      if (name.length < 2) { errors.push({ row: rowNo, message: "Name is too short." }); return; }
-      if (sku.length > 40) { errors.push({ row: rowNo, message: "SKU is too long (max 40)." }); return; }
-      const ppS = cell(r, iPP) || "0";
-      const spS = cell(r, iSP) || "0";
-      const minS = cell(r, iMin) || "0";
-      if (!moneyOk(ppS) || !moneyOk(spS) || !moneyOk(minS)) { errors.push({ row: rowNo, message: "Prices must be numbers like 250 or 250.50." }); return; }
-      const key = sku.toLowerCase();
-      if (seen.has(key)) { errors.push({ row: rowNo, message: `Duplicate SKU "${sku}" in this file.` }); return; }
-      seen.add(key);
-      const unit = (cell(r, iUnit) || "PCS").slice(0, 12);
-      const trackRaw = cell(r, iTrack).toLowerCase();
-      valid.push({
-        sku, name,
-        barcode: cell(r, iBarcode) || null,
-        category: cell(r, iCat) || null,
-        unit,
-        pp: parseMoney(ppS), sp: parseMoney(spS),
-        track: trackRaw === "" ? true : ["yes", "y", "true", "1"].includes(trackRaw),
-        min: parseMoney(minS),
-        location: (cell(r, iLoc) || "").trim().slice(0, 60) || null,
- });
- });
-
-    const existing = valid.length
-      ? await db
-          .select({ sku: products.sku })
-          .from(products)
-          .where(and(eq(products.companyId, companyId), inArray(products.sku, valid.map((v) => v.sku))))
-      : [];
-    const existingSet = new Set(existing.map((e) => e.sku.toLowerCase()));
-    const fresh = valid.filter((v) => {
-      if (existingSet.has(v.sku.toLowerCase())) { skipped++; return false; }
-      return true;
- });
-
-    if (fresh.length) {
-      await db.insert(products).values(
-        fresh.map((v) => ({
-          id: crypto.randomUUID(),
-          companyId,
-          sku: v.sku,
-          name: v.name,
-          barcode: v.barcode,
-          category: v.category,
-          unit: v.unit,
-          purchasePrice: v.pp,
-          salePrice: v.sp,
-          trackStock: v.track,
-          minSalePrice: v.min,
-          location: v.location,
-          isActive: true,
- }))
+    // mode = import: all-or-nothing.
+    if (result.errorCount > 0) {
+      await db.insert(importLogs).values({
+        id: crypto.randomUUID(),
+        companyId,
+        kind: kind.toUpperCase(),
+        fileName,
+        totalRows: result.totalRows,
+        importedRows: 0,
+        skippedRows: result.skipped,
+        errorCount: result.errorCount,
+        errorsJson: JSON.stringify(result.errors.slice(0, MAX_ERRORS)),
+        status: "FAILED",
+        createdById: session.uid,
+      });
+      return NextResponse.json(
+        {
+          error: `Fix ${result.errorCount} row${result.errorCount === 1 ? "" : "s"} before importing — nothing was saved.`,
+          code: "IMPORT_VALIDATION_FAILED",
+          data: {
+            totalRows: result.totalRows,
+            skipped: result.skipped,
+            errorCount: result.errorCount,
+            errors: result.errors,
+          },
+        },
+        { status: 422 }
       );
-      imported = fresh.length;
- }
- } else {
-    const iName = idx(["name", "partyname", "party", "customer"]);
-    const iKind = idx(["type", "kind"]);
-    const iPhone = idx(["phone", "mobile"]);
-    const iEmail = idx(["email"]);
-    const iAddr = idx(["address"]);
-    const iCity = idx(["city"]);
-    const iCL = idx(["creditlimit", "limit", "credit"]);
-    if (iName < 0) return err("The CSV needs at least a Name column.", 422);
+    }
 
-    type PaRow = { kind: "CUSTOMER" | "SUPPLIER"; name: string; phone: string | null; email: string | null; address: string | null; city: string | null; cl: bigint };
-    const valid: PaRow[] = [];
-    const seen = new Set<string>();
-    rows.slice(1).forEach((r, k) => {
-      const rowNo = k + 2;
-      if (r.every((c) => !c.trim())) { skipped++; return; }
-      const name = cell(r, iName);
-      if (name.length < 2) { errors.push({ row: rowNo, message: "Name is too short." }); return; }
-      const kindRaw = cell(r, iKind).toUpperCase();
-      const kindV: "CUSTOMER" | "SUPPLIER" =
-        kindRaw === "" || kindRaw.startsWith("CUST") ? "CUSTOMER" : kindRaw.startsWith("SUPP") ? "SUPPLIER" : "CUSTOMER";
-      if (kindRaw && kindV === "CUSTOMER" && !kindRaw.startsWith("CUST")) {
-        errors.push({ row: rowNo, message: `Type must be CUSTOMER or SUPPLIER, got "${cell(r, iKind)}".` });
-        return;
- }
-      const clS = cell(r, iCL) || "0";
-      if (!moneyOk(clS)) { errors.push({ row: rowNo, message: "Credit limit must be a number." }); return; }
-      const key = `${kindV}:${name.toLowerCase()}`;
-      if (seen.has(key)) { errors.push({ row: rowNo, message: `Duplicate "${name}" in this file.` }); return; }
-      seen.add(key);
-      valid.push({
-        kind: kindV, name,
-        phone: cell(r, iPhone) || null,
-        email: cell(r, iEmail) || null,
-        address: cell(r, iAddr) || null,
-        city: cell(r, iCity) || null,
-        cl: parseMoney(clS),
- });
- });
+    const committed = await db.transaction(async (tx) => {
+      const res = await commitImport(tx, companyId, session.uid, kind, result.valid);
+      await tx.insert(importLogs).values({
+        id: crypto.randomUUID(),
+        companyId,
+        kind: kind.toUpperCase(),
+        fileName,
+        totalRows: result.totalRows,
+        importedRows: res.imported,
+        skippedRows: result.skipped,
+        errorCount: 0,
+        errorsJson: null,
+        status: "SUCCESS",
+        createdById: session.uid,
+      });
+      return res;
+    });
 
-    const existing = valid.length
-      ? await db
-          .select({ name: parties.name, kind: parties.kind })
-          .from(parties)
-          .where(and(eq(parties.companyId, companyId), inArray(parties.name, [...new Set(valid.map((v) => v.name))])))
-      : [];
-    const existingSet = new Set(existing.map((e) => `${e.kind}:${e.name.toLowerCase()}`));
-    const fresh = valid.filter((v) => {
-      if (existingSet.has(`${v.kind}:${v.name.toLowerCase()}`)) { skipped++; return false; }
-      return true;
- });
-
-    if (fresh.length) {
-      await db.insert(parties).values(
-        fresh.map((v) => ({
-          id: crypto.randomUUID(),
-          companyId,
-          kind: v.kind,
-          name: v.name,
-          phone: v.phone,
-          email: v.email,
-          address: v.address,
-          city: v.city,
-          creditLimit: v.cl,
-          balance: 0n,
-          isActive: true,
- }))
-      );
-      imported = fresh.length;
- }
- }
-
-  await logAudit(db, {
-    companyId, userId: session.uid, userName: session.name,
-    action: "data.imported", entity: "import",
-    detail: `CSV import (${kind}): ${imported} imported, ${skipped} skipped`,
- });
-  return json({ data: { imported, skipped, errors: errors.slice(0, 50), errorCount: errors.length } });
+    await logAudit(db, {
+      companyId,
+      userId: session.uid,
+      userName: session.name,
+      action: "data.imported",
+      entity: "import",
+      detail: `CSV import (${kind}): ${committed.imported} imported, ${result.skipped} skipped`,
+    });
+    return json({
+      data: {
+        kind,
+        imported: committed.imported,
+        skipped: result.skipped,
+        totalRows: result.totalRows,
+      },
+    });
+  } catch (e) {
+    return toApiError(e, { route: "/api/import", companyId });
+  }
 }
 
-// GET /api/import/template?kind=products|parties — sample CSV to fill in
+// GET /api/import?log=1 — recent import attempts for this company.
+// GET /api/import?kind=products|parties|opening_stock — sample CSV template.
 export async function GET(req: NextRequest) {
-  const gate = await requireCompany();
+  const gate = await requirePermission("import_export");
   if (!gate.ok) return gate.response;
+  const { companyId } = gate;
+  if (req.nextUrl.searchParams.get("log") === "1") {
+    const rows = await db
+      .select()
+      .from(importLogs)
+      .where(eq(importLogs.companyId, companyId))
+      .orderBy(desc(importLogs.createdAt))
+      .limit(50);
+    return json({
+      data: rows.map((r) => ({
+        id: r.id,
+        kind: r.kind,
+        fileName: r.fileName,
+        totalRows: r.totalRows,
+        importedRows: r.importedRows,
+        skippedRows: r.skippedRows,
+        errorCount: r.errorCount,
+        errors: r.errorsJson ? JSON.parse(r.errorsJson as string) : [],
+        status: r.status,
+        createdAt: r.createdAt,
+      })),
+    });
+  }
   const kind = req.nextUrl.searchParams.get("kind");
   if (kind === "products") {
-    const csv = "SKU,Name,Barcode,Category,Unit,Purchase Price,Sale Price,Track Stock\r\nTEA-001,Test Tea,,Grocery,PCS,200,250,Yes\r\n";
-    return new NextResponse("\uFEFF" + csv, {
-      headers: { "content-type": "text/csv; charset=utf-8", "content-disposition": 'attachment; filename="products-template.csv"' },
- });
- }
+    const csv =
+      "SKU,Name,Barcode,Category,Unit,Purchase Price,Sale Price,Track Stock\r\nTEA-001,Test Tea,,Grocery,PCS,200,250,Yes\r\n";
+    return new NextResponse("﻿" + csv, {
+      headers: {
+        "content-type": "text/csv; charset=utf-8",
+        "content-disposition": 'attachment; filename="products-template.csv"',
+      },
+    });
+  }
   if (kind === "parties") {
-    const csv = "Name,Type,Phone,Email,Address,City,Credit Limit\r\nAhmed Store,CUSTOMER,03001234567,,,Lahore,50000\r\n";
-    return new NextResponse("\uFEFF" + csv, {
-      headers: { "content-type": "text/csv; charset=utf-8", "content-disposition": 'attachment; filename="parties-template.csv"' },
- });
- }
-  return NextResponse.json({ error: "Unknown template kind." }, { status: 400 });
+    const csv =
+      "Name,Type,Phone,Email,Address,City,Credit Limit\r\nAhmed Store,CUSTOMER,03001234567,,,Lahore,50000\r\n";
+    return new NextResponse("﻿" + csv, {
+      headers: {
+        "content-type": "text/csv; charset=utf-8",
+        "content-disposition": 'attachment; filename="parties-template.csv"',
+      },
+    });
+  }
+  if (kind === "opening_stock") {
+    const csv = "SKU,Quantity,Unit Cost\r\nTEA-001,100,200\r\n";
+    return new NextResponse("﻿" + csv, {
+      headers: {
+        "content-type": "text/csv; charset=utf-8",
+        "content-disposition": 'attachment; filename="opening-stock-template.csv"',
+      },
+    });
+  }
+  return err("Unknown template kind.", 400);
 }

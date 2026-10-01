@@ -3,7 +3,7 @@
 import { use, useEffect, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
-import { ArrowLeft, ArrowRightLeft, Ban, Mail, MessageCircle, Printer, Undo2, Wallet } from "lucide-react";
+import { ArrowLeft, ArrowRightLeft, Ban, Mail, MessageCircle, PackageCheck, Printer, Truck, Undo2, Wallet } from "lucide-react";
 import { PageHeader, StatusPill } from "@/components/ui";
 import { api, fmtMoney, fmtMoneyPlain, fmtQty, fmtDate, toBig } from "@/lib/format";
 import { formatForeign, paisaToForeignMinor, formatRate } from "@/lib/fx";
@@ -1024,6 +1024,29 @@ function DocActions({ doc, isSales, onChanged }: { doc: Doc; isSales: boolean; o
   const canVoid = isSales && doc.docType === "INVOICE" &&
     ["POSTED", "PARTIAL", "PAID"].includes(doc.status);
 
+  // ── Module 21: delivery challan lifecycle ────────────────────────────
+  // DRAFT —dispatch (moves stock out, no journal)→ DISPATCHED —deliver→
+  // DELIVERED. A dispatched/delivered challan converts to a revenue-only
+  // invoice (stock already moved); void puts stock back in with a
+  // DISPATCH_REVERSAL movement (no journal).
+  const isChallan = isSales && doc.docType === "CHALLAN";
+  const canDispatchChallan = isChallan && doc.status === "DRAFT";
+  const canDeliverChallan = isChallan && doc.status === "DISPATCHED";
+  const canVoidChallan = isChallan && ["DRAFT", "DISPATCHED", "DELIVERED"].includes(doc.status);
+
+  async function runChallanAction(action: "dispatch" | "deliver") {
+    if (busy) return;
+    const confirmKey = action === "dispatch" ? "challan.dispatchConfirm" : "challan.deliverConfirm";
+    if (!window.confirm(t(confirmKey, { docNo: doc.docNo }))) return;
+    setBusy(true); setError(null);
+    try {
+      await api(`/api/sales/${doc.id}/${action}`, { method: "POST" });
+      onChanged?.();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : t("docdetail.actionError"));
+    } finally { setBusy(false); }
+  }
+
   function orderRemainingQty(it: Item): bigint {
     return BigInt(it.qty) - BigInt(doc.fulfilledByItem?.[it.id] ?? "0");
   }
@@ -1165,6 +1188,22 @@ function DocActions({ doc, isSales, onChanged }: { doc: Doc; isSales: boolean; o
       {canConvert && !isOrder && (isSales || doc.docType !== "ORDER") && (
         <button className="btn btn-primary text-sm" disabled={busy} onClick={() => run("convert")}>
           <ArrowRightLeft size={15} /> {busy ? t("docdetail.working") : isSales ? t("docdetail.convertToInvoice") : t("docdetail.convertToBill")}
+        </button>
+      )}
+      {/* ── Module 21: challan lifecycle ── */}
+      {canDispatchChallan && (
+        <button className="btn btn-primary text-sm" disabled={busy} onClick={() => runChallanAction("dispatch")}>
+          <Truck size={15} /> {busy ? t("docdetail.working") : t("challan.dispatch")}
+        </button>
+      )}
+      {canDeliverChallan && (
+        <button className="btn btn-primary text-sm" disabled={busy} onClick={() => runChallanAction("deliver")}>
+          <PackageCheck size={15} /> {busy ? t("docdetail.working") : t("challan.deliver")}
+        </button>
+      )}
+      {canVoidChallan && (
+        <button className="btn btn-ghost text-sm text-danger" disabled={busy} onClick={() => { setVoidReason(""); setError(null); setShowVoid(true); }}>
+          <Ban size={15} /> {t("challan.voidChallan")}
         </button>
       )}
       {/* ── Module 2: purchase order lifecycle ── */}
@@ -1341,8 +1380,8 @@ function DocActions({ doc, isSales, onChanged }: { doc: Doc; isSales: boolean; o
         <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/50 p-0 sm:items-center sm:p-4" onClick={() => !busy && setShowVoid(false)}>
           <div role="dialog" aria-modal="true" aria-label={isSales ? t("docdetail.voidInvoice") : t("docdetail.voidBill")}
             className="w-full max-w-md rounded-t-2xl bg-card p-5 shadow-xl sm:rounded-2xl" onClick={(e) => e.stopPropagation()}>
-            <h3 className="text-base font-bold text-danger">{t(isSales ? "docdetail.voidInvoiceTitle" : "docdetail.voidBillTitle", { docNo: doc.docNo })}</h3>
-            <p className="mt-1 text-xs text-muted-foreground">{t(isSales ? "docdetail.voidHint" : "docdetail.voidBillHint")}</p>
+            <h3 className="text-base font-bold text-danger">{t(isChallan ? "challan.voidChallanTitle" : isSales ? "docdetail.voidInvoiceTitle" : "docdetail.voidBillTitle", { docNo: doc.docNo })}</h3>
+            <p className="mt-1 text-xs text-muted-foreground">{t(isChallan ? "challan.voidHint" : isSales ? "docdetail.voidHint" : "docdetail.voidBillHint")}</p>
             <div className="mt-4">
               <label className="mb-1 block text-sm font-semibold">{t("docdetail.voidReason")}</label>
               <input className="field" value={voidReason} onChange={(e) => setVoidReason(e.target.value)}

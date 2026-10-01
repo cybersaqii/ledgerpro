@@ -273,6 +273,10 @@ export type PostSalesInput = {
   freightTotal?: bigint;
   grandTotal: bigint;
   createdById: string;
+  /** Module 21: revenue-only posting — skip ALL stock movement for invoices
+   *  converted from an already-dispatched challan (the no-double-deduct
+   *  rule). The journal then carries revenue/tax/discount/freight only. */
+  skipStock?: boolean;
   /** RETURN docs: the source INVOICE id, used to restore its exact batches. */
   sourceDocId?: string;
   /** Module 13: project tag — stamped on every journal line (balance unchanged). */
@@ -286,6 +290,13 @@ export async function postSalesDoc(tx: DbTx, input: PostSalesInput): Promise<str
   // and gross sales stay visible in reports.
   const grossSales = input.items.reduce((a, i) => a + i.taxablePaisa, 0n);
 
+  // Module 21: skipStock — revenue-only invoice (converted from a challan
+  // that already deducted stock at dispatch). No bundle explosion, no batch
+  // deduction, no stock levels, no movement rows, no COGS lines. The journal
+  // below naturally carries revenue/tax/discount/freight only, because the
+  // COGS groups are built from the (empty) movement details.
+  const allDetails: StockMoveDetail[] = [];
+  if (!input.skipStock) {
   // Bundle lines explode into their components for stock + COGS; the bundle
   // product itself never gets a stock movement. Plain lines pass through.
   // Insufficient component stock throws here, rolling back the whole doc.
@@ -336,10 +347,11 @@ export async function postSalesDoc(tx: DbTx, input: PostSalesInput): Promise<str
 
   // Module 4: apply stock per location (line-level branch overrides fall back
   // to the doc branch) and keep the per-move details for the movement ledger.
-  const { details: allDetails } = await applyStockByBranch(
+  const { details } = await applyStockByBranch(
     tx,
     stockMoves.map((m) => ({ ...m, branch: m.branchId }))
   );
+  allDetails.push(...details);
   await recordStockDetails(
     tx,
     input.companyId,
@@ -349,6 +361,7 @@ export async function postSalesDoc(tx: DbTx, input: PostSalesInput): Promise<str
     input.docNo,
     allDetails
   );
+  }
 
   // Module 4.1: per-product GL accounts — revenue grouped by revenue account,
   // COGS/inventory grouped by (cogs, inventory) account pair, each falling

@@ -30,6 +30,8 @@ export type PartyCreateFields = {
   bankAccountNo?: string | null;
   creditLimit?: bigint;
   category?: string | null;
+  // Module 22: party's default price list (validated by the route before call).
+  priceListId?: string | null;
   notes?: string | null;
   idempotencyKey?: string;
 };
@@ -95,6 +97,7 @@ export async function insertParty(
     bankAccountNo: f.bankAccountNo?.trim() || null,
     creditLimit: f.creditLimit ?? 0n,
     category: f.category || null,
+    priceListId: f.priceListId || null,
     notes: f.notes || null,
     balance: opening,
     ...(f.idempotencyKey ? { idempotencyKey: f.idempotencyKey } : {}),

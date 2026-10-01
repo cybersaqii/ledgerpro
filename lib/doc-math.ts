@@ -45,6 +45,22 @@ export function taxOf(taxable: bigint, bps: number): bigint {
   return (taxable * BigInt(bps) + 5000n) / 10000n;
 }
 
+/**
+ * Module 22 — discount-matrix slice for one doc line (client-safe mirror of
+ * the server formula in lib/pricing.ts).
+ *
+ * extra = half-up((gross − typedDiscount) × bps / 10000), clamped so the
+ * effective discount (typed + extra) never exceeds the gross. The server is
+ * authoritative; this exists so the form's preview matches the saved doc.
+ */
+export function matrixLineDiscount(grossPaisa: bigint, discountPaisa: bigint, bps: number): bigint {
+  if (bps <= 0 || grossPaisa <= 0n) return 0n;
+  const typed = discountPaisa < 0n ? 0n : discountPaisa > grossPaisa ? grossPaisa : discountPaisa;
+  const net = grossPaisa - typed;
+  if (net <= 0n) return 0n;
+  return (net * BigInt(bps) + 5000n) / 10000n;
+}
+
 export type LineMath = {
   gross: bigint; // qty × rate, half-up
   disc: bigint; // clamped to [0, gross]

@@ -45,11 +45,13 @@ export type ConvertTarget = "INVOICE" | "CHALLAN" | "ORDER";
  *    status machine stay consistent
  *  - CHALLAN → INVOICE (posted)
  *
- *  Challan semantics: a challan is always a DRAFT delivery note — it never
- *  posts stock or journals (POSTED_TYPES in app/api/sales/route.ts excludes
- *  it). So converting a challan posts stock + journals exactly once, through
- *  the same postSalesDoc path as an order; there is nothing to double-post.
- *  The CONVERTED status stamp blocks a second conversion. */
+ *  Module 21 — challan lifecycle: DRAFT → DISPATCHED (stock moves out, NO
+ *  journal) → DELIVERED → converted to invoice. Converting a
+ *  DISPATCHED/DELIVERED challan posts the normal sales journal but deducts
+ *  NOTHING (stockPosted = false — the no-double-deduct rule). Converting a
+ *  DRAFT challan keeps the Module 1 behavior: the invoice posts stock +
+ *  journals in one step. A voided or already-converted challan cannot be
+ *  converted. The CONVERTED status stamp blocks a second conversion. */
 export async function convertSalesDoc(
   tx: Tx,
   input: { companyId: string; branchId: string; sourceId: string; userId: string; priceOverride?: boolean; applyAdvance?: boolean; targetType?: ConvertTarget }
@@ -84,6 +86,12 @@ export async function convertSalesDoc(
   }
   if (src.docType === "CHALLAN" && targetType !== "INVOICE")
     throw new UserError("A challan can only be converted to an invoice.");
+  if (src.voidedAt || src.status === "VOID")
+    throw new UserError("This document is voided and cannot be converted.");
+  // Module 21 — the no-double-deduct rule: a challan that already moved
+  // stock out at dispatch converts to a revenue-only invoice.
+  const challanDispatched =
+    src.docType === "CHALLAN" && (src.status === "DISPATCHED" || src.status === "DELIVERED");
   if (src.docType === "QUOTATION" && targetType !== "INVOICE" && targetType !== "ORDER")
     throw new UserError("A quotation can only be converted to an order or an invoice.");
 
@@ -206,6 +214,9 @@ export async function convertSalesDoc(
     foreignTotal: convFx.foreignTotal,
     notes: `Converted from ${src.docType === "QUOTATION" ? "quotation" : "challan"} ${src.docNo}`,
     sourceDocId: src.id,
+    // Module 21: revenue-only when the challan already deducted stock at
+    // dispatch — voiding this invoice must not restore stock.
+    stockPosted: !challanDispatched,
     createdById: input.userId,
   });
   await tx.insert(salesDocItems).values(
@@ -237,6 +248,9 @@ export async function convertSalesDoc(
     grandTotal: totals.grandTotal,
     createdById: input.userId,
     projectId,
+    // Module 21: dispatched challans already moved stock out — the invoice
+    // posts revenue only (no stock, no COGS, no double deduction).
+    skipStock: challanDispatched,
   });
   await tx.update(salesDocs).set({ journalEntryId: entryId }).where(eq(salesDocs.id, docId));
   // advance auto-deduction against the new invoice (same as the invoice form)

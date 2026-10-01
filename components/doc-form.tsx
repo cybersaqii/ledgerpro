@@ -6,7 +6,7 @@ import { Plus, Printer, Search, Trash2 } from "lucide-react";
 import { PageHeader, Field, ErrorNote } from "@/components/ui";
 import { api, ApiError, fmtMoney, fmtQty, fmtDateInput, fmtDate } from "@/lib/format";
 import { localizedApiError } from "@/lib/api-errors";
-import { lineMath, docMath, taxBpsOf } from "@/lib/doc-math";
+import { lineMath, docMath, taxBpsOf, taxOf, matrixLineDiscount } from "@/lib/doc-math";
 import { foreignToPaisa, paisaToForeignMinor, formatForeign, minorToDecimalString, formatRate } from "@/lib/fx";
 import { parseDecimalToMinor } from "@/lib/decimal";
 // Module 18: exact integer UOM math for the client-side unit preview
@@ -17,7 +17,7 @@ import { useBusinessProfile } from "@/components/business-type";
 import { ProjectSelect } from "@/components/project-select";
 import { useLang } from "@/components/lang-provider";
 
-type Party = { id: string; name: string; phone: string | null; paymentTerms?: string | null; whtCategory?: string | null; activeTaxPayer?: boolean | null; filerStatus?: string | null };
+type Party = { id: string; name: string; phone: string | null; paymentTerms?: string | null; whtCategory?: string | null; activeTaxPayer?: boolean | null; filerStatus?: string | null; priceListId?: string | null; category?: string | null };
 type Product = { id: string; sku: string; name: string; unit: string; salePrice: string; purchasePrice: string; totalQty: string; minSalePrice?: string | null; isBundle?: boolean };
 
 type BatchOpt = { id: string; batchNo: string; expiryDate: string | null; qtyThousandths: string };
@@ -260,6 +260,15 @@ export function DocForm({ mode }: { mode: "SALES" | "PURCHASE" }) {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [creatingParty, setCreatingParty] = useState(false);
+  // ── Module 22: price lists + discount matrix (sales docs only) ──
+  const [priceLists, setPriceLists] = useState<{ id: string; name: string }[]>([]);
+  /** currently selected list ("" = default pricing); auto-set from the party's list on choose. */
+  const [priceListId, setPriceListId] = useState("");
+  /** the list whose rates are actually on the lines — "Apply" shows while these differ. */
+  const [appliedListId, setAppliedListId] = useState("");
+  const [repriceBusy, setRepriceBusy] = useState(false);
+  /** discount-matrix bps per productId (party-scoped; reset on party change). */
+  const [matrixBps, setMatrixBps] = useState<Record<string, number>>({});
   const [quickPhone, setQuickPhone] = useState("");
   /** FA-style: "+ Add New" quick-create row is always visible in the party dropdown. */
   const [showQuickAdd, setShowQuickAdd] = useState(false);
@@ -420,6 +429,14 @@ export function DocForm({ mode }: { mode: "SALES" | "PURCHASE" }) {
       .catch(() => {});
   }, []);
 
+  // Module 22: price lists for the selector (sales docs only).
+  useEffect(() => {
+    if (!isSales) return;
+    api<{ data: { id: string; name: string }[] }>("/api/price-lists")
+      .then((d) => setPriceLists(d.data.filter((l) => l.id)))
+      .catch(() => {});
+  }, [isSales]);
+
   /** Term days → due date: typing N sets due = invoice date + N days. */
   function dueFromTerm(dateStr: string, termStr: string): string | null {
     const n = parseInt(termStr, 10);
@@ -444,9 +461,97 @@ export function DocForm({ mode }: { mode: "SALES" | "PURCHASE" }) {
 
   /** Module 1: payment terms → default term days (NET_15 → 15 …). */
   const TERM_DAYS: Record<string, number> = { NET_15: 15, NET_30: 30, NET_45: 45, DUE_ON_RECEIPT: 0 };
+  /** Module 22: paisa (BigInt) → the rate string in the document's currency. */
+  function paisaToRateStr(paisa: bigint): string {
+    if (isForeign && fxRateScaled != null) {
+      try {
+        return minorToDecimalString(paisaToForeignMinor(paisa, fxRateScaled, fxMinorUnits), fxMinorUnits);
+      } catch { /* fall through to the PKR figure */ }
+    }
+    return (Number(paisa) / 100).toString();
+  }
+
+  /**
+   * Module 22: reprice every line from a price list ("" = default pricing —
+   * the server resolves party's list → default list → product sale price).
+   * Batched by display unit so carton lines don't get per-piece rates.
+   */
+  async function applyPriceList(listId: string) {
+    const withProducts = lines.filter((l) => l.productId);
+    if (withProducts.length === 0) { setAppliedListId(listId); return; }
+    setRepriceBusy(true);
+    try {
+      const groups = new Map<string, { key: number; productId: string }[]>();
+      for (const l of withProducts) {
+        const u = l.lineUnit || "";
+        const g = groups.get(u) ?? [];
+        g.push({ key: l.key, productId: l.productId });
+        groups.set(u, g);
+      }
+      const rateByKey = new Map<number, string>();
+      const rid = listId || "default";
+      for (const [u, g] of groups) {
+        const ids = [...new Set(g.map((x) => x.productId))].join(",");
+        const d = await api<{ data: { rates: Record<string, string> } }>(
+          `/api/price-lists/${rid}/rates?productIds=${encodeURIComponent(ids)}${u ? `&unit=${encodeURIComponent(u)}` : ""}${partyId ? `&partyId=${encodeURIComponent(partyId)}` : ""}`
+        );
+        for (const x of g) {
+          const paisa = d.data.rates[x.productId];
+          if (paisa != null) {
+            try { rateByKey.set(x.key, paisaToRateStr(BigInt(paisa))); } catch { /* keep the typed rate */ }
+          }
+        }
+      }
+      if (rateByKey.size > 0) {
+        setLines((ls) => ls.map((l) => (rateByKey.has(l.key) ? { ...l, rate: rateByKey.get(l.key)! } : l)));
+      }
+      setAppliedListId(listId);
+    } catch {
+      setError(t("pricing.repriceFailed"));
+    } finally {
+      setRepriceBusy(false);
+    }
+  }
+
+  /**
+   * Module 22: discount-matrix badges — the server's blanket discount for
+   * (this party × each product), shown as "+5%" next to the line discount.
+   * Cached per productId; the cache is party-scoped and cleared whenever the
+   * party changes (pass force to skip the cache right after a clear).
+   */
+  async function refreshMatrixBadges(forPartyId: string, productIds: string[], force = false) {
+    if (!isSales || !forPartyId) return;
+    const fresh = [...new Set(productIds)].filter((id) => id && (force || matrixBps[id] === undefined));
+    if (fresh.length === 0) return;
+    const results = await Promise.all(
+      fresh.map((pid) =>
+        api<{ data: { discountBps: number } }>(
+          `/api/discount-matrix/resolve?partyId=${encodeURIComponent(forPartyId)}&productId=${encodeURIComponent(pid)}`
+        )
+          .then((d) => ({ pid, bps: d.data.discountBps }))
+          .catch(() => ({ pid, bps: 0 }))
+      )
+    );
+    setMatrixBps((m) => {
+      const next = { ...m };
+      for (const r of results) next[r.pid] = r.bps;
+      return next;
+    });
+  }
+
   function chooseParty(p: Party) {
     setPartyId(p.id);
     setShowPartyList(false);
+    // Module 22: the party's price list auto-selects — its rates apply at
+    // once (the party is picked before lines are usually added). The
+    // discount-matrix badge cache is party-scoped.
+    if (isSales) {
+      const pl = p.priceListId || "";
+      setPriceListId(pl);
+      setMatrixBps({});
+      if (pl) void applyPriceList(pl);
+      void refreshMatrixBadges(p.id, lines.map((l) => l.productId), true);
+    }
     // Module 2.4: suggest the WHT rate from the supplier's WHT category —
     // the user can still override it, or clear it for 0%.
     if (!isSales && docType === "BILL") {
@@ -584,6 +689,23 @@ export function DocForm({ mode }: { mode: "SALES" | "PURCHASE" }) {
     loadBatches(p.id);
     loadLastRate(p.id);
     loadUoms(p.id, key);
+    // Module 22: a new line inherits the active price list's rate, and gets
+    // its discount-matrix badge (server-authoritative at posting; the badge
+    // and the preview below mirror the same formula).
+    if (isSales && priceListId) {
+      void (async () => {
+        try {
+          const d = await api<{ data: { rates: Record<string, string> } }>(
+            `/api/price-lists/${priceListId}/rates?productIds=${encodeURIComponent(p.id)}${partyId ? `&partyId=${encodeURIComponent(partyId)}` : ""}`
+          );
+          const paisa = d.data.rates[p.id];
+          if (paisa != null) {
+            try { updateLine(key, { rate: paisaToRateStr(BigInt(paisa)) }); } catch { /* keep default */ }
+          }
+        } catch { /* keep the default sale price */ }
+      })();
+    }
+    if (isSales && partyId) void refreshMatrixBadges(partyId, [p.id]);
     setProdQ("");
     setShowProdList(false);
     setActiveIdx(-1);
@@ -699,8 +821,23 @@ export function DocForm({ mode }: { mode: "SALES" | "PURCHASE" }) {
   // gross = qty×rate (half-up) · taxable = gross − discount · tax = half-up(taxable × bps)
   // Module 1: sales freight is untaxed and added to the grand total.
   // Module 10: amounts are in the document currency's minor units (PKR = paisa).
+  // Module 22: the discount matrix is server-authoritative, so the preview
+  // folds the same extra in via matrixLineDiscount (badges show the %).
   const freightDocTypes = isSales && (docType === "INVOICE" || docType === "QUOTATION" || docType === "ORDER");
-  const computed = lines.map((l) => lineMath(l.qty, l.rate, l.discount, l.taxPct, fxMinorUnits));
+  const computed = lines.map((l) => {
+    const m = lineMath(l.qty, l.rate, l.discount, l.taxPct, fxMinorUnits);
+    const bps = isSales && l.productId ? matrixBps[l.productId] ?? 0 : 0;
+    if (bps > 0) {
+      const extra = matrixLineDiscount(m.gross, m.disc, bps);
+      if (extra > 0n) {
+        const disc = m.disc + extra > m.gross ? m.gross : m.disc + extra;
+        const taxable = m.gross - disc;
+        const tax = taxOf(taxable, Math.max(0, Math.min(10000, taxBpsOf(l.taxPct) ?? 0)));
+        return { ...m, disc, taxable, tax, total: taxable + tax };
+      }
+    }
+    return m;
+  });
   const { subtotal, itemDisc: itemDiscTotal, taxTotal, grand } =
     docMath(computed, discountTotal, freightDocTypes ? freightTotal : "0", fxMinorUnits);
   /** PKR equivalent of the live grand total (preview; the server converts per line). */
@@ -959,6 +1096,28 @@ export function DocForm({ mode }: { mode: "SALES" | "PURCHASE" }) {
                 ))}
               </select>
             </Field>
+            {/* Module 22: price list — the party's list auto-selects on party
+                pick; Apply reprices every line from the chosen list. */}
+            {isSales && (
+              <Field label={t("pricing.priceList")}>
+                <div className="flex gap-2">
+                  <select className="field" value={priceListId}
+                    onChange={(e) => setPriceListId(e.target.value)}
+                    aria-label={t("pricing.priceList")}>
+                    <option value="">{t("pricing.defaultPricing")}</option>
+                    {priceLists.map((l) => (
+                      <option key={l.id} value={l.id}>{l.name}</option>
+                    ))}
+                  </select>
+                  {priceListId !== appliedListId && (
+                    <button type="button" className="btn btn-ghost shrink-0 text-sm"
+                      disabled={repriceBusy} onClick={() => applyPriceList(priceListId)}>
+                      {repriceBusy ? t("pricing.applying") : t("pricing.apply")}
+                    </button>
+                  )}
+                </div>
+              </Field>
+            )}
             <Field label={t("docform.termDays")}>
               <input type="number" min="0" max="3650" className="field" placeholder="0"
                 value={termDays} onChange={(e) => onTermDays(e.target.value)} />
@@ -1108,7 +1267,13 @@ export function DocForm({ mode }: { mode: "SALES" | "PURCHASE" }) {
                           </td>
                           <td><input ref={setRowRef(l.key, "discount")} onKeyDown={(e) => rowKeyDown(e, l.key, "discount")}
                             className="field num !px-2 !py-1.5" type="number" min="0" step={isForeign ? "any" : "0.01"} placeholder="0.00" value={l.discount}
-                            onChange={(e) => updateLine(l.key, { discount: e.target.value })} /></td>
+                            onChange={(e) => updateLine(l.key, { discount: e.target.value })} />
+                            {/* Module 22: blanket discount from the matrix — applied by the server on top of the typed discount */}
+                            {isSales && l.productId && (matrixBps[l.productId] ?? 0) > 0 && (
+                              <p className="px-1 pt-0.5 text-[11px] font-semibold text-primary">
+                                {t("pricing.matrixBadge", { pct: String(matrixBps[l.productId]! / 100) })}
+                              </p>
+                            )}</td>
                           <td><input ref={setRowRef(l.key, "tax")} onKeyDown={(e) => rowKeyDown(e, l.key, "tax")}
                             className="field num !px-2 !py-1.5" type="number" min="0" max="100" step="0.01" placeholder="0" value={l.taxPct}
                             aria-label={t("docform.colTax")}
@@ -1178,6 +1343,11 @@ export function DocForm({ mode }: { mode: "SALES" | "PURCHASE" }) {
                             className="field num !px-2" type="number" min="0" step={isForeign ? "any" : "0.01"} placeholder={t("docform.colDisc")} value={l.discount}
                             aria-label={t("docform.colDisc")}
                             onChange={(e) => updateLine(l.key, { discount: e.target.value })} />
+                          {isSales && l.productId && (matrixBps[l.productId] ?? 0) > 0 && (
+                            <span className="col-span-2 -mt-1 text-[11px] font-semibold text-primary">
+                              {t("pricing.matrixBadge", { pct: String(matrixBps[l.productId]! / 100) })}
+                            </span>
+                          )}
                           <input ref={setRowRef(l.key, "tax")} onKeyDown={(e) => rowKeyDown(e, l.key, "tax")}
                             className="field num !px-2" type="number" min="0" max="100" step="0.01" placeholder={t("docform.colTax")} value={l.taxPct}
                             aria-label={t("docform.colTax")}

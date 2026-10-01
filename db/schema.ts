@@ -360,6 +360,11 @@ export const priceLists = sqliteTable(
     id: id(),
     companyId: text("company_id").notNull(),
     name: text("name").notNull(),
+    // ── Module 22 (migration 0049): ISO currency the rates are quoted in
+    // (company currency assumed; multi-currency conversion is out of scope),
+    // and an active flag so lists can be retired without deleting history.
+    currency: text("currency").notNull().default("PKR"),
+    active: flag("active", true),
     isDefault: flag("is_default", false),
     createdAt: createdAt(),
     updatedAt: updatedAt(),
@@ -379,6 +384,49 @@ export const priceListItems = sqliteTable(
     uniqueIndex("pli_list_product").on(t.priceListId, t.productId),
     index("pli_list").on(t.priceListId),
     index("pli_product").on(t.productId),
+  ]
+);
+
+// ─── Module 22: per-UOM override rates inside a price list ──────────────
+// Reuses Module 18's units. Absent unit rows fall back to
+// price_list_items.rate converted by the Module 18 conversion factor.
+export const priceListUomRates = sqliteTable(
+  "price_list_uom_rates",
+  {
+    id: id(),
+    companyId: text("company_id").notNull(),
+    priceListId: text("price_list_id").notNull(),
+    productId: text("product_id").notNull(),
+    unit: text("unit").notNull(),
+    rate: money("rate"),
+    createdAt: createdAt(),
+  },
+  (t) => [
+    uniqueIndex("plu_list_product_unit").on(t.priceListId, t.productId, t.unit),
+    index("plu_company_list").on(t.companyId, t.priceListId),
+    index("plu_company_product").on(t.companyId, t.productId),
+  ]
+);
+
+// ─── Module 22: discount matrix ─────────────────────────────────────────
+// party_category × product_category → discount_bps (integer basis points:
+// 500 = 5%). Applied at the sales doc line level, on top of any typed line
+// discount. Both categories are the free-text category fields on parties /
+// products (migration 0026).
+export const discountMatrix = sqliteTable(
+  "discount_matrix",
+  {
+    id: id(),
+    companyId: text("company_id").notNull(),
+    partyCategory: text("party_category").notNull(),
+    productCategory: text("product_category").notNull(),
+    discountBps: integer("discount_bps").notNull().default(0),
+    isActive: flag("is_active", true),
+    createdAt: createdAt(),
+  },
+  (t) => [
+    uniqueIndex("dm_company_party_product").on(t.companyId, t.partyCategory, t.productCategory),
+    index("discount_matrix_company").on(t.companyId, t.isActive),
   ]
 );
 
@@ -448,6 +496,11 @@ export const salesDocs = sqliteTable(
     voidJournalEntryId: text("void_journal_entry_id"),
     voidedById: text("voided_by_id"),
     sourceDocId: text("source_doc_id"), // quotation/order this invoice was converted from
+    // ── Module 21 (migration 0049): 1 = this doc's posting deducted stock
+    // (normal invoices); 0 = revenue-only invoice converted from a challan
+    // that already deducted stock at dispatch — void reverses the journal
+    // but must NOT restore stock.
+    stockPosted: flag("stock_posted", true),
     createdById: text("created_by_id").notNull(),
     idempotencyKey: text("idempotency_key"), // double-submit protection (migration 0031)
     // ── Module 13 (migration 0044): project tagging.
@@ -1777,7 +1830,7 @@ export const stockMovements = sqliteTable(
     productId: text("product_id").notNull(),
     branchId: text("branch_id").notNull(),
     date: ts("date").notNull(), // source document date
-    txnType: text("txn_type").notNull(), // INVOICE | BILL | GRN | TRANSFER_OUT | TRANSFER_IN | ADJUSTMENT | OPENING | RETURN
+    txnType: text("txn_type").notNull(), // INVOICE | BILL | GRN | TRANSFER_OUT | TRANSFER_IN | ADJUSTMENT | OPENING | RETURN | DISPATCH | DISPATCH_REVERSAL (Module 21: challan dispatch — stock movement WITHOUT any journal)
     docId: text("doc_id"),
     docNo: text("doc_no"),
     inQty: qty("in_qty"),
@@ -2368,4 +2421,27 @@ export const whatsappQueue = sqliteTable(
     createdAt: createdAt(),
   },
   (t) => [index("whatsapp_queue_company").on(t.companyId, t.status, t.createdAt)]
+);
+
+// ─── Module 20: universal data import log ────────────────────────────────
+// Every CSV validate / commit attempt: kind, row counts, error count and the
+// capped error list (JSON). The import itself is all-or-nothing — the log is
+// the audit trail of what was validated and what was committed.
+export const importLogs = sqliteTable(
+  "import_logs",
+  {
+    id: id(),
+    companyId: text("company_id").notNull(),
+    kind: text("kind").notNull(), // PRODUCTS | PARTIES | OPENING_STOCK
+    fileName: text("file_name"),
+    totalRows: integer("total_rows").notNull().default(0),
+    importedRows: integer("imported_rows").notNull().default(0),
+    skippedRows: integer("skipped_rows").notNull().default(0),
+    errorCount: integer("error_count").notNull().default(0),
+    errorsJson: text("errors_json"), // JSON array of {row, message} (capped at 100)
+    status: text("status").notNull().default("SUCCESS"), // SUCCESS | FAILED | VALIDATED
+    createdById: text("created_by_id").notNull(),
+    createdAt: createdAt(),
+  },
+  (t) => [index("import_logs_company").on(t.companyId, t.createdAt)]
 );

@@ -1,6 +1,6 @@
 import { NextRequest } from "next/server";
 import { eq, and, like, desc, sql } from "drizzle-orm";
-import { parties } from "@/db/schema";
+import { parties, priceLists } from "@/db/schema";
 
 import { partySchema } from "@/lib/validators";
 import { parseMoney } from "@/lib/money";
@@ -58,6 +58,18 @@ export async function POST(req: NextRequest) {
   const parsed = partySchema.safeParse(body);
   if (!parsed.success) return err("Please check the form and try again.", 422, "VALIDATION_ERROR");
   const p = parsed.data;
+
+  // Module 22: a party's price list must belong to this company (or be empty).
+  let priceListId: string | null = null;
+  if (p.priceListId) {
+    const [pl] = await db
+      .select({ id: priceLists.id })
+      .from(priceLists)
+      .where(and(eq(priceLists.id, p.priceListId), eq(priceLists.companyId, companyId)))
+      .limit(1);
+    if (!pl) return err("The selected price list is invalid.", 422, "VALIDATION_ERROR");
+    priceListId = pl.id;
+  }
 
   // Idempotency: a retry of the same submission (same key) returns the
   // already-created party with 200 instead of double-creating.
@@ -137,6 +149,7 @@ export async function POST(req: NextRequest) {
           bankAccountNo: p.bankAccountNo || null,
           creditLimit: parseMoney(p.creditLimit || "0"),
           category: p.category || null,
+          priceListId,
           notes: p.notes || null,
           ...(idemKey ? { idempotencyKey: idemKey } : {}),
         },

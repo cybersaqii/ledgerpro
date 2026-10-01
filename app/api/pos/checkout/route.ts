@@ -3,7 +3,8 @@ import { eq, and, inArray } from "drizzle-orm";
 import { salesDocs, salesDocItems, parties, products, bankAccounts, productBatches } from "@/db/schema";
 import { posCheckoutSchema } from "@/lib/validators";
 import { computeTotals, type DocItemInput } from "@/lib/totals";
-import { parseMoney } from "@/lib/money";
+import { parseMoney, qtyRateTotal } from "@/lib/money";
+import { applyDiscountMatrix } from "@/lib/pricing";
 import { parseQty } from "@/lib/qty";
 import { resolveLineUnits, type ResolvedLineUnit } from "@/lib/uom-lines";
 import { postSalesDoc, postPayment } from "@/lib/posting";
@@ -190,6 +191,20 @@ export async function POST(req: NextRequest) {
 
   let totals;
   try {
+    // Module 22: discount matrix — server-authoritative (same as /api/sales).
+    const extras = await applyDiscountMatrix(
+      db,
+      companyId,
+      party.category,
+      docItems.map((i) => ({
+        productId: i.productId,
+        grossPaisa: qtyRateTotal(i.qtyMilli, i.ratePaisa),
+        discountPaisa: i.discountPaisa,
+      }))
+    );
+    for (const e of extras) {
+      if (e.extraPaisa > 0n) docItems[e.index]!.discountPaisa += e.extraPaisa;
+    }
     totals = computeTotals(docItems, parseMoney(b.discountTotal || "0"));
  } catch (e) {
     return toApiError(e, { route: "/api/pos/checkout", companyId });

@@ -3,6 +3,8 @@ import { eq, and, desc, sql, inArray } from "drizzle-orm";
 import { salesDocs, salesDocItems, parties, products, productBatches, branches } from "@/db/schema";
 import { salesDocSchema } from "@/lib/validators";
 import { computeTotals } from "@/lib/totals";
+import { qtyRateTotal } from "@/lib/money";
+import { applyDiscountMatrix } from "@/lib/pricing";
 import { parseMoney } from "@/lib/money";
 import { parseQty } from "@/lib/qty";
 import { resolveDocCurrency, type FxDocResult } from "@/lib/fx-docs";
@@ -245,6 +247,23 @@ export async function POST(req: NextRequest) {
 
   let totals;
   try {
+    // Module 22: discount matrix — server-authoritative. Fold the blanket
+    // party-category × product-category discount into each line's discount
+    // (on top of the typed line discount) before totals are computed, so the
+    // posted journal carries exactly what was quoted.
+    const extras = await applyDiscountMatrix(
+      db,
+      companyId,
+      party.category,
+      fx.pkrItems.map((i) => ({
+        productId: i.productId,
+        grossPaisa: qtyRateTotal(i.qtyMilli, i.ratePaisa),
+        discountPaisa: i.discountPaisa,
+      }))
+    );
+    for (const e of extras) {
+      if (e.extraPaisa > 0n) fx.pkrItems[e.index]!.discountPaisa += e.extraPaisa;
+    }
     totals = computeTotals(fx.pkrItems, fx.pkrDiscountTotal, fx.pkrFreightTotal);
   } catch (e) {
     return toApiError(e, { route: "/api/sales", companyId });

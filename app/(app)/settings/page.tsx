@@ -27,6 +27,7 @@ const SECTIONS = [
   "sec-currencies",
   "sec-data",
   "sec-import",
+  "sec-pricing",
   "sec-backups",
   "sec-team",
   "sec-security",
@@ -43,6 +44,7 @@ const SECTION_KEYS: Record<(typeof SECTIONS)[number], string> = {
   "sec-currencies": "navCurrencies",
   "sec-data": "navData",
   "sec-import": "navImport",
+  "sec-pricing": "navPricing",
   "sec-backups": "navBackups",
   "sec-team": "navTeam",
   "sec-security": "navPassword",
@@ -255,7 +257,29 @@ export default function SettingsPage() {
           </div>
         </div>
       </div>
-      <ImportCard />
+      <div id="sec-import" className="card card-gloss anchor-scroll mt-6 mx-auto max-w-2xl p-6 sm:p-8">
+        <div className="flex items-center justify-between gap-3">
+          <div>
+            <h2 className="text-lg font-extrabold">{t("settings.importTitle")}</h2>
+            <p className="mt-1 text-sm text-muted-foreground">{t("settings.importHint")}</p>
+          </div>
+          <Link href="/settings/import" className="btn btn-primary shrink-0 text-sm">
+            <Upload size={15} /> {t("settings.openImportWizard")}
+          </Link>
+        </div>
+      </div>
+      {/* Module 22: price lists + discount matrix */}
+      <div id="sec-pricing" className="card card-gloss anchor-scroll mt-6 mx-auto max-w-2xl p-6 sm:p-8">
+        <div className="flex items-center justify-between gap-3">
+          <div>
+            <h2 className="text-lg font-extrabold">{t("pricing.title")}</h2>
+            <p className="mt-1 text-sm text-muted-foreground">{t("pricing.subtitle")}</p>
+          </div>
+          <Link href="/settings/price-lists" className="btn btn-primary shrink-0 text-sm">
+            {t("pricing.manage")}
+          </Link>
+        </div>
+      </div>
       <BackupsCard isOwner={pageIsOwner} />
       <TeamCard />
       <BranchesCard />
@@ -970,80 +994,6 @@ function TeamCard() {
           </ul>
           {resetDone && <p className="mt-3 rounded-xl bg-primary-soft px-4 py-2.5 text-sm font-semibold text-primary">{resetDone}</p>}
         </>
-      )}
-    </div>
-  );
-}
-
-function ImportCard() {
-  const { t } = useLang();
-  const [busy, setBusy] = useState<string | null>(null);
-  const [result, setResult] = useState<{ kind: string; imported: number; skipped: number; errors: { row: number; message: string }[]; errorCount: number } | null>(null);
-  const [error, setError] = useState<string | null>(null);
-
-  async function upload(kind: "products" | "parties", file: File | undefined) {
-    if (!file) return;
-    setBusy(kind); setError(null); setResult(null);
-    try {
-      const fd = new FormData();
-      fd.append("kind", kind);
-      fd.append("file", file);
-      const res = await fetch("/api/import", { method: "POST", body: fd, credentials: "include" });
-      const body = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(body.error || t("settings.importError"));
-      setResult({ kind, ...body.data });
-    } catch (e) {
-      setError(e instanceof Error ? e.message : t("settings.importError"));
-    } finally {
-      setBusy(null);
-    }
-  }
-
-  return (
-    <div id="sec-import" className="card card-gloss anchor-scroll mt-6 mx-auto max-w-2xl p-6 sm:p-8">
-      <h2 className="text-lg font-extrabold">{t("settings.importTitle")}</h2>
-      <p className="mt-1 text-sm text-muted-foreground">
-        {t("settings.importHint")}
-      </p>
-      <div className="mt-4 grid gap-4 sm:grid-cols-2">
-        {(["products", "parties"] as const).map((kind) => (
-          <div key={kind} className="rounded-2xl border border-border p-4">
-            <p className="font-bold capitalize">{kind === "products" ? t("settings.expProducts") : t("settings.expParties")}</p>
-            <a href={`/api/import/template?kind=${kind}`} className="mt-1 inline-block text-sm font-semibold text-primary hover:underline" download>
-              {t("settings.downloadTemplate")}
-            </a>
-            <label className="mt-3 block">
-              <span className="btn btn-ghost w-full cursor-pointer text-sm">
-                <Upload size={15} /> {busy === kind ? t("settings.uploading") : t("settings.uploadCsv")}
-              </span>
-              <input
-                type="file"
-                accept=".csv,text/csv"
-                className="hidden"
-                disabled={busy !== null}
-                onChange={(e) => { upload(kind, e.target.files?.[0]); e.target.value = ""; }}
-              />
-            </label>
-          </div>
-        ))}
-      </div>
-      {error && <ErrorNote message={error} />}
-      {result && (
-        <div className="mt-4 rounded-2xl bg-muted/60 p-4 text-sm">
-          <p className="font-bold capitalize">
-            {t("settings.importResult", { kind: result.kind, imported: result.imported })}{result.skipped > 0 && t("settings.importSkipped", { skipped: result.skipped })}
-          </p>
-          {result.errors.length > 0 && (
-            <ul className="mt-2 max-h-40 space-y-1 overflow-auto text-muted-foreground">
-              {result.errors.map((e, i) => (
-                <li key={i}>{t("settings.importRow", { row: e.row })}: {e.message}</li>
-              ))}
-              {result.errorCount > result.errors.length && (
-                <li>{t("settings.importMoreErrors", { count: result.errorCount - result.errors.length })}</li>
-              )}
-            </ul>
-          )}
-        </div>
       )}
     </div>
   );
