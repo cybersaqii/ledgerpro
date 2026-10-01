@@ -141,6 +141,8 @@ export const salesDocSchema = z.object({
   overrideCreditLimit: z.boolean().default(false), // owner-confirmed: post even if udhaar crosses the credit limit
   // Module 13: project tag — validated server-side (company + taggable status).
   projectId: z.string().min(1).optional(),
+  // Module 14: POS session tag (e.g. counter returns) — validated server-side (company + OPEN).
+  sessionId: z.string().min(1).optional(),
   // Add Receipt / Add Payment: collected with the doc, posted in the same
   // transaction (INVOICE → RECEIPT allocated to the new invoice,
   // BILL → PAYMENT allocated to the new bill).
@@ -196,6 +198,8 @@ export const paymentSchema = z.object({
   autoAllocate: z.boolean().default(false),
   /** Module 13: project tag (journal lines carry it; P&L-neutral by design). */
   projectId: z.string().min(1).optional(),
+  /** Module 14: POS session tag for counter refunds (company + OPEN, server-validated). */
+  sessionId: z.string().min(1).optional(),
   /** Module 7.2: WHT deducted at payment/receipt time (section + rate bps). */
   whtSection: z.string().trim().max(20).optional().or(z.literal("")),
   whtBps: z.number().int().min(0).max(10000).optional(),
@@ -248,6 +252,8 @@ export const posCheckoutSchema = z.object({
   overrideCreditLimit: z.boolean().default(false), // owner-confirmed: post even if udhaar crosses the credit limit
   // Module 13: project tag — validated server-side (company + taggable status).
   projectId: z.string().min(1).optional(),
+  // Module 14: POS session tag — validated server-side (company + OPEN).
+  sessionId: z.string().min(1).optional(),
 });
 
 // POST /api/pos/held — park a bill on the server (durable, user-owned).
@@ -303,4 +309,51 @@ export const pdcReverseSchema = z.object({
   branchId: z.string().min(1).optional(),
   date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Invalid date"),
   reason: z.string().trim().max(200).optional().or(z.literal("")),
+});
+
+// ── Module 14: POS terminals & register sessions ──
+
+// POST /api/pos/terminals — register a counter terminal.
+export const posTerminalSchema = z.object({
+  name: z.string().trim().min(1).max(60),
+  branchId: z.string().min(1).optional(), // defaults to the default branch
+  cashAccountId: z.string().min(1), // bank_accounts.id (kind CASH): the drawer
+  receiptHeader: z.string().trim().max(200).optional().or(z.literal("")),
+  receiptFooter: z.string().trim().max(200).optional().or(z.literal("")),
+  receiptCopies: z.number().int().min(1).max(5).default(1),
+  autoPrint: z.boolean().default(false),
+});
+
+// PATCH /api/pos/terminals/[id] — update a terminal's settings.
+export const posTerminalUpdateSchema = z.object({
+  name: z.string().trim().min(1).max(60).optional(),
+  cashAccountId: z.string().min(1).optional(),
+  receiptHeader: z.string().trim().max(200).optional().or(z.literal("")),
+  receiptFooter: z.string().trim().max(200).optional().or(z.literal("")),
+  receiptCopies: z.number().int().min(1).max(5).optional(),
+  autoPrint: z.boolean().optional(),
+  isActive: z.boolean().optional(),
+});
+
+// POST /api/pos/sessions — open a register shift.
+export const posSessionOpenSchema = z.object({
+  terminalId: z.string().min(1),
+  openingCash: moneyStr.default("0"), // starting float in the drawer
+  notes: z.string().trim().max(500).optional().or(z.literal("")),
+  idempotencyKey: z.string().trim().min(1).max(80).optional(),
+});
+
+// POST /api/pos/sessions/[id]/cash — paid-in / paid-out drawer movement.
+export const posCashMovementSchema = z.object({
+  kind: z.enum(["CASH_IN", "CASH_OUT"]),
+  amount: moneyStr,
+  reason: z.string().trim().min(1).max(200),
+  idempotencyKey: z.string().trim().min(1).max(80).optional(),
+});
+
+// POST /api/pos/sessions/[id]/close — close the shift with a cash count.
+export const posSessionCloseSchema = z.object({
+  countedCash: moneyStr, // physical cash counted in the drawer
+  notes: z.string().trim().max(500).optional().or(z.literal("")),
+  idempotencyKey: z.string().trim().min(1).max(80).optional(),
 });

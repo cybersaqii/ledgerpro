@@ -449,6 +449,9 @@ export const salesDocs = sqliteTable(
     idempotencyKey: text("idempotency_key"), // double-submit protection (migration 0031)
     // ── Module 13 (migration 0044): project tagging.
     projectId: text("project_id"),
+    // ── Module 14 (migration 0045): POS session tagging (links counter
+    // sales to the open shift for the shift summary).
+    posSessionId: text("pos_session_id"),
     createdAt: createdAt(),
     updatedAt: updatedAt(),
   },
@@ -458,6 +461,7 @@ export const salesDocs = sqliteTable(
     index("sales_company_party").on(t.companyId, t.partyId),
     uniqueIndex("sales_docs_idem_key").on(t.companyId, t.idempotencyKey).where(sql`idempotency_key IS NOT NULL`),
     index("sales_docs_project").on(t.companyId, t.projectId),
+    index("sales_docs_pos_session").on(t.companyId, t.posSessionId),
   ]
 );
 
@@ -643,11 +647,15 @@ export const payments = sqliteTable(
     whtSection: text("wht_section"),
     // ── Module 13 (migration 0044): project tagging.
     projectId: text("project_id"),
+    // ── Module 14 (migration 0045): POS session tagging (links counter
+    // receipts/refunds to the open shift).
+    posSessionId: text("pos_session_id"),
   },
   (t) => [
     index("payments_company_kind_date").on(t.companyId, t.kind, t.date),
     uniqueIndex("payments_idem_key").on(t.companyId, t.idempotencyKey).where(sql`idempotency_key IS NOT NULL`),
     index("payments_project").on(t.companyId, t.projectId),
+    index("payments_pos_session").on(t.companyId, t.posSessionId),
   ]
 );
 
@@ -933,6 +941,98 @@ export const heldBills = sqliteTable(
     updatedAt: updatedAt(),
   },
   (t) => [index("held_company_user").on(t.companyId, t.userId)]
+);
+
+// ─── Module 14: POS terminals & register sessions ───────────────────
+
+// POS terminals: one counter = one cash drawer + its print settings.
+export const posTerminals = sqliteTable(
+  "pos_terminals",
+  {
+    id: id(),
+    companyId: text("company_id").notNull(),
+    branchId: text("branch_id").notNull(),
+    name: text("name").notNull(), // "Counter 1" — unique per company+branch
+    cashAccountId: text("cash_account_id").notNull(), // bank_accounts.id (the drawer)
+    receiptHeader: text("receipt_header"), // extra line(s) printed above the receipt
+    receiptFooter: text("receipt_footer"), // extra line(s) printed below the receipt
+    receiptCopies: integer("receipt_copies").notNull().default(1),
+    autoPrint: flag("auto_print", false), // print receipt right after checkout
+    isActive: flag("is_active", true),
+    createdById: text("created_by_id"),
+    createdAt: createdAt(),
+    updatedAt: updatedAt(),
+  },
+  (t) => [
+    uniqueIndex("pos_terminals_company_branch_name").on(t.companyId, t.branchId, t.name),
+    index("pos_terminals_company").on(t.companyId, t.branchId),
+  ]
+);
+
+// POS register sessions (shifts): OPEN → CLOSED.
+export const posSessions = sqliteTable(
+  "pos_sessions",
+  {
+    id: id(),
+    companyId: text("company_id").notNull(),
+    branchId: text("branch_id").notNull(),
+    terminalId: text("terminal_id").notNull(), // pos_terminals.id
+    terminalName: text("terminal_name").notNull(), // denormalized for the report
+    cashAccountId: text("cash_account_id").notNull(), // drawer bank account (denormalized)
+    status: text("status").notNull().default("OPEN"), // OPEN | CLOSED
+    openedById: text("opened_by_id").notNull(),
+    openedAt: ts("opened_at").notNull(),
+    openingCashPaisa: money("opening_cash_paisa"),
+    closedById: text("closed_by_id"),
+    closedAt: ts("closed_at"),
+    countedCashPaisa: numeric("counted_cash_paisa", { mode: "bigint" }),
+    expectedCashPaisa: numeric("expected_cash_paisa", { mode: "bigint" }),
+    variancePaisa: numeric("variance_paisa", { mode: "bigint" }), // counted - expected (negative = shortage)
+    // summary snapshot, computed once at close
+    cashSalesPaisa: money("cash_sales_paisa"),
+    cardSalesPaisa: money("card_sales_paisa"),
+    totalSalesPaisa: money("total_sales_paisa"),
+    totalDiscountPaisa: money("total_discount_paisa"),
+    totalTaxPaisa: money("total_tax_paisa"),
+    salesCount: integer("sales_count").notNull().default(0),
+    cashRefundsPaisa: money("cash_refunds_paisa"),
+    returnsCount: integer("returns_count").notNull().default(0),
+    returnsTotalPaisa: money("returns_total_paisa"),
+    cashInPaisa: money("cash_in_paisa"),
+    cashOutPaisa: money("cash_out_paisa"),
+    varianceEntryId: text("variance_entry_id"), // journal_entries.id of the variance journal
+    idempotencyKey: text("idempotency_key"), // double-submit protection on open
+    notes: text("notes"),
+    createdAt: createdAt(),
+    updatedAt: updatedAt(),
+  },
+  (t) => [
+    // Only one open session per terminal.
+    uniqueIndex("pos_sessions_open_once").on(t.companyId, t.terminalId).where(sql`status = 'OPEN'`),
+    uniqueIndex("pos_sessions_idem_key").on(t.companyId, t.idempotencyKey).where(sql`idempotency_key IS NOT NULL`),
+    index("pos_sessions_company").on(t.companyId, t.openedAt),
+  ]
+);
+
+// Drawer cash movements during a shift (paid-in / paid-out; drawer-only,
+// no GL posting — they adjust the shift's expected cash).
+export const posCashMovements = sqliteTable(
+  "pos_cash_movements",
+  {
+    id: id(),
+    companyId: text("company_id").notNull(),
+    sessionId: text("session_id").notNull(), // pos_sessions.id
+    kind: text("kind").notNull(), // CASH_IN | CASH_OUT
+    amountPaisa: money("amount_paisa"),
+    reason: text("reason").notNull(),
+    idempotencyKey: text("idempotency_key"), // double-submit protection
+    createdById: text("created_by_id").notNull(),
+    createdAt: createdAt(),
+  },
+  (t) => [
+    index("pos_cash_mov_company").on(t.companyId, t.sessionId),
+    uniqueIndex("pos_cash_mov_idem_key").on(t.companyId, t.idempotencyKey).where(sql`idempotency_key IS NOT NULL`),
+  ]
 );
 
 // Audit trail: who did what, when.

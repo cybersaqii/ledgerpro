@@ -19,6 +19,7 @@ import { useBusinessProfile } from "@/components/business-type";
 import { ProductImage } from "@/components/product-image";
 import { ProjectSelect } from "@/components/project-select";
 import { useLang } from "@/components/lang-provider";
+import { ShiftBar, type ShiftSession } from "./shift-ui";
 
 type ApiProduct = PosProduct & { totalQty: string };
 type ApiParty = { id: string; name: string; phone: string | null };
@@ -106,6 +107,15 @@ export default function PosPage() {
   const tenderKeyRef = useRef(0);
   // mixed split + khata: remainder of the split goes on the customer's khata
   const [splitKhata, setSplitKhata] = useState(false);
+
+  // Module 14: the open POS shift (null = no shift open). Sales completed
+  // while a shift is open are tagged with its id for the Z-report.
+  const [shift, setShift] = useState<ShiftSession | null>(null);
+  const [shiftAutoPrint, setShiftAutoPrint] = useState(false);
+  function onShift(s: ShiftSession | null, autoPrint?: boolean) {
+    setShift(s);
+    setShiftAutoPrint(!!autoPrint);
+  }
 
   // parked bills — server-side (durable, user-owned); device-local fallback when offline
   const [parked, setParked] = useState<HeldBillDto[]>([]);
@@ -198,11 +208,24 @@ export default function PosPage() {
     }
   }, [lines, batchCache, loadBatches]);
 
+  // Module 14: the shift terminal can ask for receipts to print automatically.
+  // Best effort — popup blockers may stop window.open; the done screen's
+  // Print button stays as the fallback.
+  const autoPrintedRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (stage === "done" && done && shiftAutoPrint && autoPrintedRef.current !== done.docId) {
+      autoPrintedRef.current = done.docId;
+      try { window.open(`/sales/${done.docId}?print=1`, "_blank", "noopener"); } catch { /* ignore */ }
+    }
+  }, [stage, done, shiftAutoPrint]);
+
   function pickMethod(s: Stage) {
     setError(null);
     if (s === "cash") setTendered((totals.grand / 100).toFixed(2));
     if (s === "split" && tenders.length === 0) {
-      const cash = banks.find((b) => b.kind === "CASH") ?? banks[0];
+      // Module 14: default the first tender to the shift's drawer when one is open.
+      const cash = (shift ? banks.find((b) => b.id === shift.cashAccountId) : undefined)
+        ?? banks.find((b) => b.kind === "CASH") ?? banks[0];
       tenderKeyRef.current += 1;
       setTenders([{ key: tenderKeyRef.current, bankId: cash?.id ?? "", amount: "" }]);
     }
@@ -321,7 +344,9 @@ export default function PosPage() {
     let tenderedVal: string | undefined;
     let splitSum = 0; // paisa actually tendered in the split stage
     if (stage === "cash") {
-      const cash = banks.find((b) => b.kind === "CASH") ?? banks[0];
+      // Module 14: an open shift's terminal drawer is the natural cash home.
+      const cash = (shift ? banks.find((b) => b.id === shift.cashAccountId) : undefined)
+        ?? banks.find((b) => b.kind === "CASH") ?? banks[0];
       if (!cash) { setError(t("pos.errNoCash")); return; }
       if (tenderedPaisa < totals.grand) { setError(t("pos.errTenderedLess")); return; }
       payments = [{ bankAccountId: cash.id, method: "CASH", amount: amt }];
@@ -382,6 +407,8 @@ export default function PosPage() {
           overrideCreditLimit: creditOverride,
           // Module 13: project tag rides on the sale + its receipt(s).
           projectId: projectId || undefined,
+          // Module 14: tag the sale + receipts with the open shift (if any).
+          sessionId: shift?.id,
         }),
       });
       const docId = res.data.docId;
@@ -580,6 +607,9 @@ export default function PosPage() {
       </div>
 
       <ErrorNote message={error} />
+
+      {/* Module 14: shift strip — open shift, cash in/out, drawer, close + Z-report */}
+      <ShiftBar session={shift} onSession={onShift} banks={banks} />
 
       {(parked.length > 0 || parkedLocal.length > 0) && (
         <div className="card mb-4 p-4">

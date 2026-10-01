@@ -857,6 +857,8 @@ export type PostPaymentInput = {
   createdById: string;
   /** Module 13: project tag — stamped on every journal line (balance unchanged). */
   projectId?: string | null;
+  /** Module 14: POS session tag — links counter receipts/refunds to the open shift. */
+  posSessionId?: string | null;
   /** Double-submit protection: stored on the row; the route checks it first (migration 0031). */
   idempotencyKey?: string;
   /**
@@ -1237,6 +1239,8 @@ export async function postPayment(tx: DbTx, input: PostPaymentInput): Promise<{ 
     createdById: input.createdById,
     // Module 13: project tagging (journal lines carry the tag too).
     projectId: input.projectId ?? null,
+    // Module 14: POS session tagging (shift summary source).
+    posSessionId: input.posSessionId ?? null,
     // Module 7.2 — payment/receipt-time WHT (detail lives in wht_deductions).
     whtAmount,
     whtSection: whtAmount > 0n ? whtSection : null,

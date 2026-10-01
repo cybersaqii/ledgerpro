@@ -201,6 +201,8 @@ describe("idempotency keys + money-create rate limits", () => {
       "journal_entries_idem_key", // Module 5: manual journal vouchers + set-off entries
       "parties_idem_key",
       "payments_idem_key",
+      "pos_cash_mov_idem_key", // Module 14: POS cash in/out movements
+      "pos_sessions_idem_key", // Module 14: POS shift open (idempotent replay)
       "purchase_docs_idem_key",
       "sales_docs_idem_key",
       "stock_xfer_idem_key", // Module 4: stock transfer docs

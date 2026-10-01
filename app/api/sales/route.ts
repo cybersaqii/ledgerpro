@@ -9,6 +9,7 @@ import { resolveDocCurrency } from "@/lib/fx-docs";
 import { minorToDecimalString } from "@/lib/fx";
 import { postSalesDoc, postPayment } from "@/lib/posting";
 import { validateProjectId } from "@/lib/projects";
+import { validateSessionId } from "@/lib/pos-sessions";
 import { approvalRequired, stageApprovalRequest, findApprovalRequestByIdemKey } from "@/lib/approvals";
 import { clientIp } from "@/lib/rate-limit-db";
 import { periodLockError } from "@/lib/period";
@@ -290,6 +291,8 @@ export async function POST(req: NextRequest) {
       const docId = crypto.randomUUID();
       // Module 13: validate the project tag before anything is written.
       const projectId = await validateProjectId(tx, companyId, b.projectId);
+      // Module 14: validate the POS session tag (must be an OPEN shift of this company).
+      const posSession = await validateSessionId(tx, companyId, b.sessionId);
 
       await tx.insert(salesDocs).values({
         id: docId,
@@ -301,6 +304,8 @@ export async function POST(req: NextRequest) {
         date,
         dueDate,
         projectId,
+        // Module 14: POS session tag (counter returns land in the shift summary).
+        posSessionId: posSession?.id ?? null,
         status: needsApproval ? "PENDING_APPROVAL" : isPosted ? "POSTED" : "DRAFT",
         subtotal: totals.subtotal,
         discountTotal: fx.pkrDiscountTotal,
@@ -422,6 +427,8 @@ export async function POST(req: NextRequest) {
             allocations: [{ docId, docKind: "SALES", amount: alloc }],
             createdById: session.uid,
             projectId,
+            // Module 14: the receipt lands in the open shift's summary.
+            posSessionId: posSession?.id ?? null,
           });
           receiptDocNo = rp.docNo;
         }

@@ -56,6 +56,8 @@ export const SYS = {
   WIP: "1250", // Module 12: Work-in-Progress Inventory (asset; components issued, awaiting completion)
   MFG_LABOR_PAYABLE: "2123", // Module 12: Manufacturing Labor Payable (dedicated — keeps payroll's 2119 reconciliation clean)
   MFG_OVERHEAD: "6050", // Module 12: Manufacturing Overhead (expense; credited "absorbed" at completion)
+  CASH_SHORTAGE: "6051", // Module 14: cash-register shortage on shift close (expense)
+  CASH_OVERAGE: "4050", // Module 14: cash-register overage on shift close (income)
 } as const;
 
 const SYSTEM_ACCOUNTS: { code: string; name: string; type: string }[] = [
@@ -101,6 +103,8 @@ const SYSTEM_ACCOUNTS: { code: string; name: string; type: string }[] = [
   { code: SYS.WIP, name: "Work-in-Progress Inventory", type: "ASSET" },
   { code: SYS.MFG_LABOR_PAYABLE, name: "Manufacturing Labor Payable", type: "LIABILITY" },
   { code: SYS.MFG_OVERHEAD, name: "Manufacturing Overhead", type: "EXPENSE" },
+  { code: SYS.CASH_SHORTAGE, name: "Cash Shortage", type: "EXPENSE" },
+  { code: SYS.CASH_OVERAGE, name: "Cash Overage", type: "INCOME" },
 ];
 
 const DOC_PREFIXES: Record<string, string> = {

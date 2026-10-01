@@ -5,6 +5,7 @@ import { paymentSchema } from "@/lib/validators";
 import { parseMoney } from "@/lib/money";
 import { postPayment } from "@/lib/posting";
 import { validateProjectId } from "@/lib/projects";
+import { validateSessionId } from "@/lib/pos-sessions";
 import { fifoAllocations } from "@/lib/auto-allocate";
 import { json, err } from "@/lib/api";
 import { toApiError, UserError } from "@/lib/errors";
@@ -152,6 +153,12 @@ export async function POST(req: NextRequest) {
       // Module 13: validate the project tag (P&L-neutral by design — tagged
       // payments move AR/AP/Bank; the tag is for cash-flow visibility).
       const projectId = await validateProjectId(tx, companyId, b.projectId);
+      // Module 14: validate the POS session tag for counter refunds. A staged
+      // (approval-gated) payment cannot carry a shift tag — the shift will be
+      // closed before the approver runs, so the tag would miss the Z-report.
+      const posSession = await validateSessionId(tx, companyId, b.sessionId);
+      if (needsApproval && posSession)
+        throw new Error("SESSION_TAG_STAGED");
       if (needsApproval) {
         const approvalId = await stageApprovalRequest(tx, {
           companyId,
@@ -197,6 +204,8 @@ export async function POST(req: NextRequest) {
         amount,
         method: b.method,
         projectId,
+        // Module 14: POS session tag (counter refunds land in the shift summary).
+        posSessionId: posSession?.id ?? null,
         reference: b.reference || undefined,
         notes: b.notes || undefined,
         // Module 1.5: FIFO auto-allocate ("Auto-fill oldest-first") — the
@@ -245,6 +254,12 @@ export async function POST(req: NextRequest) {
  });
     return json({ data: { id: paymentId, docNo } }, { status: 201 });
  } catch (e) {
+    if (e instanceof Error && e.message === "SESSION_TAG_STAGED")
+      return err(
+        "This payment needs approval first and cannot be tagged to a POS shift — the shift will be closed before it is approved. Record it without the shift tag.",
+        422,
+        "SESSION_TAG_STAGED"
+      );
     // Lost the idempotency race: a concurrent request already created the
     // payment for this key — return it with 200 instead of an error.
     if (idemKey && isIdempotencyConflict(e)) {

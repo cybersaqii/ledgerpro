@@ -7,6 +7,7 @@ import { parseMoney } from "@/lib/money";
 import { parseQty } from "@/lib/qty";
 import { postSalesDoc, postPayment } from "@/lib/posting";
 import { validateProjectId } from "@/lib/projects";
+import { validateSessionId } from "@/lib/pos-sessions";
 import { periodLockError } from "@/lib/period";
 import { nextDocNo } from "@/lib/setup";
 import { applyCustomerAdvance } from "@/lib/advance";
@@ -190,6 +191,9 @@ export async function POST(req: NextRequest) {
       await assertBranch(tx, companyId, branchId);
       // Module 13: validate the project tag before anything is written.
       const projectId = await validateProjectId(tx, companyId, b.projectId);
+      // Module 14: validate the POS session tag (must be an OPEN shift of this company).
+      const posSession = await validateSessionId(tx, companyId, b.sessionId);
+      const posSessionId = posSession?.id ?? null;
       const docNo = await nextDocNo(tx, companyId, "INVOICE");
       const docId = crypto.randomUUID();
 
@@ -210,6 +214,8 @@ export async function POST(req: NextRequest) {
         grandTotal: totals.grandTotal,
         notes: b.notes || "POS sale",
         createdById: session.uid,
+        // Module 14: POS session tag — links the counter sale to the open shift.
+        posSessionId,
         ...(idemKey ? { idempotencyKey: idemKey } : {}),
  });
       await tx.insert(salesDocItems).values(
@@ -273,6 +279,8 @@ export async function POST(req: NextRequest) {
           // Module 13: the checkout receipt carries the same project tag
           // (P&L-neutral — tagged payments are for cash-flow visibility).
           projectId,
+          // Module 14: the receipt lands in the open shift's summary.
+          posSessionId,
  });
         paymentIds.push(pid);
         remaining -= alloc;
