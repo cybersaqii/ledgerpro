@@ -146,7 +146,11 @@ export const bankAccounts = sqliteTable(
     name: text("name").notNull(),
     bankName: text("bank_name"),
     accountNo: text("account_no"),
+    iban: text("iban"), // Module 3: IBAN for bank accounts
     kind: text("kind").notNull().default("BANK"), // BANK | CASH | WALLET
+    // Module 3: account type — CURRENT | SAVINGS | OVERDRAFT | PETTY_CASH
+    // (meaningful for BANK kind; defaulted for cash/wallet too)
+    accountType: text("account_type").notNull().default("CURRENT"),
     accountId: text("account_id").notNull().unique(), // linked GL account
     openingBalance: money("opening_balance"),
     balance: money("balance"), // cached, updated transactionally
@@ -634,6 +638,7 @@ export const expenses = sqliteTable(
     taxAmount: money("tax_amount"),
     notes: text("notes"),
     journalEntryId: text("journal_entry_id").unique(),
+    statementLineId: text("statement_line_id").unique(), // Module 3: spawned from a bank statement line
     createdById: text("created_by_id").notNull(),
     createdAt: createdAt(),
     updatedAt: updatedAt(),
@@ -963,14 +968,112 @@ export const transfers = sqliteTable("transfers", {
   fromBankAccountId: text("from_bank_account_id").notNull(),
   toBankAccountId: text("to_bank_account_id").notNull(),
   amount: money("amount"),
+  feeAmount: money("fee_amount"), // Module 3: bank charges on the transfer (Dr 6010 / part of source Cr)
   notes: text("notes"),
   journalEntryId: text("journal_entry_id").unique(),
+  statementLineId: text("statement_line_id").unique(), // Module 3: spawned from a bank statement line
   createdById: text("created_by_id").notNull(),
   idempotencyKey: text("idempotency_key"), // double-submit protection (migration 0031)
   createdAt: createdAt(),
   },
   (t) => [
     uniqueIndex("transfers_idem_key").on(t.companyId, t.idempotencyKey).where(sql`idempotency_key IS NOT NULL`),
+  ]
+);
+
+/** Module 3 — sundry (non-invoiced) receipt: Dr Bank / Cr Income-or-Asset. */
+export const sundryReceipts = sqliteTable(
+  "sundry_receipts",
+  {
+    id: id(),
+    companyId: text("company_id").notNull(),
+    branchId: text("branch_id").notNull(),
+    docNo: text("doc_no").notNull(), // SRC-0001 …
+    date: ts("date").notNull(),
+    accountId: text("account_id").notNull(), // credited GL account (INCOME or ASSET)
+    bankAccountId: text("bank_account_id").notNull(),
+    amount: money("amount"),
+    notes: text("notes"),
+    journalEntryId: text("journal_entry_id").unique(),
+    statementLineId: text("statement_line_id").unique(), // spawned from a bank statement line
+    voidedAt: ts("voided_at"),
+    voidJournalEntryId: text("void_journal_entry_id"),
+    voidedById: text("voided_by_id"),
+    createdById: text("created_by_id").notNull(),
+    idempotencyKey: text("idempotency_key"), // double-submit protection
+    createdAt: createdAt(),
+  },
+  (t) => [
+    uniqueIndex("sundry_receipts_idem_key").on(t.companyId, t.idempotencyKey).where(sql`idempotency_key IS NOT NULL`),
+  ]
+);
+
+/** Module 3 — bank statement import session (one uploaded CSV per account). */
+export const bankStatements = sqliteTable(
+  "bank_statements",
+  {
+    id: id(),
+    companyId: text("company_id").notNull(),
+    bankAccountId: text("bank_account_id").notNull(),
+    fileName: text("file_name").notNull(),
+    openingBalance: money("opening_balance"),
+    closingBalance: money("closing_balance"),
+    lineCount: integer("line_count").notNull().default(0),
+    createdById: text("created_by_id").notNull(),
+    createdAt: createdAt(),
+  },
+  (t) => [index("bank_statements_company_bank").on(t.companyId, t.bankAccountId)]
+);
+
+/** Module 3 — one parsed line of a bank statement import. */
+export const bankStatementLines = sqliteTable(
+  "bank_statement_lines",
+  {
+    id: id(),
+    companyId: text("company_id").notNull(),
+    statementId: text("statement_id").notNull(),
+    bankAccountId: text("bank_account_id").notNull(),
+    date: ts("date").notNull(),
+    description: text("description").notNull(),
+    reference: text("reference"),
+    debit: money("debit"), // money out
+    credit: money("credit"), // money in
+    amount: money("amount"), // signed: credit − debit
+    isDuplicate: flag("is_duplicate", false), // duplicate of another line (date+amount+reference)
+    matchedJournalLineId: text("matched_journal_line_id").unique(),
+    createdTxnType: text("created_txn_type"), // EXPENSE | SUNDRY_RECEIPT | TRANSFER | BANK_ADJUSTMENT
+    createdTxnId: text("created_txn_id"),
+    createdAt: createdAt(),
+  },
+  (t) => [
+    index("stmt_lines_company_stmt").on(t.companyId, t.statementId),
+    index("stmt_lines_match").on(t.companyId, t.bankAccountId, t.date, t.amount),
+  ]
+);
+
+/** Module 3 — bank charges / interest adjustments (one-click from reconciliation). */
+export const bankAdjustments = sqliteTable(
+  "bank_adjustments",
+  {
+    id: id(),
+    companyId: text("company_id").notNull(),
+    branchId: text("branch_id").notNull(),
+    docNo: text("doc_no").notNull(), // BADJ-0001 …
+    date: ts("date").notNull(),
+    bankAccountId: text("bank_account_id").notNull(),
+    kind: text("kind").notNull(), // CHARGE | INTEREST
+    amount: money("amount"),
+    notes: text("notes"),
+    journalEntryId: text("journal_entry_id").unique(),
+    voidedAt: ts("voided_at"),
+    voidJournalEntryId: text("void_journal_entry_id"),
+    voidedById: text("voided_by_id"),
+    createdById: text("created_by_id").notNull(),
+    idempotencyKey: text("idempotency_key"), // double-submit protection
+    createdAt: createdAt(),
+  },
+  (t) => [
+    uniqueIndex("bank_adjustments_idem_key").on(t.companyId, t.idempotencyKey).where(sql`idempotency_key IS NOT NULL`),
   ]
 );
 

@@ -33,6 +33,8 @@ export const SYS = {
   PURCHASES: "5003",
   DISCOUNT_GIVEN: "5010",
   EXPENSES: "6000",
+  BANK_CHARGES: "6010", // Module 3: bank charges / transfer fees
+  INTEREST_INCOME: "4030", // Module 3: interest credited by the bank
 } as const;
 
 const SYSTEM_ACCOUNTS: { code: string; name: string; type: string }[] = [
@@ -57,6 +59,8 @@ const SYSTEM_ACCOUNTS: { code: string; name: string; type: string }[] = [
   { code: SYS.PURCHASES, name: "Purchases (Non-stock)", type: "EXPENSE" },
   { code: SYS.DISCOUNT_GIVEN, name: "Discount Given", type: "EXPENSE" },
   { code: SYS.EXPENSES, name: "General Expenses", type: "EXPENSE" },
+  { code: SYS.BANK_CHARGES, name: "Bank Charges", type: "EXPENSE" },
+  { code: SYS.INTEREST_INCOME, name: "Interest Income", type: "INCOME" },
 ];
 
 const DOC_PREFIXES: Record<string, string> = {
@@ -75,6 +79,8 @@ const DOC_PREFIXES: Record<string, string> = {
   RECEIPT: "REC-",
   EXPENSE: "EXP-",
   TRANSFER: "TRF-",
+  SUNDRY_RECEIPT: "SRC-", // Module 3: direct (non-invoiced) receipts
+  BANK_ADJUSTMENT: "BADJ-", // Module 3: bank charges / interest adjustments
   STOCK_ADJUSTMENT: "ADJ-",
   WRITE_OFF: "WO-",
   CREDIT_NOTE: "CN-",
@@ -117,10 +123,22 @@ async function nextBankCode(tx: DbTx, companyId: string): Promise<string> {
   return `10${String(n).padStart(2, "0")}`;
 }
 
+/** Account types for bank/cash accounts (Module 3). */
+export const BANK_ACCOUNT_TYPES = ["CURRENT", "SAVINGS", "OVERDRAFT", "PETTY_CASH"] as const;
+export type BankAccountType = (typeof BANK_ACCOUNT_TYPES)[number];
+
 async function createBankAccount(
   tx: DbTx,
   companyId: string,
-  opts: { name: string; kind: string; bankName?: string; accountNo?: string; openingBalance?: bigint }
+  opts: {
+    name: string;
+    kind: string;
+    bankName?: string;
+    accountNo?: string;
+    iban?: string;
+    accountType?: string;
+    openingBalance?: bigint;
+  }
 ) {
   const code = await nextBankCode(tx, companyId);
   const glId = crypto.randomUUID();
@@ -140,7 +158,9 @@ async function createBankAccount(
     name: opts.name,
     bankName: opts.bankName,
     accountNo: opts.accountNo,
+    iban: opts.iban,
     kind: opts.kind,
+    accountType: opts.accountType ?? "CURRENT",
     accountId: glId,
     openingBalance: opening,
     balance: opening,
@@ -284,13 +304,15 @@ export async function addBankAccount(
     kind: "BANK" | "CASH" | "WALLET";
     bankName?: string;
     accountNo?: string;
+    iban?: string;
+    accountType?: string;
     openingBalance?: bigint;
   }
 ) {
   return db.transaction(async (tx) => {
     const ba = await createBankAccount(tx, companyId, opts);
     const opening = opts.openingBalance ?? 0n;
-    if (opening > 0n) {
+    if (opening !== 0n) {
       const equityId = await sysAccount(tx, companyId, SYS.OPENING_EQUITY);
       const entryId = crypto.randomUUID();
       await tx.insert(journalEntries).values({
@@ -301,9 +323,17 @@ export async function addBankAccount(
         source: "OPENING",
         createdById: "system",
       });
+      // Module 3: overdraft/credit-card accounts may open with a NEGATIVE
+      // balance → Cr Bank / Dr Opening Equity; positive opens Dr Bank / Cr
+      // Opening Equity (unchanged legacy behavior).
+      const abs = opening < 0n ? -opening : opening;
+      const [bankSide, equitySide] =
+        opening > 0n
+          ? [{ debit: abs, credit: 0n }, { debit: 0n, credit: abs }]
+          : [{ debit: 0n, credit: abs }, { debit: abs, credit: 0n }];
       await tx.insert(journalLines).values([
-        { id: crypto.randomUUID(), entryId, accountId: ba.accountId, debit: opening, credit: 0n },
-        { id: crypto.randomUUID(), entryId, accountId: equityId, debit: 0n, credit: opening },
+        { id: crypto.randomUUID(), entryId, accountId: ba.accountId, ...bankSide },
+        { id: crypto.randomUUID(), entryId, accountId: equityId, ...equitySide },
       ]);
     }
     return ba;

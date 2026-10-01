@@ -1,10 +1,15 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { CheckCheck, Landmark, TriangleAlert, RotateCcw, Undo2 } from "lucide-react";
+import Link from "next/link";
+import { CheckCheck, Landmark, TriangleAlert, RotateCcw, Undo2, FileSpreadsheet } from "lucide-react";
 import { PageHeader, Field } from "@/components/ui";
 import { useLang } from "@/components/lang-provider";
+import { usePermissions } from "@/components/permissions";
 import { api, fmtMoney, fmtDate, fmtDateInput } from "@/lib/format";
+import { StatementDetail } from "@/components/statement-detail";
+
+type Statement = { id: string; fileName: string; lineCount: number; createdAt: number };
 
 type Bank = { id: string; name: string; kind: string };
 type RecLine = {
@@ -21,9 +26,16 @@ type RecData = {
 
 export default function ReconciliationPage() {
   const { t } = useLang();
+  const m = (k: string, vars?: Record<string, string | number>) => t(`m3banking.${k}`, vars);
+  const { permissions } = usePermissions();
+  const canPost = permissions.includes("payments");
   const [banks, setBanks] = useState<Bank[]>([]);
   const [accountId, setAccountId] = useState("");
   const [showCleared, setShowCleared] = useState(false);
+  // Module 3: pick an imported statement to reconcile against (split view,
+  // auto-match, charge/interest modal) on top of the manual clear/unclear UI.
+  const [statements, setStatements] = useState<Statement[]>([]);
+  const [statementId, setStatementId] = useState("");
   const [data, setData] = useState<RecData | null>(null);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [clearedAt, setClearedAt] = useState(fmtDateInput());
@@ -60,6 +72,17 @@ export default function ReconciliationPage() {
 
   // eslint-disable-next-line react-hooks/set-state-in-effect -- data fetch on filter/mount change
   useEffect(() => { load(); }, [load]);
+
+  // Module 3: imported statements for the statement-reconciliation split view.
+  useEffect(() => {
+    if (!accountId) return;
+    api<{ data: Statement[] }>(`/api/bank-accounts/${accountId}/statements`)
+      .then((d) => {
+        setStatements(d.data);
+        setStatementId((cur) => (d.data.some((s) => s.id === cur) ? cur : ""));
+      })
+      .catch(() => setStatements([]));
+  }, [accountId]);
 
   function toggle(id: string) {
     setSelected((s) => {
@@ -117,6 +140,18 @@ export default function ReconciliationPage() {
             ))}
           </select>
         </Field>
+        {/* Module 3: statement split view */}
+        <Field label={m("statementsLink")}>
+          <select className="field min-w-48" value={statementId} onChange={(e) => setStatementId(e.target.value)}>
+            <option value="">—</option>
+            {statements.map((s) => (
+              <option key={s.id} value={s.id}>{s.fileName} ({m("lineCount", { count: s.lineCount })})</option>
+            ))}
+          </select>
+        </Field>
+        <Link href="/payments/statements" className="btn btn-ghost mb-0.5 text-sm">
+          <FileSpreadsheet size={15} /> {m("importStatement")}
+        </Link>
         <label className="mb-2 inline-flex cursor-pointer items-center gap-2 text-sm font-semibold">
           <input
             type="checkbox"
@@ -127,6 +162,21 @@ export default function ReconciliationPage() {
           {t("fix4.recon.showCleared")}
         </label>
       </div>
+
+      {statementId && (
+        <div className="mb-6">
+          <StatementDetail
+            bankId={accountId}
+            statementId={statementId}
+            canPost={canPost}
+            onDeleted={() => {
+              setStatements((ss) => ss.filter((s) => s.id !== statementId));
+              setStatementId("");
+              load();
+            }}
+          />
+        </div>
+      )}
 
       {loadError ? (
         <div className="card flex flex-wrap items-center gap-3 border-danger/40 bg-danger-soft p-4">

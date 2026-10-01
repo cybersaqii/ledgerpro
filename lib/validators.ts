@@ -188,6 +188,8 @@ export const expenseSchema = z.object({
   amount: moneyStr,
   taxAmount: moneyStr.default("0"),
   notes: z.string().trim().max(500).optional().or(z.literal("")),
+  // Module 3: spawn the expense from a bank statement line
+  statementLineId: z.string().min(1).optional(),
 });
 
 export const posCheckoutSchema = z.object({

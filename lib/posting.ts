@@ -12,11 +12,14 @@ import {
   salesDocs,
   stockLevels,
   expenses,
+  sundryReceipts,
 } from "@/db/schema";
 import { SYS, accountMap, nextDocNo } from "./setup";
 import type { DbTx } from "./db";
 import type { ComputedItem } from "./totals";
 import { UserError } from "./errors";
+import { FIX3_SOURCES } from "./stock-adjust";
+import { markStatementLineCreated } from "./statements";
 import { explodeSalesStockMoves } from "./bundles";
 import { addBatchStock, deductBatchStock, restoreBatchStock, restoreLineageBatches, deductLineageBatches, recordBatchUsage } from "./batches";
 
@@ -846,6 +849,8 @@ export type PostExpenseInput = {
   docNo?: string;
   /** Double-submit protection: stored on the row; the route checks it first (migration 0031). */
   idempotencyKey?: string;
+  /** Module 3: spawned from a bank statement line. */
+  statementLineId?: string;
 };
 
 export async function postExpense(tx: DbTx, input: PostExpenseInput): Promise<string> {
@@ -867,7 +872,10 @@ export async function postExpense(tx: DbTx, input: PostExpenseInput): Promise<st
     .where(and(eq(accounts.id, input.accountId), eq(accounts.companyId, input.companyId)))
     .limit(1);
   const gl = glRows[0];
-  if (!gl || gl.type !== "EXPENSE") throw new UserError("Please select a valid expense account");
+  // Module 3: direct (non-invoiced) payments may hit an Expense OR an Asset
+  // account (e.g. buying equipment for cash).
+  if (!gl || (gl.type !== "EXPENSE" && gl.type !== "ASSET"))
+    throw new UserError("Please select a valid expense or asset account");
 
   const total = input.amount + input.taxAmount;
   const entryId = await createJournal(tx, {
@@ -900,6 +908,7 @@ export async function postExpense(tx: DbTx, input: PostExpenseInput): Promise<st
     taxAmount: input.taxAmount,
     notes: input.notes,
     journalEntryId: entryId,
+    ...(input.statementLineId ? { statementLineId: input.statementLineId } : {}),
     createdById: input.createdById,
     ...(input.idempotencyKey ? { idempotencyKey: input.idempotencyKey } : {}),
   });
@@ -909,5 +918,122 @@ export async function postExpense(tx: DbTx, input: PostExpenseInput): Promise<st
     .set({ balance: sql`${bankAccounts.balance} - ${total}` })
     .where(eq(bankAccounts.id, bank.id));
 
+  // Module 3: spawned from a bank statement line — link the bank journal line
+  // so the statement line shows as explained.
+  if (input.statementLineId) {
+    const jl = await tx
+      .select({ id: journalLines.id })
+      .from(journalLines)
+      .where(and(eq(journalLines.entryId, entryId), eq(journalLines.accountId, bank.accountId)))
+      .limit(1);
+    if (!jl[0]) throw new UserError("Could not find the bank journal line.");
+    await markStatementLineCreated(
+      tx, input.companyId, input.statementLineId, jl[0].id, "EXPENSE", expenseId, input.createdById
+    );
+  }
+
   return expenseId;
+}
+
+// ─── Sundry receipts (Module 3: direct, non-invoiced receipts) ───
+
+export type PostSundryReceiptInput = {
+  /** Optional explicit id (sync push uses the client's refId); defaults to a fresh UUID. */
+  id?: string;
+  companyId: string;
+  branchId: string;
+  /** Credited GL account — must be INCOME or ASSET type. */
+  accountId: string;
+  bankAccountId: string;
+  date: Date;
+  amount: bigint;
+  notes?: string;
+  createdById: string;
+  /** Human voucher number; minted from the SUNDRY_RECEIPT sequence when omitted. */
+  docNo?: string;
+  /** Double-submit protection: stored on the row; the route checks it first. */
+  idempotencyKey?: string;
+  /** Spawned from a bank statement line. */
+  statementLineId?: string;
+};
+
+/**
+ * Direct receipt: Dr Bank / Cr Income-or-Asset (rental income, refunds,
+ * misc receipts — nothing invoiced). One journal per document; voids via
+ * reversing journal in lib/payment-void.ts.
+ */
+export async function postSundryReceipt(
+  tx: DbTx,
+  input: PostSundryReceiptInput
+): Promise<{ id: string; docNo: string }> {
+  if (input.amount <= 0n) throw new UserError("Receipt amount must be positive");
+
+  const bankRows = await tx
+    .select()
+    .from(bankAccounts)
+    .where(and(eq(bankAccounts.id, input.bankAccountId), eq(bankAccounts.companyId, input.companyId)))
+    .limit(1);
+  const bank = bankRows[0];
+  if (!bank) throw new UserError("Bank/cash account not found");
+
+  const glRows = await tx
+    .select()
+    .from(accounts)
+    .where(and(eq(accounts.id, input.accountId), eq(accounts.companyId, input.companyId)))
+    .limit(1);
+  const gl = glRows[0];
+  if (!gl || (gl.type !== "INCOME" && gl.type !== "ASSET"))
+    throw new UserError("Please select a valid income or asset account");
+
+  const entryId = await createJournal(tx, {
+    companyId: input.companyId,
+    branchId: input.branchId,
+    date: input.date,
+    memo: input.notes || `Receipt — ${gl.name}`,
+    source: FIX3_SOURCES.SUNDRY_RECEIPT,
+    createdById: input.createdById,
+    lines: [
+      { accountId: bank.accountId, debit: input.amount, credit: 0n },
+      { accountId: gl.id, debit: 0n, credit: input.amount },
+    ],
+  });
+
+  const receiptId = input.id ?? crypto.randomUUID();
+  const docNo = input.docNo ?? (await nextDocNo(tx, input.companyId, "SUNDRY_RECEIPT"));
+  await tx.insert(sundryReceipts).values({
+    id: receiptId,
+    companyId: input.companyId,
+    branchId: input.branchId,
+    docNo,
+    date: input.date,
+    accountId: gl.id,
+    bankAccountId: bank.id,
+    amount: input.amount,
+    notes: input.notes,
+    journalEntryId: entryId,
+    ...(input.statementLineId ? { statementLineId: input.statementLineId } : {}),
+    createdById: input.createdById,
+    ...(input.idempotencyKey ? { idempotencyKey: input.idempotencyKey } : {}),
+  });
+
+  await tx
+    .update(bankAccounts)
+    .set({ balance: sql`${bankAccounts.balance} + ${input.amount}` })
+    .where(eq(bankAccounts.id, bank.id));
+
+  // Module 3: spawned from a bank statement line — link the bank journal line
+  // so the statement line shows as explained.
+  if (input.statementLineId) {
+    const jl = await tx
+      .select({ id: journalLines.id })
+      .from(journalLines)
+      .where(and(eq(journalLines.entryId, entryId), eq(journalLines.accountId, bank.accountId)))
+      .limit(1);
+    if (!jl[0]) throw new UserError("Could not find the bank journal line.");
+    await markStatementLineCreated(
+      tx, input.companyId, input.statementLineId, jl[0].id, "SUNDRY_RECEIPT", receiptId, input.createdById
+    );
+  }
+
+  return { id: receiptId, docNo };
 }

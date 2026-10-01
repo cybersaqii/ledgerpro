@@ -9,6 +9,7 @@ import {
   purchaseDocs,
   salesDocs,
   expenses,
+  sundryReceipts,
 } from "@/db/schema";
 import { createJournal } from "./posting";
 import { assertPeriodOpen } from "./period";
@@ -321,6 +322,74 @@ export async function voidExpense(
 
   await tx.run(
     sql`UPDATE expenses SET voided_at = ${voidDate.getTime()}, void_journal_entry_id = ${voidEntryId}, voided_by_id = ${input.userId} WHERE id = ${expense.id}`
+  );
+
+  return { voidJournalEntryId: voidEntryId };
+}
+
+export type VoidSundryReceiptInput = {
+  companyId: string;
+  receiptId: string;
+  reason?: string;
+  userId: string;
+};
+
+/**
+ * Module 3 — void a sundry receipt. Posts the exact reversing journal
+ * (Dr credited account / Cr bank), restores the bank balance, and stamps the
+ * receipt as voided. Blocked in locked periods.
+ */
+export async function voidSundryReceipt(
+  tx: DbTx,
+  input: VoidSundryReceiptInput
+): Promise<{ voidJournalEntryId: string }> {
+  const rr = await tx
+    .select()
+    .from(sundryReceipts)
+    .where(and(eq(sundryReceipts.id, input.receiptId), eq(sundryReceipts.companyId, input.companyId)))
+    .limit(1);
+  const receipt = rr[0];
+  if (!receipt) throw new UserError("Receipt not found.");
+  const voidedAt = (
+    await tx.run(sql`SELECT voided_at AS v FROM sundry_receipts WHERE id = ${receipt.id}`)
+  ).rows[0] as unknown as { v: number | null } | undefined;
+  if (voidedAt?.v) throw new UserError("This receipt is already voided.");
+
+  const voidDate = new Date();
+  await assertPeriodOpen(tx, input.companyId, receipt.date);
+  await assertPeriodOpen(tx, input.companyId, voidDate);
+
+  const origLines = await tx
+    .select()
+    .from(journalLines)
+    .where(eq(journalLines.entryId, receipt.journalEntryId!));
+  if (origLines.length === 0) throw new UserError("The original journal entry is missing — cannot void safely.");
+
+  const gl = await tx.select({ name: accounts.name }).from(accounts).where(eq(accounts.id, receipt.accountId)).limit(1);
+  const voidEntryId = await createJournal(tx, {
+    companyId: input.companyId,
+    branchId: receipt.branchId,
+    date: voidDate,
+    memo: `Void of receipt — ${gl[0]?.name ?? "receipt"}${input.reason ? ` — ${input.reason}` : ""}`,
+    source: FIX3_SOURCES.SUNDRY_RECEIPT_VOID,
+    sourceId: receipt.id,
+    createdById: input.userId,
+    lines: origLines.map((l) => ({
+      accountId: l.accountId,
+      debit: l.credit,
+      credit: l.debit,
+      partyId: l.partyId,
+      memo: l.memo ?? undefined,
+    })),
+  });
+
+  await tx
+    .update(bankAccounts)
+    .set({ balance: sql`${bankAccounts.balance} - ${receipt.amount}` })
+    .where(eq(bankAccounts.id, receipt.bankAccountId));
+
+  await tx.run(
+    sql`UPDATE sundry_receipts SET voided_at = ${voidDate.getTime()}, void_journal_entry_id = ${voidEntryId}, voided_by_id = ${input.userId} WHERE id = ${receipt.id}`
   );
 
   return { voidJournalEntryId: voidEntryId };

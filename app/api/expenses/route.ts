@@ -125,6 +125,7 @@ export async function POST(req: NextRequest) {
         notes: b.notes || undefined,
         createdById: session.uid,
         docNo,
+        ...(b.statementLineId ? { statementLineId: b.statementLineId } : {}),
         ...(idemKey ? { idempotencyKey: idemKey } : {}),
  });
       return { expenseId, docNo };

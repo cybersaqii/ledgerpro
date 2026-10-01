@@ -6,6 +6,8 @@ import {
   expenses,
   transfers,
   writeOffs,
+  sundryReceipts,
+  bankAdjustments,
 } from "@/db/schema";
 import type { Db, DbTx } from "./db";
 import { UserError } from "./errors";
@@ -37,7 +39,9 @@ export type IdempotencyTable =
   | typeof payments
   | typeof expenses
   | typeof transfers
-  | typeof writeOffs;
+  | typeof writeOffs
+  | typeof sundryReceipts
+  | typeof bankAdjustments;
 
 /**
  * Extract the idempotency key from the `X-Idempotency-Key` header (wins when

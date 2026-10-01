@@ -7,6 +7,9 @@ import {
   expenses,
   transfers,
   reconciliationClears,
+  sundryReceipts,
+  bankAdjustments,
+  bankStatements,
 } from "@/db/schema";
 import { json, err } from "@/lib/api";
 import { requireCompany, db, requirePermission } from "@/lib/route-helpers";
@@ -70,6 +73,26 @@ async function hasTransactions(companyId: string, bankAccountId: string): Promis
     .where(and(eq(reconciliationClears.companyId, companyId), eq(reconciliationClears.bankAccountId, bankAccountId)))
     .limit(1);
   if (inRecon[0]) return true;
+  // Module 3: sundry receipts, bank adjustments and statement imports also
+  // reference the account.
+  const inSundry = await db
+    .select({ id: sundryReceipts.id })
+    .from(sundryReceipts)
+    .where(and(eq(sundryReceipts.companyId, companyId), eq(sundryReceipts.bankAccountId, bankAccountId)))
+    .limit(1);
+  if (inSundry[0]) return true;
+  const inAdj = await db
+    .select({ id: bankAdjustments.id })
+    .from(bankAdjustments)
+    .where(and(eq(bankAdjustments.companyId, companyId), eq(bankAdjustments.bankAccountId, bankAccountId)))
+    .limit(1);
+  if (inAdj[0]) return true;
+  const inStmt = await db
+    .select({ id: bankStatements.id })
+    .from(bankStatements)
+    .where(and(eq(bankStatements.companyId, companyId), eq(bankStatements.bankAccountId, bankAccountId)))
+    .limit(1);
+  if (inStmt[0]) return true;
   // Note: journal lines are deliberately NOT checked — the opening-balance
   // posting references the account's linked GL account, which would make any
   // account with an opening balance undeactivatable. Every real transaction

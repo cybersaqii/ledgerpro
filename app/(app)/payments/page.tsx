@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useState, Fragment } from "react";
-import { Plus, CalendarDays, Wallet, ArrowLeftRight, Landmark } from "lucide-react";
+import { Plus, CalendarDays, Wallet, ArrowLeftRight, Landmark, HandCoins, FileSpreadsheet } from "lucide-react";
 import { PageHeader, EmptyState, FilterBar, SummaryChips, Pagination } from "@/components/ui";
 import { api, fmtMoney, fmtDate, toBig } from "@/lib/format";
 import { useLang } from "@/components/lang-provider";
@@ -86,6 +86,8 @@ export default function PaymentsPage() {
         actions={
           <>
             <Link href="/payments/transfers" className="btn btn-ghost text-sm"><ArrowLeftRight size={16} /> {t("payments.transfers")}</Link>
+            <Link href="/payments/receipts" className="btn btn-ghost text-sm"><HandCoins size={16} /> {t("m3banking.sundryReceipts")}</Link>
+            <Link href="/payments/statements" className="btn btn-ghost text-sm"><FileSpreadsheet size={16} /> {t("m3banking.statementsLink")}</Link>
             <Link href="/payments/banks" className="btn btn-ghost text-sm"><Landmark size={16} /> {t("payments.banks")}</Link>
             <Link href="/payments/banks/reconciliation" className="btn btn-ghost text-sm"><Landmark size={16} /> {t("payments.reconcile")}</Link>
             <Link href="/payments/new?kind=PAYMENT" className="btn btn-ghost text-sm"><Plus size={16} /> {t("payments.paySupplier")}</Link>

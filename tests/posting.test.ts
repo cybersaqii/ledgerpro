@@ -111,9 +111,9 @@ function salesItem(qty: string, rate: string): DocItemInput {
 // ─── tests ──────────────────────────────────────────────────
 
 describe("company setup", () => {
-  it("creates 21 system accounts, a branch, sequences and a cash account", async () => {
+  it("creates 23 system accounts, a branch, sequences and a cash account", async () => {
     const accs = await db.select().from(s.accounts).where(eq(s.accounts.companyId, companyId));
-    expect(accs).toHaveLength(22); // 21 system + 1 cash-in-hand GL account
+    expect(accs).toHaveLength(24); // 23 system + 1 cash-in-hand GL account (Module 3 added 6010, 4030)
     const branches = await db.select().from(s.branches).where(eq(s.branches.companyId, companyId));
     expect(branches).toHaveLength(1);
     expect(branches[0]!.isDefault).toBe(true);
@@ -381,21 +381,23 @@ describe("expense", () => {
   });
 
   it("rejects a non-expense account", async () => {
-    const arId = (
+    // Module 3: postExpense accepts EXPENSE *or* ASSET accounts (e.g. prepaid),
+    // so the rejection case now uses a LIABILITY account.
+    const apId = (
       await db
         .select({ id: s.accounts.id })
         .from(s.accounts)
-        .where(and(eq(s.accounts.companyId, companyId), eq(s.accounts.code, "1100")))
+        .where(and(eq(s.accounts.companyId, companyId), eq(s.accounts.code, "2001")))
         .limit(1)
     )[0]!.id;
     await expect(
       db.transaction((tx) =>
         postExpense(tx, {
-          companyId, branchId, accountId: arId, bankAccountId: cashAccountId,
+          companyId, branchId, accountId: apId, bankAccountId: cashAccountId,
           date: new Date(), amount: parseMoney("10"), taxAmount: 0n, createdById: userId,
         })
       )
-    ).rejects.toThrow(/expense account/);
+    ).rejects.toThrow(/expense or asset account/);
   });
 });
 
@@ -446,13 +448,13 @@ describe("report account mappings", () => {
     await setupCompany(db, c3);
     await setupCompany(db, c3); // second run must not duplicate anything
     const accs = await db.select().from(s.accounts).where(eq(s.accounts.companyId, c3));
-    expect(accs).toHaveLength(22); // 21 system + 1 cash-in-hand GL account
+    expect(accs).toHaveLength(24); // 23 system + 1 cash-in-hand GL account (Module 3 added 6010, 4030)
     const brs = await db.select().from(s.branches).where(eq(s.branches.companyId, c3));
     expect(brs).toHaveLength(1);
     const seqs = await db.select().from(s.numberSequences).where(eq(s.numberSequences.companyId, c3));
-    expect(seqs).toHaveLength(17); // 10 legacy doc prefixes + 7 QA-wave prefixes (split returns, transfer, adjustment, write-off, CN/DN), none duplicated
+    expect(seqs).toHaveLength(19); // 10 legacy doc prefixes + 7 QA-wave prefixes + 2 Module 3 (sundry receipt, bank adjustment), none duplicated
     const seqTypes = new Set(seqs.map((x) => x.docType));
-    for (const t of ["SALE_RETURN", "PURCHASE_RETURN", "TRANSFER", "STOCK_ADJUSTMENT", "WRITE_OFF", "CREDIT_NOTE", "DEBIT_NOTE"]) {
+    for (const t of ["SALE_RETURN", "PURCHASE_RETURN", "TRANSFER", "STOCK_ADJUSTMENT", "WRITE_OFF", "CREDIT_NOTE", "DEBIT_NOTE", "SUNDRY_RECEIPT", "BANK_ADJUSTMENT"]) {
       expect(seqTypes.has(t)).toBe(true);
     }
     const banks = await db.select().from(s.bankAccounts).where(eq(s.bankAccounts.companyId, c3));
@@ -462,7 +464,7 @@ describe("report account mappings", () => {
     await db.delete(s.accounts).where(eq(s.accounts.id, exp.id));
     await setupCompany(db, c3);
     const accs2 = await db.select().from(s.accounts).where(eq(s.accounts.companyId, c3));
-    expect(accs2).toHaveLength(22); // 21 system + 1 cash-in-hand GL account
+    expect(accs2).toHaveLength(24); // 23 system + 1 cash-in-hand GL account
     expect(accs2.some((a) => a.code === SYS.EXPENSES)).toBe(true);
   });
 

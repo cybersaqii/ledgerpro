@@ -12,7 +12,7 @@ type TransferRow = {
   id: string; docNo: string; date: number;
   fromBankAccountId: string; toBankAccountId: string;
   fromName: string | null; toName: string | null;
-  amount: string; notes: string | null;
+  amount: string; feeAmount: string; notes: string | null;
 };
 type Bank = { id: string; name: string; kind: string };
 
@@ -31,7 +31,7 @@ export default function TransfersPage() {
 
   const [modal, setModal] = useState(false);
   const [banks, setBanks] = useState<Bank[]>([]);
-  const [form, setForm] = useState({ fromBankAccountId: "", toBankAccountId: "", date: fmtDateInput(), amount: "", notes: "" });
+  const [form, setForm] = useState({ fromBankAccountId: "", toBankAccountId: "", date: fmtDateInput(), amount: "", fee: "", notes: "" });
   // One idempotency key per user submission: kept across save attempts so a
   // retry after a network blip replays instead of double-creating. Cleared
   // on success so the next transfer gets a fresh key.
@@ -53,7 +53,7 @@ export default function TransfersPage() {
 
   async function openModal() {
     setError(null);
-    setForm({ fromBankAccountId: "", toBankAccountId: "", date: fmtDateInput(), amount: "", notes: "" });
+    setForm({ fromBankAccountId: "", toBankAccountId: "", date: fmtDateInput(), amount: "", fee: "", notes: "" });
     try {
       const b = await api<{ data: Bank[] }>("/api/banks");
       setBanks(b.data);
@@ -109,6 +109,7 @@ export default function TransfersPage() {
                 <th>{f("fix3.trColDoc")}</th><th>{f("fix3.trColDate")}</th>
                 <th>{f("fix3.trColFrom")}</th><th>{f("fix3.trColTo")}</th>
                 <th className="num">{f("fix3.trColAmount")}</th>
+                <th className="num">{t("m3banking.colFee")}</th>
               </tr></thead>
               <tbody>
                 {rows.map((r) => (
@@ -118,6 +119,7 @@ export default function TransfersPage() {
                     <td>{r.fromName ?? "—"}</td>
                     <td>{r.toName ?? "—"}</td>
                     <td className="num font-extrabold">{fmtMoney(r.amount)}</td>
+                    <td className="num text-muted-foreground">{BigInt(r.feeAmount ?? "0") !== 0n ? fmtMoney(r.feeAmount) : "—"}</td>
                   </tr>
                 ))}
               </tbody>
@@ -155,6 +157,11 @@ export default function TransfersPage() {
               <Field label={f("fix3.trAmount")}>
                 <input className="field num" type="number" min="0" step="0.01" required
                   value={form.amount} onChange={set("amount")} placeholder="0.00" />
+              </Field>
+              {/* Module 3: explicit bank-charges fee */}
+              <Field label={t("m3banking.fee")} hint={t("m3banking.feeHint")}>
+                <input className="field num" type="number" min="0" step="0.01"
+                  value={form.fee} onChange={set("fee")} placeholder="0.00" />
               </Field>
             </div>
             <Field label={f("fix3.trNotes")}>

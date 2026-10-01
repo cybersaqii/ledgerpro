@@ -30,6 +30,11 @@ export const FIX3_SOURCES = {
   PURCHASE_VOID: "PURCHASE_VOID",
   WRITE_OFF: "WRITE_OFF",
   WRITE_OFF_RECOVERY: "WRITE_OFF_RECOVERY",
+  // Module 3 — banking
+  SUNDRY_RECEIPT: "SUNDRY_RECEIPT",
+  SUNDRY_RECEIPT_VOID: "SUNDRY_RECEIPT_VOID",
+  BANK_ADJUSTMENT: "BANK_ADJUSTMENT",
+  BANK_ADJUSTMENT_VOID: "BANK_ADJUSTMENT_VOID",
 } as const;
 
 /** Half-up paisa value of a milli-unit quantity at a per-unit paisa cost. */
