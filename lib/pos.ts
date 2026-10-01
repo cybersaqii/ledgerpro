@@ -29,6 +29,8 @@ export interface PosLine {
   discount: string; // rupees decimal string, per line
   /** chosen batch for FIFO override ("" = auto/FIFO). Optional for backward compat with parked bills. */
   batchId?: string;
+  /** Module 18: the unit qty/rate were typed in ("" / undefined = base unit). */
+  lineUnit?: string;
 }
 
 export function paisaToRupees(paisa: string | number | bigint): string {
@@ -150,17 +152,25 @@ export function toDocItems(lines: PosLine[]) {
     rate: l.rate,
     discount: l.discount || "0",
     batchId: l.batchId || "",
+    // Module 18: the unit the qty/rate were typed in (blank = base unit).
+    unit: l.lineUnit || undefined,
   }));
 }
 
-/** Lines priced below their product's minimum sale price (compares the line rate). */
-export function priceWarnings(lines: PosLine[], products: PosProduct[]): { line: PosLine; floor: string }[] {
+/** Lines priced below their product's minimum sale price (compares the line rate).
+ *  Pass baseRateOf to compare in base units when the line uses a chosen unit
+ *  (Module 18) — the floor is always per base unit. */
+export function priceWarnings(
+  lines: PosLine[],
+  products: PosProduct[],
+  baseRateOf?: (l: PosLine) => string | null
+): { line: PosLine; floor: string }[] {
   const byId = new Map(products.map((p) => [p.id, p]));
   const out: { line: PosLine; floor: string }[] = [];
   for (const l of lines) {
     const p = l.productId ? byId.get(l.productId) : undefined;
     const floor = p?.minSalePrice != null ? BigInt(p.minSalePrice) : 0n;
-    if (floor > 0n && parsePaisa(l.rate || "0") < floor) {
+    if (floor > 0n && parsePaisa(baseRateOf?.(l) ?? l.rate ?? "0") < floor) {
       out.push({ line: l, floor: paisaToRupees(floor) });
     }
   }

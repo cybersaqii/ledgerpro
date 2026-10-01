@@ -363,9 +363,9 @@ describe("16.5 engine query: isolation, filters, netting", () => {
     expect(res.rows[0][3]).toBe("—");
   });
 
-  it("registry exposes 23 presets across 8 categories", () => {
+  it("registry exposes 24 presets across 8 categories", () => {
     const all = listPresets();
-    expect(all.length).toBe(23);
+    expect(all.length).toBe(24);
     expect(new Set(all.map((p) => p.category)).size).toBe(8);
     for (const p of all) {
       expect(REPORT_PRESETS[p.key]).toBe(p);

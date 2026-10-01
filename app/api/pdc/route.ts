@@ -1,5 +1,5 @@
 import { NextRequest } from "next/server";
-import { eq, and, desc, sql } from "drizzle-orm";
+import { eq, and, desc, sql, lte } from "drizzle-orm";
 import { pdcCheques, parties } from "@/db/schema";
 import { pdcSchema } from "@/lib/validators";
 import { parseMoney } from "@/lib/money";
@@ -9,8 +9,13 @@ import { toApiError } from "@/lib/errors";
 import { requirePermission, db, parseDateOnly, defaultBranchId, assertBranch } from "@/lib/route-helpers";
 import { periodLockError } from "@/lib/period";
 import { logAudit } from "@/lib/audit";
+import {
+  extractIdempotencyKey,
+  isIdempotencyConflict,
+  throttleMoneyCreate,
+} from "@/lib/idempotency";
 
-// GET /api/pdc?kind=RECEIVED&status=PENDING&partyId=&from=&to=&page=
+// GET /api/pdc?kind=RECEIVED&status=PENDING&partyId=&from=&to=&due=true&page=
 export async function GET(req: NextRequest) {
   const gate = await requirePermission("payments");
   if (!gate.ok) return gate.response;
@@ -21,6 +26,7 @@ export async function GET(req: NextRequest) {
   const partyId = sp.get("partyId");
   const from = sp.get("from");
   const to = sp.get("to");
+  const dueOnly = sp.get("due") === "true";
   const page = Math.max(1, parseInt(sp.get("page") || "1", 10));
   const perPage = Math.min(100, Math.max(1, parseInt(sp.get("perPage") || "20", 10)));
 
@@ -33,6 +39,12 @@ export async function GET(req: NextRequest) {
   }
   if (to) {
     try { conds.push(sql`${pdcCheques.chequeDate} < ${parseDateOnly(to).getTime() + 86400000}`); } catch { /* ignore */ }
+  }
+  // Module 17: due-for-clearing suggestion — pending cheques whose cheque
+  // date has arrived, oldest first.
+  if (dueOnly) {
+    conds.push(eq(pdcCheques.status, "PENDING"));
+    conds.push(lte(pdcCheques.chequeDate, new Date()));
   }
 
   const rows = await db
@@ -51,6 +63,9 @@ export async function GET(req: NextRequest) {
     .select({
       r: sql<string | null>`sum(case when ${pdcCheques.kind} = 'RECEIVED' and ${pdcCheques.status} = 'PENDING' then ${pdcCheques.amount} else 0 end)`,
       i: sql<string | null>`sum(case when ${pdcCheques.kind} = 'ISSUED' and ${pdcCheques.status} = 'PENDING' then ${pdcCheques.amount} else 0 end)`,
+      // Module 17: due now (cheque date arrived, still pending).
+      dr: sql<string | null>`sum(case when ${pdcCheques.kind} = 'RECEIVED' and ${pdcCheques.status} = 'PENDING' and ${pdcCheques.chequeDate} <= ${Date.now()} then ${pdcCheques.amount} else 0 end)`,
+      di: sql<string | null>`sum(case when ${pdcCheques.kind} = 'ISSUED' and ${pdcCheques.status} = 'PENDING' and ${pdcCheques.chequeDate} <= ${Date.now()} then ${pdcCheques.amount} else 0 end)`,
     })
     .from(pdcCheques)
     .where(eq(pdcCheques.companyId, companyId));
@@ -59,7 +74,18 @@ export async function GET(req: NextRequest) {
     total: total[0]?.n ?? 0,
     pendingReceived: pending[0]?.r ?? "0",
     pendingIssued: pending[0]?.i ?? "0",
+    dueReceived: pending[0]?.dr ?? "0",
+    dueIssued: pending[0]?.di ?? "0",
   });
+}
+
+async function findPdcByIdemKey(companyId: string, key: string) {
+  const rows = await db
+    .select({ id: pdcCheques.id, chequeNo: pdcCheques.chequeNo })
+    .from(pdcCheques)
+    .where(and(eq(pdcCheques.companyId, companyId), eq(pdcCheques.idempotencyKey, key)))
+    .limit(1);
+  return rows[0] ?? null;
 }
 
 // POST /api/pdc — record a post-dated cheque
@@ -71,6 +97,29 @@ export async function POST(req: NextRequest) {
   const parsed = pdcSchema.safeParse(body);
   if (!parsed.success) return err("Please check the form and try again.", 422, "VALIDATION_ERROR");
   const b = parsed.data;
+
+  // Module 17: idempotency — a retry of the same submission (same key)
+  // returns the already-recorded cheque with 200 instead of double-posting.
+  let idemKey: string | undefined;
+  try {
+    idemKey = extractIdempotencyKey(req, body);
+  } catch (e) {
+    return toApiError(e, { route: "/api/pdc", companyId });
+  }
+  if (idemKey) {
+    const existing = await findPdcByIdemKey(companyId, idemKey);
+    if (existing)
+      return json(
+        { data: { id: existing.id, chequeNo: existing.chequeNo, idempotentReplay: true } },
+        { status: 200 }
+      );
+  }
+  const rl = await throttleMoneyCreate(db, "pdc", session.uid, companyId);
+  if (!rl.ok)
+    return json(
+      { error: "Too many requests. Please wait a moment and try again.", code: "RATE_LIMITED" },
+      { status: 429, headers: { "Retry-After": String(rl.retryAfterSec) } }
+    );
 
   const amount = parseMoney(b.amount);
   if (amount <= 0n) return err("Amount must be positive.", 422);
@@ -95,6 +144,7 @@ export async function POST(req: NextRequest) {
         refNo: b.refNo || undefined,
         notes: b.notes || undefined,
         createdById: session.uid,
+        idempotencyKey: idemKey,
       });
     });
     await logAudit(db, {
@@ -104,6 +154,15 @@ export async function POST(req: NextRequest) {
     });
     return json({ data: { id: pdcId } }, { status: 201 });
   } catch (e) {
+    // Lost the idempotency race: the winner's row is readable now — replay.
+    if (idemKey && isIdempotencyConflict(e)) {
+      const existing = await findPdcByIdemKey(companyId, idemKey);
+      if (existing)
+        return json(
+          { data: { id: existing.id, chequeNo: existing.chequeNo, idempotentReplay: true } },
+          { status: 200 }
+        );
+    }
     return toApiError(e, { route: "/api/pdc", companyId });
   }
 }

@@ -1,6 +1,6 @@
 import { NextRequest } from "next/server";
-import { eq, and, like, desc, sql, or } from "drizzle-orm";
-import { products, stockLevels } from "@/db/schema";
+import { eq, and, like, desc, sql, or, inArray } from "drizzle-orm";
+import { products, stockLevels, uomConversions } from "@/db/schema";
 import { productSchema } from "@/lib/validators";
 import { parseMoney } from "@/lib/money";
 import { parseQty } from "@/lib/qty";
@@ -38,6 +38,26 @@ export async function GET(req: NextRequest) {
   // attach total stock across branches + bundle flag (bundles hold no stock)
   const branchId = await defaultBranchId(db, companyId).catch(() => null);
   const bundleIds = await bundleProductIds(db, companyId);
+  // Module 18: ?withUom=1 attaches alternate-unit definitions for the
+  // stock-list alt-unit breakdown (one query for the whole page).
+  const withUom = sp.get("withUom") === "1";
+  const convByProduct = new Map<string, { unit: string; num: number; den: number }[]>();
+  if (withUom && rows.length > 0) {
+    const convs = await db
+      .select()
+      .from(uomConversions)
+      .where(
+        and(
+          eq(uomConversions.companyId, companyId),
+          inArray(uomConversions.productId, rows.map((p) => p.id))
+        )
+      );
+    for (const c of convs) {
+      const list = convByProduct.get(c.productId) ?? [];
+      list.push({ unit: c.unit, num: c.num, den: c.den });
+      convByProduct.set(c.productId, list);
+    }
+  }
   const withStock = await Promise.all(
     rows.map(async (p) => {
       let totalQty = 0n;
@@ -50,6 +70,7 @@ export async function GET(req: NextRequest) {
  }
       const isBundle = bundleIds.has(p.id);
       const out: Record<string, unknown> = { ...p, totalQty: totalQty.toString(), isBundle };
+      if (withUom) out.uoms = convByProduct.get(p.id) ?? [];
       // bundles are excluded from the low-stock filter: they hold no stock
       if (lowStock && (isBundle || !(p.trackStock && totalQty <= p.reorderLevel))) return null;
       return out;
@@ -114,6 +135,8 @@ export async function POST(req: NextRequest) {
       location: p.location?.trim() ? p.location.trim().slice(0, 60) : null,
       imageUrl,
       pctCode: p.pctCode?.trim() ? p.pctCode.trim().slice(0, 20) : null,
+      // Module 19: net weight in grams.
+      weightGrams: p.weightGrams ?? 0,
       revenueAccountId: p.revenueAccountId || null,
       cogsAccountId: p.cogsAccountId || null,
       inventoryAccountId: p.inventoryAccountId || null,

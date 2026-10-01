@@ -9,6 +9,9 @@ import { localizedApiError } from "@/lib/api-errors";
 import { lineMath, docMath, taxBpsOf } from "@/lib/doc-math";
 import { foreignToPaisa, paisaToForeignMinor, formatForeign, minorToDecimalString, formatRate } from "@/lib/fx";
 import { parseDecimalToMinor } from "@/lib/decimal";
+// Module 18: exact integer UOM math for the client-side unit preview
+// (the server re-derives everything authoritatively).
+import { toBaseMilli, parseMilliUnits, formatMilliUnits } from "@/lib/uom-math";
 import { whtRateBps, type WhtCategory, type FilerStatus } from "@/lib/wht";
 import { useBusinessProfile } from "@/components/business-type";
 import { ProjectSelect } from "@/components/project-select";
@@ -45,6 +48,13 @@ type Line = {
   expiryDate: string;
   /** Module 4.2: per-line location override — branch id, "" = document branch. */
   branchId: string;
+  /** Module 18: the unit the qty/rate were typed in — "" = the base unit above.
+   *  The server converts to base units; the base-unit line math stays canonical. */
+  lineUnit: string;
+  /** Module 18: alternate units for this product (fetched on pick). */
+  uoms: { unit: string; num: number; den: number }[];
+  /** Module 18: per-unit sale prices (paisa, as decimal string), sales docs only. */
+  uomPrices: Record<string, string>;
 };
 
 type TFn = (key: string, vars?: Record<string, string | number>) => string;
@@ -167,6 +177,49 @@ function LocationControls({ line, branches, t, onChange }: {
         ))}
       </select>
     </div>
+  );
+}
+
+/**
+ * Module 18 — per-line unit picker. Shows the base unit plus every alternate
+ * unit defined for the product; below it a preview of the typed quantity in
+ * base units (exact integer math, display-only — the server converts).
+ */
+function UnitPicker({ line, t, onUnit }: {
+  line: Line;
+  t: TFn;
+  onUnit: (unit: string) => void;
+}) {
+  if (!line.productId || line.uoms.length === 0) {
+    return <span className="text-sm text-muted-foreground">{line.unit || "—"}</span>;
+  }
+  const chosen = line.lineUnit || line.unit;
+  let preview: string | null = null;
+  const conv = line.uoms.find((u) => u.unit === line.lineUnit);
+  if (conv && line.qty.trim() !== "") {
+    try {
+      const baseMilli = toBaseMilli(parseMilliUnits(line.qty), BigInt(conv.num), BigInt(conv.den));
+      preview = `= ${formatMilliUnits(baseMilli)} ${line.unit}`;
+    } catch { preview = null; }
+  }
+  return (
+    <span className="block">
+      <select
+        className="field !w-auto !max-w-full !py-1.5 !text-xs font-semibold"
+        value={chosen}
+        aria-label={t("docform.colUnit")}
+        title={t("docform.unitHint", { base: line.unit })}
+        onChange={(e) => onUnit(e.target.value)}
+      >
+        <option value={line.unit}>{line.unit}</option>
+        {line.uoms.map((u) => (
+          <option key={u.unit} value={u.unit}>
+            {u.unit} (1 = {u.den === 1 ? u.num : `${u.num}/${u.den}`} {line.unit})
+          </option>
+        ))}
+      </select>
+      {preview && <span className="mt-0.5 block text-[11px] text-muted-foreground">{preview}</span>}
+    </span>
   );
 }
 
@@ -422,6 +475,40 @@ export function DocForm({ mode }: { mode: "SALES" | "PURCHASE" }) {
       .catch(() => setLastRates((m) => ({ ...m, [productId]: null })));
   }, [isSales, partyId]);
 
+  // Module 18: fetch alternate units + per-unit prices for a picked product.
+  const loadUoms = useCallback((productId: string, key: number) => {
+    if (!productId) return;
+    api<{ data: { baseUnit: string; conversions: { unit: string; num: number; den: number }[]; prices: { unit: string; salePrice: string }[] } }>(
+      `/api/products/${productId}/uom`
+    )
+      .then((d) => {
+        const prices: Record<string, string> = {};
+        for (const p of d.data.prices) prices[p.unit] = p.salePrice;
+        setLines((ls) => ls.map((l) => (l.key === key ? { ...l, uoms: d.data.conversions, uomPrices: prices } : l)));
+      })
+      .catch(() => { /* units are optional — the line still works in base units */ });
+  }, []);
+
+  // Module 18: switching the line unit re-seeds the rate from the per-unit
+  // price list on sales docs (purchase docs keep the typed supplier rate).
+  // Qty is left for the user to type; the server converts both to base units.
+  function changeLineUnit(key: number, newUnit: string) {
+    setLines((ls) => ls.map((l) => {
+      if (l.key !== key) return l;
+      const base = newUnit === "" || newUnit === l.unit;
+      let rate = l.rate;
+      if (!base && isSales && l.uomPrices[newUnit] != null) {
+        try {
+          const paisa = BigInt(l.uomPrices[newUnit]);
+          rate = isForeign && fxRateScaled != null
+            ? minorToDecimalString(paisaToForeignMinor(paisa, fxRateScaled, fxMinorUnits), fxMinorUnits)
+            : (Number(paisa) / 100).toString();
+        } catch { /* keep the typed rate */ }
+      }
+      return { ...l, lineUnit: base ? "" : newUnit, rate };
+    }));
+  }
+
   function addExtraCost() {
     setExtraCosts((s) => [...s, { key: ++keyRef.current, label: s.length === 0 ? t("docform.freight") : t("docform.labour"), amount: "" }]);
   }
@@ -490,9 +577,13 @@ export function DocForm({ mode }: { mode: "SALES" | "PURCHASE" }) {
       batchNo: "",
       expiryDate: "",
       branchId: "",
+      lineUnit: "",
+      uoms: [],
+      uomPrices: {},
     }]);
     loadBatches(p.id);
     loadLastRate(p.id);
+    loadUoms(p.id, key);
     setProdQ("");
     setShowProdList(false);
     setActiveIdx(-1);
@@ -511,7 +602,7 @@ export function DocForm({ mode }: { mode: "SALES" | "PURCHASE" }) {
   function addCustomLine(desc = "") {
     keyRef.current += 1;
     const key = keyRef.current;
-    setLines((ls) => [...ls, { key, productId: "", description: desc, unit: "", qty: "1", rate: "", discount: "", taxPct: "", availQty: null, isBundle: false, batchId: "", batchNo: "", expiryDate: "", branchId: "" }]);
+    setLines((ls) => [...ls, { key, productId: "", description: desc, unit: "", qty: "1", rate: "", discount: "", taxPct: "", availQty: null, isBundle: false, batchId: "", batchNo: "", expiryDate: "", branchId: "", lineUnit: "", uoms: [], uomPrices: {} }]);
     flashRow(key);
     setTimeout(() => lineFieldRefs.current.get(key)?.desc?.focus(), 60);
   }
@@ -688,6 +779,8 @@ export function DocForm({ mode }: { mode: "SALES" | "PURCHASE" }) {
           description: l.description.trim(),
           qty: l.qty, rate: l.rate, discount: l.discount || "0",
           taxBps: taxBpsOf(l.taxPct) ?? 0,
+          // Module 18: the unit the qty/rate were typed in (blank = base unit).
+          unit: l.lineUnit || undefined,
           batchId: l.batchId || undefined,
           batchNo: l.batchNo || undefined,
           expiryDate: l.expiryDate || undefined,
@@ -1003,7 +1096,7 @@ export function DocForm({ mode }: { mode: "SALES" | "PURCHASE" }) {
                           <td><input ref={setRowRef(l.key, "qty")} onKeyDown={(e) => rowKeyDown(e, l.key, "qty")}
                             className="field num !px-2 !py-1.5" type="number" min="0" step="0.001" value={l.qty}
                             onChange={(e) => updateLine(l.key, { qty: e.target.value })} /></td>
-                          <td className="text-sm text-muted-foreground">{l.unit || "—"}</td>
+                          <td><UnitPicker line={l} t={t} onUnit={(u) => changeLineUnit(l.key, u)} /></td>
                           <td><input ref={setRowRef(l.key, "rate")} onKeyDown={(e) => rowKeyDown(e, l.key, "rate")}
                             className="field num !px-2 !py-1.5" type="number" min="0" step={isForeign ? "any" : "0.01"} placeholder="0.00" value={l.rate}
                             onChange={(e) => updateLine(l.key, { rate: e.target.value })} />
@@ -1066,11 +1159,14 @@ export function DocForm({ mode }: { mode: "SALES" | "PURCHASE" }) {
                         </div>
                         <div className="grid grid-cols-4 gap-2">
                           <input ref={setRowRef(l.key, "qty")} onKeyDown={(e) => rowKeyDown(e, l.key, "qty")}
-                            className="field num !px-2" type="number" min="0" step="0.001" placeholder={t("docform.colQty")} value={l.qty}
+                            className="field num !px-2 col-span-2" type="number" min="0" step="0.001" placeholder={t("docform.colQty")} value={l.qty}
                             aria-label={t("docform.colQty")}
                             onChange={(e) => updateLine(l.key, { qty: e.target.value })} />
+                          <div className="col-span-2">
+                            <UnitPicker line={l} t={t} onUnit={(u) => changeLineUnit(l.key, u)} />
+                          </div>
                           <input ref={setRowRef(l.key, "rate")} onKeyDown={(e) => rowKeyDown(e, l.key, "rate")}
-                            className="field num !px-2" type="number" min="0" step={isForeign ? "any" : "0.01"} placeholder={t("docform.colRate")} value={l.rate}
+                            className="field num !px-2 col-span-2" type="number" min="0" step={isForeign ? "any" : "0.01"} placeholder={t("docform.colRate")} value={l.rate}
                             aria-label={t("docform.colRate")}
                             onChange={(e) => updateLine(l.key, { rate: e.target.value })} />
                           {l.productId && lastRates[l.productId] != null && (

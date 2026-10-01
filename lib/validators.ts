@@ -85,6 +85,9 @@ export const productSchema = z.object({
   // Module 7: FBR PCT (Pakistan Customs Tariff) code — optional, printed on
   // FBR POS payloads when set.
   pctCode: z.string().trim().max(20).optional().or(z.literal("")),
+  // Module 19: net weight in grams (integer) for by-weight landed-cost
+  // allocation. 0 = unknown.
+  weightGrams: z.coerce.number().int().min(0).max(100000000).optional(),
   // Module 4.1: item type + per-product GL accounts. itemType is optional for
   // backward compatibility: when absent it is derived from trackStock.
   itemType: z.enum(["INVENTORY", "NON_INVENTORY", "SERVICE"]).optional(),
@@ -121,6 +124,8 @@ export const docItemSchema = z.object({
   expiryDate: z.string().trim().max(10).optional().or(z.literal("")),
   // Module 4.2: per-line location override (branch id); blank = doc branch.
   branchId: z.string().trim().max(40).optional().or(z.literal("")),
+  // Module 18: the unit the qty/rate were typed in (blank = product base unit).
+  unit: z.string().trim().max(12).optional().or(z.literal("")),
 });
 
 export const salesDocSchema = z.object({
@@ -309,6 +314,8 @@ export const pdcReverseSchema = z.object({
   branchId: z.string().min(1).optional(),
   date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Invalid date"),
   reason: z.string().trim().max(200).optional().or(z.literal("")),
+  // Module 17: optional bounce fee (money string, paisa-decimal) — bounce only.
+  bounceFee: z.string().trim().max(20).optional().or(z.literal("")),
 });
 
 // ── Module 14: POS terminals & register sessions ──
@@ -356,4 +363,49 @@ export const posSessionCloseSchema = z.object({
   countedCash: moneyStr, // physical cash counted in the drawer
   notes: z.string().trim().max(500).optional().or(z.literal("")),
   idempotencyKey: z.string().trim().min(1).max(80).optional(),
+});
+
+// ── Module 18: multi-UOM ──
+
+// POST /api/products/[id]/uom — add a conversion or a per-UOM price.
+export const uomConversionSchema = z.object({
+  kind: z.literal("conversion"),
+  unit: z.string().trim().min(1).max(12),
+  num: z.union([z.string().regex(/^\d{1,10}$/), z.number().int().positive()]),
+  den: z.union([z.string().regex(/^\d{1,10}$/), z.number().int().positive()]),
+});
+
+export const uomPriceSchema = z.object({
+  kind: z.literal("price"),
+  unit: z.string().trim().min(1).max(12),
+  salePrice: moneyStr,
+});
+
+export const uomUpsertSchema = z.discriminatedUnion("kind", [uomConversionSchema, uomPriceSchema]);
+
+// ── Module 19: landed-cost sheets ──
+
+const landedHeadSchema = z.object({
+  head: z.enum(["FREIGHT", "DUTY", "CLEARING", "OTHER"]),
+  label: z.string().trim().max(60).optional().or(z.literal("")),
+  amount: moneyStr,
+});
+
+// POST /api/landed-cost — post a landed-cost sheet.
+export const landedCostSchema = z.object({
+  branchId: z.string().min(1).optional(),
+  date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Invalid date"),
+  purchaseDocId: z.string().min(1).optional().or(z.literal("")),
+  basis: z.enum(["VALUE", "QTY", "WEIGHT"]),
+  heads: z.array(landedHeadSchema).min(1).max(20),
+  // Explicit product lines (no linked doc). With a linked doc the server
+  // derives lines from the bill/GRN and ignores this list.
+  lines: z.array(z.object({ productId: z.string().min(1) })).max(500).default([]),
+  idempotencyKey: z.string().trim().min(1).max(80).optional(),
+});
+
+// POST /api/landed-cost/[id]/void — void a posted sheet.
+export const landedCostVoidSchema = z.object({
+  branchId: z.string().min(1).optional(),
+  date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Invalid date"),
 });

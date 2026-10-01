@@ -1,4 +1,4 @@
-import { eq, and, sql, asc, inArray } from "drizzle-orm";
+import { eq, and, sql, asc, inArray, lte } from "drizzle-orm";
 import {
   bankAccounts,
   parties,
@@ -8,7 +8,7 @@ import {
   salesDocs,
 } from "@/db/schema";
 import { SYS, accountMap, nextDocNo } from "./setup";
-import type { DbTx } from "./db";
+import type { Db, DbTx } from "./db";
 import { UserError } from "./errors";
 import { createJournal, allocatePaymentToDoc } from "./posting";
 
@@ -42,6 +42,8 @@ export type RecordPdcInput = {
   refNo?: string;
   notes?: string;
   createdById: string;
+  /** Module 17: double-submit protection for the record POST. */
+  idempotencyKey?: string;
 };
 
 async function partyKind(tx: DbTx, companyId: string, partyId: string): Promise<string> {
@@ -113,6 +115,8 @@ export async function recordPdc(tx: DbTx, input: RecordPdcInput): Promise<string
     journalEntryId: entryId,
     notes: input.notes?.trim() || null,
     createdById: input.createdById,
+    // Module 17: idempotency key for the record POST (NULL = client sent none).
+    idempotencyKey: input.idempotencyKey ?? null,
   });
 
   // Outstanding moves toward us on both sides at record time.
@@ -172,6 +176,8 @@ export type ClearPdcInput = {
   bankAccountId: string;
   date: Date;
   createdById: string;
+  /** Module 17: double-submit protection — stored on the minted CHEQUE payment. */
+  idempotencyKey?: string;
 };
 
 /** Clear a pending PDC: money hits the bank, and the amount is booked as a
@@ -230,6 +236,8 @@ export async function clearPdc(tx: DbTx, input: ClearPdcInput): Promise<string> 
     notes: `PDC ${isReceived ? "received" : "issued"} cleared`,
     journalEntryId: entryId,
     createdById: input.createdById,
+    // Module 17: the clear POST's idempotency key rides on the payment row.
+    idempotencyKey: input.idempotencyKey ?? null,
   });
 
   let leftover = pdc.amount;
@@ -271,10 +279,14 @@ export type ReversePdcInput = {
   date: Date;
   createdById: string;
   reason?: string;
+  /** Module 17: optional bounce fee (paisa). RECEIVED → charged to the
+   *  customer (Dr AR / Cr Bounce Charges income); ISSUED → charged to us
+   *  by the supplier (Dr Bounce Charges expense / Cr AP). */
+  bounceFee?: bigint;
 };
 
 /** Bounce or cancel a pending PDC: exact mirror of the record entry, party
- *  balance restored. */
+ *  balance restored. Bounce may additionally carry a bounce fee. */
 async function reversePdc(
   tx: DbTx,
   input: ReversePdcInput,
@@ -283,6 +295,10 @@ async function reversePdc(
   const pdc = await loadPdc(tx, input.companyId, input.pdcId);
   if (pdc.status !== "PENDING") throw new UserError(`Only pending cheques can be ${toStatus.toLowerCase()}`);
   const ac = await accountMap(tx, input.companyId);
+  const fee = input.bounceFee ?? 0n;
+  if (fee < 0n) throw new UserError("Bounce fee cannot be negative", 422, "NEGATIVE_BOUNCE_FEE");
+  if (toStatus !== "BOUNCED" && fee > 0n)
+    throw new UserError("A bounce fee can only be charged on a bounced cheque", 422, "FEE_ON_CANCEL");
 
   const isReceived = pdc.kind === "RECEIVED";
   await createJournal(tx, {
@@ -312,6 +328,37 @@ async function reversePdc(
     .set({ balance: sql`${parties.balance} + ${pdc.amount}`, updatedAt: new Date() })
     .where(eq(parties.id, pdc.partyId));
 
+  // Module 17: bounce fee — a separate balanced journal so the fee stays
+  // visible on its own (and on the party's statement).
+  if (fee > 0n) {
+    await createJournal(tx, {
+      companyId: input.companyId,
+      branchId: input.branchId,
+      date: input.date,
+      memo: `Cheque bounce fee — Chq ${pdc.chequeNo}${input.reason ? ` (${input.reason})` : ""}`,
+      reference: pdc.chequeNo,
+      source: "PDC_BOUNCE_FEE",
+      sourceId: pdc.id,
+      createdById: input.createdById,
+      lines: isReceived
+        ? [
+            // The customer bears the fee: their receivable grows.
+            { accountId: ac[SYS.AR], debit: fee, credit: 0n, partyId: pdc.partyId },
+            { accountId: ac[SYS.BOUNCE_INCOME], debit: 0n, credit: fee },
+          ]
+        : [
+            // The supplier charges us the fee: our payable grows.
+            { accountId: ac[SYS.BOUNCE_EXPENSE], debit: fee, credit: 0n },
+            { accountId: ac[SYS.AP], debit: 0n, credit: fee, partyId: pdc.partyId },
+          ],
+    });
+    // The fee moves the outstanding away from us on both sides.
+    await tx
+      .update(parties)
+      .set({ balance: sql`${parties.balance} + ${fee}`, updatedAt: new Date() })
+      .where(eq(parties.id, pdc.partyId));
+  }
+
   await tx
     .update(pdcCheques)
     .set({ status: toStatus, clearedAt: input.date, updatedAt: new Date() })
@@ -324,4 +371,51 @@ export async function bouncePdc(tx: DbTx, input: ReversePdcInput): Promise<void>
 
 export async function cancelPdc(tx: DbTx, input: ReversePdcInput): Promise<void> {
   return reversePdc(tx, input, "CANCELLED");
+}
+
+// ─── Due-for-clearing suggestions ──────────────────────────────
+// A PDC becomes actionable on its cheque date: this is the "auto-suggest
+// clearing" surface — pending cheques with chequeDate <= asOf, oldest first.
+
+export type DuePdcRow = {
+  id: string;
+  kind: string;
+  partyId: string;
+  partyName: string | null;
+  chequeNo: string;
+  bankName: string | null;
+  amount: bigint;
+  chequeDate: Date;
+};
+
+export async function duePdcCheques(
+  dbx: Db | DbTx,
+  companyId: string,
+  asOf: Date,
+  kind?: PdcKind,
+  limit = 50
+): Promise<DuePdcRow[]> {
+  const conds = [
+    eq(pdcCheques.companyId, companyId),
+    eq(pdcCheques.status, "PENDING"),
+    lte(pdcCheques.chequeDate, asOf),
+  ];
+  if (kind) conds.push(eq(pdcCheques.kind, kind));
+  const rows = await dbx
+    .select({
+      id: pdcCheques.id,
+      kind: pdcCheques.kind,
+      partyId: pdcCheques.partyId,
+      partyName: parties.name,
+      chequeNo: pdcCheques.chequeNo,
+      bankName: pdcCheques.bankName,
+      amount: pdcCheques.amount,
+      chequeDate: pdcCheques.chequeDate,
+    })
+    .from(pdcCheques)
+    .leftJoin(parties, eq(pdcCheques.partyId, parties.id))
+    .where(and(...conds))
+    .orderBy(asc(pdcCheques.chequeDate), asc(pdcCheques.createdAt))
+    .limit(limit);
+  return rows;
 }

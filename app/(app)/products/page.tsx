@@ -5,6 +5,8 @@ import { Plus, Search, Pencil, TriangleAlert, Package } from "lucide-react";
 import { PageHeader, EmptyState, Field, ErrorNote } from "@/components/ui";
 import { Modal } from "@/components/modal";
 import { api, fmtMoney, fmtQty } from "@/lib/format";
+// Module 18: alt-unit stock breakdown (exact integer math, client-safe).
+import { describeAltUnits } from "@/lib/uom-math";
 import { paisaToRupees } from "@/lib/pos";
 import { useBusinessProfile } from "@/components/business-type";
 import { ProductImage } from "@/components/product-image";
@@ -15,6 +17,8 @@ type Product = {
   purchasePrice: string; salePrice: string; trackStock: boolean;
   reorderLevel: string; totalQty: string; minSalePrice: string; isBundle: boolean;
   location: string | null; imageUrl: string | null;
+  // Module 18: present when the list was fetched with ?withUom=1.
+  uoms?: { unit: string; num: number; den: number }[];
 };
 
 type AccountOpt = { id: string; name: string; code: string };
@@ -80,6 +84,8 @@ export default function ProductsPage() {
   const [openBatches, setOpenBatches] = useState<string | null>(null);
   const [batchRows, setBatchRows] = useState<Record<string, BatchInfo[]>>({});
   const [batchLoading, setBatchLoading] = useState(false);
+  // Module 18: UOM manager modal target.
+  const [uomProduct, setUomProduct] = useState<Product | null>(null);
   // Module 4.1: per-product GL account pickers + opening-stock posting.
   const [incomeAccounts, setIncomeAccounts] = useState<AccountOpt[]>([]);
   const [expenseAccounts, setExpenseAccounts] = useState<AccountOpt[]>([]);
@@ -94,7 +100,7 @@ export default function ProductsPage() {
     setLoading(true);
     try {
       const d = await api<{ data: Product[]; total: number }>(
-        `/api/products?q=${encodeURIComponent(q)}&perPage=50${lowOnly ? "&lowStock=1" : ""}`
+        `/api/products?q=${encodeURIComponent(q)}&perPage=50&withUom=1${lowOnly ? "&lowStock=1" : ""}`
       );
       setRows(d.data);
       setTotal(d.total);
@@ -328,7 +334,14 @@ export default function ProductsPage() {
                         </span>
                       </td>
                       <td><span className="rounded-md bg-muted px-1.5 py-0.5 font-mono text-xs text-muted-foreground">{p.sku}</span></td>
-                      <td className="num font-bold">{p.trackStock && !p.isBundle ? fmtQty(p.totalQty, p.unit) : "—"}</td>
+                      <td className="num font-bold">
+                        {p.trackStock && !p.isBundle ? fmtQty(p.totalQty, p.unit) : "—"}
+                        {p.trackStock && !p.isBundle && p.uoms && p.uoms.length > 0 && (
+                          <span className="block text-[11px] font-normal text-muted-foreground">
+                            {describeAltUnits(BigInt(p.totalQty), p.unit, p.uoms)}
+                          </span>
+                        )}
+                      </td>
                       <td className="num">{fmtMoney(p.purchasePrice)}</td>
                       <td className="num">{fmtMoney(p.salePrice)}</td>
                       <td className="whitespace-nowrap">
@@ -339,6 +352,10 @@ export default function ProductsPage() {
                           </button>
                         )}
                         <button className="btn btn-ghost !p-2" onClick={() => openEdit(p)} aria-label={t("common.edit")}><Pencil size={15} /></button>
+                        <button className="btn btn-ghost !px-2 !py-1.5 text-xs font-bold text-muted-foreground hover:text-foreground"
+                          onClick={() => setUomProduct(p)} title={t("uom.manageHint")}>
+                          {t("uom.manage")}
+                        </button>
                         </div>
                       </td>
                     </tr>
@@ -550,6 +567,168 @@ export default function ProductsPage() {
           </form>
         </Modal>
       )}
+
+      {uomProduct && (
+        <UomManagerModal
+          product={uomProduct}
+          onClose={() => { setUomProduct(null); load(); }}
+        />
+      )}
     </div>
+  );
+}
+
+/** Module 18 — per-product units manager: conversions, per-unit sale prices, weight. */
+function UomManagerModal({ product, onClose }: { product: Product; onClose: () => void }) {
+  const { t } = useLang();
+  const [loading, setLoading] = useState(true);
+  const [convs, setConvs] = useState<{ unit: string; num: number; den: number }[]>([]);
+  const [prices, setPrices] = useState<{ unit: string; salePrice: string }[]>([]);
+  const [error, setError] = useState<string | null>(null);
+  const [newUnit, setNewUnit] = useState("");
+  const [newNum, setNewNum] = useState("");
+  const [priceUnit, setPriceUnit] = useState("");
+  const [priceVal, setPriceVal] = useState("");
+  const [weight, setWeight] = useState("");
+
+  const reload = useCallback(async () => {
+    setLoading(true);
+    try {
+      const d = await api<{ data: { baseUnit: string; conversions: { unit: string; num: number; den: number }[]; prices: { unit: string; salePrice: string }[] } }>(
+        `/api/products/${product.id}/uom`
+      );
+      setConvs(d.data.conversions);
+      setPrices(d.data.prices);
+      if (!priceUnit && d.data.conversions.length > 0) setPriceUnit(d.data.conversions[0].unit);
+    } catch { setError(t("uom.loadError")); } finally { setLoading(false); }
+  }, [product.id, priceUnit, t]);
+
+  // eslint-disable-next-line react-hooks/set-state-in-effect -- initial load
+  useEffect(() => { reload(); }, [reload]);
+  // eslint-disable-next-line react-hooks/set-state-in-effect -- seed weight once
+  useEffect(() => {
+    api<{ data: { weightGrams: number } }>(`/api/products/${product.id}`)
+      .then((d) => setWeight(d.data.weightGrams ? String(d.data.weightGrams) : ""))
+      .catch(() => {});
+  }, [product.id]);
+
+  async function addConversion(e: React.FormEvent) {
+    e.preventDefault();
+    setError(null);
+    try {
+      await api(`/api/products/${product.id}/uom`, {
+        method: "POST",
+        body: JSON.stringify({ kind: "conversion", unit: newUnit, num: newNum, den: "1" }),
+      });
+      setNewUnit(""); setNewNum("");
+      await reload();
+    } catch (err) { setError(err instanceof Error ? err.message : t("uom.errSave")); }
+  }
+
+  async function setPrice(e: React.FormEvent) {
+    e.preventDefault();
+    setError(null);
+    try {
+      await api(`/api/products/${product.id}/uom`, {
+        method: "POST",
+        body: JSON.stringify({ kind: "price", unit: priceUnit, salePrice: priceVal }),
+      });
+      setPriceVal("");
+      await reload();
+    } catch (err) { setError(err instanceof Error ? err.message : t("uom.errSave")); }
+  }
+
+  async function remove(kind: "conversion" | "price", unit: string) {
+    setError(null);
+    try {
+      await api(`/api/products/${product.id}/uom?kind=${kind}&unit=${encodeURIComponent(unit)}`, { method: "DELETE" });
+      await reload();
+    } catch (err) { setError(err instanceof Error ? err.message : t("uom.errSave")); }
+  }
+
+  async function saveWeight() {
+    setError(null);
+    const g = weight.trim() === "" ? 0 : Number(weight);
+    if (!Number.isInteger(g) || g < 0) { setError(t("uom.errWeight")); return; }
+    try {
+      await api(`/api/products/${product.id}`, { method: "PATCH", body: JSON.stringify({ weightGrams: g }) });
+      showSaved();
+    } catch (err) { setError(err instanceof Error ? err.message : t("uom.errSave")); }
+  }
+  const [savedTick, setSavedTick] = useState(0);
+  function showSaved() { setSavedTick((x) => x + 1); }
+
+  return (
+    <Modal title={t("uom.title", { name: product.name })} onClose={onClose}>
+      <div className="space-y-5">
+        <ErrorNote message={error} />
+        {savedTick > 0 && <p className="text-xs font-bold text-primary">{t("uom.weightSaved")}</p>}
+
+        <div>
+          <p className="mb-1 text-sm font-bold">{t("uom.baseUnit", { unit: product.unit })}</p>
+          <p className="text-xs text-muted-foreground">{t("uom.baseHint")}</p>
+        </div>
+
+        <div>
+          <p className="mb-2 text-sm font-bold">{t("uom.conversions")}</p>
+          {loading ? <div className="skeleton h-10 rounded-xl" /> : convs.length === 0 ? (
+            <p className="text-xs text-muted-foreground">{t("uom.noConversions")}</p>
+          ) : (
+            <ul className="space-y-1.5">
+              {convs.map((c) => (
+                <li key={c.unit} className="flex items-center justify-between rounded-xl bg-muted/60 px-3 py-2 text-sm">
+                  <span className="font-semibold">1 {c.unit} = {c.den === 1 ? c.num : `${c.num}/${c.den}`} {product.unit}</span>
+                  <button type="button" className="text-xs font-bold text-danger hover:underline" onClick={() => remove("conversion", c.unit)}>
+                    {t("common.delete")}
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+          <form onSubmit={addConversion} className="mt-2 flex flex-wrap items-end gap-2">
+            <Field label={t("uom.unitLabel")}><input className="field !w-24" value={newUnit} onChange={(e) => setNewUnit(e.target.value)} placeholder="CTN" maxLength={12} required /></Field>
+            <span className="pb-2.5 text-sm text-muted-foreground">1 {newUnit.trim().toUpperCase() || "…"} =</span>
+            <Field label={t("uom.perUnit", { base: product.unit })}><input className="field !w-24" type="number" min="1" step="1" value={newNum} onChange={(e) => setNewNum(e.target.value)} placeholder="24" required /></Field>
+            <button className="btn btn-primary !px-3 !py-2 text-xs">{t("uom.add")}</button>
+          </form>
+        </div>
+
+        <div>
+          <p className="mb-2 text-sm font-bold">{t("uom.pricesTitle")}</p>
+          <p className="mb-2 text-xs text-muted-foreground">{t("uom.pricesHint")}</p>
+          {prices.length > 0 && (
+            <ul className="mb-2 space-y-1.5">
+              {prices.map((p) => (
+                <li key={p.unit} className="flex items-center justify-between rounded-xl bg-muted/60 px-3 py-2 text-sm">
+                  <span className="font-semibold">{p.unit} — {fmtMoney(p.salePrice)}</span>
+                  <button type="button" className="text-xs font-bold text-danger hover:underline" onClick={() => remove("price", p.unit)}>
+                    {t("common.delete")}
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+          <form onSubmit={setPrice} className="flex flex-wrap items-end gap-2">
+            <Field label={t("docform.colUnit")}>
+              <select className="field !w-auto" value={priceUnit} onChange={(e) => setPriceUnit(e.target.value)}>
+                <option value={product.unit}>{product.unit} ({t("uom.base")})</option>
+                {convs.map((c) => <option key={c.unit} value={c.unit}>{c.unit}</option>)}
+              </select>
+            </Field>
+            <Field label={t("products.salePrice")}><input className="field !w-32" type="number" min="0" step="0.01" value={priceVal} onChange={(e) => setPriceVal(e.target.value)} placeholder="0.00" required /></Field>
+            <button className="btn btn-primary !px-3 !py-2 text-xs">{t("uom.setPrice")}</button>
+          </form>
+        </div>
+
+        <div>
+          <p className="mb-2 text-sm font-bold">{t("uom.weightTitle")}</p>
+          <p className="mb-2 text-xs text-muted-foreground">{t("uom.weightHint")}</p>
+          <div className="flex items-end gap-2">
+            <Field label={t("uom.weightGrams")}><input className="field !w-32" type="number" min="0" step="1" value={weight} onChange={(e) => setWeight(e.target.value)} placeholder="0" /></Field>
+            <button type="button" className="btn btn-primary !px-3 !py-2 text-xs" onClick={saveWeight}>{t("common.save")}</button>
+          </div>
+        </div>
+      </div>
+    </Modal>
   );
 }

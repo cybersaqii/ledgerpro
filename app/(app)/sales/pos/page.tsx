@@ -20,6 +20,8 @@ import { ProductImage } from "@/components/product-image";
 import { ProjectSelect } from "@/components/project-select";
 import { useLang } from "@/components/lang-provider";
 import { ShiftBar, type ShiftSession } from "./shift-ui";
+import { parseDecimalToMinor } from "@/lib/decimal";
+import { toBaseMilli } from "@/lib/uom-math";
 
 type ApiProduct = PosProduct & { totalQty: string };
 type ApiParty = { id: string; name: string; phone: string | null };
@@ -71,6 +73,8 @@ export default function PosPage() {
 
   // batch rows per product (undefined = not loaded yet), doc-form pattern
   const [batchCache, setBatchCache] = useState<Record<string, BatchOpt[] | undefined>>({});
+  // Module 18: alternate units + per-unit prices, lazy-loaded per product.
+  const [uomCache, setUomCache] = useState<Record<string, { uoms: { unit: string; num: number; den: number }[]; prices: Record<string, string> } | undefined>>({});
   const batchLoadingRef = useRef(new Set<string>());
   const loadBatches = useCallback((productId: string) => {
     if (!productId || batchLoadingRef.current.has(productId)) return;
@@ -79,6 +83,73 @@ export default function PosPage() {
       .then((d) => setBatchCache((m) => ({ ...m, [productId]: d.data })))
       .catch(() => setBatchCache((m) => ({ ...m, [productId]: [] })));
   }, []);
+
+  // Module 18: lazy-load alternate units + per-unit prices once per product.
+  const uomLoadingRef = useRef(new Set<string>());
+  const loadUoms = useCallback((productId: string) => {
+    if (!productId || uomLoadingRef.current.has(productId)) return;
+    uomLoadingRef.current.add(productId);
+    api<{ data: { conversions: { unit: string; num: number; den: number }[]; prices: { unit: string; salePrice: string }[] } }>(
+      `/api/products/${productId}/uom`
+    )
+      .then((d) => setUomCache((m) => ({
+        ...m,
+        [productId]: {
+          uoms: d.data.conversions,
+          prices: Object.fromEntries(d.data.prices.map((p) => [p.unit, p.salePrice])),
+        },
+      })))
+      .catch(() => setUomCache((m) => ({ ...m, [productId]: { uoms: [], prices: {} } })));
+  }, []);
+
+  /** Module 18: a line's rate converted back to base-unit rupees (for the floor pre-check). */
+  function baseRateOf(l: PosLine): string | null {
+    const u = l.lineUnit;
+    if (!u || !l.productId) return null;
+    const entry = uomCache[l.productId];
+    const conv = entry?.uoms.find((x) => x.unit === u);
+    if (!conv) return null;
+    try {
+      const minor = parseDecimalToMinor(l.rate || "0", 2);
+      const baseMinor = toBaseMilli(minor, BigInt(conv.den), BigInt(conv.num));
+      return (Number(baseMinor) / 100).toString();
+    } catch { return null; }
+  }
+
+  /** Module 18: switching the cart line's unit re-seeds the rate from the per-unit price list. */
+  function changeLineUnit(key: number, newUnit: string) {
+    setLines((ls) => ls.map((l) => {
+      if (l.key !== key) return l;
+      const base = newUnit === "" || newUnit === l.unit;
+      let rate = l.rate;
+      if (!base && l.productId) {
+        const price = uomCache[l.productId]?.prices[newUnit];
+        if (price != null) {
+          try { rate = (Number(BigInt(price)) / 100).toString(); } catch { /* keep typed rate */ }
+        }
+      }
+      return { ...l, lineUnit: base ? "" : newUnit, rate };
+    }));
+  }
+
+  /** Module 18: compact unit picker for a cart line (hidden without alternate units). */
+  function unitSelect(l: PosLine) {
+    if (!l.productId) return null;
+    const uoms = uomCache[l.productId]?.uoms;
+    if (!uoms || uoms.length === 0) return <span className="text-xs text-muted-foreground">{l.unit}</span>;
+    const chosen = l.lineUnit || l.unit;
+    return (
+      <select
+        className="field !w-auto !max-w-[5.5rem] !px-1.5 !py-1.5 !text-xs font-bold"
+        value={chosen}
+        aria-label={t("pos.unitFor", { name: l.name })}
+        onChange={(e) => changeLineUnit(l.key, e.target.value)}
+      >
+        <option value={l.unit}>{l.unit}</option>
+        {uoms.map((u) => <option key={u.unit} value={u.unit}>{u.unit}</option>)}
+      </select>
+    );
+  }
 
   // minimum-price cache + override confirm
   const productCache = useRef(new Map<string, ApiProduct>());
@@ -205,8 +276,10 @@ export default function PosPage() {
   useEffect(() => {
     for (const l of lines) {
       if (l.productId && batchCache[l.productId] === undefined) loadBatches(l.productId);
+      // Module 18: alternate units ride along on the same pass.
+      if (l.productId && uomCache[l.productId] === undefined) loadUoms(l.productId);
     }
-  }, [lines, batchCache, loadBatches]);
+  }, [lines, batchCache, loadBatches, uomCache, loadUoms]);
 
   // Module 14: the shift terminal can ask for receipts to print automatically.
   // Best effort — popup blockers may stop window.open; the done screen's
@@ -333,7 +406,7 @@ export default function PosPage() {
 
     // minimum sale price lock — ask once, then re-enter with the override flag
     if (!priceOverride) {
-      const warns = priceWarnings(lines, [...productCache.current.values()]);
+      const warns = priceWarnings(lines, [...productCache.current.values()], baseRateOf);
       if (warns.length > 0) { setPriceWarn(warns); return; }
     }
 
@@ -757,6 +830,7 @@ export default function PosPage() {
                       <button onClick={() => bumpQty(l.key, 1)} className="grid h-11 w-11 place-items-center rounded-lg bg-muted transition hover:bg-primary/15" aria-label={t("pos.incQty", { name: l.name })}>
                         <Plus size={15} />
                       </button>
+                      {unitSelect(l)}
                     </div>
                     <input
                       className="field !w-20 !px-2 !py-1.5 text-end text-sm sm:!w-24"

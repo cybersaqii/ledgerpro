@@ -5,7 +5,10 @@ import { purchaseDocSchema } from "@/lib/validators";
 import { computeTotals } from "@/lib/totals";
 import { parseMoney } from "@/lib/money";
 import { parseQty } from "@/lib/qty";
-import { resolveDocCurrency } from "@/lib/fx-docs";
+import { resolveDocCurrency, type FxDocResult } from "@/lib/fx-docs";
+import { foreignToPaisa } from "@/lib/fx";
+import { getCurrency } from "@/lib/fx-rates";
+import { resolveLineUnits } from "@/lib/uom-lines";
 import { postPurchaseDoc, distributeExtraCost, postPayment } from "@/lib/posting";
 import { validateProjectId } from "@/lib/projects";
 import { approvalRequired, stageApprovalRequest, findApprovalRequestByIdemKey } from "@/lib/approvals";
@@ -228,20 +231,44 @@ export async function POST(req: NextRequest) {
   // Module 10: multi-currency — line rates/discounts arrive in the document's
   // currency; the server converts to PKR at the day's rate (single source of
   // truth — client previews are display-only).
-  let fx;
+  // Module 18: resolve per-line units to base units FIRST (qty AND rate),
+  // so every downstream step (FX, totals, posting) stays in base units.
+  let fx: FxDocResult;
+  let unitSnap: { unit: string | null; unitQtyMilli: bigint | null; unitRatePkr: bigint | null }[];
   try {
+    const curRow = await getCurrency(db, companyId, (b.currencyCode || "PKR").trim().toUpperCase());
+    const minorUnits = curRow?.minorUnits ?? 2;
+    const unitResolved = await resolveLineUnits(
+      db,
+      companyId,
+      b.items.map((i) => ({
+        productId: i.productId || null,
+        qty: i.qty,
+        rate: i.rate || "0",
+        unit: i.unit || null,
+      })),
+      minorUnits
+    );
     fx = await resolveDocCurrency(db, companyId, {
       currencyCode: b.currencyCode,
       date,
-      items: b.items.map((i) => ({
+      items: b.items.map((i, idx) => ({
         productId: i.productId || null,
         description: i.description,
-        qtyMilli: parseQty(i.qty),
-        rate: i.rate || "0",
+        qtyMilli: parseQty(unitResolved[idx]!.qty),
+        rate: unitResolved[idx]!.rate,
         discount: i.discount || "0",
         taxBps: i.taxBps,
       })),
       discountTotal: b.discountTotal || "0",
+    });
+    // Chosen-unit snapshot for the line-item rows (PKR paisa, like rate).
+    unitSnap = unitResolved.map((u) => {
+      if (!u.unit || u.unitQtyMilli == null || u.unitRateMinor == null)
+        return { unit: null, unitQtyMilli: null, unitRatePkr: null };
+      const unitRatePkr =
+        fx.rateScaled == null ? u.unitRateMinor : foreignToPaisa(u.unitRateMinor, fx.rateScaled, minorUnits);
+      return { unit: u.unit, unitQtyMilli: u.unitQtyMilli, unitRatePkr };
     });
   } catch (e) {
     return toApiError(e, { route: "/api/purchases", companyId });
@@ -393,6 +420,10 @@ export async function POST(req: NextRequest) {
           extraCost: landed[idx] ?? 0n,
           // Module 4.2: per-line location override (NULL = doc branch).
           branchId: (b.items[idx]?.branchId || "").trim() || null,
+          // Module 18: chosen-unit snapshot (NULL = base unit was used).
+          unit: unitSnap[idx]?.unit ?? null,
+          unitQty: unitSnap[idx]?.unitQtyMilli ?? null,
+          unitRate: unitSnap[idx]?.unitRatePkr ?? null,
         }))
       );
 

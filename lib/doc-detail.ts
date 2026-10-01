@@ -91,6 +91,11 @@ export async function getSalesDocDetail(db: Db, companyId: string, id: string) {
     ...r.item,
     unit: r.unit,
     sku: r.sku,
+    // Module 18: chosen-unit snapshot (r.item.unit/unitQty/unitRate);
+    // `unit` stays the product's base unit for stock-quantity display.
+    lineUnit: r.item.unit ?? null,
+    lineUnitQty: r.item.unitQty != null ? r.item.unitQty.toString() : null,
+    lineUnitRate: r.item.unitRate != null ? r.item.unitRate.toString() : null,
     batches: r.item.productId ? batches.get(r.item.productId) ?? [] : [],
   }));
   // Module 1: per-line fulfilled quantities for sales orders (fulfill dialog).
@@ -137,6 +142,11 @@ export async function getPurchaseDocDetail(db: Db, companyId: string, id: string
     ...r.item,
     unit: r.unit,
     sku: r.sku,
+    // Module 18: chosen-unit snapshot (r.item.unit/unitQty/unitRate);
+    // `unit` stays the product's base unit for stock-quantity display.
+    lineUnit: r.item.unit ?? null,
+    lineUnitQty: r.item.unitQty != null ? r.item.unitQty.toString() : null,
+    lineUnitRate: r.item.unitRate != null ? r.item.unitRate.toString() : null,
     batches: r.item.productId ? batches.get(r.item.productId) ?? [] : [],
   }));
   return { ...row.doc, partyName: row.partyName, partyPhone: row.partyPhone, partyEmail: row.partyEmail, items, payments: await paymentsForDoc(db, id, "PURCHASE") };

@@ -21,6 +21,7 @@ import {
   journalLines,
   parties,
   payrollRuns,
+  pdcCheques,
   products,
   projects,
   purchaseDocs,
@@ -512,6 +513,81 @@ const cashBankSummary: ReportPreset = {
       { key: "balance", label: "Net", money: true },
     ];
     return { columns, rows, moneyCols: moneyColsOf(columns) };
+  },
+};
+
+// Module 17 — PDC calendar / aging: every PENDING post-dated cheque bucketed
+// by how far past its cheque date it is (due = cheque date). Two rows —
+// cheques received from customers, cheques issued to suppliers — so the shop
+// sees at a glance what to deposit and what will hit the bank.
+const pdcAging: ReportPreset = {
+  key: "pdc-aging",
+  category: "cashbank",
+  perm: "reports_basic",
+  pro: false,
+  titleKey: "pdcAging",
+  descKey: "pdcAgingText",
+  fields: ["from", "to", "partyId"],
+  defaults: {},
+  run: async (ctx) => {
+    const now = Date.now();
+    const conds = [
+      eq(pdcCheques.companyId, ctx.companyId),
+      eq(pdcCheques.status, "PENDING"),
+    ];
+    if (ctx.params.partyId) conds.push(eq(pdcCheques.partyId, ctx.params.partyId));
+    if (ctx.params.from) {
+      const f = Date.parse(ctx.params.from);
+      if (!isNaN(f)) conds.push(sql`${pdcCheques.chequeDate} >= ${f}`);
+    }
+    if (ctx.params.to) {
+      const t = Date.parse(ctx.params.to);
+      if (!isNaN(t)) conds.push(sql`${pdcCheques.chequeDate} <= ${t + 86399999}`);
+    }
+    const rows = await ctx.db
+      .select({
+        kind: pdcCheques.kind,
+        chequeDate: pdcCheques.chequeDate,
+        amount: pdcCheques.amount,
+      })
+      .from(pdcCheques)
+      .where(and(...conds));
+    const blank = () => ({ notDue: 0n, d30: 0n, d60: 0n, d90: 0n, d90plus: 0n, total: 0n, count: 0 });
+    const byKind = new Map<string, ReturnType<typeof blank>>();
+    for (const r of rows) {
+      const amount = BigInt(r.amount ?? 0);
+      const bucket = agingBucket(daysOverdue(null, asMs(r.chequeDate), now));
+      let g = byKind.get(r.kind);
+      if (!g) { g = blank(); byKind.set(r.kind, g); }
+      g[bucket] += amount;
+      g.total += amount;
+      g.count += 1;
+    }
+    const kindLabel = (k: string) => (k === "RECEIVED" ? "Received" : "Issued");
+    const out = [...byKind.entries()]
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([k, g]) => [kindLabel(k), `${g.count}`, ...AGING_BUCKETS.map((bk) => M(g[bk])), M(g.total)]);
+    const grand = blank();
+    for (const [, g] of byKind) {
+      grand.count += g.count;
+      grand.total += g.total;
+      for (const bk of AGING_BUCKETS) grand[bk] += g[bk];
+    }
+    const columns: ColumnDef[] = [
+      { key: "kind", label: "Kind" },
+      { key: "count", label: "Cheques" },
+      ...AGING_BUCKETS.map((bk) => ({ key: bk, label: AGING_LABELS[bk], money: true })),
+      { key: "total", label: "Total", money: true },
+    ];
+    return {
+      columns,
+      rows: out,
+      moneyCols: moneyColsOf(columns),
+      totals: [
+        { label: "Pending cheques", value: String(grand.count) },
+        { label: "Pending total", value: M(grand.total) },
+      ],
+    };
   },
 };
 
@@ -1205,6 +1281,7 @@ export const REPORT_PRESETS: Record<string, ReportPreset> = {
   "stock-valuation": stockValuation,
   "stock-movement": stockMovement,
   "cash-bank-summary": cashBankSummary,
+  "pdc-aging": pdcAging,
   "tax-summary": taxSummary,
   "payroll-summary": payrollSummary,
   "project-profitability": projectProfitability,

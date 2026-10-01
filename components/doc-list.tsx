@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
-import { Plus, Search, CalendarDays, ShoppingCart, Truck, Zap, FileText } from "lucide-react";
+import { Plus, Search, CalendarDays, ShoppingCart, Truck, Zap, FileText, Ship } from "lucide-react";
 import { PageHeader, EmptyState, FilterBar, SummaryChips, Pagination, StatusPill, ErrorNote } from "@/components/ui";
 import { api, fmtMoney, fmtDate, toBig } from "@/lib/format";
 import { paymentStatusOf } from "@/lib/payment-status";
@@ -140,6 +140,11 @@ export function DocList({ mode }: { mode: "SALES" | "PURCHASE" }) {
             <Link href={isSales ? "/sales/notes" : "/purchases/notes"} className="btn btn-ghost text-sm">
               <FileText size={16} /> {t(isSales ? "fix4.note.listCreditTitle" : "fix4.note.listDebitTitle")}
             </Link>
+            {!isSales && (
+              <Link href="/purchases/landed-cost" className="btn btn-ghost text-sm">
+                <Ship size={16} /> {t("landedCost.nav")}
+              </Link>
+            )}
             <Link href={isSales ? "/sales/new" : "/purchases/new"} className="btn btn-primary text-sm">
               <Plus size={16} /> {isSales ? bp.newSale : t("docs.newPurchase")}
             </Link>

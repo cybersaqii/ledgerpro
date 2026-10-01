@@ -19,6 +19,8 @@ import { tr, type Lang } from "@/lib/i18n";
 type Item = {
   id: string; description: string; qty: string; qtyReturned?: string | null; rate: string; discount: string; lineTotal: string;
   extraCost?: string | null; unit?: string | null; sku?: string | null;
+  // Module 18: chosen-unit snapshot — what the user typed (null = base unit).
+  lineUnit?: string | null; lineUnitQty?: string | null; lineUnitRate?: string | null;
   taxBps?: number | null; taxAmount?: string | null;
   batches?: { batchNo: string; expiryDate: string | null }[] | null;
 };
@@ -563,8 +565,26 @@ export function DocDetail({ mode, id }: { mode: "SALES" | "PURCHASE" | "NOTE"; i
                       <ItemSubLines it={it} className="mt-0.5 text-xs font-normal text-muted-foreground" />
                     </td>
                     <td className="num">{it.unit ?? "—"}</td>
-                    <td className="num">{fmtQty(it.qty)}</td>
-                    <td className="num">{fmtMoney(it.rate)}</td>
+                    <td className="num">
+                      {it.lineUnit && it.lineUnitQty ? (
+                        <>
+                          {fmtQty(it.lineUnitQty)} {it.lineUnit}
+                          <span className="block text-[11px] font-normal text-muted-foreground">
+                            ({fmtQty(it.qty)} {it.unit})
+                          </span>
+                        </>
+                      ) : (
+                        fmtQty(it.qty)
+                      )}
+                    </td>
+                    <td className="num">
+                      {it.lineUnit && it.lineUnitRate ? fmtMoney(it.lineUnitRate) : fmtMoney(it.rate)}
+                      {it.lineUnit && (
+                        <span className="block text-[11px] font-normal text-muted-foreground">
+                          {fmtMoney(it.rate)} / {it.unit}
+                        </span>
+                      )}
+                    </td>
                     <td className="num">{toBig(it.discount) > 0n ? fmtMoney(it.discount) : "—"}</td>
                     <td className="num">
                       {showTax ? (
@@ -699,9 +719,9 @@ export function DocDetail({ mode, id }: { mode: "SALES" | "PURCHASE" | "NOTE"; i
                     {it.description}
                     <ItemSubLines it={it} className="text-[9px] font-normal text-neutral-700" />
                   </td>
-                  <td className="whitespace-nowrap border border-black px-1 py-0.5 text-center">{it.unit ?? "—"}</td>
-                  <td className="whitespace-nowrap border border-black px-1 py-0.5 text-end">{fmtQty(it.qty)}</td>
-                  <td className="whitespace-nowrap border border-black px-1 py-0.5 text-end">{fmtMoneyPlain(it.rate)}</td>
+                  <td className="whitespace-nowrap border border-black px-1 py-0.5 text-center">{it.lineUnit ?? it.unit ?? "—"}</td>
+                  <td className="whitespace-nowrap border border-black px-1 py-0.5 text-end">{it.lineUnit && it.lineUnitQty ? fmtQty(it.lineUnitQty) : fmtQty(it.qty)}</td>
+                  <td className="whitespace-nowrap border border-black px-1 py-0.5 text-end">{it.lineUnit && it.lineUnitRate ? fmtMoneyPlain(it.lineUnitRate) : fmtMoneyPlain(it.rate)}</td>
                   <td className="whitespace-nowrap border border-black px-1 py-0.5 text-end font-bold">{fmtMoneyPlain(it.lineTotal)}</td>
                 </tr>
               ))}

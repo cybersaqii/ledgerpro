@@ -246,6 +246,9 @@ export const products = sqliteTable(
     // ── Module 7 (migration 0038): Pakistan Customs Tariff / HS code, used
     // by the FBR digital-invoice payload builder (lib/fbr.ts).
     pctCode: text("pct_code"),
+    // ── Module 19 (migration 0048): net weight in grams (integer) for
+    // by-weight landed-cost allocation. 0 = unknown.
+    weightGrams: integer("weight_grams").notNull().default(0),
     isActive: flag("is_active", true),
     createdAt: createdAt(),
     updatedAt: updatedAt(),
@@ -479,6 +482,12 @@ export const salesDocItems = sqliteTable("sales_doc_items", {
   lineTotal: money("line_total"),
   // ── Module 4 (migration 0035): per-line location override; NULL = doc branch.
   branchId: text("branch_id"),
+  // ── Module 18 (migration 0048): chosen-unit snapshot. qty/rate stay in
+  // base units; unit/unitQty/unitRate record what the user actually typed.
+  // NULL unit = the product's base unit was used.
+  unit: text("unit"),
+  unitQty: numeric("unit_qty", { mode: "bigint" }),
+  unitRate: numeric("unit_rate", { mode: "bigint" }),
 });
 
 export const purchaseDocs = sqliteTable(
@@ -554,6 +563,10 @@ export const purchaseDocItems = sqliteTable("purchase_doc_items", {
   sourceItemId: text("source_item_id"), // GRN line -> purchase order line link
   // ── Module 4 (migration 0035): per-line location override; NULL = doc branch.
   branchId: text("branch_id"),
+  // ── Module 18 (migration 0048): chosen-unit snapshot (see sales_doc_items).
+  unit: text("unit"),
+  unitQty: numeric("unit_qty", { mode: "bigint" }),
+  unitRate: numeric("unit_rate", { mode: "bigint" }),
 });
 
 // ─── Sales order fulfillment (Module 1, migration 0032) ──────────
@@ -774,14 +787,130 @@ export const pdcCheques = sqliteTable(
     createdById: text("created_by_id").notNull(),
     createdAt: createdAt(),
     updatedAt: updatedAt(),
+    // ── Module 17 (migration 0048): double-submit protection on the
+    // money-moving PDC record/clear POSTs.
+    idempotencyKey: text("idempotency_key"),
   },
   (t) => [
     index("pdc_company_kind_status").on(t.companyId, t.kind, t.status),
     index("pdc_company_party").on(t.companyId, t.partyId),
+    uniqueIndex("pdc_cheques_idem_key").on(t.companyId, t.idempotencyKey).where(sql`idempotency_key IS NOT NULL`),
   ]
 );
 
 // ─── Report favorites ──────────────────────────────────────────
+
+// ─── Module 18: multi-UOM & packaging conversions ──────────────
+// One row per alternate unit: 1 <unit> = num/den base units (products.unit
+// is the base unit). Integer numerator/denominator — never floats.
+export const uomConversions = sqliteTable(
+  "uom_conversions",
+  {
+    id: id(),
+    companyId: text("company_id")
+      .notNull()
+      .references(() => companies.id),
+    productId: text("product_id")
+      .notNull()
+      .references(() => products.id),
+    unit: text("unit").notNull(),
+    num: integer("num").notNull(),
+    den: integer("den").notNull(),
+    createdAt: createdAt(),
+  },
+  (t) => [
+    uniqueIndex("uom_conv_company_product_unit").on(t.companyId, t.productId, t.unit),
+    index("uom_conv_company_product").on(t.companyId, t.productId),
+  ]
+);
+
+// Per-UOM price list: default sale rate (paisa per <unit>) offered when a
+// doc line picks the unit.
+export const uomPrices = sqliteTable(
+  "uom_prices",
+  {
+    id: id(),
+    companyId: text("company_id")
+      .notNull()
+      .references(() => companies.id),
+    productId: text("product_id")
+      .notNull()
+      .references(() => products.id),
+    unit: text("unit").notNull(),
+    salePrice: money("sale_price"),
+    createdAt: createdAt(),
+  },
+  (t) => [
+    uniqueIndex("uom_price_company_product_unit").on(t.companyId, t.productId, t.unit),
+    index("uom_price_company_product").on(t.companyId, t.productId),
+  ]
+);
+
+// ─── Module 19: landed-cost sheets ─────────────────────────────
+// Allocates cost heads (freight / duty / clearing / other) over the lines
+// of a purchase bill or GRN, on a chosen basis (VALUE | QTY | WEIGHT).
+// Posting: Dr Inventory (per-product cost bump) / Cr Landed Cost Clearing.
+export const landedCostSheets = sqliteTable(
+  "landed_cost_sheets",
+  {
+    id: id(),
+    companyId: text("company_id")
+      .notNull()
+      .references(() => companies.id),
+    branchId: text("branch_id")
+      .notNull()
+      .references(() => branches.id),
+    sheetNo: text("sheet_no").notNull(),
+    date: ts("date").notNull(),
+    purchaseDocId: text("purchase_doc_id").references(() => purchaseDocs.id),
+    basis: text("basis").notNull(), // VALUE | QTY | WEIGHT
+    status: text("status").notNull().default("POSTED"), // POSTED | VOID
+    totalPaisa: money("total_paisa"),
+    journalEntryId: text("journal_entry_id").unique(),
+    idempotencyKey: text("idempotency_key"), // double-submit protection (migration 0048)
+    createdById: text("created_by_id").notNull(),
+    createdAt: createdAt(),
+    updatedAt: updatedAt(),
+  },
+  (t) => [
+    uniqueIndex("lcs_company_sheet_no").on(t.companyId, t.sheetNo),
+    uniqueIndex("lcs_idem_key").on(t.companyId, t.idempotencyKey).where(sql`idempotency_key IS NOT NULL`),
+    index("lcs_company_status").on(t.companyId, t.status),
+    index("lcs_company_doc").on(t.companyId, t.purchaseDocId),
+  ]
+);
+
+export const landedCostHeads = sqliteTable(
+  "landed_cost_heads",
+  {
+    id: id(),
+    sheetId: text("sheet_id")
+      .notNull()
+      .references(() => landedCostSheets.id),
+    head: text("head").notNull(), // FREIGHT | DUTY | CLEARING | OTHER
+    label: text("label"),
+    amountPaisa: money("amount_paisa"),
+  },
+  (t) => [index("lch_sheet").on(t.sheetId)]
+);
+
+export const landedCostLines = sqliteTable(
+  "landed_cost_lines",
+  {
+    id: id(),
+    sheetId: text("sheet_id")
+      .notNull()
+      .references(() => landedCostSheets.id),
+    productId: text("product_id")
+      .notNull()
+      .references(() => products.id),
+    qtyMilli: qty("qty_milli"), // basis quantity (base milli-units)
+    valuePaisa: money("value_paisa"), // basis value (line net, paisa)
+    weightScaled: numeric("weight_scaled", { mode: "bigint" }).notNull().default(0n), // qty_milli × weight_grams
+    allocatedPaisa: money("allocated_paisa"),
+  },
+  (t) => [index("lcl_sheet").on(t.sheetId)]
+);
 
 export const reportFavorites = sqliteTable(
   "report_favorites",

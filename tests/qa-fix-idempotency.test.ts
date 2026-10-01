@@ -199,8 +199,10 @@ describe("idempotency keys + money-create rate limits", () => {
       "bank_adjustments_idem_key", // Module 3
       "expenses_idem_key",
       "journal_entries_idem_key", // Module 5: manual journal vouchers + set-off entries
+      "lcs_idem_key", // Module 19: landed-cost sheets
       "parties_idem_key",
       "payments_idem_key",
+      "pdc_cheques_idem_key", // Module 17: PDC recording
       "pos_cash_mov_idem_key", // Module 14: POS cash in/out movements
       "pos_sessions_idem_key", // Module 14: POS shift open (idempotent replay)
       "purchase_docs_idem_key",

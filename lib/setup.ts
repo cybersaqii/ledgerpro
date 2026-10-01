@@ -58,6 +58,9 @@ export const SYS = {
   MFG_OVERHEAD: "6050", // Module 12: Manufacturing Overhead (expense; credited "absorbed" at completion)
   CASH_SHORTAGE: "6051", // Module 14: cash-register shortage on shift close (expense)
   CASH_OVERAGE: "4050", // Module 14: cash-register overage on shift close (income)
+  BOUNCE_INCOME: "4130", // Module 17: cheque-bounce fee recovered from the customer
+  BOUNCE_EXPENSE: "6060", // Module 17: cheque-bounce fee charged by the supplier/bank
+  LANDED_COST_CLEARING: "2124", // Module 19: landed-cost clearing (freight/duty payable until settled)
 } as const;
 
 const SYSTEM_ACCOUNTS: { code: string; name: string; type: string }[] = [
@@ -105,6 +108,9 @@ const SYSTEM_ACCOUNTS: { code: string; name: string; type: string }[] = [
   { code: SYS.MFG_OVERHEAD, name: "Manufacturing Overhead", type: "EXPENSE" },
   { code: SYS.CASH_SHORTAGE, name: "Cash Shortage", type: "EXPENSE" },
   { code: SYS.CASH_OVERAGE, name: "Cash Overage", type: "INCOME" },
+  { code: SYS.BOUNCE_INCOME, name: "Cheque Bounce Charges", type: "INCOME" },
+  { code: SYS.BOUNCE_EXPENSE, name: "Cheque Bounce Charges Paid", type: "EXPENSE" },
+  { code: SYS.LANDED_COST_CLEARING, name: "Landed Cost Clearing", type: "LIABILITY" },
 ];
 
 const DOC_PREFIXES: Record<string, string> = {
@@ -135,6 +141,7 @@ const DOC_PREFIXES: Record<string, string> = {
   PAYROLL_RUN: "PR-", // Module 8: monthly payroll runs (PR-YYYYMM-0001)
   EMPLOYEE_ADVANCE: "ADV-", // Module 8: employee advance issuance
   DEPRECIATION_RUN: "DEP-", // Module 9: monthly depreciation runs (DEP-YYYYMM-0001)
+  LANDED_COST: "LCS-", // Module 19: landed-cost sheets
 };
 
 /** Next document number, e.g. INV-0001. Must be called inside a transaction.

@@ -97,6 +97,8 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
         ...(p.location !== undefined ? { location: p.location?.trim() ? p.location.trim().slice(0, 60) : null } : {}),
         ...(imageUrl !== undefined ? { imageUrl } : {}),
         ...(p.pctCode !== undefined ? { pctCode: p.pctCode?.trim() ? p.pctCode.trim().slice(0, 20) : null } : {}),
+        // Module 19: net weight in grams.
+        ...(p.weightGrams !== undefined ? { weightGrams: p.weightGrams } : {}),
         ...(p.revenueAccountId !== undefined ? { revenueAccountId: p.revenueAccountId || null } : {}),
         ...(p.cogsAccountId !== undefined ? { cogsAccountId: p.cogsAccountId || null } : {}),
         ...(p.inventoryAccountId !== undefined ? { inventoryAccountId: p.inventoryAccountId || null } : {}),

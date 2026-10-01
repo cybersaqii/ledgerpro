@@ -38,6 +38,9 @@ export default function PdcRegisterPage() {
   const [status, setStatus] = useState<(typeof STATUSES)[number]>("");
   const [from, setFrom] = useState("");
   const [to, setTo] = useState("");
+  // Module 17: "Due" quick filter — PENDING cheques whose cheque date has
+  // arrived (the ones to deposit / pay today).
+  const [dueOnly, setDueOnly] = useState(false);
   const [page, setPage] = useState(1);
   const [rows, setRows] = useState<Pdc[]>([]);
   const [total, setTotal] = useState(0);
@@ -50,7 +53,8 @@ export default function PdcRegisterPage() {
     setLoading(true);
     try {
       const params = new URLSearchParams({ kind, page: String(page), perPage: String(PER_PAGE) });
-      if (status) params.set("status", status);
+      if (dueOnly) params.set("due", "true");
+      else if (status) params.set("status", status);
       if (from) params.set("from", from);
       if (to) params.set("to", to);
       const d = await api<{
@@ -66,9 +70,9 @@ export default function PdcRegisterPage() {
   // eslint-disable-next-line react-hooks/set-state-in-effect -- data fetch on filter/mount change
   useEffect(() => { load(); }, [load]);
   // eslint-disable-next-line react-hooks/set-state-in-effect -- reset to first page when filters change
-  useEffect(() => { setPage(1); }, [kind, status, from, to]);
+  useEffect(() => { setPage(1); }, [kind, status, from, to, dueOnly]);
 
-  const hasFilter = status !== "" || from !== "" || to !== "";
+  const hasFilter = status !== "" || from !== "" || to !== "" || dueOnly;
 
   return (
     <div>
@@ -97,6 +101,12 @@ export default function PdcRegisterPage() {
             <option key={s} value={s}>{s === "" ? t("pdc.allStatuses") : t(`pdc.status${s.charAt(0) + s.slice(1).toLowerCase()}`)}</option>
           ))}
         </select>
+        <button
+          onClick={() => { setDueOnly((d) => !d); if (!dueOnly) setStatus(""); }}
+          className={`rounded-xl px-3 py-2 text-xs font-bold transition ${dueOnly ? "bg-warning text-warning-foreground shadow-sm" : "bg-muted text-muted-foreground hover:text-foreground"}`}
+          title={t("pdc.dueHint")}>
+          {t("pdc.dueOnly")}
+        </button>
         <div className="flex items-center gap-2">
           <CalendarDays size={15} className="shrink-0 text-muted-foreground" />
           <input type="date" className="field !w-auto !py-2 text-xs" value={from} onChange={(e) => setFrom(e.target.value)} aria-label={t("pdc.fromDate")} />
@@ -105,7 +115,7 @@ export default function PdcRegisterPage() {
         </div>
         {hasFilter && (
           <button className="text-xs font-bold text-danger hover:underline"
-            onClick={() => { setStatus(""); setFrom(""); setTo(""); }}>
+            onClick={() => { setStatus(""); setFrom(""); setTo(""); setDueOnly(false); }}>
             {t("pdc.clearFilters")}
           </button>
         )}
@@ -191,6 +201,9 @@ function PdcActionDialog({ target, onClose, onDone }: {
   const [bankId, setBankId] = useState("");
   const [date, setDate] = useState(fmtDateInput());
   const [reason, setReason] = useState("");
+  // Module 17: optional bounce fee — posted as its own balanced journal
+  // (income for received cheques, expense for issued ones).
+  const [fee, setFee] = useState("");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -214,7 +227,9 @@ function PdcActionDialog({ target, onClose, onDone }: {
     try {
       const body = action === "clear"
         ? { bankAccountId: bankId, date }
-        : { date, reason: reason || undefined };
+        : action === "bounce"
+          ? { date, reason: reason || undefined, bounceFee: fee || undefined }
+          : { date, reason: reason || undefined };
       await api(`/api/pdc/${pdc.id}/${action}`, { method: "POST", body: JSON.stringify(body) });
       onDone();
     } catch (err) {
@@ -246,6 +261,12 @@ function PdcActionDialog({ target, onClose, onDone }: {
           <Field label={t("pdc.reasonLabel")}>
             <input className="field" value={reason} onChange={(e) => setReason(e.target.value)}
               placeholder={t("pdc.reasonPlaceholder")} maxLength={200} />
+          </Field>
+        )}
+        {action === "bounce" && (
+          <Field label={t("pdc.bounceFeeLabel")} hint={t("pdc.bounceFeeHint")}>
+            <input className="field" inputMode="decimal" value={fee} onChange={(e) => setFee(e.target.value)}
+              placeholder="0.00" />
           </Field>
         )}
         <div className="flex gap-2 pt-1">

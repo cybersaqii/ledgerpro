@@ -5,6 +5,7 @@ import { posCheckoutSchema } from "@/lib/validators";
 import { computeTotals, type DocItemInput } from "@/lib/totals";
 import { parseMoney } from "@/lib/money";
 import { parseQty } from "@/lib/qty";
+import { resolveLineUnits, type ResolvedLineUnit } from "@/lib/uom-lines";
 import { postSalesDoc, postPayment } from "@/lib/posting";
 import { validateProjectId } from "@/lib/projects";
 import { validateSessionId } from "@/lib/pos-sessions";
@@ -79,6 +80,7 @@ export async function POST(req: NextRequest) {
   } catch (e) {
     return toApiError(e, { route: "/api/pos/checkout", companyId });
   }
+
   if (idemKey) {
     const existing = await findByIdempotencyKey(db, salesDocs, companyId, idemKey);
     if (existing) return replayCheckout(existing.id, existing.docNo);
@@ -113,13 +115,6 @@ export async function POST(req: NextRequest) {
     if (!prodMap.has(pid)) return err("One of the selected products is invalid.", 422);
  }
 
-  // Minimum sale price lock: any line priced below its product's floor needs
-  // an explicit override (which is audit-logged below).
-  const belowFloor = belowMinPrice(b.items, prodMap);
-  if (belowFloor.length > 0 && !b.priceOverride) {
-    return err(floorErrorMessage(belowFloor), 422, "BELOW_MIN_PRICE");
- }
-
   // Batch choices: the chosen batch must belong to this company and to the line's product.
   const wantedBatches = b.items
     .map((i) => ({ batchId: (i.batchId || "").trim(), productId: i.productId || "" }))
@@ -148,14 +143,50 @@ export async function POST(req: NextRequest) {
       : [];
   if (bankRows.length !== bankIds.length) return err("One of the selected cash/bank accounts is invalid.", 422);
 
-  const docItems: DocItemInput[] = b.items.map((i) => ({
-    productId: i.productId || null,
-    description: i.description,
-    qtyMilli: parseQty(i.qty),
-    ratePaisa: parseMoney(i.rate || "0"),
-    discountPaisa: parseMoney(i.discount || "0"),
-    taxBps: i.taxBps,
- }));
+  // Module 18: resolve per-line units to base units FIRST (qty AND rate) —
+  // everything downstream (totals, floor, posting) stays in base units.
+  let unitSnap: { unit: string | null; unitQtyMilli: bigint | null; unitRatePkr: bigint | null }[];
+  let docItems: DocItemInput[];
+  let unitResolved: ResolvedLineUnit[];
+  try {
+    unitResolved = await resolveLineUnits(
+      db,
+      companyId,
+      b.items.map((i) => ({
+        productId: i.productId || null,
+        qty: i.qty,
+        rate: i.rate || "0",
+        unit: i.unit || null,
+      })),
+      2 // POS is PKR-only
+    );
+    unitSnap = unitResolved.map((u) =>
+      u.unit && u.unitQtyMilli != null && u.unitRateMinor != null
+        ? { unit: u.unit, unitQtyMilli: u.unitQtyMilli, unitRatePkr: u.unitRateMinor }
+        : { unit: null, unitQtyMilli: null, unitRatePkr: null }
+    );
+    docItems = unitResolved.map((u, idx) => ({
+      productId: u.productId,
+      description: u.description,
+      qtyMilli: parseQty(u.qty),
+      ratePaisa: parseMoney(u.rate),
+      discountPaisa: parseMoney(b.items[idx]!.discount || "0"),
+      taxBps: b.items[idx]!.taxBps,
+    }));
+  } catch (e) {
+    return toApiError(e, { route: "/api/pos/checkout", companyId });
+  }
+
+  // Minimum sale price lock: any line priced below its product's floor needs
+  // an explicit override (which is audit-logged below). Compared in base
+  // units (Module 18) — the rate the customer saw was per chosen unit.
+  const belowFloor = belowMinPrice(
+    unitResolved.map((u) => ({ productId: u.productId, description: u.description, rate: u.rate })),
+    prodMap
+  );
+  if (belowFloor.length > 0 && !b.priceOverride) {
+    return err(floorErrorMessage(belowFloor), 422, "BELOW_MIN_PRICE");
+  }
 
   let totals;
   try {
@@ -219,7 +250,7 @@ export async function POST(req: NextRequest) {
         ...(idemKey ? { idempotencyKey: idemKey } : {}),
  });
       await tx.insert(salesDocItems).values(
-        totals.items.map((i) => ({
+        totals.items.map((i, idx) => ({
           id: crypto.randomUUID(),
           docId,
           productId: i.productId,
@@ -230,6 +261,10 @@ export async function POST(req: NextRequest) {
           taxBps: i.taxBps,
           taxAmount: i.taxAmountPaisa,
           lineTotal: i.lineTotalPaisa,
+          // Module 18: chosen-unit snapshot (NULL = base unit was used).
+          unit: unitSnap[idx]?.unit ?? null,
+          unitQty: unitSnap[idx]?.unitQtyMilli ?? null,
+          unitRate: unitSnap[idx]?.unitRatePkr ?? null,
  }))
       );
 
