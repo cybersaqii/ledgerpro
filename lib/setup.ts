@@ -38,6 +38,13 @@ export const SYS = {
   INTEREST_INCOME: "4030", // Module 3: interest credited by the bank
   ADJUSTMENT_GAIN: "4040", // Module 4: inventory adjustment gain (stock found)
   SHRINKAGE: "6020", // Module 4: shrinkage expense (damaged / lost stock)
+  EMPLOYEE_ADVANCES: "1130", // Module 8: advances/loans to employees (asset)
+  SALARIES_PAYABLE: "2119", // Module 8: net salaries payable to staff
+  SALARY_TAX_PAYABLE: "2120", // Module 8: withheld salary income tax
+  EOBI_PAYABLE: "2121", // Module 8: EOBI / social security payable
+  PF_PAYABLE: "2122", // Module 8: provident fund payable
+  SALARIES_WAGES_EXPENSE: "6011", // Module 8: gross salaries & wages
+  EMPLOYER_CONTRIB_EXPENSE: "6012", // Module 8: employer EOBI/PF contributions
 } as const;
 
 const SYSTEM_ACCOUNTS: { code: string; name: string; type: string }[] = [
@@ -67,6 +74,13 @@ const SYSTEM_ACCOUNTS: { code: string; name: string; type: string }[] = [
   { code: SYS.INTEREST_INCOME, name: "Interest Income", type: "INCOME" },
   { code: SYS.ADJUSTMENT_GAIN, name: "Inventory Adjustment Gain", type: "INCOME" },
   { code: SYS.SHRINKAGE, name: "Shrinkage Expense", type: "EXPENSE" },
+  { code: SYS.EMPLOYEE_ADVANCES, name: "Employee Advances", type: "ASSET" },
+  { code: SYS.SALARIES_PAYABLE, name: "Salaries Payable", type: "LIABILITY" },
+  { code: SYS.SALARY_TAX_PAYABLE, name: "Salary Withholding Tax Payable", type: "LIABILITY" },
+  { code: SYS.EOBI_PAYABLE, name: "EOBI / Social Security Payable", type: "LIABILITY" },
+  { code: SYS.PF_PAYABLE, name: "Provident Fund Payable", type: "LIABILITY" },
+  { code: SYS.SALARIES_WAGES_EXPENSE, name: "Salaries & Wages Expense", type: "EXPENSE" },
+  { code: SYS.EMPLOYER_CONTRIB_EXPENSE, name: "Employer Contribution Expense", type: "EXPENSE" },
 ];
 
 const DOC_PREFIXES: Record<string, string> = {
@@ -92,6 +106,8 @@ const DOC_PREFIXES: Record<string, string> = {
   WRITE_OFF: "WO-",
   CREDIT_NOTE: "CN-",
   DEBIT_NOTE: "DN-",
+  PAYROLL_RUN: "PR-", // Module 8: monthly payroll runs (PR-YYYYMM-0001)
+  EMPLOYEE_ADVANCE: "ADV-", // Module 8: employee advance issuance
 };
 
 /** Next document number, e.g. INV-0001. Must be called inside a transaction.

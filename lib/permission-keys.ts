@@ -24,6 +24,9 @@ export const PERMISSIONS = [
   // Module 6: approve/reject staged documents (amount-threshold workflows).
   // Kept out of the staff defaults: approval power is explicitly granted.
   "approvals",
+  // Module 8: payroll & HRM (employees, runs, advances, disbursement).
+  // Kept out of the staff defaults: salary data is owner-granted only.
+  "payroll",
 ] as const;
 
 export type Permission = (typeof PERMISSIONS)[number];
@@ -59,6 +62,8 @@ export const PERMISSION_GROUPS: { key: string; permissions: Permission[] }[] = [
   { key: "masters", permissions: ["parties", "products", "stock", "documents"] },
   { key: "insights", permissions: ["reports_basic", "reports_accounting", "audit"] },
   { key: "admin", permissions: ["settings", "team", "import_export", "backups", "period_lock", "approvals"] },
+  // Module 8: payroll & HRM stands alone — salary data is sensitive.
+  { key: "hr", permissions: ["payroll"] },
 ];
 
 /** Label/description i18n keys for a permission: perms.<key>, perms.<key>Desc. */

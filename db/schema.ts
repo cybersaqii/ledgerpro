@@ -1477,3 +1477,163 @@ export const stockMovements = sqliteTable(
     index("stock_mov_doc").on(t.companyId, t.docId),
   ]
 );
+
+// ─── Module 8: Payroll & HRM ─────────────────────────────────────────
+// Employee master, payroll runs + snapshot slips, employee advances,
+// configurable income-tax slabs and payroll settings. Migration 0039.
+
+/** Employment type: PERMANENT | CONTRACT | DAILY_WAGE. */
+export const employees = sqliteTable(
+  "employees",
+  {
+    id: id(),
+    companyId: text("company_id").notNull(),
+    code: text("code").notNull(),
+    fullName: text("full_name").notNull(),
+    cnic: text("cnic"),
+    email: text("email"),
+    department: text("department"),
+    designation: text("designation"),
+    joiningDate: ts("joining_date").notNull(),
+    employmentType: text("employment_type").notNull().default("PERMANENT"),
+    bankName: text("bank_name"),
+    bankAccountNo: text("bank_account_no"),
+    ntn: text("ntn"),
+    // Monthly salary for PERMANENT/CONTRACT; per-day rate for DAILY_WAGE.
+    baseSalaryPaisa: money("base_salary_paisa"),
+    basicPaisa: money("basic_paisa"),
+    hraPaisa: money("hra_paisa"),
+    medicalPaisa: money("medical_paisa"),
+    conveyancePaisa: money("conveyance_paisa"),
+    specialAllowancePaisa: money("special_allowance_paisa"),
+    isActive: flag("is_active", true),
+    exitDate: ts("exit_date"),
+    createdById: text("created_by_id").notNull(),
+    createdAt: createdAt(),
+    updatedAt: updatedAt(),
+  },
+  (t) => [
+    uniqueIndex("employees_company_code").on(t.companyId, t.code),
+    index("employees_company_active").on(t.companyId, t.isActive),
+  ]
+);
+
+/** Company-scoped payroll configuration (EOBI/PF rates, wage cap, work days). */
+export const payrollSettings = sqliteTable("payroll_settings", {
+  companyId: text("company_id").primaryKey(),
+  eobiEmployeeBps: integer("eobi_employee_bps").notNull().default(100),
+  eobiEmployerBps: integer("eobi_employer_bps").notNull().default(500),
+  eobiWageCapPaisa: money("eobi_wage_cap_paisa").notNull().default(3700000n),
+  pfEmployeeBps: integer("pf_employee_bps").notNull().default(0),
+  pfEmployerBps: integer("pf_employer_bps").notNull().default(0),
+  workDaysPerMonth: integer("work_days_per_month").notNull().default(30),
+  createdAt: createdAt(),
+  updatedAt: updatedAt(),
+});
+
+/** Income-tax slabs (annual gross bounds, paisa). User-editable; NOT tax advice. */
+export const payrollTaxSlabs = sqliteTable(
+  "payroll_tax_slabs",
+  {
+    id: id(),
+    companyId: text("company_id").notNull(),
+    minAnnualPaisa: money("min_annual_paisa"),
+    maxAnnualPaisa: numeric("max_annual_paisa", { mode: "bigint" }), // NULL = no upper bound
+    rateBps: integer("rate_bps").notNull().default(0),
+    fixedPaisa: money("fixed_paisa"),
+    sortOrder: integer("sort_order").notNull().default(0),
+    createdAt: createdAt(),
+  },
+  (t) => [index("payroll_tax_slabs_company").on(t.companyId, t.sortOrder)]
+);
+
+/** Payroll run statuses: DRAFT | POSTED | PAID | VOIDED. */
+export const payrollRuns = sqliteTable(
+  "payroll_runs",
+  {
+    id: id(),
+    companyId: text("company_id").notNull(),
+    year: integer("year").notNull(),
+    month: integer("month").notNull(), // 1..12
+    status: text("status").notNull().default("DRAFT"),
+    docNo: text("doc_no"),
+    runDate: ts("run_date").notNull(),
+    grossPaisa: money("gross_paisa"),
+    taxPaisa: money("tax_paisa"),
+    eobiEmployeePaisa: money("eobi_employee_paisa"),
+    eobiEmployerPaisa: money("eobi_employer_paisa"),
+    pfEmployeePaisa: money("pf_employee_paisa"),
+    pfEmployerPaisa: money("pf_employer_paisa"),
+    advancePaisa: money("advance_paisa"),
+    netPaisa: money("net_paisa"),
+    journalEntryId: text("journal_entry_id"),
+    disbursementJournalEntryId: text("disbursement_journal_entry_id"),
+    bankAccountId: text("bank_account_id"),
+    postedAt: ts("posted_at"),
+    paidAt: ts("paid_at"),
+    voidedAt: ts("voided_at"),
+    createdById: text("created_by_id").notNull(),
+    createdAt: createdAt(),
+    updatedAt: updatedAt(),
+  },
+  (t) => [
+    uniqueIndex("payroll_runs_company_period").on(t.companyId, t.year, t.month),
+    index("payroll_runs_company_status").on(t.companyId, t.status),
+  ]
+);
+
+/** Snapshot slip: one row per employee per run (frozen at post time). */
+export const payrollSlips = sqliteTable(
+  "payroll_slips",
+  {
+    id: id(),
+    companyId: text("company_id").notNull(),
+    runId: text("run_id").notNull(),
+    employeeId: text("employee_id").notNull(),
+    employeeCode: text("employee_code").notNull(),
+    employeeName: text("employee_name").notNull(),
+    payableDays: integer("payable_days").notNull().default(0),
+    workDays: integer("work_days").notNull().default(30),
+    basicPaisa: money("basic_paisa"),
+    hraPaisa: money("hra_paisa"),
+    medicalPaisa: money("medical_paisa"),
+    conveyancePaisa: money("conveyance_paisa"),
+    specialAllowancePaisa: money("special_allowance_paisa"),
+    grossPaisa: money("gross_paisa"),
+    taxPaisa: money("tax_paisa"),
+    eobiEmployeePaisa: money("eobi_employee_paisa"),
+    eobiEmployerPaisa: money("eobi_employer_paisa"),
+    pfEmployeePaisa: money("pf_employee_paisa"),
+    pfEmployerPaisa: money("pf_employer_paisa"),
+    advancePaisa: money("advance_paisa"),
+    netPaisa: money("net_paisa"),
+    createdAt: createdAt(),
+    updatedAt: updatedAt(),
+  },
+  (t) => [
+    uniqueIndex("payroll_slips_run_employee").on(t.runId, t.employeeId),
+    index("payroll_slips_company_run").on(t.companyId, t.runId),
+  ]
+);
+
+/** Employee advances: issued via bank/cash, knocked off at payroll time. */
+export const employeeAdvances = sqliteTable(
+  "employee_advances",
+  {
+    id: id(),
+    companyId: text("company_id").notNull(),
+    employeeId: text("employee_id").notNull(),
+    date: ts("date").notNull(),
+    amountPaisa: money("amount_paisa"),
+    balancePaisa: money("balance_paisa"),
+    status: text("status").notNull().default("OPEN"), // OPEN | PARTIAL | CLEARED
+    bankAccountId: text("bank_account_id"),
+    journalEntryId: text("journal_entry_id"),
+    clearedRunId: text("cleared_run_id"),
+    note: text("note"),
+    createdById: text("created_by_id").notNull(),
+    createdAt: createdAt(),
+    updatedAt: updatedAt(),
+  },
+  (t) => [index("employee_advances_company_emp").on(t.companyId, t.employeeId, t.status)]
+);
