@@ -7,6 +7,8 @@ import { PageHeader, Field, ErrorNote } from "@/components/ui";
 import { api, ApiError, fmtMoney, fmtQty, fmtDateInput, fmtDate } from "@/lib/format";
 import { localizedApiError } from "@/lib/api-errors";
 import { lineMath, docMath, taxBpsOf } from "@/lib/doc-math";
+import { foreignToPaisa, paisaToForeignMinor, formatForeign, minorToDecimalString, formatRate } from "@/lib/fx";
+import { parseDecimalToMinor } from "@/lib/decimal";
 import { whtRateBps, type WhtCategory, type FilerStatus } from "@/lib/wht";
 import { useBusinessProfile } from "@/components/business-type";
 import { useLang } from "@/components/lang-provider";
@@ -15,6 +17,12 @@ type Party = { id: string; name: string; phone: string | null; paymentTerms?: st
 type Product = { id: string; sku: string; name: string; unit: string; salePrice: string; purchasePrice: string; totalQty: string; minSalePrice?: string | null; isBundle?: boolean };
 
 type BatchOpt = { id: string; batchNo: string; expiryDate: string | null; qtyThousandths: string };
+
+/** Module 10: currency row from GET /api/currencies (minorUnits = decimal scale). */
+type FxCurrency = {
+  code: string; name: string; symbol: string; minorUnits: number; isBase: boolean; isActive: boolean;
+  latestRate: { rateScaled: string; rate: string; effectiveDate: string } | null;
+};
 
 type Line = {
   key: number;
@@ -230,6 +238,64 @@ export function DocForm({ mode }: { mode: "SALES" | "PURCHASE" }) {
   // Module 4.2: branch list for the per-line location picker (only shown
   // when the company has more than one location).
   const [branches, setBranches] = useState<BranchOpt[]>([]);
+  // Module 10: multi-currency — line rates/discounts are entered in the
+  // document currency; the server converts to PKR at the day's locked rate.
+  const [fxCurrencies, setFxCurrencies] = useState<FxCurrency[]>([]);
+  const [currencyCode, setCurrencyCode] = useState("PKR");
+  /** Exchange rate (scaled bigint) in force for the doc date; null = PKR or unknown. */
+  const [fxRateScaled, setFxRateScaled] = useState<bigint | null>(null);
+  const selFxCur = fxCurrencies.find((c) => c.code === currencyCode);
+  const fxMinorUnits = selFxCur?.minorUnits ?? 2;
+  const isForeign = currencyCode !== "PKR";
+
+  useEffect(() => {
+    api<{ data: FxCurrency[] }>("/api/currencies")
+      .then((d) => setFxCurrencies(d.data.filter((c) => c.isActive)))
+      .catch(() => {});
+  }, []);
+
+  // Resolve the rate in force for (currencyCode, date): latest rate on or
+  // before the doc date. The server re-resolves authoritatively at save.
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- clear the stale FX rate when currency/date changes, then re-resolve
+    if (!isForeign) { setFxRateScaled(null); return; }
+    let cancelled = false;
+    setFxRateScaled(null);
+    api<{ data: { rateScaled: string; effectiveDate: string }[] }>(
+      `/api/currencies/rates?code=${encodeURIComponent(currencyCode)}`
+    )
+      .then((d) => {
+        if (cancelled) return;
+        const day = date; // YYYY-MM-DD — string compare works on ISO dates
+        const hit = d.data.find((r) => r.effectiveDate <= day);
+        setFxRateScaled(hit ? BigInt(hit.rateScaled) : null);
+      })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, [currencyCode, date, isForeign]);
+
+  /** Format a doc-currency minor-units amount for display. */
+  function fmtFx(minor: bigint): string {
+    if (!isForeign) return fmtMoney(minor);
+    return `${currencyCode} ${formatForeign(minor, fxMinorUnits)}`;
+  }
+  /** PKR equivalent of a doc-currency amount (preview only; server is authoritative). */
+  function fxToPkr(minor: bigint): bigint | null {
+    if (!isForeign || fxRateScaled == null) return null;
+    try { return foreignToPaisa(minor, fxRateScaled, fxMinorUnits); } catch { return null; }
+  }
+  /** Last posted rate (stored in PKR) shown in the document currency when foreign. */
+  function lastRateDisplay(productId: string): string {
+    const raw = lastRates[productId];
+    if (raw == null) return "";
+    const paisa = BigInt(raw);
+    if (isForeign && fxRateScaled != null) {
+      try {
+        return `${currencyCode} ${formatForeign(paisaToForeignMinor(paisa, fxRateScaled, fxMinorUnits), fxMinorUnits)}`;
+      } catch { /* fall through to PKR */ }
+    }
+    return fmtMoney(paisa);
+  }
   useEffect(() => {
     api<{ data: BranchOpt[] }>("/api/branches")
       .then((d) => setBranches(d.data))
@@ -398,13 +464,21 @@ export function DocForm({ mode }: { mode: "SALES" | "PURCHASE" }) {
     keyRef.current += 1;
     const key = keyRef.current;
     const price = isSales ? p.salePrice : p.purchasePrice;
+    // Module 10: pre-fill the line rate in the document currency — PKR prices
+    // convert at the day's rate so the user starts from the right figure.
+    let rateStr = (Number(BigInt(price)) / 100).toString();
+    if (isForeign && fxRateScaled != null) {
+      try {
+        rateStr = minorToDecimalString(paisaToForeignMinor(BigInt(price), fxRateScaled, fxMinorUnits), fxMinorUnits);
+      } catch { /* keep the PKR figure; the server validates */ }
+    }
     setLines((ls) => [...ls, {
       key,
       productId: p.id,
       description: p.name,
       unit: p.unit,
       qty: "1",
-      rate: (Number(BigInt(price)) / 100).toString(),
+      rate: rateStr,
       discount: "",
       taxPct: "",
       availQty: p.totalQty,
@@ -530,10 +604,13 @@ export function DocForm({ mode }: { mode: "SALES" | "PURCHASE" }) {
   // live totals — exact BigInt math mirroring the server (computeTotals):
   // gross = qty×rate (half-up) · taxable = gross − discount · tax = half-up(taxable × bps)
   // Module 1: sales freight is untaxed and added to the grand total.
+  // Module 10: amounts are in the document currency's minor units (PKR = paisa).
   const freightDocTypes = isSales && (docType === "INVOICE" || docType === "QUOTATION" || docType === "ORDER");
-  const computed = lines.map((l) => lineMath(l.qty, l.rate, l.discount, l.taxPct));
+  const computed = lines.map((l) => lineMath(l.qty, l.rate, l.discount, l.taxPct, fxMinorUnits));
   const { subtotal, itemDisc: itemDiscTotal, taxTotal, grand } =
-    docMath(computed, discountTotal, freightDocTypes ? freightTotal : "0");
+    docMath(computed, discountTotal, freightDocTypes ? freightTotal : "0", fxMinorUnits);
+  /** PKR equivalent of the live grand total (preview; the server converts per line). */
+  const grandPkr = fxToPkr(grand);
 
   async function submit(e: React.FormEvent, opts: { priceOverride?: boolean; creditOverride?: boolean; printAfter?: boolean; idemKey?: string } = {}) {
     const { priceOverride = false, creditOverride = false, printAfter = false } = opts;
@@ -547,6 +624,9 @@ export function DocForm({ mode }: { mode: "SALES" | "PURCHASE" }) {
     // Module 2.4: the vendor's bill reference is compulsory on purchase bills.
     if (!isSales && docType === "BILL" && !refNo.trim()) { setError(t("docform.errVendorRefRequired")); return; }
     if (lines.length === 0) { setError(t("docform.errNoItems")); return; }
+    // Module 10: a foreign-currency doc needs a rate in force for its date —
+    // the server enforces this too (FX_NO_RATE), this is just an early hint.
+    if (isForeign && fxRateScaled == null) { setError(t("docform.errNoFxRate", { code: currencyCode })); return; }
     for (const l of lines) {
       if (!l.description.trim()) { setError(t("docform.errNoDescription")); return; }
       if (!(parseFloat(l.qty || "0") > 0)) { setError(t("docform.errQty")); return; }
@@ -561,12 +641,20 @@ export function DocForm({ mode }: { mode: "SALES" | "PURCHASE" }) {
         if (bs && bs.length > 0 && !l.batchId) { setError(t("batches.errBatchRequired")); return; }
       }
     }
-    // minimum sale price lock (posted invoices only) — one confirm, then retry with override
+    // minimum sale price lock (posted invoices only) — one confirm, then retry with override.
+    // Module 10: foreign rates convert to PKR at the day's rate before comparing.
     if (isSales && docType === "INVOICE" && !priceOverride) {
       const low = lines.filter((l) => {
         const p = l.productId ? productCache.current.get(l.productId) : undefined;
         const floor = p?.minSalePrice != null ? BigInt(p.minSalePrice) : 0n;
-        return floor > 0n && BigInt(Math.round(parseFloat(l.rate || "0") * 100)) < floor;
+        if (!(floor > 0n)) return false;
+        let ratePaisa: bigint;
+        try {
+          ratePaisa = isForeign
+            ? (fxRateScaled == null ? 0n : foreignToPaisa(parseDecimalToMinor(l.rate || "0", fxMinorUnits), fxRateScaled, fxMinorUnits))
+            : BigInt(Math.round(parseFloat(l.rate || "0") * 100));
+        } catch { ratePaisa = 0n; }
+        return ratePaisa < floor;
       });
       if (low.length > 0) {
         const names = low.slice(0, 3).map((l) => l.description).join(", ") + (low.length > 3 ? "…" : "");
@@ -580,6 +668,9 @@ export function DocForm({ mode }: { mode: "SALES" | "PURCHASE" }) {
       const body: Record<string, unknown> = {
         docType, partyId, date,
         idempotencyKey: idemKey,
+        // Module 10: document currency — line rates/discounts are in this
+        // currency; the server converts to PKR at the day's locked rate.
+        currencyCode,
         dueDate: dueDate || undefined,
         discountTotal: discountTotal || "0",
         // Module 1: freight income on sales invoices / quotes / orders
@@ -762,6 +853,14 @@ export function DocForm({ mode }: { mode: "SALES" | "PURCHASE" }) {
               </select>
             </Field>
             <Field label={t("docform.date")}><input type="date" className="field" required value={date} onChange={(e) => onDateChange(e.target.value)} /></Field>
+            <Field label={t("docform.fxCurrency")}>
+              <select className="field" value={currencyCode} onChange={(e) => setCurrencyCode(e.target.value)}
+                aria-label={t("docform.fxCurrency")}>
+                {fxCurrencies.map((c) => (
+                  <option key={c.code} value={c.code}>{c.code} — {c.name}</option>
+                ))}
+              </select>
+            </Field>
             <Field label={t("docform.termDays")}>
               <input type="number" min="0" max="3650" className="field" placeholder="0"
                 value={termDays} onChange={(e) => onTermDays(e.target.value)} />
@@ -899,25 +998,25 @@ export function DocForm({ mode }: { mode: "SALES" | "PURCHASE" }) {
                             onChange={(e) => updateLine(l.key, { qty: e.target.value })} /></td>
                           <td className="text-sm text-muted-foreground">{l.unit || "—"}</td>
                           <td><input ref={setRowRef(l.key, "rate")} onKeyDown={(e) => rowKeyDown(e, l.key, "rate")}
-                            className="field num !px-2 !py-1.5" type="number" min="0" step="0.01" placeholder="0.00" value={l.rate}
+                            className="field num !px-2 !py-1.5" type="number" min="0" step={isForeign ? "any" : "0.01"} placeholder="0.00" value={l.rate}
                             onChange={(e) => updateLine(l.key, { rate: e.target.value })} />
                             {l.productId && lastRates[l.productId] != null && (
                               <p className="px-1 pt-0.5 text-[11px] text-muted-foreground">
-                                {t("docform.lastRate", { amt: fmtMoney(BigInt(lastRates[l.productId] as string)) })}
+                                {t("docform.lastRate", { amt: lastRateDisplay(l.productId) })}
                               </p>
                             )}
                           </td>
                           <td><input ref={setRowRef(l.key, "discount")} onKeyDown={(e) => rowKeyDown(e, l.key, "discount")}
-                            className="field num !px-2 !py-1.5" type="number" min="0" step="0.01" placeholder="0.00" value={l.discount}
+                            className="field num !px-2 !py-1.5" type="number" min="0" step={isForeign ? "any" : "0.01"} placeholder="0.00" value={l.discount}
                             onChange={(e) => updateLine(l.key, { discount: e.target.value })} /></td>
                           <td><input ref={setRowRef(l.key, "tax")} onKeyDown={(e) => rowKeyDown(e, l.key, "tax")}
                             className="field num !px-2 !py-1.5" type="number" min="0" max="100" step="0.01" placeholder="0" value={l.taxPct}
                             aria-label={t("docform.colTax")}
                             onChange={(e) => updateLine(l.key, { taxPct: e.target.value })} /></td>
                           <td className="num whitespace-nowrap text-sm font-extrabold">
-                            {fmtMoney(c.total)}
+                            {fmtFx(c.total)}
                             {c.tax > 0n && (
-                              <span className="block text-[11px] font-normal text-muted-foreground">{t("docform.inclTax", { amt: fmtMoney(c.tax) })}</span>
+                              <span className="block text-[11px] font-normal text-muted-foreground">{t("docform.inclTax", { amt: fmtFx(c.tax) })}</span>
                             )}
                           </td>
                           <td>
@@ -964,16 +1063,16 @@ export function DocForm({ mode }: { mode: "SALES" | "PURCHASE" }) {
                             aria-label={t("docform.colQty")}
                             onChange={(e) => updateLine(l.key, { qty: e.target.value })} />
                           <input ref={setRowRef(l.key, "rate")} onKeyDown={(e) => rowKeyDown(e, l.key, "rate")}
-                            className="field num !px-2" type="number" min="0" step="0.01" placeholder={t("docform.colRate")} value={l.rate}
+                            className="field num !px-2" type="number" min="0" step={isForeign ? "any" : "0.01"} placeholder={t("docform.colRate")} value={l.rate}
                             aria-label={t("docform.colRate")}
                             onChange={(e) => updateLine(l.key, { rate: e.target.value })} />
                           {l.productId && lastRates[l.productId] != null && (
                             <p className="col-span-4 -mt-1 text-[11px] text-muted-foreground">
-                              {t("docform.lastRate", { amt: fmtMoney(BigInt(lastRates[l.productId] as string)) })}
+                              {t("docform.lastRate", { amt: lastRateDisplay(l.productId) })}
                             </p>
                           )}
                           <input ref={setRowRef(l.key, "discount")} onKeyDown={(e) => rowKeyDown(e, l.key, "discount")}
-                            className="field num !px-2" type="number" min="0" step="0.01" placeholder={t("docform.colDisc")} value={l.discount}
+                            className="field num !px-2" type="number" min="0" step={isForeign ? "any" : "0.01"} placeholder={t("docform.colDisc")} value={l.discount}
                             aria-label={t("docform.colDisc")}
                             onChange={(e) => updateLine(l.key, { discount: e.target.value })} />
                           <input ref={setRowRef(l.key, "tax")} onKeyDown={(e) => rowKeyDown(e, l.key, "tax")}
@@ -982,9 +1081,9 @@ export function DocForm({ mode }: { mode: "SALES" | "PURCHASE" }) {
                             onChange={(e) => updateLine(l.key, { taxPct: e.target.value })} />
                         </div>
                         <p className="text-end text-sm font-extrabold">
-                          {fmtMoney(c.total)}
+                          {fmtFx(c.total)}
                           {c.tax > 0n && (
-                            <span className="block text-[11px] font-normal text-muted-foreground">{t("docform.inclTax", { amt: fmtMoney(c.tax) })}</span>
+                            <span className="block text-[11px] font-normal text-muted-foreground">{t("docform.inclTax", { amt: fmtFx(c.tax) })}</span>
                           )}
                         </p>
                       </div>
@@ -1088,27 +1187,42 @@ export function DocForm({ mode }: { mode: "SALES" | "PURCHASE" }) {
           </div>
           <div className="card card-gloss p-5 sm:p-6">
             <div className="space-y-2.5 text-sm">
-              <div className="flex justify-between"><span className="text-muted-foreground">{t("docform.subtotal")}</span><span className="font-bold">{fmtMoney(subtotal)}</span></div>
+              <div className="flex justify-between"><span className="text-muted-foreground">{t("docform.subtotal")}</span><span className="font-bold">{fmtFx(subtotal)}</span></div>
               {itemDiscTotal > 0n && (
-                <div className="flex justify-between"><span className="text-muted-foreground">{t("docform.itemDiscounts")}</span><span className="font-bold">−{fmtMoney(itemDiscTotal)}</span></div>
+                <div className="flex justify-between"><span className="text-muted-foreground">{t("docform.itemDiscounts")}</span><span className="font-bold">−{fmtFx(itemDiscTotal)}</span></div>
               )}
               <div className="flex items-center justify-between gap-4">
                 <span className="text-muted-foreground">{t("docform.billDiscount")}</span>
-                <input className="field num !w-32 !py-1.5" type="number" min="0" step="0.01" placeholder="0.00" value={discountTotal}
+                <input className="field num !w-32 !py-1.5" type="number" min="0" step={isForeign ? "any" : "0.01"} placeholder="0.00" value={discountTotal}
                   onChange={(e) => setDiscountTotal(e.target.value)} />
               </div>
-              <div className="flex justify-between"><span className="text-muted-foreground">{t("docform.taxTotal")}</span><span className="font-bold">{fmtMoney(taxTotal)}</span></div>
+              <div className="flex justify-between"><span className="text-muted-foreground">{t("docform.taxTotal")}</span><span className="font-bold">{fmtFx(taxTotal)}</span></div>
               {freightDocTypes && (
                 <div className="flex items-center justify-between gap-4">
                   <span className="text-muted-foreground">{t("docform.freightTotal")}</span>
-                  <input className="field num !w-32 !py-1.5" type="number" min="0" step="0.01" placeholder="0.00" value={freightTotal}
+                  <input className="field num !w-32 !py-1.5" type="number" min="0" step={isForeign ? "any" : "0.01"} placeholder="0.00" value={freightTotal}
                     onChange={(e) => setFreightTotal(e.target.value)} />
                 </div>
               )}
               <div className="flex justify-between border-t border-border pt-3 text-base">
                 <span className="font-extrabold">{t("docform.total")}</span>
-                <span className="text-xl font-extrabold text-primary">{fmtMoney(grand)}</span>
+                <span className="text-xl font-extrabold text-primary">{fmtFx(grand)}</span>
               </div>
+              {isForeign && fxRateScaled != null && (
+                <div className="space-y-1 border-t border-border/60 pt-2 text-xs text-muted-foreground">
+                  <div className="flex justify-between gap-2">
+                    <span>{t("docform.fxRate", { code: currencyCode })}</span>
+                    <span dir="ltr" className="font-semibold">1 {currencyCode} = {formatRate(fxRateScaled)} PKR</span>
+                  </div>
+                  <div className="flex justify-between gap-2">
+                    <span>{t("docform.fxPkrApprox")}</span>
+                    <span className="font-bold text-foreground">≈ {fmtMoney(grandPkr ?? 0n)}</span>
+                  </div>
+                </div>
+              )}
+              {isForeign && fxRateScaled == null && (
+                <p className="text-xs font-semibold text-amber-600 dark:text-amber-400">{t("docform.errNoFxRate", { code: currencyCode })}</p>
+              )}
             </div>
             <div className="mt-5 flex gap-2">
               <button type="button" className="btn btn-ghost flex-1 !py-3.5 !text-base" disabled={saving}

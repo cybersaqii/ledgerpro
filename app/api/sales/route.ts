@@ -2,9 +2,11 @@ import { NextRequest } from "next/server";
 import { eq, and, desc, sql, inArray } from "drizzle-orm";
 import { salesDocs, salesDocItems, parties, products, productBatches, branches } from "@/db/schema";
 import { salesDocSchema } from "@/lib/validators";
-import { computeTotals, type DocItemInput } from "@/lib/totals";
+import { computeTotals } from "@/lib/totals";
 import { parseMoney } from "@/lib/money";
 import { parseQty } from "@/lib/qty";
+import { resolveDocCurrency } from "@/lib/fx-docs";
+import { minorToDecimalString } from "@/lib/fx";
 import { postSalesDoc, postPayment } from "@/lib/posting";
 import { approvalRequired, stageApprovalRequest, findApprovalRequestByIdemKey } from "@/lib/approvals";
 import { clientIp } from "@/lib/rate-limit-db";
@@ -163,34 +165,8 @@ export async function POST(req: NextRequest) {
     if (!prodMap.has(pid)) return err("One of the selected products is invalid.", 422);
   }
 
-  // Minimum sale price lock applies to posted invoices only (not quotes/orders).
-  const belowFloor = b.docType === "INVOICE" ? belowMinPrice(b.items, prodMap) : [];
-  if (belowFloor.length > 0 && !b.priceOverride) {
-    return err(floorErrorMessage(belowFloor), 422, "BELOW_MIN_PRICE");
-  }
-
-  const docItems: DocItemInput[] = b.items.map((i) => ({
-    productId: i.productId || null,
-    description: i.description,
-    qtyMilli: parseQty(i.qty),
-    ratePaisa: parseMoney(i.rate || "0"),
-    discountPaisa: parseMoney(i.discount || "0"),
-    taxBps: i.taxBps,
-  }));
-
-  let totals;
-  // Freight (Module 1.4): sales-side carriage charged to the customer posts
-  // to Freight Income 4020 on posted invoices; on quotations/orders it is
-  // just commercial terms that carry over into the converted invoice.
-  const freightPaisa = parseMoney((b as { freightTotal?: string }).freightTotal || "0");
-  try {
-    totals = computeTotals(docItems, parseMoney(b.discountTotal || "0"), freightPaisa);
-  } catch (e) {
-    return toApiError(e, { route: "/api/sales", companyId });
-  }
-
-  const isPosted = (POSTED_TYPES as readonly string[]).includes(b.docType);
   // Regex-passing but impossible dates ("2026-13-99") must answer 422, not 500.
+  // Parsed before currency resolution: the day's exchange rate depends on it.
   let date: Date;
   let dueDate: Date | null;
   try {
@@ -199,6 +175,54 @@ export async function POST(req: NextRequest) {
   } catch (e) {
     return toApiError(e, { route: "/api/sales", companyId });
   }
+
+  // Module 10: multi-currency — line rates/discounts arrive in the document's
+  // currency; the server converts to PKR at the day's rate (single source of
+  // truth — client previews are display-only).
+  let fx;
+  try {
+    fx = await resolveDocCurrency(db, companyId, {
+      currencyCode: b.currencyCode,
+      date,
+      items: b.items.map((i) => ({
+        productId: i.productId || null,
+        description: i.description,
+        qtyMilli: parseQty(i.qty),
+        rate: i.rate || "0",
+        discount: i.discount || "0",
+        taxBps: i.taxBps,
+      })),
+      discountTotal: b.discountTotal || "0",
+      freightTotal: (b as { freightTotal?: string }).freightTotal || "0",
+    });
+  } catch (e) {
+    return toApiError(e, { route: "/api/sales", companyId });
+  }
+
+  // Minimum sale price lock applies to posted invoices only (not quotes/orders).
+  // Module 10: line rates arrive in the document's currency — compare the
+  // PKR-converted rate against the PKR floor price.
+  const floorItems =
+    b.docType === "INVOICE"
+      ? b.items.map((i, idx) => ({
+          productId: i.productId,
+          description: i.description,
+          rate: minorToDecimalString(fx.pkrItems[idx]?.ratePaisa ?? 0n, 2),
+        }))
+      : [];
+  const belowFloor = b.docType === "INVOICE" ? belowMinPrice(floorItems, prodMap) : [];
+  if (belowFloor.length > 0 && !b.priceOverride) {
+    return err(floorErrorMessage(belowFloor), 422, "BELOW_MIN_PRICE");
+  }
+
+  let totals;
+  try {
+    totals = computeTotals(fx.pkrItems, fx.pkrDiscountTotal, fx.pkrFreightTotal);
+  } catch (e) {
+    return toApiError(e, { route: "/api/sales", companyId });
+  }
+
+  const isPosted = (POSTED_TYPES as readonly string[]).includes(b.docType);
 
   // Batch choices are only meaningful on posted docs: the chosen batch must
   // belong to this company and to the line's product.
@@ -275,10 +299,15 @@ export async function POST(req: NextRequest) {
         dueDate,
         status: needsApproval ? "PENDING_APPROVAL" : isPosted ? "POSTED" : "DRAFT",
         subtotal: totals.subtotal,
-        discountTotal: parseMoney(b.discountTotal || "0"),
-        freightTotal: freightPaisa,
+        discountTotal: fx.pkrDiscountTotal,
+        freightTotal: fx.pkrFreightTotal,
         taxTotal: totals.taxTotal,
         grandTotal: totals.grandTotal,
+        // Module 10: document currency (PKR docs store NULLs here).
+        currencyCode: fx.currencyCode,
+        exchangeRateScaled: fx.rateScaled,
+        foreignSubtotal: fx.foreignSubtotal,
+        foreignTotal: fx.foreignTotal,
         notes: b.notes || null,
         refNo: b.refNo || null,
         terms: b.terms || null,
@@ -340,8 +369,8 @@ export async function POST(req: NextRequest) {
             // Module 4.2: per-line location override (NULL = doc branch).
             branchId: (b.items[idx]?.branchId || "").trim() || null,
           })),
-          discountTotal: parseMoney(b.discountTotal || "0"),
-          freightTotal: freightPaisa,
+          discountTotal: fx.pkrDiscountTotal,
+          freightTotal: fx.pkrFreightTotal,
           taxTotal: totals.taxTotal,
           grandTotal: totals.grandTotal,
           createdById: session.uid,

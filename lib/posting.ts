@@ -845,9 +845,102 @@ export type PostPaymentInput = {
   wht?: { section: string; rateBps: number };
 };
 
+/**
+ * Module 10 — exchange gain/loss on settlement of a foreign-currency document.
+ *
+ * When an allocation settles (PAID) a non-PKR invoice/bill, the PKR actually
+ * received/paid almost never equals the PKR the document carried at its
+ * invoice rate (rate moved between invoice and payment). The difference is a
+ * realized exchange gain/loss:
+ *   diff = amountPaid − (grandTotal − returnedTotal − writtenOffAmount)
+ * which equals (settled foreign × payment-date rate) − (settled foreign ×
+ * doc rate), up to per-line rounding absorbed here by design.
+ *
+ * SALES (receipt):  diff > 0 → Dr AR / Cr Exchange Gain (4120)
+ *                   diff < 0 → Dr Exchange Loss (6040) / Cr AR
+ * PURCHASE (payment): diff > 0 → Dr Exchange Loss (6040) / Cr AP
+ *                     diff < 0 → Dr AP / Cr Exchange Gain (4120)
+ * Always balanced; party-tagged so party ledgers stay exact. PKR documents
+ * always have diff = 0 and post nothing.
+ */
+async function postFxSettlement(
+  tx: DbTx,
+  args: {
+    companyId: string;
+    branchId: string;
+    date: Date;
+    createdById: string;
+    paymentId: string;
+    docKind: "SALES" | "PURCHASE";
+    docNo: string;
+    currencyCode: string | null;
+    grandTotal: bigint;
+    amountPaid: bigint;
+    returnedTotal: bigint;
+    writtenOffAmount: bigint;
+    partyId: string;
+  }
+): Promise<void> {
+  const code = (args.currencyCode || "PKR").toUpperCase();
+  if (code === "PKR") return;
+  const expected = args.grandTotal - args.returnedTotal - args.writtenOffAmount;
+  const diff = args.amountPaid - expected;
+  if (diff === 0n) return;
+  const ac = await accountMap(tx, args.companyId);
+  const arApAccount = args.docKind === "SALES" ? ac[SYS.AR] : ac[SYS.AP];
+  const gainAccount = ac[SYS.EXCHANGE_GAIN];
+  const lossAccount = ac[SYS.EXCHANGE_LOSS];
+  const isGain = args.docKind === "SALES" ? diff > 0n : diff < 0n;
+  const amt = diff > 0n ? diff : -diff;
+  // Gain: we came out ahead in PKR (collected more / paid less).
+  // Loss: we came out behind in PKR (collected less / paid more).
+  const lines =
+    args.docKind === "SALES"
+      ? isGain
+        ? [
+            { accountId: arApAccount, debit: amt, credit: 0n, partyId: args.partyId },
+            { accountId: gainAccount, debit: 0n, credit: amt },
+          ]
+        : [
+            { accountId: lossAccount, debit: amt, credit: 0n },
+            { accountId: arApAccount, debit: 0n, credit: amt, partyId: args.partyId },
+          ]
+      : isGain
+        ? [
+            { accountId: arApAccount, debit: amt, credit: 0n, partyId: args.partyId },
+            { accountId: gainAccount, debit: 0n, credit: amt },
+          ]
+        : [
+            { accountId: lossAccount, debit: amt, credit: 0n },
+            { accountId: arApAccount, debit: 0n, credit: amt, partyId: args.partyId },
+          ];
+  await createJournal(tx, {
+    companyId: args.companyId,
+    branchId: args.branchId,
+    date: args.date,
+    memo: `Exchange ${isGain ? "gain" : "loss"} on settlement of ${args.docNo} (${code})`,
+    source: "FX_SETTLEMENT",
+    sourceId: args.paymentId,
+    createdById: args.createdById,
+    lines,
+  });
+}
+
 /** Allocate part of a payment to one document: bumps amountPaid, flips
  *  POSTED/PARTIAL → PARTIAL/PAID, and writes the payment_allocations row.
- *  Shared by postPayment and PDC auto-allocation on clear. */
+ *  Shared by postPayment and PDC auto-allocation on clear.
+ *
+ *  Module 10: when `settleFx` is provided and this allocation SETTLES a
+ *  foreign-currency document (status flips to PAID), an exchange gain/loss
+ *  journal is auto-posted for the difference between the PKR actually
+ *  received/paid and the PKR the document carried at its invoice rate:
+ *    diff = amountPaid − (grandTotal − returnedTotal − writtenOffAmount)
+ *  SALES: diff>0 → Dr AR / Cr Exchange Gain 4120; diff<0 → Dr Exchange Loss 6040 / Cr AR.
+ *  PURCHASE: diff>0 → Dr Exchange Loss 6040 / Cr AP; diff<0 → Dr AP / Cr Exchange Gain 4120.
+ *  Partial allocations never post FX — only the settling one does. PKR docs
+ *  always have diff = 0 and post nothing. The journal reverses with the
+ *  payment void (lib/payment-void.ts).
+ */
 export async function allocatePaymentToDoc(
   tx: DbTx,
   opts: {
@@ -857,6 +950,8 @@ export async function allocatePaymentToDoc(
     docKind: "SALES" | "PURCHASE";
     docId: string;
     amount: bigint;
+    /** Module 10: context for the FX settlement journal (required to post it). */
+    settleFx?: { branchId: string; date: Date; createdById: string };
   }
 ): Promise<void> {
   if (opts.amount <= 0n) throw new UserError("Allocation amounts must be positive");
@@ -877,9 +972,10 @@ export async function allocatePaymentToDoc(
     if (opts.amount > remaining) throw new UserError(`Allocation exceeds remaining balance of ${doc.docNo}`);
     const paid = doc.amountPaid + opts.amount;
     const netTotal = doc.grandTotal - doc.returnedTotal;
+    const newStatus = paid >= netTotal ? "PAID" : "PARTIAL";
     await tx
       .update(salesDocs)
-      .set({ amountPaid: paid, status: paid >= netTotal ? "PAID" : "PARTIAL", updatedAt: new Date() })
+      .set({ amountPaid: paid, status: newStatus, updatedAt: new Date() })
       .where(eq(salesDocs.id, doc.id));
     await tx.insert(paymentAllocations).values({
       id: crypto.randomUUID(),
@@ -888,6 +984,24 @@ export async function allocatePaymentToDoc(
       salesDocId: doc.id,
       amount: opts.amount,
     });
+    // Module 10: FX gain/loss on settlement of a foreign-currency invoice.
+    if (opts.settleFx && newStatus === "PAID") {
+      await postFxSettlement(tx, {
+        companyId: opts.companyId,
+        branchId: opts.settleFx.branchId,
+        date: opts.settleFx.date,
+        createdById: opts.settleFx.createdById,
+        paymentId: opts.paymentId,
+        docKind: "SALES",
+        docNo: doc.docNo,
+        currencyCode: doc.currencyCode,
+        grandTotal: doc.grandTotal,
+        amountPaid: paid,
+        returnedTotal: doc.returnedTotal ?? 0n,
+        writtenOffAmount: doc.writtenOffAmount ?? 0n,
+        partyId: opts.partyId,
+      });
+    }
   } else {
     const rows = await tx
       .select()
@@ -903,9 +1017,10 @@ export async function allocatePaymentToDoc(
     if (opts.amount > remaining) throw new UserError(`Allocation exceeds remaining balance of ${doc.docNo}`);
     const paid = doc.amountPaid + opts.amount;
     const netTotal = doc.grandTotal - doc.returnedTotal;
+    const newStatus = paid >= netTotal ? "PAID" : "PARTIAL";
     await tx
       .update(purchaseDocs)
-      .set({ amountPaid: paid, status: paid >= netTotal ? "PAID" : "PARTIAL", updatedAt: new Date() })
+      .set({ amountPaid: paid, status: newStatus, updatedAt: new Date() })
       .where(eq(purchaseDocs.id, doc.id));
     await tx.insert(paymentAllocations).values({
       id: crypto.randomUUID(),
@@ -914,6 +1029,24 @@ export async function allocatePaymentToDoc(
       purchaseDocId: doc.id,
       amount: opts.amount,
     });
+    // Module 10: FX gain/loss on settlement of a foreign-currency bill.
+    if (opts.settleFx && newStatus === "PAID") {
+      await postFxSettlement(tx, {
+        companyId: opts.companyId,
+        branchId: opts.settleFx.branchId,
+        date: opts.settleFx.date,
+        createdById: opts.settleFx.createdById,
+        paymentId: opts.paymentId,
+        docKind: "PURCHASE",
+        docNo: doc.docNo,
+        currencyCode: doc.currencyCode,
+        grandTotal: doc.grandTotal,
+        amountPaid: paid,
+        returnedTotal: doc.returnedTotal ?? 0n,
+        writtenOffAmount: doc.writtenOffAmount ?? 0n,
+        partyId: opts.partyId,
+      });
+    }
   }
 }
 
@@ -1108,6 +1241,9 @@ export async function postPayment(tx: DbTx, input: PostPaymentInput): Promise<{ 
       docKind: a.docKind,
       docId: a.docId,
       amount: a.amount,
+      // Module 10: FX gain/loss posts when an allocation settles a
+      // foreign-currency document (inside this same posting transaction).
+      settleFx: { branchId: input.branchId, date: input.date, createdById: input.createdById },
     });
   }
 

@@ -68,7 +68,7 @@ beforeAll(async () => {
     await db.insert(s.accounts).values({ id, companyId, code, name, type });
     return id;
   };
-  const gadgetRevenue = await mkAcct("4120", "Gadget Sales", "INCOME"); // 4110 claimed by Module 9 SYS account (Gain on Disposal)
+  const gadgetRevenue = await mkAcct("4130", "Gadget Sales", "INCOME"); // 4110/4120 claimed by Module 9/10 SYS accounts
   const gadgetCogs = await mkAcct("6120", "Gadget COGS", "EXPENSE");
   const gadgetInv = await mkAcct("1210", "Gadget Inventory", "ASSET");
 
@@ -274,8 +274,8 @@ describe("per-product accounts in sales posting", () => {
       })
     );
     const sums = await entrySums(entryId);
-    // gadget: 2 × 150 = 300 → revenue 4110; widget: 1 × 100 = 100 → 4000
-    expect(sums.get("4120")).toBe(-parseMoney("300"));
+    // gadget: 2 × 150 = 300 → revenue 4130; widget: 1 × 100 = 100 → 4000
+    expect(sums.get("4130")).toBe(-parseMoney("300"));
     expect(sums.get(SYS.SALES)).toBe(-parseMoney("100"));
     // gadget COGS: 2 × 20 = 40 → 6120; widget COGS: 1 × 12 = 12 → 5000
     expect(sums.get("6120")).toBe(parseMoney("40"));

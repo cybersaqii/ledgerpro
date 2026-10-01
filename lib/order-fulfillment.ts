@@ -5,6 +5,7 @@ import {
 import { computeTotals, type DocItemInput } from "./totals";
 import { postSalesDoc } from "./posting";
 import { nextDocNo } from "./setup";
+import { carryDocCurrency } from "./fx-docs";
 import { floorErrorMessage } from "./min-price";
 import { applyCustomerAdvance } from "./advance";
 import { assertPeriodOpen } from "./period";
@@ -194,6 +195,9 @@ export async function fulfillSalesOrder(
   const tsMap = await trackStockMap(tx, docItems.map((i) => i.productId));
   const isPosted = input.docType === "INVOICE";
 
+  // Module 10: currency + locked rate carry over from the order (partial
+  // fulfillments convert their PKR share back at the order's rate).
+  const fulfilFx = await carryDocCurrency(tx, input.companyId, order, totals.subtotal, totals.grandTotal);
   await tx.insert(salesDocs).values({
     id: docId,
     companyId: input.companyId,
@@ -208,6 +212,10 @@ export async function fulfillSalesOrder(
     freightTotal: docFreight,
     taxTotal: totals.taxTotal,
     grandTotal: totals.grandTotal,
+    currencyCode: fulfilFx.currencyCode,
+    exchangeRateScaled: fulfilFx.exchangeRateScaled,
+    foreignSubtotal: fulfilFx.foreignSubtotal,
+    foreignTotal: fulfilFx.foreignTotal,
     notes: `Fulfillment of order ${order.docNo}`,
     sourceDocId: order.id,
     createdById: input.userId,

@@ -8,6 +8,17 @@ const optMoney = moneyStr.or(z.literal("")).optional().default("0");
 // Non-negative money (no leading "-"): used for product prices —
 // a negative price would corrupt stock valuation and margins.
 const priceStr = z.string().regex(/^\d{1,12}(\.\d{1,2})?$/, "Price cannot be negative");
+// Module 10: document line/rate amounts are entered in the DOCUMENT's currency
+// (up to 6 decimals on the wire); the server parses them at the currency's
+// own minor-unit scale and rejects excess precision per currency.
+const fxMoneyStr = z.string().regex(/^-?\d{1,12}(\.\d{1,6})?$/, "Invalid amount");
+// Module 10: ISO 4217 currency code on invoice/bill forms (default PKR).
+const currencyCodeStr = z
+  .string()
+  .trim()
+  .toUpperCase()
+  .regex(/^[A-Z]{3}$/, "Invalid currency code")
+  .default("PKR");
 const qtyStr = z.string().regex(/^-?\d{1,12}(\.\d{1,3})?$/, "Invalid quantity");
 
 export const signupSchema = z.object({
@@ -98,8 +109,8 @@ export const docItemSchema = z.object({
   productId: z.string().optional().or(z.literal("")),
   description: z.string().trim().min(1).max(200),
   qty: qtyStr,
-  rate: moneyStr,
-  discount: moneyStr.default("0"),
+  rate: fxMoneyStr, // Module 10: entered in the document's currency
+  discount: fxMoneyStr.default("0"), // Module 10: entered in the document's currency
   taxBps: z.coerce.number().int().min(0).max(10000).default(0),
   // Batch tracking (optional, per line):
   //  - sales lines: batchId selects the batch to deduct from (blank = FIFO by expiry)
@@ -120,8 +131,9 @@ export const salesDocSchema = z.object({
   dueDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional().or(z.literal("")),
   refNo: z.string().trim().max(60).optional().or(z.literal("")),
   terms: z.string().trim().max(500).optional().or(z.literal("")),
-  discountTotal: moneyStr.default("0"),
-  freightTotal: moneyStr.default("0"), // sales-side freight → Freight Income 4020 (Module 1)
+  discountTotal: fxMoneyStr.default("0"), // Module 10: in the document's currency
+  freightTotal: fxMoneyStr.default("0"), // sales-side freight → Freight Income 4020 (Module 1); in the doc currency
+  currencyCode: currencyCodeStr, // Module 10: ISO 4217 (default PKR)
   notes: z.string().trim().max(500).optional().or(z.literal("")),
   items: z.array(docItemSchema).min(1, "Add at least one item"),
   priceOverride: z.boolean().default(false), // explicit override of minimum sale price

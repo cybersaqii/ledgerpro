@@ -24,6 +24,7 @@ const empty: Company = { name: "", tradeName: "", email: "", phone: "", address:
 const SECTIONS = [
   "sec-company",
   "sec-approvals",
+  "sec-currencies",
   "sec-data",
   "sec-import",
   "sec-backups",
@@ -39,6 +40,7 @@ const SECTIONS = [
 const SECTION_KEYS: Record<(typeof SECTIONS)[number], string> = {
   "sec-company": "navCompany",
   "sec-approvals": "navApprovals",
+  "sec-currencies": "navCurrencies",
   "sec-data": "navData",
   "sec-import": "navImport",
   "sec-backups": "navBackups",
@@ -208,6 +210,17 @@ export default function SettingsPage() {
       </div>
       <div id="sec-approvals" className="card card-gloss anchor-scroll mt-6 mx-auto max-w-2xl p-6 sm:p-8">
         {canEditCompany && <ApprovalRulesCard />}
+      </div>
+      <div id="sec-currencies" className="card card-gloss anchor-scroll mt-6 mx-auto max-w-2xl p-6 sm:p-8">
+        <div className="flex items-center justify-between gap-3">
+          <div>
+            <h2 className="text-lg font-extrabold">{t("settingscurrencies.title")}</h2>
+            <p className="mt-1 text-sm text-muted-foreground">{t("settingscurrencies.hint")}</p>
+          </div>
+          <Link href="/settings/currencies" className="btn btn-ghost shrink-0 text-sm">
+            {t("settingscurrencies.listTitle")} →
+          </Link>
+        </div>
       </div>
       <div id="sec-data" className="card card-gloss anchor-scroll mt-6 mx-auto max-w-2xl p-6 sm:p-8">
         <h2 className="text-lg font-extrabold">{t("settings.dataTitle")}</h2>

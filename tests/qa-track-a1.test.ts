@@ -372,9 +372,10 @@ describe("doc validators (sales/purchase forms)", () => {
     const costs = Array.from({ length: 11 }, (_, i) => ({ label: `c${i}`, amount: "5" }));
     expect(purchaseDocSchema.safeParse({ ...base, docType: "BILL", extraCosts: costs }).success).toBe(false);
   });
-  it("money strings reject >2 decimals and >12 digits", () => {
-    expect(salesDocSchema.safeParse({ ...base, discountTotal: "10.999" }).success).toBe(false);
+  it("money strings reject >6 decimals and >12 digits (Module 10: up to 6 decimals on the wire for FX; the server enforces each currency's own scale)", () => {
+    expect(salesDocSchema.safeParse({ ...base, discountTotal: "10.9999999" }).success).toBe(false);
     expect(salesDocSchema.safeParse({ ...base, discountTotal: "1234567890123" }).success).toBe(false);
+    expect(salesDocSchema.safeParse({ ...base, discountTotal: "10.999999" }).success).toBe(true);
     expect(salesDocSchema.safeParse({ ...base, discountTotal: "10.5" }).success).toBe(true);
   });
 });

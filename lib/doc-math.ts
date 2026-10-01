@@ -8,11 +8,16 @@
  *
  * UI-only: the server never trusts these values and recomputes everything.
  */
-import { parseDecimalToPaisa, parseDecimalToMilli, qtyRateTotal } from "./decimal";
+import { parseDecimalToPaisa, parseDecimalToMilli, parseDecimalToMinor, qtyRateTotal } from "./decimal";
 
 /** Lenient decimal → paisa (invalid → 0n). Display-only; submit validates strictly. */
 export function paisaOf(s: string): bigint {
   try { return parseDecimalToPaisa(s || "0"); } catch { return 0n; }
+}
+
+/** Lenient decimal → minor units at an arbitrary scale (invalid → 0n). */
+export function minorOf(s: string, minorUnits: number): bigint {
+  try { return parseDecimalToMinor(s || "0", minorUnits); } catch { return 0n; }
 }
 
 /** Lenient decimal → milli-units (invalid → 0n). Display-only; submit validates strictly. */
@@ -51,12 +56,13 @@ export type LineMath = {
 /**
  * Per-line math mirroring the server. Negative inputs are clamped to 0 for
  * display; the server rejects them outright, so the form never submits those.
+ * minorUnits: document-currency scale (2 = paisa, the default for PKR docs).
  */
-export function lineMath(qty: string, rate: string, discount: string, taxPct: string): LineMath {
+export function lineMath(qty: string, rate: string, discount: string, taxPct: string, minorUnits = 2): LineMath {
   const q = milliOf(qty);
-  const r = paisaOf(rate);
+  const r = minorOf(rate, minorUnits);
   const gross = qtyRateTotal(q < 0n ? 0n : q, r < 0n ? 0n : r);
-  const dRaw = paisaOf(discount);
+  const dRaw = minorOf(discount, minorUnits);
   const disc = dRaw < 0n ? 0n : dRaw > gross ? gross : dRaw;
   const taxable = gross - disc;
   const bps = Math.max(0, Math.min(10000, taxBpsOf(taxPct) ?? 0));
@@ -72,14 +78,14 @@ export type DocMath = {
   grand: bigint; // subtotal − docDisc − itemDisc + tax + freight, clamped ≥ 0
 };
 
-/** Document totals mirroring the server's grandTotal formula. */
-export function docMath(items: LineMath[], docDiscount: string, freight = "0"): DocMath {
+/** Document totals mirroring the server's grandTotal formula. minorUnits = doc-currency scale. */
+export function docMath(items: LineMath[], docDiscount: string, freight = "0", minorUnits = 2): DocMath {
   const subtotal = items.reduce((a, c) => a + c.gross, 0n);
   const itemDisc = items.reduce((a, c) => a + c.disc, 0n);
   const taxTotal = items.reduce((a, c) => a + c.tax, 0n);
-  const dRaw = paisaOf(docDiscount);
+  const dRaw = minorOf(docDiscount, minorUnits);
   const docDisc = dRaw < 0n ? 0n : dRaw;
-  const fRaw = paisaOf(freight);
+  const fRaw = minorOf(freight, minorUnits);
   const freightPaisa = fRaw < 0n ? 0n : fRaw;
   const raw = subtotal - docDisc - itemDisc + taxTotal + freightPaisa;
   return { subtotal, itemDisc, taxTotal, freight: freightPaisa, grand: raw < 0n ? 0n : raw };

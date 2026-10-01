@@ -17,6 +17,7 @@ import type { JournalLineInput } from "./posting";
 import { addBatchStock, recordBatchUsage } from "./batches";
 import { computeTotals, type DocItemInput } from "./totals";
 import { assertPeriodOpen } from "./period";
+import { carryDocCurrency } from "./fx-docs";
 import { UserError } from "./errors";
 import { whtRateBps, whtAmountPaisa } from "./wht";
 import { applySupplierAdvance } from "./supplier-advance";
@@ -309,6 +310,12 @@ export async function createGrn(tx: DbTx, input: CreateGrnInput): Promise<Create
     discountTotal: 0n,
     taxTotal: 0n,
     grandTotal: 0n, // GRN carries no payable; the accrual lives on the journal
+    // Module 10: keep the order's currency/rate lineage for reference (no
+    // foreign payable — the GRN itself carries no money).
+    currencyCode: order.currencyCode,
+    exchangeRateScaled: order.exchangeRateScaled,
+    foreignSubtotal: null,
+    foreignTotal: null,
     notes: input.notes || `Received against order ${orderDocNo}`,
     journalEntryId: entryId,
     sourceDocId: input.orderId,
@@ -461,6 +468,9 @@ export async function convertGrnToBill(
     grnClearing: { accruedPaisa: accrued },
   });
 
+  // Module 10: the bill keeps the GRN's (and order's) locked currency/rate.
+  const grnFx = await carryDocCurrency(tx, companyId, grn, totals.subtotal, totals.grandTotal);
+
   await tx.insert(purchaseDocs).values({
     id: docId,
     companyId,
@@ -479,6 +489,10 @@ export async function convertGrnToBill(
     whtBps,
     whtAmount,
     grniCleared: accrued,
+    currencyCode: grnFx.currencyCode,
+    exchangeRateScaled: grnFx.exchangeRateScaled,
+    foreignSubtotal: grnFx.foreignSubtotal,
+    foreignTotal: grnFx.foreignTotal,
     notes: input.notes || `Billed against GRN ${grn.docNo}`,
     journalEntryId: entryId,
     sourceDocId: grn.id,

@@ -3,12 +3,14 @@ import {
   accounts,
   bankAccounts,
   branches,
+  currencies,
   journalEntries,
   journalLines,
   numberSequences,
   settings,
 } from "@/db/schema";
 import type { Db, DbTx } from "./db";
+import { DEFAULT_CURRENCIES } from "./fx";
 
 // System account codes — created for every new company.
 export const SYS = {
@@ -49,6 +51,8 @@ export const SYS = {
   ACCUM_DEPRECIATION: "1400", // Module 9: Accumulated Depreciation (contra-asset; credit balance nets 14xx cost)
   GAIN_ON_DISPOSAL: "4110", // Module 9: gain on sale/scrapping of fixed assets
   LOSS_ON_DISPOSAL: "6030", // Module 9: loss on sale/scrapping of fixed assets
+  EXCHANGE_GAIN: "4120", // Module 10: FX gain on settlement of foreign-currency docs
+  EXCHANGE_LOSS: "6040", // Module 10: FX loss on settlement of foreign-currency docs
 } as const;
 
 const SYSTEM_ACCOUNTS: { code: string; name: string; type: string }[] = [
@@ -89,6 +93,8 @@ const SYSTEM_ACCOUNTS: { code: string; name: string; type: string }[] = [
   { code: SYS.ACCUM_DEPRECIATION, name: "Accumulated Depreciation", type: "ASSET" },
   { code: SYS.GAIN_ON_DISPOSAL, name: "Gain on Disposal of Fixed Assets", type: "INCOME" },
   { code: SYS.LOSS_ON_DISPOSAL, name: "Loss on Disposal of Fixed Assets", type: "EXPENSE" },
+  { code: SYS.EXCHANGE_GAIN, name: "Exchange Gain", type: "INCOME" },
+  { code: SYS.EXCHANGE_LOSS, name: "Exchange Loss", type: "EXPENSE" },
 ];
 
 const DOC_PREFIXES: Record<string, string> = {
@@ -254,6 +260,29 @@ export async function setupCompany(db: Db, companyId: string, opts: { defaultBra
           name: a.name,
           type: a.type,
           isSystem: true,
+        }))
+      );
+    }
+
+    // Module 10: seed the default currency set (PKR base + USD/AED/EUR/GBP/
+    // SAR/CNY). Idempotent — only missing codes are inserted.
+    const curRows = await tx
+      .select({ code: currencies.code })
+      .from(currencies)
+      .where(eq(currencies.companyId, companyId));
+    const haveCur = new Set(curRows.map((r) => r.code));
+    const missingCur = DEFAULT_CURRENCIES.filter((c) => !haveCur.has(c.code));
+    if (missingCur.length > 0) {
+      await tx.insert(currencies).values(
+        missingCur.map((c) => ({
+          id: crypto.randomUUID(),
+          companyId,
+          code: c.code,
+          name: c.name,
+          symbol: c.symbol,
+          minorUnits: c.minorUnits,
+          isBase: c.isBase ? 1 : 0,
+          isActive: 1,
         }))
       );
     }

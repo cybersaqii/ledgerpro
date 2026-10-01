@@ -111,9 +111,9 @@ function salesItem(qty: string, rate: string): DocItemInput {
 // ─── tests ──────────────────────────────────────────────────
 
 describe("company setup", () => {
-  it("creates 33 system accounts, a branch, sequences and a cash account", async () => {
+  it("creates 35 system accounts, a branch, sequences and a cash account", async () => {
     const accs = await db.select().from(s.accounts).where(eq(s.accounts.companyId, companyId));
-    expect(accs).toHaveLength(38); // 33 system + 1 cash-in-hand GL account (Module 5 added 3003 Retained Earnings; Module 8 added 7 payroll accounts; Module 9 added 4 fixed-asset accounts)
+    expect(accs).toHaveLength(40); // 35 system + 1 cash-in-hand GL account (Module 5 added 3003 Retained Earnings; Module 8 added 7 payroll accounts; Module 9 added 4 fixed-asset accounts; Module 10 added 2 FX accounts)
     const branches = await db.select().from(s.branches).where(eq(s.branches.companyId, companyId));
     expect(branches).toHaveLength(1);
     expect(branches[0]!.isDefault).toBe(true);
@@ -448,7 +448,7 @@ describe("report account mappings", () => {
     await setupCompany(db, c3);
     await setupCompany(db, c3); // second run must not duplicate anything
     const accs = await db.select().from(s.accounts).where(eq(s.accounts.companyId, c3));
-    expect(accs).toHaveLength(38); // 33 system + 1 cash-in-hand GL account (Module 5 added 3003 Retained Earnings; Module 8 added 7 payroll accounts; Module 9 added 4 fixed-asset accounts)
+    expect(accs).toHaveLength(40); // 35 system + 1 cash-in-hand GL account (Module 5 added 3003 Retained Earnings; Module 8 added 7 payroll accounts; Module 9 added 4 fixed-asset accounts; Module 10 added 2 FX accounts)
     const brs = await db.select().from(s.branches).where(eq(s.branches.companyId, c3));
     expect(brs).toHaveLength(1);
     const seqs = await db.select().from(s.numberSequences).where(eq(s.numberSequences.companyId, c3));
@@ -464,7 +464,7 @@ describe("report account mappings", () => {
     await db.delete(s.accounts).where(eq(s.accounts.id, exp.id));
     await setupCompany(db, c3);
     const accs2 = await db.select().from(s.accounts).where(eq(s.accounts.companyId, c3));
-    expect(accs2).toHaveLength(38); // 33 system + 1 cash-in-hand GL account (Module 5 added 3003; Module 8 added 7 payroll accounts; Module 9 added 4 fixed-asset accounts)
+    expect(accs2).toHaveLength(40); // 35 system + 1 cash-in-hand GL account (Module 5 added 3003; Module 8 added 7 payroll accounts; Module 9 added 4 fixed-asset accounts; Module 10 added 2 FX accounts)
     expect(accs2.some((a) => a.code === SYS.EXPENSES)).toBe(true);
   });
 

@@ -33,6 +33,20 @@ export function parseDecimalToMilli(input: string | number): bigint {
   return neg ? -v : v;
 }
 
+/**
+ * "12.34" with a currency's minor-unit scale → integer minor units.
+ * Module 10: foreign amounts (USD cents, AED fils…) parse exactly like paisa.
+ * Throws a plain Error on invalid input or more decimals than the scale allows.
+ */
+export function parseDecimalToMinor(input: string | number, minorUnits: number): bigint {
+  if (!Number.isInteger(minorUnits) || minorUnits < 0 || minorUnits > 6)
+    throw new Error(`Invalid minor-unit scale: ${minorUnits}`);
+  const scale = 10n ** BigInt(minorUnits);
+  const { neg, whole, frac } = splitDecimal(String(input), minorUnits, "0".repeat(minorUnits));
+  const v = BigInt(whole) * scale + BigInt(frac);
+  return neg ? -v : v;
+}
+
 /** qty (milli-units) × rate (paisa per unit) → paisa, half-up rounding */
 export function qtyRateTotal(qtyMilli: bigint, ratePaisa: bigint): bigint {
   const sign = (qtyMilli < 0n) !== (ratePaisa < 0n) ? -1n : 1n;

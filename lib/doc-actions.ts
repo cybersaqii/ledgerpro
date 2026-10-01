@@ -6,6 +6,7 @@ import {
 import { computeTotals, type DocItemInput, type ComputedItem } from "./totals";
 import { postSalesDoc, postPurchaseDoc, createJournal } from "./posting";
 import { SYS, accountMap, nextDocNo } from "./setup";
+import { carryDocCurrency } from "./fx-docs";
 import { floorErrorMessage } from "./min-price";
 import { applyCustomerAdvance } from "./advance";
 import { applySupplierAdvance } from "./supplier-advance";
@@ -100,6 +101,8 @@ export async function convertSalesDoc(
       taxBps: i.taxBps,
     }));
     const totals = computeTotals(items, src.discountTotal ?? 0n, src.freightTotal ?? 0n);
+    // Module 10: currency + locked rate carry over from the quotation.
+    const orderFx = await carryDocCurrency(tx, input.companyId, src, totals.subtotal, totals.grandTotal);
     await tx.insert(salesDocs).values({
       id: orderId,
       companyId: input.companyId,
@@ -114,6 +117,10 @@ export async function convertSalesDoc(
       freightTotal: totals.freightPaisa,
       taxTotal: totals.taxTotal,
       grandTotal: totals.grandTotal,
+      currencyCode: orderFx.currencyCode,
+      exchangeRateScaled: orderFx.exchangeRateScaled,
+      foreignSubtotal: orderFx.foreignSubtotal,
+      foreignTotal: orderFx.foreignTotal,
       notes: `Converted from quotation ${src.docNo}`,
       sourceDocId: src.id,
       createdById: input.userId,
@@ -171,6 +178,8 @@ export async function convertSalesDoc(
   const date = new Date();
   const tsMap = await trackStockMap(tx, items.map((i) => i.productId));
 
+  // Module 10: currency + locked rate carry over from the source document.
+  const convFx = await carryDocCurrency(tx, input.companyId, src, totals.subtotal, totals.grandTotal);
   await tx.insert(salesDocs).values({
     id: docId,
     companyId: input.companyId,
@@ -185,6 +194,10 @@ export async function convertSalesDoc(
     freightTotal: srcFreight,
     taxTotal: totals.taxTotal,
     grandTotal: totals.grandTotal,
+    currencyCode: convFx.currencyCode,
+    exchangeRateScaled: convFx.exchangeRateScaled,
+    foreignSubtotal: convFx.foreignSubtotal,
+    foreignTotal: convFx.foreignTotal,
     notes: `Converted from ${src.docType === "QUOTATION" ? "quotation" : "challan"} ${src.docNo}`,
     sourceDocId: src.id,
     createdById: input.userId,
@@ -302,6 +315,9 @@ export async function createSalesReturn(
   const tsMap = await trackStockMap(tx, items.map((i) => i.productId));
   const isFull = srcItems.every((si) => BigInt(si.qty) - (returnedById.get(si.id) ?? BigInt(si.qtyReturned ?? 0n)) <= 0n);
 
+  // Module 10: a return reverses the source invoice at its locked rate —
+  // same currency, same rate, so no FX gain/loss is manufactured by returning.
+  const retFx = await carryDocCurrency(tx, input.companyId, src, totals.subtotal, totals.grandTotal);
   await tx.insert(salesDocs).values({
     id: docId,
     companyId: input.companyId,
@@ -315,6 +331,10 @@ export async function createSalesReturn(
     discountTotal: docDiscount,
     taxTotal: totals.taxTotal,
     grandTotal: totals.grandTotal,
+    currencyCode: retFx.currencyCode,
+    exchangeRateScaled: retFx.exchangeRateScaled,
+    foreignSubtotal: retFx.foreignSubtotal,
+    foreignTotal: retFx.foreignTotal,
     notes: `${isFull ? "Return" : "Partial return"} of invoice ${src.docNo}`,
     sourceDocId: src.id,
     createdById: input.userId,
@@ -420,6 +440,8 @@ export async function convertPurchaseDoc(
   const date = new Date();
   const tsMap = await trackStockMap(tx, items.map((i) => i.productId));
 
+  // Module 10: currency + locked rate carry over from the purchase order.
+  const billFx = await carryDocCurrency(tx, input.companyId, src, totals.subtotal, totals.grandTotal);
   await tx.insert(purchaseDocs).values({
     id: docId,
     companyId: input.companyId,
@@ -434,6 +456,10 @@ export async function convertPurchaseDoc(
     discountTotal: srcDiscount,
     taxTotal: totals.taxTotal,
     grandTotal: totals.grandTotal,
+    currencyCode: billFx.currencyCode,
+    exchangeRateScaled: billFx.exchangeRateScaled,
+    foreignSubtotal: billFx.foreignSubtotal,
+    foreignTotal: billFx.foreignTotal,
     whtBps,
     whtAmount,
     notes: `Converted from purchase order ${src.docNo}`,
@@ -548,6 +574,8 @@ export async function createPurchaseReturn(
   // movement). Default on = deducts stock like before.
   const deductFromInventory = input.deductFromInventory !== false;
 
+  // Module 10: a debit note reverses the source bill at its locked rate.
+  const pretFx = await carryDocCurrency(tx, input.companyId, src, totals.subtotal, totals.grandTotal);
   await tx.insert(purchaseDocs).values({
     id: docId,
     companyId: input.companyId,
@@ -561,6 +589,10 @@ export async function createPurchaseReturn(
     discountTotal: docDiscount,
     taxTotal: totals.taxTotal,
     grandTotal: totals.grandTotal,
+    currencyCode: pretFx.currencyCode,
+    exchangeRateScaled: pretFx.exchangeRateScaled,
+    foreignSubtotal: pretFx.foreignSubtotal,
+    foreignTotal: pretFx.foreignTotal,
     deductFromInventory,
     notes: `${isFull ? "Return" : "Partial return"} of bill ${src.docNo}`,
     sourceDocId: src.id,

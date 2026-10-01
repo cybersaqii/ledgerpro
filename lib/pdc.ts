@@ -244,6 +244,9 @@ export async function clearPdc(tx: DbTx, input: ClearPdcInput): Promise<string> 
       docKind: side,
       docId: d.docId,
       amount: take,
+      // Module 10: FX gain/loss posts when the clear settles a
+      // foreign-currency document (inside this same transaction).
+      settleFx: { branchId: input.branchId, date: input.date, createdById: input.createdById },
     });
     leftover -= take;
   }

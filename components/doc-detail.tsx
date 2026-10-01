@@ -6,6 +6,7 @@ import Link from "next/link";
 import { ArrowLeft, ArrowRightLeft, Ban, Mail, MessageCircle, Printer, Undo2, Wallet } from "lucide-react";
 import { PageHeader, StatusPill } from "@/components/ui";
 import { api, fmtMoney, fmtMoneyPlain, fmtQty, fmtDate, toBig } from "@/lib/format";
+import { formatForeign, paisaToForeignMinor, formatRate } from "@/lib/fx";
 import { brand } from "@/lib/brand";
 import { useLang } from "@/components/lang-provider";
 import { useBusinessProfile } from "@/components/business-type";
@@ -27,6 +28,9 @@ type Doc = {
   amountPaid: string; returnedTotal?: string | null; writtenOffAmount?: string | null;
   notes: string | null; terms: string | null; refNo: string | null; partyName: string | null; partyId: string | null;
   partyPhone: string | null; partyEmail: string | null; sourceDocId: string | null;
+  /** Module 10: document currency — NULL/undefined foreign fields = PKR doc. */
+  currencyCode?: string | null; exchangeRateScaled?: string | null;
+  foreignSubtotal?: string | null; foreignTotal?: string | null;
   items: Item[];
   fulfilledByItem?: Record<string, string> | null;
   payments?: { id: string; docNo: string | null; kind: string; date: number; amount: string }[] | null;
@@ -148,6 +152,8 @@ export function DocDetail({ mode, id }: { mode: "SALES" | "PURCHASE" | "NOTE"; i
   const [doc, setDoc] = useState<Doc | null>(null);
   const [company, setCompany] = useState<Company | null>(null);
   const [tpl, setTpl] = useState<Template>(TEMPLATE_DEFAULTS);
+  /** Module 10: minor-units scale per currency code (for foreign-amount display). */
+  const [fxUnits, setFxUnits] = useState<Record<string, number>>({});
   const [qrUrl, setQrUrl] = useState<string | null>(null);
   const [formatSel, setFormatSel] = useState<PrintFormat | null>(null);
   const [copySel, setCopySel] = useState<CopyKind>("ORIGINAL");
@@ -182,11 +188,14 @@ export function DocDetail({ mode, id }: { mode: "SALES" | "PURCHASE" | "NOTE"; i
       api<{ data: Doc }>(docUrl),
       api<{ data: Company }>("/api/company").catch(() => null),
       api<{ data: Template }>("/api/company/template").catch(() => null),
+      // Module 10: currency scales for the dual-amount display.
+      api<{ data: { code: string; minorUnits: number }[] }>("/api/currencies").catch(() => null),
     ])
-      .then(([d, c, tmpl]) => {
+      .then(([d, c, tmpl, fx]) => {
         setDoc(d.data);
         if (c) setCompany(c.data);
         if (tmpl) setTpl({ ...TEMPLATE_DEFAULTS, ...tmpl.data });
+        if (fx) setFxUnits(Object.fromEntries(fx.data.map((r) => [r.code, r.minorUnits])));
       })
       .catch((e) => setError(e instanceof Error ? e.message : t("docdetail.loadError")));
   }, [id, isSales, noteMode, t]);
@@ -238,6 +247,42 @@ export function DocDetail({ mode, id }: { mode: "SALES" | "PURCHASE" | "NOTE"; i
   // Bad-debt write-off (G7): only sales invoices with something left to collect.
   // Written-off amounts net off the outstanding balance (they are no longer collectible).
   const outstanding = toBig(doc.grandTotal) - toBig(doc.amountPaid) - toBig(doc.returnedTotal ?? "0") - toBig(doc.writtenOffAmount ?? "0");
+  // Module 10: dual-amount display for foreign-currency docs. The doc's rate
+  // is locked; PKR rows are the book values, foreign rows are exact where the
+  // doc stores them (subtotal/total) and ≈-converted elsewhere.
+  const docFxCode = (doc.currencyCode || "PKR").toUpperCase();
+  const docFxRate = doc.exchangeRateScaled ? BigInt(doc.exchangeRateScaled) : null;
+  const docFxMu = fxUnits[docFxCode] ?? 2;
+  const isForeignDoc = docFxCode !== "PKR" && docFxRate != null;
+  /** PKR → foreign minor units at the doc's locked rate (null when it fails). */
+  function fxOf(pkr: bigint): bigint | null {
+    if (!isForeignDoc || docFxRate == null) return null;
+    try { return paisaToForeignMinor(pkr, docFxRate, docFxMu); } catch { return null; }
+  }
+  function fmtForeignAmt(foreign: bigint, approx: boolean): string {
+    return `${approx ? "≈ " : ""}${docFxCode} ${formatForeign(foreign, docFxMu)}`;
+  }
+  /**
+   * One totals row for a foreign doc: exact foreign figure when the doc
+   * stores it, otherwise the PKR book value with an ≈ foreign conversion.
+   * PKR docs render exactly as before.
+   */
+  function dualRow(pkr: bigint, foreignExact: bigint | null): React.ReactNode {
+    if (!isForeignDoc) return <>{fmtMoney(pkr)}</>;
+    const f = foreignExact ?? fxOf(pkr);
+    return (
+      <>
+        <span className="font-bold">{f != null ? fmtForeignAmt(f, foreignExact == null) : fmtMoney(pkr)}</span>
+        <span className="block text-[11px] font-normal text-muted-foreground">≈ {fmtMoney(pkr)} PKR</span>
+      </>
+    );
+  }
+  /** Plain-text variant for the thermal template. */
+  function dualRowPlain(pkr: bigint, foreignExact: bigint | null): string {
+    if (!isForeignDoc) return fmtMoneyPlain(pkr);
+    const f = foreignExact ?? fxOf(pkr);
+    return f != null ? `${fmtForeignAmt(f, foreignExact == null)} (≈ ${fmtMoneyPlain(pkr)})` : fmtMoneyPlain(pkr);
+  }
   const canPostWo = isSales && doc.docType === "INVOICE" && doc.partyId &&
     (doc.status === "POSTED" || doc.status === "PARTIAL") && outstanding > 0n;
   const canRecoverWo = isSales && doc.docType === "INVOICE" && doc.partyId &&
@@ -539,12 +584,12 @@ export function DocDetail({ mode, id }: { mode: "SALES" | "PURCHASE" | "NOTE"; i
 
           <div className="mt-6 flex justify-end">
             <div className="w-full max-w-xs space-y-2 text-sm">
-              <div className="flex justify-between"><span className="text-muted-foreground">{t("docdetail.subtotal")}</span><span className="font-bold">{fmtMoney(doc.subtotal)}</span></div>
+              <div className="flex justify-between"><span className="text-muted-foreground">{t("docdetail.subtotal")}</span><span className="text-end">{dualRow(toBig(doc.subtotal), doc.foreignSubtotal != null ? toBig(doc.foreignSubtotal) : null)}</span></div>
               {toBig(doc.discountTotal) > 0n && (
-                <div className="flex justify-between"><span className="text-muted-foreground">{t("docdetail.discount")}</span><span className="font-bold">− {fmtMoney(doc.discountTotal)}</span></div>
+                <div className="flex justify-between"><span className="text-muted-foreground">{t("docdetail.discount")}</span><span className="text-end">− {dualRow(toBig(doc.discountTotal), null)}</span></div>
               )}
               {toBig(doc.taxTotal) > 0n && (
-                <div className="flex justify-between"><span className="text-muted-foreground">{t("docdetail.gst")}</span><span className="font-bold">{fmtMoney(doc.taxTotal)}</span></div>
+                <div className="flex justify-between"><span className="text-muted-foreground">{t("docdetail.gst")}</span><span className="text-end">{dualRow(toBig(doc.taxTotal), null)}</span></div>
               )}
               {hasExtraCosts && (
                 <div className="flex justify-between">
@@ -554,10 +599,16 @@ export function DocDetail({ mode, id }: { mode: "SALES" | "PURCHASE" | "NOTE"; i
               )}
               <div className="flex justify-between border-t border-border pt-2 text-base">
                 <span className="font-extrabold">{t("docdetail.total")}</span>
-                <span className="font-extrabold text-primary">{fmtMoney(doc.grandTotal)}</span>
+                <span className="text-end font-extrabold text-primary">{dualRow(toBig(doc.grandTotal), doc.foreignTotal != null ? toBig(doc.foreignTotal) : null)}</span>
               </div>
-              <div className="flex justify-between"><span className="text-muted-foreground">{t("docdetail.paid")}</span><span className="font-bold">{fmtMoney(paidTotal)}</span></div>
-              <div className="flex justify-between"><span className="text-muted-foreground">{t("docdetail.invoiceBalance")}</span><span className="font-bold">{fmtMoney(balanceTotal)}</span></div>
+              {isForeignDoc && docFxRate != null && (
+                <div className="flex justify-between text-xs text-muted-foreground">
+                  <span>{t("docdetail.fxRate", { code: docFxCode })}</span>
+                  <span dir="ltr" className="font-semibold">1 {docFxCode} = {formatRate(docFxRate)} PKR</span>
+                </div>
+              )}
+              <div className="flex justify-between"><span className="text-muted-foreground">{t("docdetail.paid")}</span><span className="text-end">{dualRow(toBig(paidTotal), null)}</span></div>
+              <div className="flex justify-between"><span className="text-muted-foreground">{t("docdetail.invoiceBalance")}</span><span className="text-end">{dualRow(toBig(balanceTotal), null)}</span></div>
             </div>
           </div>
           <p className="mt-2 text-end text-xs italic text-muted-foreground">
@@ -661,31 +712,37 @@ export function DocDetail({ mode, id }: { mode: "SALES" | "PURCHASE" | "NOTE"; i
           <div className="mt-1 text-[11px]">
             <div className="flex justify-between py-0.5">
               <span>{t("docdetail.subtotal")}:</span>
-              <span>{fmtMoneyPlain(doc.subtotal)}</span>
+              <span>{dualRowPlain(toBig(doc.subtotal), doc.foreignSubtotal != null ? toBig(doc.foreignSubtotal) : null)}</span>
             </div>
             {toBig(doc.discountTotal) > 0n && (
               <div className="flex justify-between py-0.5">
                 <span>{t("docdetail.discount")}:</span>
-                <span>− {fmtMoneyPlain(doc.discountTotal)}</span>
+                <span>− {dualRowPlain(toBig(doc.discountTotal), null)}</span>
               </div>
             )}
             {toBig(doc.taxTotal) > 0n && (
               <div className="flex justify-between py-0.5">
                 <span>{t("docdetail.gst")}:</span>
-                <span>{fmtMoneyPlain(doc.taxTotal)}</span>
+                <span>{dualRowPlain(toBig(doc.taxTotal), null)}</span>
               </div>
             )}
             <div className="flex items-center justify-between border-y-2 border-black py-1 text-[14px] font-extrabold">
               <span>{t("docdetail.total")}:</span>
-              <span>Rs. {fmtMoneyPlain(doc.grandTotal)}</span>
+              <span>{dualRowPlain(toBig(doc.grandTotal), doc.foreignTotal != null ? toBig(doc.foreignTotal) : null)}</span>
             </div>
+            {isForeignDoc && docFxRate != null && (
+              <div className="flex justify-between py-0.5 text-[10px]">
+                <span>{t("docdetail.fxRate", { code: docFxCode })}:</span>
+                <span dir="ltr">1 {docFxCode} = {formatRate(docFxRate)}</span>
+              </div>
+            )}
             <div className="flex justify-between py-0.5">
               <span>{t("docdetail.paid")}:</span>
-              <span>{fmtMoneyPlain(paidTotal)}</span>
+              <span>{dualRowPlain(toBig(paidTotal), null)}</span>
             </div>
             <div className="flex justify-between py-0.5">
               <span>{t("docdetail.invoiceBalance")}:</span>
-              <span className="font-bold">{fmtMoneyPlain(balanceTotal)}</span>
+              <span className="font-bold">{dualRowPlain(toBig(balanceTotal), null)}</span>
             </div>
           </div>
 

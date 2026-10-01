@@ -432,6 +432,13 @@ export const salesDocs = sqliteTable(
     amountPaid: money("amount_paid"),
     returnedTotal: money("returned_total"), // sum of linked RETURN docs' grand totals
     writtenOffAmount: money("written_off_amount"), // collectible balance removed by write-off (migration 0027)
+    // ── Module 10 (migration 0041): multi-currency. Journal lines stay PKR;
+    // foreign amounts are kept on the doc for display. NULL exchangeRateScaled
+    // / foreign totals = PKR doc.
+    currencyCode: text("currency_code").notNull().default("PKR"),
+    exchangeRateScaled: numeric("exchange_rate_scaled", { mode: "bigint" }),
+    foreignSubtotal: numeric("foreign_subtotal", { mode: "bigint" }),
+    foreignTotal: numeric("foreign_total", { mode: "bigint" }),
     notes: text("notes"),
     journalEntryId: text("journal_entry_id").unique(),
     voidedAt: ts("voided_at"), // set when voided via reversing journal (migration 0032)
@@ -488,6 +495,11 @@ export const purchaseDocs = sqliteTable(
     amountPaid: money("amount_paid"),
     returnedTotal: money("returned_total"), // sum of linked RETURN docs' grand totals
     writtenOffAmount: money("written_off_amount"), // collectible balance removed by write-off (migration 0027)
+    // ── Module 10 (migration 0041): multi-currency (see salesDocs note).
+    currencyCode: text("currency_code").notNull().default("PKR"),
+    exchangeRateScaled: numeric("exchange_rate_scaled", { mode: "bigint" }),
+    foreignSubtotal: numeric("foreign_subtotal", { mode: "bigint" }),
+    foreignTotal: numeric("foreign_total", { mode: "bigint" }),
     // ── Module 2 (migration 0033) ──
     whtBps: integer("wht_bps").notNull().default(0), // bill-level WHT deduction rate (basis points)
     whtAmount: money("wht_amount"), // WHT deducted on this bill (Cr WHT Payable 2100)
@@ -553,6 +565,44 @@ export const orderFulfillments = sqliteTable(
   (t) => [
     index("order_fulfillments_order").on(t.companyId, t.orderId),
     index("order_fulfillments_doc").on(t.fulfilledDocId),
+  ]
+);
+
+// ─── Module 10: multi-currency (migration 0041) ────────────────────
+// Base currency is PKR. Foreign money is stored as integer minor units
+// (cents/fils) with a per-currency scale; rates are scaled integers
+// (rate x 1e6, PKR per 1 foreign unit). Never floats anywhere.
+export const currencies = sqliteTable(
+  "currencies",
+  {
+    id: id(),
+    companyId: text("company_id").notNull(),
+    code: text("code").notNull(), // ISO 4217, e.g. PKR, USD
+    name: text("name").notNull(),
+    symbol: text("symbol").notNull().default(""),
+    minorUnits: integer("minor_units").notNull().default(2),
+    isBase: integer("is_base").notNull().default(0), // 1 = company base currency (PKR)
+    isActive: integer("is_active").notNull().default(1),
+    createdAt: createdAt(),
+    updatedAt: updatedAt(),
+  },
+  (t) => [uniqueIndex("currencies_company_code").on(t.companyId, t.code)]
+);
+
+export const exchangeRates = sqliteTable(
+  "exchange_rates",
+  {
+    id: id(),
+    companyId: text("company_id").notNull(),
+    currencyCode: text("currency_code").notNull(),
+    rateScaled: numeric("rate_scaled", { mode: "bigint" }).notNull(),
+    effectiveDate: integer("effective_date").notNull(), // start-of-day ms; applies from this date
+    createdById: text("created_by_id"),
+    createdAt: createdAt(),
+  },
+  (t) => [
+    uniqueIndex("exchange_rates_company_code_date").on(t.companyId, t.currencyCode, t.effectiveDate),
+    index("exchange_rates_lookup").on(t.companyId, t.currencyCode, t.effectiveDate),
   ]
 );
 

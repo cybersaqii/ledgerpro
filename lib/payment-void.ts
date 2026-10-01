@@ -2,6 +2,7 @@ import { eq, and, sql } from "drizzle-orm";
 import {
   accounts,
   bankAccounts,
+  journalEntries,
   journalLines,
   parties,
   payments,
@@ -171,6 +172,42 @@ export async function voidPayment(
       memo: l.memo ?? undefined,
     })),
   });
+  // Module 10: reverse any FX settlement gain/loss journals this payment
+  // posted when it settled foreign-currency documents — the documents are
+  // unpaid again, so the realized gain/loss never happened.
+  const fxEntries = await tx
+    .select({ id: journalEntries.id })
+    .from(journalEntries)
+    .where(
+      and(
+        eq(journalEntries.companyId, input.companyId),
+        eq(journalEntries.source, "FX_SETTLEMENT"),
+        eq(journalEntries.sourceId, payment.id)
+      )
+    );
+  for (const fx of fxEntries) {
+    const fxLines = await tx
+      .select()
+      .from(journalLines)
+      .where(eq(journalLines.entryId, fx.id));
+    if (fxLines.length === 0) continue;
+    await createJournal(tx, {
+      companyId: input.companyId,
+      branchId: payment.branchId,
+      date: voidDate,
+      memo: `Void of FX settlement on ${payment.docNo ?? "payment"}`,
+      source: "FX_SETTLEMENT_VOID",
+      sourceId: payment.id,
+      createdById: input.userId,
+      lines: fxLines.map((l) => ({
+        accountId: l.accountId,
+        debit: l.credit,
+        credit: l.debit,
+        partyId: l.partyId,
+        memo: l.memo ?? undefined,
+      })),
+    });
+  }
   // Restore balances: exact inverse of postPayment's bumps. postPayment
   // bumps the party by (isCustomer === isReceipt ? -amount : +amount), so
   // the void subtracts that same bump back off.
