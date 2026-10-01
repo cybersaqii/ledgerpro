@@ -12,7 +12,9 @@ const returnLineSchema = z.object({
   qty: z.string().regex(/^\d{1,12}(\.\d{1,3})?$/, "Invalid quantity"),
 });
 
-// POST /api/sales/[id]/convert — quotation/order -> posted invoice (copies lines, links source)
+// POST /api/sales/[id]/convert — convert a quotation/order/challan
+// (targetType: INVOICE default | CHALLAN | ORDER), or post a sales return
+// (action=return, optional restoreStock=false for a pure-ledger credit note).
 export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const auth = await requireCompany();
   if (!auth.ok) return auth.response;
@@ -29,6 +31,9 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   }
   const priceOverride = body.priceOverride === true;
   const applyAdvance = body.applyAdvance !== false;
+  const targetType: "INVOICE" | "CHALLAN" | "ORDER" =
+    body.targetType === "CHALLAN" ? "CHALLAN" : body.targetType === "ORDER" ? "ORDER" : "INVOICE";
+  const restoreStock = body.restoreStock !== false;
   // partial return: per-item quantities; omitted = full return of what remains
   let returnLines: { itemId: string; qty: bigint }[] | undefined;
   if (action === "return" && Array.isArray(body.lines)) {
@@ -40,7 +45,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   try {
     const result = await db.transaction(async (tx) => {
       const branchId = await defaultBranchId(tx, companyId);
-      const args = { companyId, branchId, sourceId: id, userId: session.uid, priceOverride, applyAdvance, lines: returnLines };
+      const args = { companyId, branchId, sourceId: id, userId: session.uid, priceOverride, applyAdvance, lines: returnLines, targetType, restoreStock };
       if (action === "return") return createSalesReturn(tx, args);
       return convertSalesDoc(tx, args);
     });
@@ -48,7 +53,9 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       companyId, userId: session.uid, userName: session.name,
       action: action === "return" ? "sale.return.created" : "sale.converted",
       entity: "sale", entityId: result.docId,
-      detail: action === "return" ? `Sales return ${result.docNo} created` : `Invoice ${result.docNo} converted`,
+      detail: action === "return"
+        ? `Sales return ${result.docNo} created${restoreStock ? "" : " (pure-ledger, no stock)"}`
+        : `${targetType === "INVOICE" ? "Invoice" : targetType === "ORDER" ? "Order" : "Challan"} ${result.docNo} converted`,
     });
     if (action === "convert" && (result.advanceApplied ?? 0n) > 0n) {
       await logAudit(db, {

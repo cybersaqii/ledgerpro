@@ -237,6 +237,7 @@ export async function POST(req: NextRequest) {
           batchId: (b.items[idx]?.batchId || "").trim() || null,
  })),
         discountTotal: parseMoney(b.discountTotal),
+        freightTotal: 0n, // POS never carries freight
         taxTotal: totals.taxTotal,
         grandTotal: totals.grandTotal,
         createdById: session.uid,

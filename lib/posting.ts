@@ -92,7 +92,7 @@ export type StockMove = {
 /** Apply stock moves inside the transaction. Throws on insufficient stock.
  *  Returns the value moved at average cost, split into out (sales/usage) and
  *  in (returns) so callers can book matching COGS entries. */
-async function applyStock(
+export async function applyStock(
   tx: DbTx,
   branchId: string,
   moves: StockMove[]
@@ -161,6 +161,8 @@ export type PostSalesInput = {
   items: (ComputedItem & { trackStock: boolean; batchId?: string | null })[];
   discountTotal: bigint;
   taxTotal: bigint;
+  /** Sales-side freight charged to the customer (untaxed) → Freight Income 4020. */
+  freightTotal?: bigint;
   grandTotal: bigint;
   createdById: string;
   /** RETURN docs: the source INVOICE id, used to restore its exact batches. */
@@ -233,6 +235,12 @@ export async function postSalesDoc(tx: DbTx, input: PostSalesInput): Promise<str
           { accountId: ac[SYS.SALES], debit: 0n, credit: grossSales },
           ...(input.taxTotal > 0n ? [{ accountId: ac[SYS.TAX_PAYABLE], debit: 0n, credit: input.taxTotal }] : []),
           ...(input.discountTotal > 0n ? [{ accountId: ac[SYS.DISCOUNT_GIVEN], debit: input.discountTotal, credit: 0n }] : []),
+          // Freight charged to the customer is income (SYS 4020), never part
+          // of sales revenue. AR already carries grandTotal (freight
+          // included), so this line only reclassifies the freight slice.
+          ...((input.freightTotal ?? 0n) > 0n
+            ? [{ accountId: ac[SYS.FREIGHT_INCOME], debit: 0n, credit: input.freightTotal ?? 0n }]
+            : []),
           ...(cogsOut > 0n
             ? [
                 { accountId: ac[SYS.COGS], debit: cogsOut, credit: 0n },

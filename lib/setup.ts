@@ -25,6 +25,7 @@ export const SYS = {
   OPENING_EQUITY: "3002",
   SALES: "4001",
   SALES_RETURN: "4002",
+  FREIGHT_INCOME: "4020",
   DISCOUNT_RECEIVED: "4010",
   COGS: "5001",
   PURCHASES: "5003",
@@ -46,6 +47,7 @@ const SYSTEM_ACCOUNTS: { code: string; name: string; type: string }[] = [
   { code: SYS.OPENING_EQUITY, name: "Opening Balance Equity", type: "EQUITY" },
   { code: SYS.SALES, name: "Sales Revenue", type: "INCOME" },
   { code: SYS.SALES_RETURN, name: "Sales Returns", type: "INCOME" },
+  { code: SYS.FREIGHT_INCOME, name: "Freight Income", type: "INCOME" },
   { code: SYS.DISCOUNT_RECEIVED, name: "Discount Received", type: "INCOME" },
   { code: SYS.COGS, name: "Cost of Goods Sold", type: "EXPENSE" },
   { code: SYS.PURCHASES, name: "Purchases (Non-stock)", type: "EXPENSE" },
@@ -245,7 +247,7 @@ export async function setupCompany(db: Db, companyId: string, opts: { defaultBra
 }
 
 /** Get system account id by code (throws if missing — indicates corrupt setup). */
-export async function sysAccount(tx: DbTx, companyId: string, code: string): Promise<string> {
+export async function sysAccount(tx: Db | DbTx, companyId: string, code: string): Promise<string> {
   const rows = await tx
     .select({ id: accounts.id })
     .from(accounts)

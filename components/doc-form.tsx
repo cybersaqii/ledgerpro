@@ -10,7 +10,7 @@ import { lineMath, docMath, taxBpsOf } from "@/lib/doc-math";
 import { useBusinessProfile } from "@/components/business-type";
 import { useLang } from "@/components/lang-provider";
 
-type Party = { id: string; name: string; phone: string | null };
+type Party = { id: string; name: string; phone: string | null; paymentTerms?: string | null };
 type Product = { id: string; sku: string; name: string; unit: string; salePrice: string; purchasePrice: string; totalQty: string; minSalePrice?: string | null; isBundle?: boolean };
 
 type BatchOpt = { id: string; batchNo: string; expiryDate: string | null; qtyThousandths: string };
@@ -142,6 +142,8 @@ export function DocForm({ mode }: { mode: "SALES" | "PURCHASE" }) {
   /** Term days: typing here auto-computes the due date from the invoice date. */
   const [termDays, setTermDays] = useState("");
   const [discountTotal, setDiscountTotal] = useState("");
+  /** Untaxed freight charged on the document — sales INVOICE / QUOTATION / ORDER (Module 1). */
+  const [freightTotal, setFreightTotal] = useState("");
   const [notes, setNotes] = useState("");
   const [refNo, setRefNo] = useState("");
   const [terms, setTerms] = useState("");
@@ -268,6 +270,19 @@ export function DocForm({ mode }: { mode: "SALES" | "PURCHASE" }) {
     if (termDays.trim() !== "") {
       const due = dueFromTerm(v, termDays);
       if (due) setDueDate(due);
+    }
+  }
+
+  /** Module 1: payment terms → default term days (NET_15 → 15 …). */
+  const TERM_DAYS: Record<string, number> = { NET_15: 15, NET_30: 30, NET_45: 45, DUE_ON_RECEIPT: 0 };
+  function chooseParty(p: Party) {
+    setPartyId(p.id);
+    setShowPartyList(false);
+    // Default the due date from the party's payment terms — but never clobber
+    // terms the user already typed.
+    if (isSales && p.paymentTerms && TERM_DAYS[p.paymentTerms] !== undefined &&
+        termDays.trim() === "" && dueDate === "") {
+      onTermDays(String(TERM_DAYS[p.paymentTerms]));
     }
   }
 
@@ -457,8 +472,11 @@ export function DocForm({ mode }: { mode: "SALES" | "PURCHASE" }) {
 
   // live totals — exact BigInt math mirroring the server (computeTotals):
   // gross = qty×rate (half-up) · taxable = gross − discount · tax = half-up(taxable × bps)
+  // Module 1: sales freight is untaxed and added to the grand total.
+  const freightDocTypes = isSales && (docType === "INVOICE" || docType === "QUOTATION" || docType === "ORDER");
   const computed = lines.map((l) => lineMath(l.qty, l.rate, l.discount, l.taxPct));
-  const { subtotal, itemDisc: itemDiscTotal, taxTotal, grand } = docMath(computed, discountTotal);
+  const { subtotal, itemDisc: itemDiscTotal, taxTotal, grand } =
+    docMath(computed, discountTotal, freightDocTypes ? freightTotal : "0");
 
   async function submit(e: React.FormEvent, opts: { priceOverride?: boolean; creditOverride?: boolean; printAfter?: boolean; idemKey?: string } = {}) {
     const { priceOverride = false, creditOverride = false, printAfter = false } = opts;
@@ -505,6 +523,8 @@ export function DocForm({ mode }: { mode: "SALES" | "PURCHASE" }) {
         idempotencyKey: idemKey,
         dueDate: dueDate || undefined,
         discountTotal: discountTotal || "0",
+        // Module 1: freight income on sales invoices / quotes / orders
+        ...(freightDocTypes ? { freightTotal: freightTotal || "0" } : {}),
         notes: notes || undefined,
         refNo: refNo.trim() || undefined,
         terms: terms.trim() || undefined,
@@ -622,7 +642,7 @@ export function DocForm({ mode }: { mode: "SALES" | "PURCHASE" }) {
                         <li key={p.id}>
                           <button type="button"
                             className={`flex w-full items-center justify-between px-4 py-2.5 text-start text-sm hover:bg-muted ${p.id === partyId ? "font-bold text-primary" : ""}`}
-                            onClick={() => { setPartyId(p.id); setShowPartyList(false); }}>
+                            onClick={() => chooseParty(p)}>
                             <span>{p.name}</span>
                             {p.phone && <span className="text-xs text-muted-foreground">{p.phone}</span>}
                           </button>
@@ -674,7 +694,7 @@ export function DocForm({ mode }: { mode: "SALES" | "PURCHASE" }) {
               <input type="number" min="0" max="3650" className="field" placeholder="0"
                 value={termDays} onChange={(e) => onTermDays(e.target.value)} />
             </Field>
-            <Field label={t("docform.dueDate")}><input type="date" className="field" value={dueDate} onChange={(e) => { setDueDate(e.target.value); setTermDays(""); }} /></Field>
+            <Field label={isSales && docType === "QUOTATION" ? t("docform.validUntil") : t("docform.dueDate")}><input type="date" className="field" value={dueDate} onChange={(e) => { setDueDate(e.target.value); setTermDays(""); }} /></Field>
           </div>
           <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
             <Field label={isSales ? t("docform.refNoSales") : t("docform.refNo")}>
@@ -982,6 +1002,13 @@ export function DocForm({ mode }: { mode: "SALES" | "PURCHASE" }) {
                   onChange={(e) => setDiscountTotal(e.target.value)} />
               </div>
               <div className="flex justify-between"><span className="text-muted-foreground">{t("docform.taxTotal")}</span><span className="font-bold">{fmtMoney(taxTotal)}</span></div>
+              {freightDocTypes && (
+                <div className="flex items-center justify-between gap-4">
+                  <span className="text-muted-foreground">{t("docform.freightTotal")}</span>
+                  <input className="field num !w-32 !py-1.5" type="number" min="0" step="0.01" placeholder="0.00" value={freightTotal}
+                    onChange={(e) => setFreightTotal(e.target.value)} />
+                </div>
+              )}
               <div className="flex justify-between border-t border-border pt-3 text-base">
                 <span className="font-extrabold">{t("docform.total")}</span>
                 <span className="text-xl font-extrabold text-primary">{fmtMoney(grand)}</span>

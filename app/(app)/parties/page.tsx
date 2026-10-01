@@ -19,10 +19,17 @@ type Party = {
 type PartyDetail = {
   id: string; name: string; phone: string | null; email: string | null;
   address: string | null; city: string | null; ntn: string | null;
+  customerType: string; currency: string | null; strn: string | null;
+  openingBalance: string; openingBalanceDate: string | null;
+  paymentTerms: string | null; shippingAddress: string | null; shippingCity: string | null;
   filerStatus: string; creditLimit: string; notes: string | null; category: string | null;
 };
 
-const emptyForm = { name: "", phone: "", email: "", address: "", city: "", ntn: "", filerStatus: "NA", creditLimit: "", notes: "", category: "" };
+const emptyForm = {
+  name: "", phone: "", email: "", address: "", city: "", ntn: "", filerStatus: "NA", creditLimit: "", notes: "", category: "",
+  customerType: "INDIVIDUAL", currency: "", strn: "", openingBalance: "", openingBalanceDate: "",
+  paymentTerms: "", shippingAddress: "", shippingCity: "",
+};
 
 export default function PartiesPage() {
   const bp = useBusinessProfile();
@@ -69,6 +76,11 @@ export default function PartiesPage() {
         creditLimit: paisaToRupees(full.creditLimit),
         notes: full.notes ?? "",
         category: full.category ?? "",
+        customerType: full.customerType ?? "INDIVIDUAL",
+        currency: full.currency ?? "", strn: full.strn ?? "",
+        openingBalance: "", openingBalanceDate: "", // opening is immutable: add-mode only
+        paymentTerms: full.paymentTerms ?? "",
+        shippingAddress: full.shippingAddress ?? "", shippingCity: full.shippingCity ?? "",
       });
       setModal({ mode: "edit", party: p });
     } catch (e) {
@@ -179,6 +191,43 @@ export default function PartiesPage() {
               <Field label={t("common.city")}><input className="field" value={form.city} onChange={set("city")} placeholder={t("parties.cityPlaceholder")} /></Field>
               <Field label={t("parties.ntn")}><input className="field" value={form.ntn} onChange={set("ntn")} /></Field>
             </div>
+            <div className="grid gap-4 sm:grid-cols-3">
+              <Field label={t("parties.customerType")}>
+                <select className="field" value={form.customerType} onChange={set("customerType")}>
+                  <option value="INDIVIDUAL">{t("parties.typeIndividual")}</option>
+                  <option value="REGISTERED_BUSINESS">{t("parties.typeRegistered")}</option>
+                </select>
+              </Field>
+              <Field label={t("parties.currency")} hint={t("parties.currencyHint")}>
+                <input className="field" value={form.currency} onChange={(e) => setForm((f) => ({ ...f, currency: e.target.value.toUpperCase().slice(0, 3) }))} placeholder="PKR" maxLength={3} />
+              </Field>
+              <Field label={t("parties.strn")}><input className="field" value={form.strn} onChange={set("strn")} /></Field>
+            </div>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <Field label={t("parties.paymentTerms")}>
+                <select className="field" value={form.paymentTerms} onChange={set("paymentTerms")}>
+                  <option value="">{t("parties.termNone")}</option>
+                  <option value="DUE_ON_RECEIPT">{t("parties.termDueOnReceipt")}</option>
+                  <option value="NET_15">{t("parties.termNet15")}</option>
+                  <option value="NET_30">{t("parties.termNet30")}</option>
+                  <option value="NET_45">{t("parties.termNet45")}</option>
+                </select>
+              </Field>
+              <Field label={t("parties.shippingCity")}><input className="field" value={form.shippingCity} onChange={set("shippingCity")} /></Field>
+            </div>
+            <Field label={t("parties.shippingAddress")}><input className="field" value={form.shippingAddress} onChange={set("shippingAddress")} /></Field>
+            {modal.mode === "add" && (
+              <div className="rounded-xl border border-dashed border-border p-4">
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <Field label={t("parties.openingBalance")} hint={t("parties.openingBalanceHint")}>
+                    <input className="field" type="number" min="0" step="0.01" placeholder="0.00" value={form.openingBalance} onChange={set("openingBalance")} />
+                  </Field>
+                  <Field label={t("parties.openingDate")} hint={t("parties.openingDateHint")}>
+                    <input className="field" type="date" value={form.openingBalanceDate} onChange={set("openingBalanceDate")} />
+                  </Field>
+                </div>
+              </div>
+            )}
             <Field label={t("common.address")}><input className="field" value={form.address} onChange={set("address")} placeholder={t("parties.addressPlaceholder")} /></Field>
             <Field label={t("parties.category")}><input className="field" value={form.category} onChange={set("category")} placeholder={t("parties.categoryFilter")} /></Field>
             <Field label={t("parties.notes")}><textarea className="field" rows={2} value={form.notes} onChange={set("notes")} /></Field>

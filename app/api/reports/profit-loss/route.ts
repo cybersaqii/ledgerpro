@@ -24,13 +24,14 @@ export async function GET(req: NextRequest) {
   const salesReturns = netOf(sums, SYS.SALES_RETURN); // debit balance
   const discountGiven = netOf(sums, SYS.DISCOUNT_GIVEN);
   const discountReceived = netOf(sums, SYS.DISCOUNT_RECEIVED, true);
+  const freightIncome = netOf(sums, SYS.FREIGHT_INCOME, true);
   const cogs = netOf(sums, SYS.COGS);
   // All other expense accounts (non-stock purchases, general expenses, …).
   const expenses = sumByType(sums, "EXPENSE", [SYS.COGS, SYS.DISCOUNT_GIVEN]);
 
   const netSales = sales - salesReturns;
   const grossProfit = netSales - discountGiven - cogs;
-  const netProfit = grossProfit + discountReceived - expenses;
+  const netProfit = grossProfit + discountReceived + freightIncome - expenses;
 
   // Labels are i18n keys (resolved client-side via t()); `sign` marks
   // subtraction/addition lines so the client can style them without
@@ -45,6 +46,7 @@ export async function GET(req: NextRequest) {
       { label: "pnl.lessDiscountsGiven", amount: (-discountGiven).toString(), sign: -1 },
       { label: "pnl.grossProfit", amount: grossProfit.toString(), bold: true, sign: 0 },
       { label: "pnl.addDiscountsReceived", amount: discountReceived.toString(), sign: 1 },
+      { label: "pnl.addFreightIncome", amount: freightIncome.toString(), sign: 1 },
       { label: "pnl.lessExpenses", amount: (-expenses).toString(), sign: -1 },
       { label: "pnl.netProfit", amount: netProfit.toString(), bold: true, total: true, sign: 0 },
     ],

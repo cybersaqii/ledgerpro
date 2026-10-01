@@ -2,6 +2,9 @@ import { z } from "zod";
 
 // Money as string like "1234.56" (parsed server-side to BigInt paisa).
 const moneyStr = z.string().regex(/^-?\d{1,12}(\.\d{1,2})?$/, "Invalid amount");
+// Optional money that also tolerates "" from HTML form inputs; routes treat
+// "" as 0 via `p.field || "0"`.
+const optMoney = moneyStr.or(z.literal("")).optional().default("0");
 // Non-negative money (no leading "-"): used for product prices —
 // a negative price would corrupt stock valuation and margins.
 const priceStr = z.string().regex(/^\d{1,12}(\.\d{1,2})?$/, "Price cannot be negative");
@@ -32,8 +35,17 @@ export const partySchema = z.object({
   address: z.string().trim().max(300).optional().or(z.literal("")),
   city: z.string().trim().max(60).optional().or(z.literal("")),
   ntn: z.string().trim().max(30).optional().or(z.literal("")),
+  // Module 1: customer master completeness
+  customerType: z.enum(["INDIVIDUAL", "REGISTERED_BUSINESS"]).default("INDIVIDUAL"),
+  currency: z.string().trim().toUpperCase().regex(/^[A-Z]{3}$/, "Invalid currency").optional().or(z.literal("")),
+  strn: z.string().trim().max(30).optional().or(z.literal("")),
+  openingBalance: optMoney,
+  openingBalanceDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Invalid date").optional().or(z.literal("")),
+  paymentTerms: z.enum(["NET_15", "NET_30", "NET_45", "DUE_ON_RECEIPT"]).optional().or(z.literal("")),
+  shippingAddress: z.string().trim().max(300).optional().or(z.literal("")),
+  shippingCity: z.string().trim().max(60).optional().or(z.literal("")),
   filerStatus: z.enum(["FILER", "NON_FILER", "NA"]).default("NA"),
-  creditLimit: moneyStr.optional().default("0"),
+  creditLimit: optMoney,
   priceListId: z.string().trim().max(40).optional().or(z.literal("")),
   category: z.string().trim().max(60).optional().or(z.literal("")),
   notes: z.string().trim().max(500).optional().or(z.literal("")),
@@ -92,6 +104,7 @@ export const salesDocSchema = z.object({
   refNo: z.string().trim().max(60).optional().or(z.literal("")),
   terms: z.string().trim().max(500).optional().or(z.literal("")),
   discountTotal: moneyStr.default("0"),
+  freightTotal: moneyStr.default("0"), // sales-side freight → Freight Income 4020 (Module 1)
   notes: z.string().trim().max(500).optional().or(z.literal("")),
   items: z.array(docItemSchema).min(1, "Add at least one item"),
   priceOverride: z.boolean().default(false), // explicit override of minimum sale price
@@ -133,6 +146,8 @@ export const paymentSchema = z.object({
   notes: z.string().trim().max(500).optional().or(z.literal("")),
   /** Sync-only: the voucher number the device assigned (REC-0001 / PAY-0001). */
   docNo: z.string().trim().min(1).max(40).optional(),
+  /** Module 1: FIFO auto-allocate to the party's oldest open documents (server-computed, oldest first). */
+  autoAllocate: z.boolean().default(false),
   allocations: z
     .array(
       z.object({

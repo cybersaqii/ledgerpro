@@ -22,16 +22,18 @@ export type DocTotals = {
   subtotal: bigint; // sum(gross)
   itemDiscount: bigint; // sum(discount)
   taxTotal: bigint;
-  grandTotal: bigint; // subtotal - docDiscount - itemDiscount + tax
+  freightPaisa: bigint; // untaxed freight charged on the document (Module 1)
+  grandTotal: bigint; // subtotal - docDiscount - itemDiscount + tax + freight
 };
 
 /**
  * Single source of truth for document math. Server-side only — never trust client totals.
- * grandTotal = Σ(qty×rate) − docDiscount − Σ(itemDiscount) + Σ(tax)
+ * grandTotal = Σ(qty×rate) − docDiscount − Σ(itemDiscount) + Σ(tax) + freight
  */
-export function computeTotals(rawItems: DocItemInput[], docDiscountPaisa: bigint): DocTotals {
+export function computeTotals(rawItems: DocItemInput[], docDiscountPaisa: bigint, freightPaisa = 0n): DocTotals {
   if (rawItems.length === 0) throw new UserError("Document must have at least one item");
   if (docDiscountPaisa < 0n) throw new UserError("Discount cannot be negative");
+  if (freightPaisa < 0n) throw new UserError("Freight cannot be negative");
 
   const items: ComputedItem[] = rawItems.map((it) => {
     if (it.qtyMilli <= 0n) throw new UserError(`Quantity must be positive for "${it.description}"`);
@@ -49,8 +51,8 @@ export function computeTotals(rawItems: DocItemInput[], docDiscountPaisa: bigint
   const taxTotal = add(...items.map((i) => i.taxAmountPaisa));
   if (docDiscountPaisa > subtotal - itemDiscount)
     throw new UserError("Document discount exceeds net amount");
-  const grandTotal = subtotal - docDiscountPaisa - itemDiscount + taxTotal;
+  const grandTotal = subtotal - docDiscountPaisa - itemDiscount + taxTotal + freightPaisa;
   if (grandTotal < 0n) throw new UserError("Document total cannot be negative");
 
-  return { items, subtotal, itemDiscount, taxTotal, grandTotal };
+  return { items, subtotal, itemDiscount, taxTotal, freightPaisa, grandTotal };
 }

@@ -22,6 +22,7 @@ type Row = {
   productId: string; sku: string; name: string; unit: string; category: string | null;
   branchName: string | null; qty: string; avgCost: string; value: string;
   reorderLevel: string; low: boolean;
+  committed?: string | null; available?: string | null;
 };
 
 type BatchAlert = {
@@ -131,7 +132,7 @@ export default function StockPage() {
         ) : (
           <div className="overflow-x-auto">
             <table className="tbl">
-              <thead><tr><th>{t("stockpage.colProduct")}</th><th className="num">{t("stockpage.colQty")}</th><th className="num">{t("stockpage.colAvgCost")}</th><th className="num">{t("stockpage.colValue")}</th><th>{t("stockpage.colStatus")}</th></tr></thead>
+              <thead><tr><th>{t("stockpage.colProduct")}</th><th className="num">{t("stockpage.colQty")}</th><th className="num">{t("stockpage.colAvailable")}</th><th className="num">{t("stockpage.colAvgCost")}</th><th className="num">{t("stockpage.colValue")}</th><th>{t("stockpage.colStatus")}</th></tr></thead>
               <tbody>
                 {rows.map((r) => (
                   <tr key={r.productId + (r.branchName ?? "")}>
@@ -140,6 +141,14 @@ export default function StockPage() {
                       <span className="block text-xs text-muted-foreground">{r.sku}{r.branchName ? ` · ${r.branchName}` : ""}</span>
                     </td>
                     <td className="num font-bold">{fmtQty(r.qty, r.unit)}</td>
+                    <td className="num font-bold">
+                      {r.available != null ? fmtQty(r.available, r.unit) : "—"}
+                      {r.committed != null && BigInt(r.committed) > 0n && (
+                        <span className="block text-[11px] font-normal text-muted-foreground">
+                          {t("stockpage.committedHint", { qty: fmtQty(r.committed, r.unit) })}
+                        </span>
+                      )}
+                    </td>
                     <td className="num">{fmtMoney(r.avgCost)}</td>
                     <td className="num font-extrabold">{fmtMoney(r.value)}</td>
                     <td>{r.low ? <span className="badge bg-danger-soft text-danger"><TriangleAlert size={11} /> {t("stockpage.lowBadge")}</span> : <span className="badge bg-primary-soft text-primary">{t("stockpage.okBadge")}</span>}</td>

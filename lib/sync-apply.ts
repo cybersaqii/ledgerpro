@@ -60,11 +60,13 @@ import {
   postPurchaseDoc,
   postSalesDoc,
 } from "@/lib/posting";
-import { nextDocNo } from "@/lib/setup";
+import { nextDocNo, SYS, sysAccount } from "@/lib/setup";
 import { periodLockError } from "@/lib/period";
 import { CreditLimitError, enforceCreditLimit } from "@/lib/credit-limit";
 import { belowMinPrice, floorErrorMessage } from "@/lib/min-price";
 import { applyCustomerAdvance } from "@/lib/advance";
+import { fifoAllocations } from "@/lib/auto-allocate";
+import { insertParty } from "@/lib/party-create";
 import { assertBranch, defaultBranchId, parseDateOnly } from "@/lib/route-helpers";
 import { UserError } from "@/lib/errors";
 import { logAudit } from "@/lib/audit";
@@ -281,6 +283,7 @@ interface DocPayloadLike {
   date: string;
   dueDate?: string | null;
   discountTotal?: string;
+  freightTotal?: string;
   priceOverride?: boolean;
   items: {
     productId?: string | null;
@@ -358,7 +361,9 @@ async function prepareDoc(
   }));
   let totals: DocTotals;
   try {
-    totals = computeTotals(docItems, parseMoney(b.discountTotal || "0"));
+    // freightTotal is part of the sync payload schema (Module 1.4); the
+    // server recomputes totals so they match the offline client's numbers.
+    totals = computeTotals(docItems, parseMoney(b.discountTotal || "0"), parseMoney(b.freightTotal || "0"));
   } catch (e) {
     const oe = toOpError(e);
     fail(oe.code, oe.message, oe.details);
@@ -550,24 +555,69 @@ async function applyPartyUpsert(db: Db, ds: DeviceSession, op: SyncOp): Promise<
       priceListId = pl[0]?.id ?? null;
     }
 
-    const values = {
-      companyId,
-      kind: p.kind,
-      name: p.name,
-      phone: p.phone || null,
-      email: p.email || null,
-      address: p.address || null,
-      city: p.city || null,
-      ntn: p.ntn || null,
-      filerStatus: p.filerStatus,
-      creditLimit: parseMoney(p.creditLimit || "0"),
-      priceListId,
-      notes: p.notes || null,
-    };
     if (existing) {
+      const values = {
+        companyId,
+        kind: p.kind,
+        name: p.name,
+        phone: p.phone || null,
+        email: p.email || null,
+        address: p.address || null,
+        city: p.city || null,
+        ntn: p.ntn || null,
+        customerType: p.customerType,
+        currency: p.currency || null,
+        strn: p.strn || null,
+        paymentTerms: p.paymentTerms || null,
+        shippingAddress: p.shippingAddress || null,
+        shippingCity: p.shippingCity || null,
+        filerStatus: p.filerStatus,
+        creditLimit: parseMoney(p.creditLimit || "0"),
+        priceListId,
+        notes: p.notes || null,
+      };
       await tx.update(parties).set(values).where(eq(parties.id, existing.id));
     } else {
-      await tx.insert(parties).values({ id: op.refId, ...values });
+      // Module 1: the offline client sends the opening balance in the party
+      // payload; the server posts the opening journal itself (domain-action
+      // push — the device never pushes raw journal rows). Same helper as
+      // POST /api/parties.
+      const opening = parseMoney(p.openingBalance || "0");
+      if (opening < 0n) fail("VALIDATION_ERROR", "Opening balance cannot be negative.");
+      let openingDate: Date | null = null;
+      if (opening > 0n) {
+        if (!p.openingBalanceDate) fail("VALIDATION_ERROR", "Opening balance needs an opening date.");
+        try {
+          openingDate = parseDateOnly(p.openingBalanceDate!);
+        } catch {
+          fail("VALIDATION_ERROR", "Invalid opening date.");
+        }
+      }
+      await insertParty(tx, {
+        companyId,
+        userId,
+        id: op.refId,
+        fields: {
+          kind: p.kind,
+          name: p.name,
+          phone: p.phone || null,
+          email: p.email || null,
+          address: p.address || null,
+          city: p.city || null,
+          ntn: p.ntn || null,
+          customerType: p.customerType,
+          currency: p.currency || null,
+          strn: p.strn || null,
+          openingBalance: opening,
+          openingBalanceDate: openingDate,
+          paymentTerms: p.paymentTerms || null,
+          shippingAddress: p.shippingAddress || null,
+          shippingCity: p.shippingCity || null,
+          filerStatus: p.filerStatus,
+          creditLimit: parseMoney(p.creditLimit || "0"),
+          notes: p.notes || null,
+        },
+      });
     }
     const [fresh] = await tx.select().from(parties).where(eq(parties.id, op.refId)).limit(1);
     if (!fresh) throw new Error("Party upsert failed to return a row");
@@ -731,6 +781,7 @@ async function applySalesCreate(db: Db, ds: DeviceSession, op: SyncOp): Promise<
       status: isPosted ? "POSTED" : "DRAFT",
       subtotal: prep.totals.subtotal,
       discountTotal: parseMoney(b.discountTotal || "0"),
+      freightTotal: parseMoney(b.freightTotal || "0"),
       taxTotal: prep.totals.taxTotal,
       grandTotal: prep.totals.grandTotal,
       notes: b.notes || null,
@@ -771,6 +822,7 @@ async function applySalesCreate(db: Db, ds: DeviceSession, op: SyncOp): Promise<
           batchId: (b.items[idx]?.batchId || "").trim() || null,
         })),
         discountTotal: parseMoney(b.discountTotal || "0"),
+        freightTotal: parseMoney(b.freightTotal || "0"),
         taxTotal: prep.totals.taxTotal,
         grandTotal: prep.totals.grandTotal,
         createdById: userId,
@@ -913,6 +965,7 @@ async function applySalesUpdate(db: Db, ds: DeviceSession, op: SyncOp): Promise<
         dueDate: prep.dueDate,
         subtotal: prep.totals.subtotal,
         discountTotal: parseMoney(b.discountTotal || "0"),
+        freightTotal: parseMoney(b.freightTotal || "0"),
         taxTotal: prep.totals.taxTotal,
         grandTotal: prep.totals.grandTotal,
         notes: b.notes || null,
@@ -1384,6 +1437,7 @@ async function applyPosCheckout(db: Db, ds: DeviceSession, op: SyncOp): Promise<
         trackStock: i.productId ? prep.prodMap.get(i.productId)?.trackStock ?? false : false,
       })),
       discountTotal: parseMoney(b.discountTotal),
+      freightTotal: 0n, // POS sync never carries freight
       taxTotal: prep.totals.taxTotal,
       grandTotal: prep.totals.grandTotal,
       createdById: userId,
@@ -1560,11 +1614,15 @@ async function applyPaymentCreate(db: Db, ds: DeviceSession, op: SyncOp): Promis
       reference: b.reference || undefined,
       notes: b.notes || undefined,
       docNo: paymentDocNo,
-      allocations: b.allocations.map((a) => ({
-        docId: a.docId,
-        docKind: a.docKind,
-        amount: parseMoney(a.amount),
-      })),
+      // Module 1.5: FIFO auto-allocate, same as POST /api/payments.
+      allocations:
+        b.autoAllocate && b.allocations.length === 0
+          ? await fifoAllocations(tx, { companyId, partyId: pr.id, kind: b.kind, amount })
+          : b.allocations.map((a) => ({
+              docId: a.docId,
+              docKind: a.docKind,
+              amount: parseMoney(a.amount),
+            })),
       createdById: userId,
     });
     return { id, docNo, reassigned };

@@ -26,6 +26,7 @@ type Doc = {
   notes: string | null; terms: string | null; refNo: string | null; partyName: string | null; partyId: string | null;
   partyPhone: string | null; partyEmail: string | null; sourceDocId: string | null;
   items: Item[];
+  fulfilledByItem?: Record<string, string> | null;
   payments?: { id: string; docNo: string | null; kind: string; date: number; amount: string }[] | null;
 };
 type Company = {
@@ -314,7 +315,7 @@ export function DocDetail({ mode, id }: { mode: "SALES" | "PURCHASE" | "NOTE"; i
               <a href={waLink(doc)} target="_blank" rel="noopener noreferrer" className="btn btn-ghost text-sm">
                 <MessageCircle size={15} /> WhatsApp
               </a>
-              {!noteMode && <DocActions doc={doc} isSales={isSales} />}
+              {!noteMode && <DocActions doc={doc} isSales={isSales} onChanged={reloadDoc} />}
               {canWriteOff && canPostWo && (
                 <button className="btn btn-ghost text-sm text-danger" onClick={() => setWoModal(true)}>
                   <Ban size={15} /> {f("fix3.woTitle")}
@@ -731,7 +732,7 @@ export function PurchaseDetailPage({ params }: { params: Promise<{ id: string }>
   return <DocDetail mode="PURCHASE" id={id} />;
 }
 
-function DocActions({ doc, isSales }: { doc: Doc; isSales: boolean }) {
+function DocActions({ doc, isSales, onChanged }: { doc: Doc; isSales: boolean; onChanged?: () => void }) {
   const { t } = useLang();
   const router = useRouter();
   const [busy, setBusy] = useState(false);
@@ -746,6 +747,15 @@ function DocActions({ doc, isSales }: { doc: Doc; isSales: boolean }) {
   const [emailBusy, setEmailBusy] = useState(false);
   const [emailError, setEmailError] = useState<string | null>(null);
   const [emailSent, setEmailSent] = useState(false);
+  // Module 1: order fulfillment / cancel / invoice void state.
+  const [showFulfill, setShowFulfill] = useState(false);
+  const [fulfillQtys, setFulfillQtys] = useState<Record<string, string>>({});
+  const [fulfillType, setFulfillType] = useState<"INVOICE" | "CHALLAN">("INVOICE");
+  const [fulfillError, setFulfillError] = useState<string | null>(null);
+  const [showVoid, setShowVoid] = useState(false);
+  const [voidReason, setVoidReason] = useState("");
+  // Module 1: pure-ledger credit note (no stock movement) for sales returns.
+  const [restoreStock, setRestoreStock] = useState(true);
 
   async function sendDocEmail(e: React.FormEvent) {
     e.preventDefault();
@@ -795,7 +805,7 @@ function DocActions({ doc, isSales }: { doc: Doc; isSales: boolean }) {
     try {
       const d = await api<{ data: { docId: string } }>(
         `${isSales ? "/api/sales" : "/api/purchases"}/${doc.id}/convert`,
-        { method: "POST", body: JSON.stringify({ action: "return", lines }) }
+        { method: "POST", body: JSON.stringify({ action: "return", lines, restoreStock }) }
       );
       setShowReturn(false);
       router.push(`${isSales ? "/sales" : "/purchases"}/${d.data.docId}`);
@@ -815,7 +825,7 @@ function DocActions({ doc, isSales }: { doc: Doc; isSales: boolean }) {
   const canConvert = doc.status !== "CONVERTED" && (isSales ? doc.docType === "QUOTATION" || doc.docType === "ORDER" || doc.docType === "CHALLAN" : doc.docType === "ORDER");
   const canReturn = ["POSTED", "PARTIAL", "PAID"].includes(doc.status) && (isSales ? doc.docType === "INVOICE" : doc.docType === "BILL");
 
-  async function run(action: "convert" | "return", priceOverride = false) {
+  async function run(action: "convert" | "return", priceOverride = false, targetType?: "INVOICE" | "CHALLAN" | "ORDER") {
     if (busy) return;
     if (action === "return") { openReturn(); return; } // return goes through the qty dialog
     const label = isSales ? t("docdetail.labelInvoice") : t("docdetail.labelBill");
@@ -824,7 +834,7 @@ function DocActions({ doc, isSales }: { doc: Doc; isSales: boolean }) {
     try {
       const d = await api<{ data: { docId: string } }>(
         `${isSales ? "/api/sales" : "/api/purchases"}/${doc.id}/convert`,
-        { method: "POST", body: JSON.stringify({ action, priceOverride }) }
+        { method: "POST", body: JSON.stringify({ action, priceOverride, targetType: targetType ?? undefined }) }
       );
       router.push(`${isSales ? "/sales" : "/purchases"}/${d.data.docId}`);
     } catch (e) {
@@ -832,12 +842,80 @@ function DocActions({ doc, isSales }: { doc: Doc; isSales: boolean }) {
       // minimum-price lock: offer a one-tap override retry
       if (action === "convert" && msg.startsWith("Below minimum sale price")) {
         if (window.confirm(`${msg}\n\nConvert anyway? This will be recorded in the activity log.`)) {
-          await run(action, true);
+          await run(action, true, targetType);
           return;
         }
       }
       setError(msg);
     } finally { setBusy(false); }
+  }
+
+  // ── Module 1: sales order actions ──────────────────────────────────
+  const isOrder = isSales && doc.docType === "ORDER";
+  const canFulfillOrder = isOrder && (doc.status === "PENDING" || doc.status === "PARTIAL");
+  const canCancelOrder = isOrder && (doc.status === "PENDING" || doc.status === "PARTIAL");
+  const canVoid = isSales && doc.docType === "INVOICE" &&
+    ["POSTED", "PARTIAL", "PAID"].includes(doc.status);
+
+  function orderRemainingQty(it: Item): bigint {
+    return BigInt(it.qty) - BigInt(doc.fulfilledByItem?.[it.id] ?? "0");
+  }
+  function openFulfill() {
+    const init: Record<string, string> = {};
+    for (const it of doc.items) {
+      const r = orderRemainingQty(it);
+      if (r > 0n) init[it.id] = milliToDisplay(r);
+    }
+    setFulfillQtys(init);
+    setFulfillError(null);
+    setFulfillType("INVOICE");
+    setShowFulfill(true);
+  }
+  async function submitFulfill() {
+    if (busy) return;
+    const lines = doc.items
+      .map((it) => ({ orderItemId: it.id, qty: (fulfillQtys[it.id] ?? "").trim() }))
+      .filter((l) => l.qty !== "" && l.qty !== "0");
+    if (lines.length === 0) { setFulfillError(t("docdetail.fulfillQtyError")); return; }
+    setBusy(true); setFulfillError(null);
+    try {
+      const d = await api<{ data: { docId: string } }>(
+        `/api/sales/${doc.id}/fulfill`,
+        { method: "POST", body: JSON.stringify({ docType: fulfillType, lines }) }
+      );
+      setShowFulfill(false);
+      router.push(`/sales/${d.data.docId}`);
+    } catch (e) {
+      setFulfillError(e instanceof Error ? e.message : t("docdetail.actionError"));
+    } finally { setBusy(false); }
+  }
+  async function cancelOrder() {
+    if (busy) return;
+    if (!window.confirm(t("docdetail.cancelOrderConfirm", { docNo: doc.docNo }))) return;
+    setBusy(true); setError(null);
+    try {
+      await api(`/api/sales/${doc.id}/cancel`, { method: "POST" });
+      onChanged?.();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : t("docdetail.actionError"));
+    } finally { setBusy(false); }
+  }
+  async function submitVoid() {
+    if (busy) return;
+    setBusy(true); setError(null);
+    try {
+      await api(`/api/sales/${doc.id}/void`, {
+        method: "POST",
+        body: JSON.stringify({ reason: voidReason.trim() || undefined }),
+      });
+      setShowVoid(false);
+      setVoidReason("");
+      onChanged?.();
+      setBusy(false);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : t("docdetail.actionError"));
+      setBusy(false);
+    }
   }
 
   return (
@@ -853,9 +931,29 @@ function DocActions({ doc, isSales }: { doc: Doc; isSales: boolean }) {
           <ArrowRightLeft size={13} /> {t("docdetail.convertedFrom", { no: sourceNo })}
         </span>
       )}
-      {canConvert && (
+      {canConvert && !isOrder && (
         <button className="btn btn-primary text-sm" disabled={busy} onClick={() => run("convert")}>
           <ArrowRightLeft size={15} /> {busy ? t("docdetail.working") : isSales ? t("docdetail.convertToInvoice") : t("docdetail.convertToBill")}
+        </button>
+      )}
+      {isSales && doc.docType === "QUOTATION" && doc.status !== "CONVERTED" && (
+        <button className="btn btn-ghost text-sm" disabled={busy} onClick={() => run("convert", false, "ORDER")}>
+          <ArrowRightLeft size={15} /> {busy ? t("docdetail.working") : t("docdetail.convertToOrder")}
+        </button>
+      )}
+      {canFulfillOrder && (
+        <button className="btn btn-primary text-sm" disabled={busy} onClick={openFulfill}>
+          <ArrowRightLeft size={15} /> {t("docdetail.fulfillOrder")}
+        </button>
+      )}
+      {canCancelOrder && (
+        <button className="btn btn-ghost text-sm text-danger" disabled={busy} onClick={cancelOrder}>
+          <Ban size={15} /> {t("docdetail.cancelOrder")}
+        </button>
+      )}
+      {canVoid && (
+        <button className="btn btn-ghost text-sm text-danger" disabled={busy} onClick={() => { setVoidReason(""); setError(null); setShowVoid(true); }}>
+          <Ban size={15} /> {t("docdetail.voidInvoice")}
         </button>
       )}
       {canReturn && (
@@ -895,12 +993,92 @@ function DocActions({ doc, isSales }: { doc: Doc; isSales: boolean }) {
               })}
             </div>
             {returnError && <p className="mt-3 text-xs font-semibold text-danger">{returnError}</p>}
+            {isSales && (
+              <label className="mt-3 flex cursor-pointer items-center gap-2 text-sm">
+                <input type="checkbox" className="h-4 w-4 accent-primary" checked={restoreStock}
+                  onChange={(e) => setRestoreStock(e.target.checked)} disabled={busy} />
+                <span>{t("docdetail.restoreStock")}</span>
+                <span className="text-xs text-muted-foreground">{t("docdetail.restoreStockHint")}</span>
+              </label>
+            )}
             <div className="mt-4 flex gap-2">
               <button className="btn btn-ghost flex-1" disabled={busy} onClick={() => setShowReturn(false)}>
                 {t("common.cancel")}
               </button>
               <button className="btn btn-primary flex-1" disabled={busy} onClick={submitReturn}>
                 {busy ? t("docdetail.posting") : t("docdetail.postReturn")}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      {showFulfill && doc && (
+        <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/50 p-0 sm:items-center sm:p-4" onClick={() => !busy && setShowFulfill(false)}>
+          <div role="dialog" aria-modal="true" aria-label={t("docdetail.fulfillOrder")}
+            className="w-full max-w-lg rounded-t-2xl bg-card p-5 shadow-xl sm:rounded-2xl" onClick={(e) => e.stopPropagation()}>
+            <h3 className="text-base font-bold">{t("docdetail.fulfillOrderTitle", { docNo: doc.docNo })}</h3>
+            <p className="mt-1 text-xs text-muted-foreground">{t("docdetail.fulfillHint")}</p>
+            <div className="mt-4 flex gap-2">
+              {(["INVOICE", "CHALLAN"] as const).map((dt) => (
+                <button key={dt} type="button" disabled={busy}
+                  onClick={() => setFulfillType(dt)}
+                  className={`flex-1 rounded-xl border px-3 py-2 text-sm font-bold transition ${fulfillType === dt ? "border-primary bg-primary-soft text-primary" : "border-border text-muted-foreground"}`}>
+                  {dt === "INVOICE" ? t("docdetail.fulfillAsInvoice") : t("docdetail.fulfillAsChallan")}
+                </button>
+              ))}
+            </div>
+            <div className="mt-4 max-h-64 space-y-2 overflow-y-auto">
+              {doc.items.map((it) => {
+                const r = orderRemainingQty(it);
+                if (r <= 0n) return null;
+                return (
+                  <div key={it.id} className="flex items-center gap-3 rounded-xl bg-muted/50 px-3 py-2">
+                    <div className="min-w-0 flex-1">
+                      <div className="truncate text-sm font-semibold">{it.description}</div>
+                      <div className="text-xs text-muted-foreground">{t("docdetail.fulfillRemaining", { qty: fmtQty(r.toString()) })}</div>
+                    </div>
+                    <input
+                      className="field w-24 text-end"
+                      inputMode="decimal"
+                      value={fulfillQtys[it.id] ?? ""}
+                      onChange={(e) => setFulfillQtys((q) => ({ ...q, [it.id]: e.target.value }))}
+                      placeholder="0"
+                      disabled={busy}
+                    />
+                  </div>
+                );
+              })}
+            </div>
+            {fulfillError && <p className="mt-3 text-xs font-semibold text-danger">{fulfillError}</p>}
+            <div className="mt-4 flex gap-2">
+              <button className="btn btn-ghost flex-1" disabled={busy} onClick={() => setShowFulfill(false)}>
+                {t("common.cancel")}
+              </button>
+              <button className="btn btn-primary flex-1" disabled={busy} onClick={submitFulfill}>
+                {busy ? t("docdetail.posting") : t("docdetail.postFulfill")}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      {showVoid && doc && (
+        <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/50 p-0 sm:items-center sm:p-4" onClick={() => !busy && setShowVoid(false)}>
+          <div role="dialog" aria-modal="true" aria-label={t("docdetail.voidInvoice")}
+            className="w-full max-w-md rounded-t-2xl bg-card p-5 shadow-xl sm:rounded-2xl" onClick={(e) => e.stopPropagation()}>
+            <h3 className="text-base font-bold text-danger">{t("docdetail.voidInvoiceTitle", { docNo: doc.docNo })}</h3>
+            <p className="mt-1 text-xs text-muted-foreground">{t("docdetail.voidHint")}</p>
+            <div className="mt-4">
+              <label className="mb-1 block text-sm font-semibold">{t("docdetail.voidReason")}</label>
+              <input className="field" value={voidReason} onChange={(e) => setVoidReason(e.target.value)}
+                placeholder={t("docdetail.voidReasonPh")} maxLength={200} disabled={busy} />
+            </div>
+            {error && <p className="mt-3 text-xs font-semibold text-danger">{error}</p>}
+            <div className="mt-4 flex gap-2">
+              <button className="btn btn-ghost flex-1" disabled={busy} onClick={() => setShowVoid(false)}>
+                {t("common.cancel")}
+              </button>
+              <button className="btn flex-1 bg-danger text-white hover:brightness-95" disabled={busy} onClick={submitVoid}>
+                {busy ? t("docdetail.posting") : t("docdetail.voidConfirm")}
               </button>
             </div>
           </div>

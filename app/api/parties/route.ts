@@ -5,8 +5,16 @@ import { parties } from "@/db/schema";
 import { partySchema } from "@/lib/validators";
 import { parseMoney } from "@/lib/money";
 import { json, err } from "@/lib/api";
-import { requireCompany, db, requirePermission } from "@/lib/route-helpers";
+import { toApiError } from "@/lib/errors";
+import { requireCompany, db, requirePermission, parseDateOnly } from "@/lib/route-helpers";
 import { logAudit } from "@/lib/audit";
+import { insertParty } from "@/lib/party-create";
+import { periodLockError } from "@/lib/period";
+import {
+  extractIdempotencyKey,
+  isIdempotencyConflict,
+  throttleMoneyCreate,
+} from "@/lib/idempotency";
 
 // GET /api/parties?kind=CUSTOMER&q=ahmad&page=1
 export async function GET(req: NextRequest) {
@@ -39,7 +47,9 @@ export async function GET(req: NextRequest) {
   return json({ data: rows, total: total[0]?.n ?? 0, page, perPage });
 }
 
-// POST /api/parties
+// POST /api/parties — Module 1: idempotent create with optional opening
+// balance (posted Dr AR / Cr Opening Equity for customers, mirrored for
+// suppliers) on the opening date.
 export async function POST(req: NextRequest) {
   const gate = await requirePermission("parties");
   if (!gate.ok) return gate.response;
@@ -49,6 +59,26 @@ export async function POST(req: NextRequest) {
   if (!parsed.success) return err("Please check the form and try again.", 422, "VALIDATION_ERROR");
   const p = parsed.data;
 
+  // Idempotency: a retry of the same submission (same key) returns the
+  // already-created party with 200 instead of double-creating.
+  let idemKey: string | undefined;
+  try {
+    idemKey = extractIdempotencyKey(req, body);
+  } catch (e) {
+    return toApiError(e, { route: "/api/parties", companyId });
+  }
+  if (idemKey) {
+    const hit = await db
+      .select({ id: parties.id })
+      .from(parties)
+      .where(and(eq(parties.companyId, companyId), eq(parties.idempotencyKey, idemKey)))
+      .limit(1);
+    if (hit[0]) {
+      const rows = await db.select().from(parties).where(eq(parties.id, hit[0].id)).limit(1);
+      return json({ data: rows[0], idempotentReplay: true }, { status: 200 });
+    }
+  }
+
   const dup = await db
     .select({ id: parties.id })
     .from(parties)
@@ -56,29 +86,77 @@ export async function POST(req: NextRequest) {
     .limit(1);
   if (dup[0]) return err(`A ${p.kind === "CUSTOMER" ? "customer" : "supplier"} with this name already exists.`, 409, "DUPLICATE");
 
-  const id = crypto.randomUUID();
-  await db.insert(parties).values({
-    id,
-    companyId,
-    kind: p.kind,
-    name: p.name,
-    phone: p.phone || null,
-    email: p.email || null,
-    address: p.address || null,
-    city: p.city || null,
-    ntn: p.ntn || null,
-    filerStatus: p.filerStatus,
-    creditLimit: parseMoney(p.creditLimit || "0"),
-    notes: p.notes || null,
- });
-  if (p.category) {
-    await db.update(parties).set({ category: p.category }).where(eq(parties.id, id));
+  const opening = parseMoney(p.openingBalance || "0");
+  if (opening < 0n) return err("Opening balance cannot be negative.", 422, "VALIDATION_ERROR");
+  let openingDate: Date | null = null;
+  if (opening > 0n) {
+    // Module 1: opening balance needs an explicit opening date, and it must
+    // not fall in a locked period.
+    if (!p.openingBalanceDate) return err("Opening balance needs an opening date.", 422, "VALIDATION_ERROR");
+    try {
+      openingDate = parseDateOnly(p.openingBalanceDate);
+    } catch (e) {
+      return toApiError(e, { route: "/api/parties", companyId });
+    }
+    const lockErr = await periodLockError(db, companyId, openingDate);
+    if (lockErr) return err(lockErr, 422, "PERIOD_LOCKED");
+  }
+
+  const rl = await throttleMoneyCreate(db, "parties", session.uid, companyId);
+  if (!rl.ok) return err("Too many requests. Please wait a moment and try again.", 429, "RATE_LIMITED");
+
+  let id: string;
+  try {
+    // insertParty runs the whole create + opening journal in one transaction.
+    ({ id } = await db.transaction((tx) =>
+      insertParty(tx, {
+        companyId,
+        userId: session.uid,
+        fields: {
+          kind: p.kind,
+          name: p.name,
+          phone: p.phone || null,
+          email: p.email || null,
+          address: p.address || null,
+          city: p.city || null,
+          ntn: p.ntn || null,
+          customerType: p.customerType,
+          currency: p.currency || null,
+          strn: p.strn || null,
+          openingBalance: opening,
+          openingBalanceDate: openingDate,
+          paymentTerms: p.paymentTerms || null,
+          shippingAddress: p.shippingAddress || null,
+          shippingCity: p.shippingCity || null,
+          filerStatus: p.filerStatus,
+          creditLimit: parseMoney(p.creditLimit || "0"),
+          category: p.category || null,
+          notes: p.notes || null,
+          ...(idemKey ? { idempotencyKey: idemKey } : {}),
+        },
+      })
+    ));
+  } catch (e) {
+    // Lost the idempotency race: a concurrent request already created the
+    // party for this key — return it with 200 instead of an error.
+    if (idemKey && isIdempotencyConflict(e)) {
+      const hit = await db
+        .select({ id: parties.id })
+        .from(parties)
+        .where(and(eq(parties.companyId, companyId), eq(parties.idempotencyKey, idemKey)))
+        .limit(1);
+      if (hit[0]) {
+        const rows = await db.select().from(parties).where(eq(parties.id, hit[0].id)).limit(1);
+        return json({ data: rows[0], idempotentReplay: true }, { status: 200 });
+      }
+    }
+    throw e;
   }
   await logAudit(db, {
     companyId, userId: session.uid, userName: session.name,
     action: "party.created", entity: "party", entityId: id,
     detail: `${p.kind === "CUSTOMER" ? "Customer" : "Supplier"} "${p.name}" created`,
- });
+  });
   const rows = await db.select().from(parties).where(eq(parties.id, id)).limit(1);
   return json({ data: rows[0] }, { status: 201 });
 }

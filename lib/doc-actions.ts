@@ -29,7 +29,16 @@ async function trackStockMap(tx: Tx, productIds: (string | null)[]) {
 
 interface ConvertResult { docId: string; docNo: string; advanceApplied?: bigint }
 
+export type ConvertTarget = "INVOICE" | "CHALLAN" | "ORDER";
+
 /** Convert a sales QUOTATION/ORDER/CHALLAN into a posted INVOICE (copies lines, links source).
+ *
+ *  targetType selects the conversion target (Module 1):
+ *  - QUOTATION → INVOICE (posted) or → ORDER (new PENDING order, non-posting)
+ *  - ORDER → INVOICE (posted) or → CHALLAN (draft delivery note); both go
+ *    through the fulfillment engine so partial fulfillments and the order
+ *    status machine stay consistent
+ *  - CHALLAN → INVOICE (posted)
  *
  *  Challan semantics: a challan is always a DRAFT delivery note — it never
  *  posts stock or journals (POSTED_TYPES in app/api/sales/route.ts excludes
@@ -38,8 +47,9 @@ interface ConvertResult { docId: string; docNo: string; advanceApplied?: bigint 
  *  The CONVERTED status stamp blocks a second conversion. */
 export async function convertSalesDoc(
   tx: Tx,
-  input: { companyId: string; branchId: string; sourceId: string; userId: string; priceOverride?: boolean; applyAdvance?: boolean }
+  input: { companyId: string; branchId: string; sourceId: string; userId: string; priceOverride?: boolean; applyAdvance?: boolean; targetType?: ConvertTarget }
 ): Promise<ConvertResult> {
+  const targetType = input.targetType ?? "INVOICE";
   const [src] = await tx.select().from(salesDocs)
     .where(and(eq(salesDocs.id, input.sourceId), eq(salesDocs.companyId, input.companyId))).limit(1);
   if (!src) throw new UserError("Source document not found.");
@@ -48,8 +58,80 @@ export async function convertSalesDoc(
   if (src.status === "CONVERTED") throw new UserError("This document was already converted.");
   await assertPeriodOpen(tx, input.companyId, src.date);
 
+  // Orders convert through the fulfillment engine (Module 1.3): the created
+  // challan/invoice fulfills the order's remaining quantities and the order
+  // moves PENDING → PARTIAL → FULFILLED instead of the old CONVERTED stamp.
+  if (src.docType === "ORDER") {
+    if (targetType !== "INVOICE" && targetType !== "CHALLAN")
+      throw new UserError("An order can only be converted to a challan or an invoice.");
+    const { fulfillSalesOrder } = await import("./order-fulfillment");
+    return fulfillSalesOrder(tx, {
+      companyId: input.companyId,
+      orderId: src.id,
+      docType: targetType,
+      userId: input.userId,
+      priceOverride: input.priceOverride,
+      applyAdvance: input.applyAdvance,
+    });
+  }
+  if (src.docType === "CHALLAN" && targetType !== "INVOICE")
+    throw new UserError("A challan can only be converted to an invoice.");
+  if (src.docType === "QUOTATION" && targetType !== "INVOICE" && targetType !== "ORDER")
+    throw new UserError("A quotation can only be converted to an order or an invoice.");
+
   const srcItems = await tx.select().from(salesDocItems).where(eq(salesDocItems.docId, src.id));
   if (srcItems.length === 0) throw new UserError("Source document has no items.");
+
+  // QUOTATION → ORDER: create a fresh PENDING order from the quotation's
+  // lines. Orders are non-posting reservations (no stock/journal), exactly
+  // like the quotation, so the commercial terms carry over unchanged.
+  if (src.docType === "QUOTATION" && targetType === "ORDER") {
+    const orderNo = await nextDocNo(tx, input.companyId, "ORDER");
+    const orderId = crypto.randomUUID();
+    const items: DocItemInput[] = srcItems.map((i) => ({
+      productId: i.productId,
+      description: i.description,
+      qtyMilli: i.qty,
+      ratePaisa: i.rate,
+      discountPaisa: i.discount,
+      taxBps: i.taxBps,
+    }));
+    const totals = computeTotals(items, src.discountTotal ?? 0n, src.freightTotal ?? 0n);
+    await tx.insert(salesDocs).values({
+      id: orderId,
+      companyId: input.companyId,
+      branchId: src.branchId,
+      partyId: src.partyId,
+      docType: "ORDER",
+      docNo: orderNo,
+      date: new Date(),
+      status: "PENDING",
+      subtotal: totals.subtotal,
+      discountTotal: src.discountTotal ?? 0n,
+      freightTotal: totals.freightPaisa,
+      taxTotal: totals.taxTotal,
+      grandTotal: totals.grandTotal,
+      notes: `Converted from quotation ${src.docNo}`,
+      sourceDocId: src.id,
+      createdById: input.userId,
+    });
+    await tx.insert(salesDocItems).values(
+      totals.items.map((i) => ({
+        id: crypto.randomUUID(),
+        docId: orderId,
+        productId: i.productId,
+        description: i.description,
+        qty: i.qtyMilli,
+        rate: i.ratePaisa,
+        discount: i.discountPaisa,
+        taxBps: i.taxBps,
+        taxAmount: i.taxAmountPaisa,
+        lineTotal: i.lineTotalPaisa,
+      }))
+    );
+    await tx.update(salesDocs).set({ status: "CONVERTED" }).where(eq(salesDocs.id, src.id));
+    return { docId: orderId, docNo: orderNo };
+  }
 
   // minimum sale price lock on the resulting posted invoice
   // (source item rates are already in paisa — compare directly)
@@ -74,12 +156,13 @@ export async function convertSalesDoc(
     discountPaisa: i.discount,
     taxBps: i.taxBps,
   }));
-  // Preserve the source's document-level discount and branch: the converted
-  // invoice is the same commercial deal, so its totals and its stock/journal
-  // postings must follow the source document.
+  // Preserve the source's document-level discount and freight, and branch:
+  // the converted invoice is the same commercial deal, so its totals and its
+  // stock/journal postings must follow the source document.
   const srcDiscount = src.discountTotal ?? 0n;
+  const srcFreight = src.freightTotal ?? 0n;
   const srcBranchId = src.branchId;
-  const totals = computeTotals(items, srcDiscount);
+  const totals = computeTotals(items, srcDiscount, srcFreight);
   const docNo = await nextDocNo(tx, input.companyId, "INVOICE");
   const docId = crypto.randomUUID();
   const date = new Date();
@@ -96,9 +179,10 @@ export async function convertSalesDoc(
     status: "POSTED",
     subtotal: totals.subtotal,
     discountTotal: srcDiscount,
+    freightTotal: srcFreight,
     taxTotal: totals.taxTotal,
     grandTotal: totals.grandTotal,
-    notes: `Converted from ${src.docType === "QUOTATION" ? "quotation" : src.docType === "ORDER" ? "order" : "challan"} ${src.docNo}`,
+    notes: `Converted from ${src.docType === "QUOTATION" ? "quotation" : "challan"} ${src.docNo}`,
     sourceDocId: src.id,
     createdById: input.userId,
   });
@@ -126,6 +210,7 @@ export async function convertSalesDoc(
     date,
     items: withStock(totals.items, tsMap),
     discountTotal: srcDiscount,
+    freightTotal: srcFreight,
     taxTotal: totals.taxTotal,
     grandTotal: totals.grandTotal,
     createdById: input.userId,
@@ -148,10 +233,15 @@ export async function convertSalesDoc(
 /** Create a sales RETURN (credit note) from a posted INVOICE — stock + ledger reversed.
  *  Full return when `lines` is omitted; partial when per-item quantities are given.
  *  Returned quantities are tracked on the source lines, so several partial
- *  returns are allowed until nothing remains. */
+ *  returns are allowed until nothing remains.
+ *
+ *  restoreStock (default true): when false the return is a pure-ledger
+ *  credit note — no stock quantities or journals move (goods not coming back
+ *  to the shelf, e.g. damaged or kept by the customer), only the AR-side
+ *  sales/tax reversal posts. */
 export async function createSalesReturn(
   tx: Tx,
-  input: { companyId: string; branchId: string; sourceId: string; userId: string; lines?: { itemId: string; qty: bigint }[]; docId?: string }
+  input: { companyId: string; branchId: string; sourceId: string; userId: string; lines?: { itemId: string; qty: bigint }[]; docId?: string; restoreStock?: boolean }
 ): Promise<ConvertResult> {
   const [src] = await tx.select().from(salesDocs)
     .where(and(eq(salesDocs.id, input.sourceId), eq(salesDocs.companyId, input.companyId))).limit(1);
@@ -249,8 +339,13 @@ export async function createSalesReturn(
     docNo,
     docType: "RETURN",
     date,
-    items: withStock(totals.items, tsMap),
+    // restoreStock=false → pure-ledger credit note: trackStock forced off on
+    // every line, so no stock moves and no COGS/INVENTORY journal lines.
+    items: input.restoreStock === false
+      ? totals.items.map((i) => ({ ...i, trackStock: false }))
+      : withStock(totals.items, tsMap),
     discountTotal: docDiscount,
+    freightTotal: 0n, // returns never carry freight
     taxTotal: totals.taxTotal,
     grandTotal: totals.grandTotal,
     createdById: input.userId,

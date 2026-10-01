@@ -102,9 +102,10 @@ export async function netProfit(
   const salesReturns = netOf(sums, SYS.SALES_RETURN); // debit balance
   const discountGiven = netOf(sums, SYS.DISCOUNT_GIVEN);
   const discountReceived = netOf(sums, SYS.DISCOUNT_RECEIVED, true);
+  const freightIncome = netOf(sums, SYS.FREIGHT_INCOME, true);
   const cogs = netOf(sums, SYS.COGS);
   const expenses = sumByType(sums, "EXPENSE", [SYS.COGS, SYS.DISCOUNT_GIVEN]);
   const netSales = sales - salesReturns;
   const grossProfit = netSales - discountGiven - cogs;
-  return (grossProfit + discountReceived - expenses).toString();
+  return (grossProfit + discountReceived + freightIncome - expenses).toString();
 }

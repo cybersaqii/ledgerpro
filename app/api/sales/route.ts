@@ -163,8 +163,12 @@ export async function POST(req: NextRequest) {
   }));
 
   let totals;
+  // Freight (Module 1.4): sales-side carriage charged to the customer posts
+  // to Freight Income 4020 on posted invoices; on quotations/orders it is
+  // just commercial terms that carry over into the converted invoice.
+  const freightPaisa = parseMoney((b as { freightTotal?: string }).freightTotal || "0");
   try {
-    totals = computeTotals(docItems, parseMoney(b.discountTotal || "0"));
+    totals = computeTotals(docItems, parseMoney(b.discountTotal || "0"), freightPaisa);
   } catch (e) {
     return toApiError(e, { route: "/api/sales", companyId });
   }
@@ -222,6 +226,7 @@ export async function POST(req: NextRequest) {
         status: isPosted ? "POSTED" : "DRAFT",
         subtotal: totals.subtotal,
         discountTotal: parseMoney(b.discountTotal || "0"),
+        freightTotal: freightPaisa,
         taxTotal: totals.taxTotal,
         grandTotal: totals.grandTotal,
         notes: b.notes || null,
@@ -263,6 +268,7 @@ export async function POST(req: NextRequest) {
             batchId: (b.items[idx]?.batchId || "").trim() || null,
           })),
           discountTotal: parseMoney(b.discountTotal || "0"),
+          freightTotal: freightPaisa,
           taxTotal: totals.taxTotal,
           grandTotal: totals.grandTotal,
           createdById: session.uid,

@@ -8,6 +8,7 @@ import {
   journalEntries,
   products,
   docBatchUsage,
+  orderFulfillments,
   productBatches,
   paymentAllocations,
   payments,
@@ -92,6 +93,19 @@ export async function getSalesDocDetail(db: Db, companyId: string, id: string) {
     sku: r.sku,
     batches: r.item.productId ? batches.get(r.item.productId) ?? [] : [],
   }));
+  // Module 1: per-line fulfilled quantities for sales orders (fulfill dialog).
+  const fulfilledByItem: Record<string, string> = {};
+  if (row.doc.docType === "ORDER") {
+    const ff = await db
+      .select()
+      .from(orderFulfillments)
+      .where(eq(orderFulfillments.orderId, id));
+    for (const f of ff) {
+      fulfilledByItem[f.orderItemId] = (
+        BigInt(fulfilledByItem[f.orderItemId] ?? "0") + BigInt(f.qtyThousandths)
+      ).toString();
+    }
+  }
   let journal: unknown = null;
   if (row.doc.journalEntryId) {
     const je = await db
@@ -101,7 +115,7 @@ export async function getSalesDocDetail(db: Db, companyId: string, id: string) {
       .limit(1);
     journal = je[0] ?? null;
   }
-  return { ...row.doc, partyName: row.partyName, partyPhone: row.partyPhone, partyEmail: row.partyEmail, items, journal, payments: await paymentsForDoc(db, id, "SALES") };
+  return { ...row.doc, partyName: row.partyName, partyPhone: row.partyPhone, partyEmail: row.partyEmail, items, fulfilledByItem, journal, payments: await paymentsForDoc(db, id, "SALES") };
 }
 
 export async function getPurchaseDocDetail(db: Db, companyId: string, id: string) {

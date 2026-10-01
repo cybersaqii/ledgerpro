@@ -68,16 +68,19 @@ export type DocMath = {
   subtotal: bigint; // Σ gross
   itemDisc: bigint; // Σ line discounts
   taxTotal: bigint; // Σ line tax
-  grand: bigint; // subtotal − docDisc − itemDisc + tax, clamped ≥ 0
+  freight: bigint; // untaxed freight charged on the document
+  grand: bigint; // subtotal − docDisc − itemDisc + tax + freight, clamped ≥ 0
 };
 
 /** Document totals mirroring the server's grandTotal formula. */
-export function docMath(items: LineMath[], docDiscount: string): DocMath {
+export function docMath(items: LineMath[], docDiscount: string, freight = "0"): DocMath {
   const subtotal = items.reduce((a, c) => a + c.gross, 0n);
   const itemDisc = items.reduce((a, c) => a + c.disc, 0n);
   const taxTotal = items.reduce((a, c) => a + c.tax, 0n);
   const dRaw = paisaOf(docDiscount);
   const docDisc = dRaw < 0n ? 0n : dRaw;
-  const raw = subtotal - docDisc - itemDisc + taxTotal;
-  return { subtotal, itemDisc, taxTotal, grand: raw < 0n ? 0n : raw };
+  const fRaw = paisaOf(freight);
+  const freightPaisa = fRaw < 0n ? 0n : fRaw;
+  const raw = subtotal - docDisc - itemDisc + taxTotal + freightPaisa;
+  return { subtotal, itemDisc, taxTotal, freight: freightPaisa, grand: raw < 0n ? 0n : raw };
 }

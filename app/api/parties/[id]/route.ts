@@ -40,6 +40,16 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   if (!parsed.success) return err("Please check the form and try again.", 422, "VALIDATION_ERROR");
   const p = parsed.data;
 
+  // Module 1: the opening balance is written once at creation (it is a
+  // posted journal + the party's starting balance) — changing it later would
+  // silently unbalance the ledger. Reject any attempt.
+  if (
+    (p.openingBalance !== undefined && p.openingBalance !== "0" && p.openingBalance !== "") ||
+    p.openingBalanceDate !== undefined
+  ) {
+    return err("Opening balance cannot be changed after the party is created.", 422, "OPENING_LOCKED");
+  }
+
   await db
     .update(parties)
     .set({
@@ -49,6 +59,12 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
       ...(p.address !== undefined ? { address: p.address || null } : {}),
       ...(p.city !== undefined ? { city: p.city || null } : {}),
       ...(p.ntn !== undefined ? { ntn: p.ntn || null } : {}),
+      ...(p.customerType !== undefined ? { customerType: p.customerType } : {}),
+      ...(p.currency !== undefined ? { currency: p.currency || null } : {}),
+      ...(p.strn !== undefined ? { strn: p.strn || null } : {}),
+      ...(p.paymentTerms !== undefined ? { paymentTerms: p.paymentTerms || null } : {}),
+      ...(p.shippingAddress !== undefined ? { shippingAddress: p.shippingAddress || null } : {}),
+      ...(p.shippingCity !== undefined ? { shippingCity: p.shippingCity || null } : {}),
       ...(p.filerStatus !== undefined ? { filerStatus: p.filerStatus } : {}),
       ...(p.creditLimit !== undefined ? { creditLimit: parseMoney(p.creditLimit || "0") } : {}),
       ...(p.notes !== undefined ? { notes: p.notes || null } : {}),

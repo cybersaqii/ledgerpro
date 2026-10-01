@@ -1,5 +1,5 @@
 import { NextRequest } from "next/server";
-import { eq, and, inArray, ne } from "drizzle-orm";
+import { eq, and, asc, inArray, ne } from "drizzle-orm";
 import { salesDocs, purchaseDocs } from "@/db/schema";
 import { json } from "@/lib/api";
 import { requireCompany, db } from "@/lib/route-helpers";
@@ -28,6 +28,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
           inArray(salesDocs.docType, ["INVOICE", "RETURN"])
         )
       )
+      .orderBy(asc(salesDocs.date), asc(salesDocs.docNo))
       .limit(100);
     const data = rows
       .map((r) => ({ ...r, balance: (r.grandTotal - r.amountPaid).toString() }))

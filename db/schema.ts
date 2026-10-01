@@ -177,10 +177,24 @@ export const parties = sqliteTable(
     isActive: flag("is_active", true),
     notes: text("notes"),
     category: text("category"), // free-text grouping, e.g. "Retailer" (migration 0026)
+    // ── Module 1 (migration 0032): customer master completeness ──
+    customerType: text("customer_type").notNull().default("INDIVIDUAL"), // INDIVIDUAL | REGISTERED_BUSINESS
+    currency: text("currency"), // per-party currency (display/terms); postings stay in company currency
+    strn: text("strn"), // Sales Tax Registration Number (in addition to NTN)
+    openingBalance: money("opening_balance"), // posted once at creation (Dr AR / Cr 3002)
+    openingBalanceDate: ts("opening_balance_date"),
+    paymentTerms: text("payment_terms"), // NET_15 | NET_30 | NET_45 | DUE_ON_RECEIPT
+    shippingAddress: text("shipping_address"),
+    shippingCity: text("shipping_city"),
+    idempotencyKey: text("idempotency_key"), // double-submit protection (migration 0032)
     createdAt: createdAt(),
     updatedAt: updatedAt(),
   },
-  (t) => [index("parties_company_kind").on(t.companyId, t.kind), index("parties_company_name").on(t.companyId, t.name)]
+  (t) => [
+    index("parties_company_kind").on(t.companyId, t.kind),
+    index("parties_company_name").on(t.companyId, t.name),
+    uniqueIndex("parties_idem_key").on(t.companyId, t.idempotencyKey).where(sql`idempotency_key IS NOT NULL`),
+  ]
 );
 
 export const products = sqliteTable(
@@ -382,12 +396,16 @@ export const salesDocs = sqliteTable(
     subtotal: money("subtotal"),
     discountTotal: money("discount_total"),
     taxTotal: money("tax_total"),
+    freightTotal: money("freight_total"), // sales-side freight, posted to Freight Income 4020 (migration 0032)
     grandTotal: money("grand_total"),
     amountPaid: money("amount_paid"),
     returnedTotal: money("returned_total"), // sum of linked RETURN docs' grand totals
     writtenOffAmount: money("written_off_amount"), // collectible balance removed by write-off (migration 0027)
     notes: text("notes"),
     journalEntryId: text("journal_entry_id").unique(),
+    voidedAt: ts("voided_at"), // set when voided via reversing journal (migration 0032)
+    voidJournalEntryId: text("void_journal_entry_id"),
+    voidedById: text("voided_by_id"),
     sourceDocId: text("source_doc_id"), // quotation/order this invoice was converted from
     createdById: text("created_by_id").notNull(),
     idempotencyKey: text("idempotency_key"), // double-submit protection (migration 0031)
@@ -467,6 +485,28 @@ export const purchaseDocItems = sqliteTable("purchase_doc_items", {
   lineTotal: money("line_total"),
   extraCost: money("extra_cost"), // landed extra cost (freight/labour) allocated to this line
 });
+
+// ─── Sales order fulfillment (Module 1, migration 0032) ──────────
+// Per-item fulfillment of a sales ORDER by challans/invoices created
+// against it. The order's status (PENDING → PARTIAL → FULFILLED) and the
+// committed-stock reservation (committed = ordered − fulfilled) are derived
+// from these rows; CANCELLED orders release their commitment.
+export const orderFulfillments = sqliteTable(
+  "order_fulfillments",
+  {
+    id: id(),
+    companyId: text("company_id").notNull(),
+    orderId: text("order_id").notNull(),
+    orderItemId: text("order_item_id").notNull(),
+    fulfilledDocId: text("fulfilled_doc_id").notNull(),
+    qtyThousandths: qty("qty_thousandths"),
+    createdAt: createdAt(),
+  },
+  (t) => [
+    index("order_fulfillments_order").on(t.companyId, t.orderId),
+    index("order_fulfillments_doc").on(t.fulfilledDocId),
+  ]
+);
 
 // ─── Payments & expenses ───────────────────────────────────────
 

@@ -4,6 +4,7 @@ import { payments, parties, bankAccounts } from "@/db/schema";
 import { paymentSchema } from "@/lib/validators";
 import { parseMoney } from "@/lib/money";
 import { postPayment } from "@/lib/posting";
+import { fifoAllocations } from "@/lib/auto-allocate";
 import { json, err } from "@/lib/api";
 import { toApiError, UserError } from "@/lib/errors";
 import { requirePermission, db, parseDateOnly, defaultBranchId, assertBranch } from "@/lib/route-helpers";
@@ -137,11 +138,18 @@ export async function POST(req: NextRequest) {
         method: b.method,
         reference: b.reference || undefined,
         notes: b.notes || undefined,
-        allocations: b.allocations.map((a) => ({
-          docId: a.docId,
-          docKind: a.docKind,
-          amount: parseMoney(a.amount),
- })),
+        // Module 1.5: FIFO auto-allocate ("Auto-fill oldest-first") — the
+        // server computes oldest-first allocations in-txn so a receipt lands
+        // on the right invoices even if the user skipped the allocation UI.
+        // Explicit allocations always win over autoAllocate.
+        allocations:
+          b.autoAllocate && b.allocations.length === 0
+            ? await fifoAllocations(tx, { companyId, partyId, kind: b.kind, amount })
+            : b.allocations.map((a) => ({
+                docId: a.docId,
+                docKind: a.docKind,
+                amount: parseMoney(a.amount),
+              })),
         createdById: session.uid,
         ...(idemKey ? { idempotencyKey: idemKey } : {}),
  });

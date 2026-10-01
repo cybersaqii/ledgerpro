@@ -116,6 +116,22 @@ function PaymentFormInner() {
     });
   }
 
+  /** Module 1: fill the entered amount across the oldest bills first (FIFO). */
+  function autoFillOldestFirst() {
+    if (!(amountPaisa > 0) || outstanding.length === 0) return;
+    const next: Record<string, string> = {};
+    let remaining = amountPaisa;
+    // the outstanding list is already oldest-first (server orderBy date, docNo)
+    for (const o of outstanding) {
+      if (remaining <= 0) break;
+      const bal = Number(BigInt(o.balance));
+      const fill = Math.min(remaining, bal);
+      if (fill > 0) next[o.id] = (fill / 100).toString();
+      remaining -= fill;
+    }
+    setAlloc(next);
+  }
+
   async function submit(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
@@ -233,7 +249,15 @@ function PaymentFormInner() {
         </div>
 
         <div className="card p-5 sm:p-6 lg:sticky lg:top-20">
-            <h2 className="text-base font-bold">{t("payform.allocateTitle")}</h2>
+            <div className="flex items-center justify-between gap-2">
+              <h2 className="text-base font-bold">{t("payform.allocateTitle")}</h2>
+              {outstanding.length > 0 && !isRefund && (
+                <button type="button" className="btn btn-ghost !px-3 !py-1.5 text-xs"
+                  onClick={autoFillOldestFirst} disabled={!(amountPaisa > 0)}>
+                  {t("payform.autoFillOldest")}
+                </button>
+              )}
+            </div>
             {outstanding.length > 0 ? (
             <>
             <p className="mt-0.5 text-sm text-muted-foreground">
