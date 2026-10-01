@@ -10,6 +10,7 @@ import {
   FolderKanban,
 } from "lucide-react";
 import { Logo, ThemeToggle, LangToggle } from "./ui";
+import { NotificationBell } from "./notification-bell";
 import { api } from "@/lib/format";
 import { BusinessTypeProvider, getTranslatedProfile } from "./business-type";
 import type { BusinessFeatures } from "@/lib/business-types";
@@ -237,6 +238,7 @@ export function AppShell({ children, initialBusinessType }: { children: ReactNod
             </div>
             <ThemeToggle />
             <LangToggle />
+            <NotificationBell />
             <button onClick={logout} className="grid h-11 w-11 place-items-center rounded-xl border border-border bg-card transition hover:-translate-y-0.5 hover:shadow-md hover:text-danger" title={t("header.logout")} aria-label={t("header.logout")}>
               <LogOut size={17} />
             </button>

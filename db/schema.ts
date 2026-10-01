@@ -2139,3 +2139,88 @@ export const projects = sqliteTable(
     index("projects_company_customer").on(t.companyId, t.customerId),
   ]
 );
+
+// ─── Notification Engine & Third-Party Gateways (Module 15, migration 0046) ──
+// Payment-reminder rules (one row per trigger per company), the idempotent
+// reminder dispatch log, the in-app notification center, and the WhatsApp
+// outbox (wa.me deep links — no API key, click-to-open from the UI).
+export const reminderRules = sqliteTable(
+  "reminder_rules",
+  {
+    id: id(),
+    companyId: text("company_id").notNull(),
+    name: text("name").notNull(),
+    ruleKind: text("rule_kind").notNull(), // BEFORE_DUE | DUE_DATE | OVERDUE
+    daysOffset: integer("days_offset").notNull(), // -3 = 3 days before due; 0 = due date; 7/15 = overdue
+    channel: text("channel").notNull().default("BOTH"), // EMAIL | WHATSAPP | BOTH
+    template: text("template"), // NULL = built-in template for the rule kind
+    enabled: flag("enabled", true),
+    createdAt: createdAt(),
+    updatedAt: updatedAt(),
+  },
+  (t) => [index("reminder_rules_company").on(t.companyId, t.enabled)]
+);
+
+export const reminderLog = sqliteTable(
+  "reminder_log",
+  {
+    id: id(),
+    companyId: text("company_id").notNull(),
+    invoiceId: text("invoice_id").notNull(), // sales_docs.id
+    ruleId: text("rule_id").notNull(), // reminder_rules.id
+    triggerDate: text("trigger_date").notNull(), // YYYY-MM-DD (UTC) the rule fired
+    emailAttempted: flag("email_attempted", false),
+    emailSent: flag("email_sent", false),
+    emailSkipped: flag("email_skipped", false),
+    whatsappQueued: flag("whatsapp_queued", false),
+    status: text("status").notNull().default("SENT"), // SENT | PARTIAL | SKIPPED | FAILED
+    detail: text("detail"),
+    createdAt: createdAt(),
+  },
+  (t) => [
+    uniqueIndex("reminder_log_unique").on(t.companyId, t.invoiceId, t.ruleId, t.triggerDate),
+    index("reminder_log_invoice").on(t.companyId, t.invoiceId, t.createdAt),
+  ]
+);
+
+export const notifications = sqliteTable(
+  "notifications",
+  {
+    id: id(),
+    companyId: text("company_id").notNull(),
+    userId: text("user_id"), // NULL = visible to every user of the company
+    kind: text("kind").notNull(), // REMINDER | LOW_STOCK | SYSTEM
+    title: text("title").notNull(),
+    body: text("body"),
+    link: text("link"), // in-app route
+    isRead: flag("is_read", false),
+    readAt: ts("read_at"),
+    entityType: text("entity_type"),
+    entityId: text("entity_id"),
+    createdAt: createdAt(),
+  },
+  (t) => [
+    index("notifications_company").on(t.companyId, t.createdAt),
+    index("notifications_unread").on(t.companyId, t.userId, t.isRead, t.createdAt),
+  ]
+);
+
+export const whatsappQueue = sqliteTable(
+  "whatsapp_queue",
+  {
+    id: id(),
+    companyId: text("company_id").notNull(),
+    phone: text("phone"),
+    intlPhone: text("intl_phone"),
+    message: text("message").notNull(),
+    waLink: text("wa_link").notNull(),
+    status: text("status").notNull().default("QUEUED"), // QUEUED | OPENED | SENT | FAILED
+    invoiceId: text("invoice_id"),
+    reminderLogId: text("reminder_log_id"),
+    createdById: text("created_by_id"),
+    openedAt: ts("opened_at"),
+    sentAt: ts("sent_at"),
+    createdAt: createdAt(),
+  },
+  (t) => [index("whatsapp_queue_company").on(t.companyId, t.status, t.createdAt)]
+);
