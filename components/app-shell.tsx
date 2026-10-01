@@ -6,7 +6,7 @@ import { useEffect, useRef, useState, type ReactNode } from "react";
 import {
   LayoutDashboard, ShoppingCart, Truck, Wallet, ReceiptText, Users, Package,
   BarChart3, Menu, X, LogOut, Boxes, Plus, Settings, Crown, ShieldCheck,
-  LifeBuoy, ArrowRight, Sparkles, Stamp, Landmark, Briefcase,
+  LifeBuoy, ArrowRight, Sparkles, Stamp, Landmark, Briefcase, Factory,
 } from "lucide-react";
 import { Logo, ThemeToggle, LangToggle } from "./ui";
 import { api } from "@/lib/format";
@@ -86,6 +86,7 @@ export function AppShell({ children, initialBusinessType }: { children: ReactNod
     { href: "/reports", label: t("nav.reports"), icon: BarChart3, perm: "reports_basic", feature: null },
     { href: "/tax", label: t("nav.tax"), icon: Landmark, perm: "reports_accounting", feature: null },
     { href: "/payroll", label: t("nav.payroll"), icon: Briefcase, perm: "payroll", feature: null },
+    { href: "/assets", label: t("nav.assets"), icon: Factory, perm: "assets", feature: null },
     { href: "/approvals", label: t("nav.approvals"), icon: Stamp, perm: "approvals", feature: null },
     { href: "/settings", label: t("nav.settings"), icon: Settings, perm: "", feature: null },
     ...(billing?.isOwner ? [{ href: "/billing", label: t("nav.billing"), icon: Crown, perm: "", feature: null }] : []),

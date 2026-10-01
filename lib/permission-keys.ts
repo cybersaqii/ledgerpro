@@ -27,6 +27,9 @@ export const PERMISSIONS = [
   // Module 8: payroll & HRM (employees, runs, advances, disbursement).
   // Kept out of the staff defaults: salary data is owner-granted only.
   "payroll",
+  // Module 9: fixed assets (register, depreciation runs, sale/disposal).
+  // Kept out of the staff defaults: asset movements are owner-granted.
+  "assets",
 ] as const;
 
 export type Permission = (typeof PERMISSIONS)[number];
@@ -64,6 +67,8 @@ export const PERMISSION_GROUPS: { key: string; permissions: Permission[] }[] = [
   { key: "admin", permissions: ["settings", "team", "import_export", "backups", "period_lock", "approvals"] },
   // Module 8: payroll & HRM stands alone — salary data is sensitive.
   { key: "hr", permissions: ["payroll"] },
+  // Module 9: fixed assets stands alone — asset movements are sensitive.
+  { key: "assets", permissions: ["assets"] },
 ];
 
 /** Label/description i18n keys for a permission: perms.<key>, perms.<key>Desc. */

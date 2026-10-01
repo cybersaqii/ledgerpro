@@ -33,9 +33,16 @@ export async function GET() {
     .from(bankAccounts)
     .where(and(eq(bankAccounts.companyId, companyId), eq(bankAccounts.isActive, true)));
   const cashTotal = cashBanks.reduce((a, b) => a + b.balance, 0n);
+  // Module 9: fixed-asset cost accounts live in 1400–1499; the 1400
+  // Accumulated Depreciation credit balance nets them down automatically
+  // (debit-normal math), so this line is fixed assets NET.
+  let fixedAssets = 0n;
+  for (const [code, s] of sums) {
+    if (code >= "1400" && code <= "1499") fixedAssets += s.debit - s.credit;
+  }
   // Cash & bank uses the cached per-account balances (for the breakdown);
   // any drift vs the GL is absorbed by otherAssets so the total stays exact.
-  const otherAssets = assetTotal - cashTotal - ar - inventory - inputTax;
+  const otherAssets = assetTotal - cashTotal - ar - inventory - inputTax - fixedAssets;
 
   // Liabilities (credit-normal) — total across every liability account.
   const liabTotal = sumByTypeCredit(sums, "LIABILITY");
@@ -62,6 +69,7 @@ export async function GET() {
       { label: "bs.ar", amount: ar.toString(), sign: 0 },
       { label: "bs.inventory", amount: inventory.toString(), sign: 0 },
       { label: "bs.inputTax", amount: inputTax.toString(), sign: 0 },
+      { label: "bs.fixedAssets", amount: fixedAssets.toString(), sign: 0 },
       { label: "bs.otherAssets", amount: otherAssets.toString(), sign: 0 },
       { label: "bs.totalAssets", amount: assetTotal.toString(), bold: true, total: true, sign: 0 },
     ],

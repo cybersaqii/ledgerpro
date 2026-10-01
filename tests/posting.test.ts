@@ -113,7 +113,7 @@ function salesItem(qty: string, rate: string): DocItemInput {
 describe("company setup", () => {
   it("creates 33 system accounts, a branch, sequences and a cash account", async () => {
     const accs = await db.select().from(s.accounts).where(eq(s.accounts.companyId, companyId));
-    expect(accs).toHaveLength(34); // 33 system + 1 cash-in-hand GL account (Module 5 added 3003 Retained Earnings; Module 8 added 7 payroll accounts)
+    expect(accs).toHaveLength(38); // 33 system + 1 cash-in-hand GL account (Module 5 added 3003 Retained Earnings; Module 8 added 7 payroll accounts; Module 9 added 4 fixed-asset accounts)
     const branches = await db.select().from(s.branches).where(eq(s.branches.companyId, companyId));
     expect(branches).toHaveLength(1);
     expect(branches[0]!.isDefault).toBe(true);
@@ -448,11 +448,11 @@ describe("report account mappings", () => {
     await setupCompany(db, c3);
     await setupCompany(db, c3); // second run must not duplicate anything
     const accs = await db.select().from(s.accounts).where(eq(s.accounts.companyId, c3));
-    expect(accs).toHaveLength(34); // 33 system + 1 cash-in-hand GL account (Module 5 added 3003 Retained Earnings; Module 8 added 7 payroll accounts)
+    expect(accs).toHaveLength(38); // 33 system + 1 cash-in-hand GL account (Module 5 added 3003 Retained Earnings; Module 8 added 7 payroll accounts; Module 9 added 4 fixed-asset accounts)
     const brs = await db.select().from(s.branches).where(eq(s.branches.companyId, c3));
     expect(brs).toHaveLength(1);
     const seqs = await db.select().from(s.numberSequences).where(eq(s.numberSequences.companyId, c3));
-    expect(seqs).toHaveLength(22); // 10 legacy doc prefixes + 7 QA-wave prefixes + 2 Module 3 (sundry receipt, bank adjustment) + 1 Module 4 (stock transfer) + 2 Module 8 (payroll run, employee advance), none duplicated
+    expect(seqs).toHaveLength(23); // 10 legacy doc prefixes + 7 QA-wave prefixes + 2 Module 3 (sundry receipt, bank adjustment) + 1 Module 4 (stock transfer) + 2 Module 8 (payroll run, employee advance) + 1 Module 9 (depreciation run), none duplicated
     const seqTypes = new Set(seqs.map((x) => x.docType));
     for (const t of ["SALE_RETURN", "PURCHASE_RETURN", "TRANSFER", "STOCK_ADJUSTMENT", "WRITE_OFF", "CREDIT_NOTE", "DEBIT_NOTE", "SUNDRY_RECEIPT", "BANK_ADJUSTMENT", "PAYROLL_RUN", "EMPLOYEE_ADVANCE"]) {
       expect(seqTypes.has(t)).toBe(true);
@@ -464,7 +464,7 @@ describe("report account mappings", () => {
     await db.delete(s.accounts).where(eq(s.accounts.id, exp.id));
     await setupCompany(db, c3);
     const accs2 = await db.select().from(s.accounts).where(eq(s.accounts.companyId, c3));
-    expect(accs2).toHaveLength(34); // 33 system + 1 cash-in-hand GL account (Module 5 added 3003; Module 8 added 7 payroll accounts)
+    expect(accs2).toHaveLength(38); // 33 system + 1 cash-in-hand GL account (Module 5 added 3003; Module 8 added 7 payroll accounts; Module 9 added 4 fixed-asset accounts)
     expect(accs2.some((a) => a.code === SYS.EXPENSES)).toBe(true);
   });
 

@@ -1482,6 +1482,108 @@ export const stockMovements = sqliteTable(
 // Employee master, payroll runs + snapshot slips, employee advances,
 // configurable income-tax slabs and payroll settings. Migration 0039.
 
+// ─── Module 9: Fixed Assets ─────────────────────────────────────────
+// Asset register, monthly depreciation runs + snapshot entries, and asset
+// movements (sale / disposal / inter-branch transfer). Migration 0040.
+//
+// The register never posts: asset purchase goes through the normal purchase
+// flow tagging the asset's cost account (14xx). Registration here tracks the
+// sub-ledger (cost, salvage, method, life, accumulated depreciation) that
+// depreciation runs charge to 6013 / 1400.
+
+/** Asset statuses: ACTIVE | DEPRECIATED | SOLD | DISPOSED.
+ *  SOLD and DISPOSED assets are excluded from future depreciation runs. */
+export const assets = sqliteTable(
+  "assets",
+  {
+    id: id(),
+    companyId: text("company_id").notNull(),
+    /** Unique per company (e.g. AST-0001). */
+    code: text("code").notNull(),
+    description: text("description").notNull(),
+    serialNumber: text("serial_number"),
+    /** VEHICLE | MACHINERY | FURNITURE | IT_EQUIPMENT | BUILDING | OTHER */
+    assetClass: text("asset_class").notNull().default("OTHER"),
+    /** Asset cost account (ASSET type; 14xx recommended so the balance sheet
+     *  breaks it out under Fixed Assets). */
+    accountId: text("account_id").notNull(),
+    /** NULL = the shared SYS 1400 Accumulated Depreciation account. */
+    accumDepAccountId: text("accum_dep_account_id"),
+    branchId: text("branch_id"),
+    purchaseDate: ts("purchase_date").notNull(),
+    purchaseCostPaisa: money("purchase_cost_paisa"),
+    salvageValuePaisa: money("salvage_value_paisa"),
+    /** SL | DB (straight-line | declining balance). */
+    depreciationMethod: text("depreciation_method").notNull().default("SL"),
+    usefulLifeYears: integer("useful_life_years").notNull().default(5),
+    /** Annual declining-balance rate in bps (e.g. 2000 = 20%/yr); DB only. */
+    dbRateBps: integer("db_rate_bps"),
+    /** Running total of POSTED accumulated depreciation (contra sub-ledger). */
+    accumDepPaisa: money("accum_dep_paisa"),
+    status: text("status").notNull().default("ACTIVE"),
+    soldAt: ts("sold_at"),
+    salePricePaisa: money("sale_price_paisa"),
+    /** Signed: positive = gain, negative = loss. */
+    gainLossPaisa: money("gain_loss_paisa"),
+    disposalJournalEntryId: text("disposal_journal_entry_id"),
+    createdById: text("created_by_id").notNull(),
+    createdAt: createdAt(),
+    updatedAt: updatedAt(),
+  },
+  (t) => [
+    uniqueIndex("assets_company_code").on(t.companyId, t.code),
+    index("assets_company_status").on(t.companyId, t.status),
+    index("assets_company_branch").on(t.companyId, t.branchId),
+  ]
+);
+
+/** Depreciation run statuses: DRAFT | POSTED | VOIDED.
+ *  One run per (company, year, month) — the UNIQUE index is the idempotency
+ *  backstop for double "Run depreciation" clicks. */
+export const depreciationRuns = sqliteTable(
+  "depreciation_runs",
+  {
+    id: id(),
+    companyId: text("company_id").notNull(),
+    year: integer("year").notNull(),
+    month: integer("month").notNull(), // 1..12
+    status: text("status").notNull().default("DRAFT"),
+    docNo: text("doc_no"),
+    runDate: ts("run_date").notNull(), // last day of the run month
+    totalDepreciationPaisa: money("total_depreciation_paisa"),
+    journalEntryId: text("journal_entry_id"),
+    postedAt: ts("posted_at"),
+    voidedAt: ts("voided_at"),
+    createdById: text("created_by_id").notNull(),
+    createdAt: createdAt(),
+    updatedAt: updatedAt(),
+  },
+  (t) => [
+    uniqueIndex("depreciation_runs_company_period").on(t.companyId, t.year, t.month),
+    index("depreciation_runs_company_status").on(t.companyId, t.status),
+  ]
+);
+
+/** Per-asset snapshot for one run (one per asset per run). */
+export const depreciationEntries = sqliteTable(
+  "depreciation_entries",
+  {
+    id: id(),
+    companyId: text("company_id").notNull(),
+    runId: text("run_id").notNull(),
+    assetId: text("asset_id").notNull(),
+    assetCode: text("asset_code").notNull(),
+    assetDescription: text("asset_description").notNull(),
+    depreciationPaisa: money("depreciation_paisa"),
+    nbvBeforePaisa: money("nbv_before_paisa"),
+    nbvAfterPaisa: money("nbv_after_paisa"),
+    createdAt: createdAt(),
+  },
+  (t) => [
+    uniqueIndex("depreciation_entries_run_asset").on(t.runId, t.assetId),
+    index("depreciation_entries_company_run").on(t.companyId, t.runId),
+  ]
+);
 /** Employment type: PERMANENT | CONTRACT | DAILY_WAGE. */
 export const employees = sqliteTable(
   "employees",

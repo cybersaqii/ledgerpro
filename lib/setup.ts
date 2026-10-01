@@ -45,6 +45,10 @@ export const SYS = {
   PF_PAYABLE: "2122", // Module 8: provident fund payable
   SALARIES_WAGES_EXPENSE: "6011", // Module 8: gross salaries & wages
   EMPLOYER_CONTRIB_EXPENSE: "6012", // Module 8: employer EOBI/PF contributions
+  DEPRECIATION_EXPENSE: "6013", // Module 9: fixed-asset depreciation
+  ACCUM_DEPRECIATION: "1400", // Module 9: Accumulated Depreciation (contra-asset; credit balance nets 14xx cost)
+  GAIN_ON_DISPOSAL: "4110", // Module 9: gain on sale/scrapping of fixed assets
+  LOSS_ON_DISPOSAL: "6030", // Module 9: loss on sale/scrapping of fixed assets
 } as const;
 
 const SYSTEM_ACCOUNTS: { code: string; name: string; type: string }[] = [
@@ -81,6 +85,10 @@ const SYSTEM_ACCOUNTS: { code: string; name: string; type: string }[] = [
   { code: SYS.PF_PAYABLE, name: "Provident Fund Payable", type: "LIABILITY" },
   { code: SYS.SALARIES_WAGES_EXPENSE, name: "Salaries & Wages Expense", type: "EXPENSE" },
   { code: SYS.EMPLOYER_CONTRIB_EXPENSE, name: "Employer Contribution Expense", type: "EXPENSE" },
+  { code: SYS.DEPRECIATION_EXPENSE, name: "Depreciation Expense", type: "EXPENSE" },
+  { code: SYS.ACCUM_DEPRECIATION, name: "Accumulated Depreciation", type: "ASSET" },
+  { code: SYS.GAIN_ON_DISPOSAL, name: "Gain on Disposal of Fixed Assets", type: "INCOME" },
+  { code: SYS.LOSS_ON_DISPOSAL, name: "Loss on Disposal of Fixed Assets", type: "EXPENSE" },
 ];
 
 const DOC_PREFIXES: Record<string, string> = {
@@ -108,6 +116,7 @@ const DOC_PREFIXES: Record<string, string> = {
   DEBIT_NOTE: "DN-",
   PAYROLL_RUN: "PR-", // Module 8: monthly payroll runs (PR-YYYYMM-0001)
   EMPLOYEE_ADVANCE: "ADV-", // Module 8: employee advance issuance
+  DEPRECIATION_RUN: "DEP-", // Module 9: monthly depreciation runs (DEP-YYYYMM-0001)
 };
 
 /** Next document number, e.g. INV-0001. Must be called inside a transaction.
