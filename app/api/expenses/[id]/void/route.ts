@@ -20,7 +20,7 @@ export async function POST(req: NextRequest, ctx: Ctx) {
   const { id } = await ctx.params;
   const body = await req.json().catch(() => null);
   const parsed = voidSchema.safeParse(body ?? {});
-  if (!parsed.success) return err("Please check the form and try again.", 422);
+  if (!parsed.success) return err("Please check the form and try again.", 422, "VALIDATION_ERROR");
 
   try {
     const result = await db.transaction((tx) =>

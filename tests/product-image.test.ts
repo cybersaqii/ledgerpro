@@ -21,9 +21,18 @@ describe("validateImageUrl", () => {
 
   it("rejects private-network targets", () => {
     expect(() => validateImageUrl("https://localhost/a.jpg")).toThrow(ImageUrlError);
+    expect(() => validateImageUrl("https://localhost./a.jpg")).toThrow(ImageUrlError);
     expect(() => validateImageUrl("https://127.0.0.1/a.jpg")).toThrow(ImageUrlError);
     expect(() => validateImageUrl("https://192.168.1.5/a.jpg")).toThrow(ImageUrlError);
     expect(() => validateImageUrl("https://10.0.0.2/a.jpg")).toThrow(ImageUrlError);
+  });
+
+  it("rejects wildcard and IPv6 loopback/unspecified targets", () => {
+    expect(() => validateImageUrl("https://0.0.0.0/a.jpg")).toThrow(ImageUrlError);
+    expect(() => validateImageUrl("https://0.0.0.0./a.jpg")).toThrow(ImageUrlError);
+    expect(() => validateImageUrl("https://[::]/a.jpg")).toThrow(ImageUrlError);
+    expect(() => validateImageUrl("https://[::1]/a.jpg")).toThrow(ImageUrlError);
+    expect(() => validateImageUrl("https://[::1]./a.jpg")).toThrow(ImageUrlError);
   });
 
   it("rejects garbage and overlong input", () => {

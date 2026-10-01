@@ -36,7 +36,7 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
   const { companyId } = gate;
   const { id } = await params;
   const row = await find(companyId, id);
-  if (!row) return err("Not found.", 404);
+  if (!row) return err("Not found.", 404, "NOT_FOUND");
   return json({ data: row });
 }
 
@@ -46,10 +46,10 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   const { session, companyId } = gate;
   const { id } = await params;
   const row = await find(companyId, id);
-  if (!row) return err("Not found.", 404);
+  if (!row) return err("Not found.", 404, "NOT_FOUND");
   const body = await req.json().catch(() => null);
   const parsed = productSchema.partial().safeParse(body);
-  if (!parsed.success) return err("Please check the form and try again.", 422);
+  if (!parsed.success) return err("Please check the form and try again.", 422, "VALIDATION_ERROR");
   const p = parsed.data;
   let imageUrl: string | null | undefined;
   if (p.imageUrl !== undefined) {
@@ -67,7 +67,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
       .from(products)
       .where(and(eq(products.companyId, companyId), eq(products.sku, p.sku)))
       .limit(1);
-    if (dup[0]) return err("A product with this SKU already exists.", 409);
+    if (dup[0]) return err("A product with this SKU already exists.", 409, "DUPLICATE");
  }
 
   await db
@@ -103,7 +103,7 @@ export async function DELETE(_req: NextRequest, { params }: { params: Promise<{ 
   const { session, companyId } = gate;
   const { id } = await params;
   const row = await find(companyId, id);
-  if (!row) return err("Not found.", 404);
+  if (!row) return err("Not found.", 404, "NOT_FOUND");
   // A product used as a bundle component cannot be deactivated: selling the
   // bundle would silently lose a component. Remove it from the bundle first.
   const usedIn = await bundlesUsingProduct(db, companyId, id);
@@ -117,7 +117,7 @@ export async function DELETE(_req: NextRequest, { params }: { params: Promise<{ 
   try {
     await db.update(products).set({ isActive: false }).where(eq(products.id, id));
   } catch (e) {
-    if (isForeignKeyViolation(e)) return err("Cannot delete this product: linked records exist.", 409);
+    if (isForeignKeyViolation(e)) return err("Cannot delete this product: linked records exist.", 409, "DELETE_BLOCKED");
     throw e;
   }
   await logAudit(db, {

@@ -22,7 +22,7 @@ export async function POST(req: NextRequest) {
   }
   const body = await req.json().catch(() => null);
   const parsed = syncEnrollSchema.safeParse(body);
-  if (!parsed.success) return err("Please check the form and try again.", 422);
+  if (!parsed.success) return err("Please check the form and try again.", 422, "VALIDATION_ERROR");
   const { email, password, deviceName, deviceModel } = parsed.data;
 
   const rows = await db.select().from(users).where(eq(users.email, email.toLowerCase())).limit(1);

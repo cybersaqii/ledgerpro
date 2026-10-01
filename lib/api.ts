@@ -12,8 +12,14 @@ export function json(data: unknown, init?: ResponseInit): NextResponse {
   });
 }
 
-export function err(message: string, status = 400): NextResponse {
-  return json({ error: message }, { status });
+/**
+ * Error response. The optional stable `code` (e.g. "PERIOD_LOCKED",
+ * "INSUFFICIENT_STOCK") lets the client show a localized message
+ * (see lib/api-errors.ts); the human-readable `error` text stays as the
+ * English fallback for codes the client doesn't know.
+ */
+export function err(message: string, status = 400, code?: string): NextResponse {
+  return json({ error: message, ...(code ? { code } : {}) }, { status });
 }
 
 export async function requireAuth(): Promise<{ session: Session; response: null } | { session: null; response: NextResponse }> {

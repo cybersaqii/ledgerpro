@@ -16,7 +16,7 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
     .from(parties)
     .where(and(eq(parties.id, id), eq(parties.companyId, companyId)))
     .limit(1);
-  if (!party) return err("Party not found.", 404);
+  if (!party) return err("Party not found.", 404, "NOT_FOUND");
 
   const isCustomer = party.kind === "CUSTOMER";
   const docsTable = isCustomer ? salesDocs : purchaseDocs;

@@ -3,7 +3,7 @@ import { desc, eq, and } from "drizzle-orm";
 import { billingPayments, coupons } from "@/db/schema";
 import { requireOwner, db } from "@/lib/route-helpers";
 import { json, err } from "@/lib/api";
-import { toApiError } from "@/lib/errors";
+import { toApiError, UserError } from "@/lib/errors";
 import { createBillingPayment, getPlatformSettings, priceForPlan } from "@/lib/billing-guards";
 import { quoteCoupon, consumeCoupon, normalizeCouponCode, CouponError } from "@/lib/coupons";
 import { logAudit } from "@/lib/audit";
@@ -52,22 +52,23 @@ export async function POST(req: NextRequest) {
     if (!(METHODS as readonly string[]).includes(method)) return err("Choose a payment method.", 422);
     if (reference.length < 4 || reference.length > 60) return err("Enter the transaction reference.", 422);
 
-    // One pending submission at a time.
-    const open = await db
-      .select({ id: billingPayments.id })
-      .from(billingPayments)
-      .where(and(eq(billingPayments.companyId, companyId), eq(billingPayments.status, "PENDING")))
-      .limit(1);
-    if (open[0]) return err("You already have a payment waiting for verification.", 409);
-
+    // Coupon + payment are created in ONE transaction: the coupon is
+    // re-validated inside the txn (no TOCTOU) and consumed atomically —
+    // concurrent submissions cannot overshoot max_uses or double-redeem.
+    // The one-pending-submission check ALSO runs inside the txn: SQLite
+    // serializes the write transaction, so two racing POSTs cannot both
+    // pass the check and mint duplicate PENDING payments.
     const settings = await getPlatformSettings();
     const amountPaisa = priceForPlan(settings, months);
     const couponCodeNorm = couponCode ? normalizeCouponCode(couponCode) : "";
 
-    // Coupon + payment are created in ONE transaction: the coupon is
-    // re-validated inside the txn (no TOCTOU) and consumed atomically —
-    // concurrent submissions cannot overshoot max_uses or double-redeem.
     const id = await db.transaction(async (tx) => {
+      const open = await tx
+        .select({ id: billingPayments.id })
+        .from(billingPayments)
+        .where(and(eq(billingPayments.companyId, companyId), eq(billingPayments.status, "PENDING")))
+        .limit(1);
+      if (open[0]) throw new UserError("You already have a payment waiting for verification.", 409);
       let couponId: string | null = null;
       let discountPaisa = 0;
       if (couponCodeNorm) {

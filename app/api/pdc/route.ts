@@ -69,7 +69,7 @@ export async function POST(req: NextRequest) {
   const { session, companyId } = gate;
   const body = await req.json().catch(() => null);
   const parsed = pdcSchema.safeParse(body);
-  if (!parsed.success) return err("Please check the form and try again.", 422);
+  if (!parsed.success) return err("Please check the form and try again.", 422, "VALIDATION_ERROR");
   const b = parsed.data;
 
   const amount = parseMoney(b.amount);
@@ -77,7 +77,7 @@ export async function POST(req: NextRequest) {
 
   const chequeDate = parseDateOnly(b.chequeDate);
   const lockErr = await periodLockError(db, companyId, chequeDate);
-  if (lockErr) return err(lockErr, 422);
+  if (lockErr) return err(lockErr, 422, "PERIOD_LOCKED");
 
   try {
     const pdcId = await db.transaction(async (tx) => {

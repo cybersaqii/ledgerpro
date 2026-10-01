@@ -20,13 +20,13 @@ export async function POST(req: NextRequest) {
   }
   const body = await req.json().catch(() => null);
   const parsed = loginSchema.safeParse(body);
-  if (!parsed.success) return err("Please check the form and try again.", 422);
+  if (!parsed.success) return err("Please check the form and try again.", 422, "VALIDATION_ERROR");
   const { email, password } = parsed.data;
 
   const rows = await db.select().from(users).where(eq(users.email, email.toLowerCase())).limit(1);
   const user = rows[0];
-  if (!user || !user.isActive) return err("Invalid email or password.", 401);
-  if (!(await verifyPassword(password, user.passwordHash))) return err("Invalid email or password.", 401);
+  if (!user || !user.isActive) return err("Invalid email or password.", 401, "INVALID_CREDENTIALS");
+  if (!(await verifyPassword(password, user.passwordHash))) return err("Invalid email or password.", 401, "INVALID_CREDENTIALS");
 
   // Retry bootstrap if a previous signup was interrupted mid-way, or backfill
   // system accounts added after the company was created (setup is idempotent).

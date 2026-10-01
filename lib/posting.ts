@@ -111,7 +111,7 @@ async function applyStock(
     const next = current + m.qtyMilli;
     if (next < 0n) {
       const p = await tx.select({ name: products.name }).from(products).where(eq(products.id, m.productId)).limit(1);
-      throw new UserError(`Insufficient stock for "${p[0]?.name ?? "product"}"`);
+      throw new UserError(`Insufficient stock for "${p[0]?.name ?? "product"}"`, 422, "INSUFFICIENT_STOCK");
     }
     let newAvg = avg;
     if (m.qtyMilli > 0n && m.unitCostPaisa !== undefined) {
@@ -499,6 +499,8 @@ export type PostPaymentInput = {
   docNo?: string;
   allocations: AllocationInput[];
   createdById: string;
+  /** Double-submit protection: stored on the row; the route checks it first (migration 0031). */
+  idempotencyKey?: string;
 };
 
 /** Allocate part of a payment to one document: bumps amountPaid, flips
@@ -655,6 +657,7 @@ export async function postPayment(tx: DbTx, input: PostPaymentInput): Promise<{ 
     notes: input.notes,
     journalEntryId: entryId,
     createdById: input.createdById,
+    ...(input.idempotencyKey ? { idempotencyKey: input.idempotencyKey } : {}),
   });
 
   for (const a of input.allocations) {
@@ -698,6 +701,8 @@ export type PostExpenseInput = {
   createdById: string;
   /** Human voucher number; minted from the EXPENSE sequence when omitted. */
   docNo?: string;
+  /** Double-submit protection: stored on the row; the route checks it first (migration 0031). */
+  idempotencyKey?: string;
 };
 
 export async function postExpense(tx: DbTx, input: PostExpenseInput): Promise<string> {
@@ -753,6 +758,7 @@ export async function postExpense(tx: DbTx, input: PostExpenseInput): Promise<st
     notes: input.notes,
     journalEntryId: entryId,
     createdById: input.createdById,
+    ...(input.idempotencyKey ? { idempotencyKey: input.idempotencyKey } : {}),
   });
 
   await tx

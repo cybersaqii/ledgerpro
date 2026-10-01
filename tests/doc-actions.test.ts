@@ -141,7 +141,7 @@ describe("convertSalesDoc", () => {
     const invs = await db.select().from(s.salesDocs).where(and(eq(s.salesDocs.companyId, companyId), eq(s.salesDocs.docType, "INVOICE")));
     await expect(
       db.transaction((tx) => convertSalesDoc(tx, { companyId, branchId, sourceId: invs[0]!.id, userId }))
-    ).rejects.toThrow(/Only quotations and orders/);
+    ).rejects.toThrow(/Only quotations, orders and challans/);
   });
 });
 

@@ -118,7 +118,7 @@ export async function postStockAdjustment(
 
     if (l.qtyMilli < 0n) {
       const out = -l.qtyMilli;
-      if (current < out) throw new UserError(`Insufficient stock for "${product.name}".`);
+      if (current < out) throw new UserError(`Insufficient stock for "${product.name}".`, 422, "INSUFFICIENT_STOCK");
       // FIFO batch drain for batch-tracked products.
       const used = await deductBatchStock(tx, input.companyId, l.productId, out, null);
       for (const u of used) {

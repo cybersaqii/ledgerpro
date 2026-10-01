@@ -29,7 +29,13 @@ async function trackStockMap(tx: Tx, productIds: (string | null)[]) {
 
 interface ConvertResult { docId: string; docNo: string; advanceApplied?: bigint }
 
-/** Convert a sales QUOTATION/ORDER into a posted INVOICE (copies lines, links source). */
+/** Convert a sales QUOTATION/ORDER/CHALLAN into a posted INVOICE (copies lines, links source).
+ *
+ *  Challan semantics: a challan is always a DRAFT delivery note — it never
+ *  posts stock or journals (POSTED_TYPES in app/api/sales/route.ts excludes
+ *  it). So converting a challan posts stock + journals exactly once, through
+ *  the same postSalesDoc path as an order; there is nothing to double-post.
+ *  The CONVERTED status stamp blocks a second conversion. */
 export async function convertSalesDoc(
   tx: Tx,
   input: { companyId: string; branchId: string; sourceId: string; userId: string; priceOverride?: boolean; applyAdvance?: boolean }
@@ -37,7 +43,8 @@ export async function convertSalesDoc(
   const [src] = await tx.select().from(salesDocs)
     .where(and(eq(salesDocs.id, input.sourceId), eq(salesDocs.companyId, input.companyId))).limit(1);
   if (!src) throw new UserError("Source document not found.");
-  if (src.docType !== "QUOTATION" && src.docType !== "ORDER") throw new UserError("Only quotations and orders can be converted.");
+  if (src.docType !== "QUOTATION" && src.docType !== "ORDER" && src.docType !== "CHALLAN")
+    throw new UserError("Only quotations, orders and challans can be converted.");
   if (src.status === "CONVERTED") throw new UserError("This document was already converted.");
   await assertPeriodOpen(tx, input.companyId, src.date);
 
@@ -91,7 +98,7 @@ export async function convertSalesDoc(
     discountTotal: srcDiscount,
     taxTotal: totals.taxTotal,
     grandTotal: totals.grandTotal,
-    notes: `Converted from ${src.docType === "QUOTATION" ? "quotation" : "order"} ${src.docNo}`,
+    notes: `Converted from ${src.docType === "QUOTATION" ? "quotation" : src.docType === "ORDER" ? "order" : "challan"} ${src.docNo}`,
     sourceDocId: src.id,
     createdById: input.userId,
   });

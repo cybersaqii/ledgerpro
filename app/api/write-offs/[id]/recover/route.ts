@@ -24,11 +24,11 @@ export async function POST(req: NextRequest, ctx: Ctx) {
   const { id } = await ctx.params;
   const body = await req.json().catch(() => null);
   const parsed = recoverSchema.safeParse(body ?? {});
-  if (!parsed.success) return err("Please check the form and try again.", 422);
+  if (!parsed.success) return err("Please check the form and try again.", 422, "VALIDATION_ERROR");
 
   const date = parsed.data.date ? parseDateOnly(parsed.data.date) : undefined;
   const lockErr = date ? await periodLockError(db, companyId, date) : null;
-  if (lockErr) return err(lockErr, 422);
+  if (lockErr) return err(lockErr, 422, "PERIOD_LOCKED");
 
   try {
     const result = await db.transaction((tx) =>

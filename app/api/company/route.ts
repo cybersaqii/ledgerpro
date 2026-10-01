@@ -52,7 +52,7 @@ export async function PUT(req: NextRequest) {
   if (!gate.ok) return gate.response;
   const body = await req.json().catch(() => null);
   const parsed = companySchema.safeParse(body);
-  if (!parsed.success) return err("Please check the form and try again.", 422);
+  if (!parsed.success) return err("Please check the form and try again.", 422, "VALIDATION_ERROR");
   const d = parsed.data;
   await db.update(companies).set({
     name: d.name,

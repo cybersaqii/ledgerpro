@@ -38,10 +38,10 @@ export async function DELETE(_req: NextRequest, { params }: { params: Promise<{ 
   const gate = await requirePermission(permForDocType(doc.docType));
   if (!gate.ok) return gate.response;
   if (doc.status !== "DRAFT") {
-    return err("Posted documents cannot be deleted. Create a return to reverse them.", 400);
+    return err("Posted documents cannot be deleted. Create a return to reverse them.", 400, "DOC_LOCKED");
   }
   const lockErr = await periodLockError(db, companyId, doc.date);
-  if (lockErr) return err(lockErr, 422);
+  if (lockErr) return err(lockErr, 422, "PERIOD_LOCKED");
   await db.transaction(async (tx) => {
     await tx.delete(purchaseDocItems).where(eq(purchaseDocItems.docId, id));
     await tx.delete(purchaseDocs).where(eq(purchaseDocs.id, id));

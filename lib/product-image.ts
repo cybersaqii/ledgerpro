@@ -27,14 +27,21 @@ export function validateImageUrl(raw: unknown): string | null {
   if (u.protocol !== "https:") throw new ImageUrlError("Image link must start with https://");
   if (u.username || u.password) throw new ImageUrlError("Image link must not contain credentials.");
   // Block localhost / private-network targets (SSRF hygiene even though we never fetch server-side).
-  // Trailing dots are stripped first: "localhost." is still localhost.
-  const host = u.hostname.toLowerCase().replace(/\.*$/, "");
+  // Normalize first: strip IPv6 brackets, lowercase, strip trailing dots —
+  // "localhost." is still localhost and "[::1]" is still ::1.
+  const host = u.hostname
+    .toLowerCase()
+    .replace(/^\[/, "")
+    .replace(/\]$/, "")
+    .replace(/\.*$/, "");
   if (
     host === "localhost" ||
     host.endsWith(".localhost") ||
     host.endsWith(".local") ||
     host === "127.0.0.1" ||
-    host === "[::1]" ||
+    host === "0.0.0.0" ||
+    host === "::" ||
+    host === "::1" ||
     /^10\./.test(host) ||
     /^192\.168\./.test(host) ||
     /^172\.(1[6-9]|2\d|3[01])\./.test(host)

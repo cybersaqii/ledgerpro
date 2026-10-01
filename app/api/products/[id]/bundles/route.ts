@@ -40,7 +40,7 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
   if (!product) return err("Not found.", 404);
   const body = await req.json().catch(() => null);
   const parsed = bundleComponentsSchema.safeParse(body);
-  if (!parsed.success) return err("Please check the form and try again.", 422);
+  if (!parsed.success) return err("Please check the form and try again.", 422, "VALIDATION_ERROR");
 
   try {
     await db.transaction((tx) =>

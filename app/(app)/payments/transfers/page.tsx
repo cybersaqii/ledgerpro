@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Plus, ArrowLeftRight } from "lucide-react";
 import { PageHeader, EmptyState, Field, ErrorNote, Pagination } from "@/components/ui";
 import { Modal } from "@/components/modal";
@@ -32,6 +32,10 @@ export default function TransfersPage() {
   const [modal, setModal] = useState(false);
   const [banks, setBanks] = useState<Bank[]>([]);
   const [form, setForm] = useState({ fromBankAccountId: "", toBankAccountId: "", date: fmtDateInput(), amount: "", notes: "" });
+  // One idempotency key per user submission: kept across save attempts so a
+  // retry after a network blip replays instead of double-creating. Cleared
+  // on success so the next transfer gets a fresh key.
+  const idemRef = useRef<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -64,7 +68,11 @@ export default function TransfersPage() {
     setSaving(true);
     setError(null);
     try {
-      await api("/api/transfers", { method: "POST", body: JSON.stringify(form) });
+      // One idempotency key per user submission (kept across retries so a
+      // retry after a network blip replays instead of double-creating).
+      idemRef.current ??= crypto.randomUUID();
+      await api("/api/transfers", { method: "POST", body: JSON.stringify({ ...form, idempotencyKey: idemRef.current }) });
+      idemRef.current = null;
       setModal(false);
       load();
     } catch (err) {

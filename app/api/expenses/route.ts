@@ -10,6 +10,12 @@ import { toApiError } from "@/lib/errors";
 import { requirePermission, db, parseDateOnly, defaultBranchId, assertBranch } from "@/lib/route-helpers";
 import { periodLockError } from "@/lib/period";
 import { logAudit } from "@/lib/audit";
+import {
+  extractIdempotencyKey,
+  findByIdempotencyKey,
+  isIdempotencyConflict,
+  throttleMoneyCreate,
+} from "@/lib/idempotency";
 
 // GET /api/expenses?from=&to=&accountId=&page=
 export async function GET(req: NextRequest) {
@@ -73,12 +79,35 @@ export async function POST(req: NextRequest) {
   const { session, companyId } = gate;
   const body = await req.json().catch(() => null);
   const parsed = expenseSchema.safeParse(body);
-  if (!parsed.success) return err("Please check the form and try again.", 422);
+  if (!parsed.success) return err("Please check the form and try again.", 422, "VALIDATION_ERROR");
   const b = parsed.data;
+
+  // Idempotency: a retry of the same submission (same key) returns the
+  // already-created expense with 200 instead of double-posting.
+  let idemKey: string | undefined;
+  try {
+    idemKey = extractIdempotencyKey(req, body);
+  } catch (e) {
+    return toApiError(e, { route: "/api/expenses", companyId });
+  }
+  if (idemKey) {
+    const existing = await findByIdempotencyKey(db, expenses, companyId, idemKey);
+    if (existing)
+      return json(
+        { data: { id: existing.id, docNo: existing.docNo, idempotentReplay: true } },
+        { status: 200 }
+      );
+  }
+  const rl = await throttleMoneyCreate(db, "expenses", session.uid, companyId);
+  if (!rl.ok)
+    return json(
+      { error: "Too many requests. Please wait a moment and try again.", code: "RATE_LIMITED" },
+      { status: 429, headers: { "Retry-After": String(rl.retryAfterSec) } }
+    );
 
   const date = parseDateOnly(b.date);
   const lockErr = await periodLockError(db, companyId, date);
-  if (lockErr) return err(lockErr, 422);
+  if (lockErr) return err(lockErr, 422, "PERIOD_LOCKED");
 
   try {
     const { expenseId, docNo } = await db.transaction(async (tx) => {
@@ -96,6 +125,7 @@ export async function POST(req: NextRequest) {
         notes: b.notes || undefined,
         createdById: session.uid,
         docNo,
+        ...(idemKey ? { idempotencyKey: idemKey } : {}),
  });
       return { expenseId, docNo };
  });
@@ -106,6 +136,16 @@ export async function POST(req: NextRequest) {
  });
     return json({ data: { id: expenseId, docNo } }, { status: 201 });
  } catch (e) {
+    // Lost the idempotency race: a concurrent request already created the
+    // expense for this key — return it with 200 instead of an error.
+    if (idemKey && isIdempotencyConflict(e)) {
+      const existing = await findByIdempotencyKey(db, expenses, companyId, idemKey);
+      if (existing)
+        return json(
+          { data: { id: existing.id, docNo: existing.docNo, idempotentReplay: true } },
+          { status: 200 }
+        );
+    }
     return toApiError(e, { route: "/api/expenses", companyId });
  }
 }

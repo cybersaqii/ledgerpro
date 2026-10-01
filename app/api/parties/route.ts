@@ -46,7 +46,7 @@ export async function POST(req: NextRequest) {
   const { session, companyId } = gate;
   const body = await req.json().catch(() => null);
   const parsed = partySchema.safeParse(body);
-  if (!parsed.success) return err("Please check the form and try again.", 422);
+  if (!parsed.success) return err("Please check the form and try again.", 422, "VALIDATION_ERROR");
   const p = parsed.data;
 
   const dup = await db
@@ -54,7 +54,7 @@ export async function POST(req: NextRequest) {
     .from(parties)
     .where(and(eq(parties.companyId, companyId), eq(parties.kind, p.kind), eq(parties.name, p.name)))
     .limit(1);
-  if (dup[0]) return err(`A ${p.kind === "CUSTOMER" ? "customer" : "supplier"} with this name already exists.`, 409);
+  if (dup[0]) return err(`A ${p.kind === "CUSTOMER" ? "customer" : "supplier"} with this name already exists.`, 409, "DUPLICATE");
 
   const id = crypto.randomUUID();
   await db.insert(parties).values({

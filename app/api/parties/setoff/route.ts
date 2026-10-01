@@ -29,7 +29,7 @@ export async function POST(req: NextRequest) {
 
   const date = b.data.date ? parseDateOnly(b.data.date) : new Date();
   const lockErr = await periodLockError(db, companyId, date);
-  if (lockErr) return err(lockErr, 422);
+  if (lockErr) return err(lockErr, 422, "PERIOD_LOCKED");
 
   try {
     const entryId = await db.transaction(async (tx) => {

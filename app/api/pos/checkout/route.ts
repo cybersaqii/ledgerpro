@@ -17,6 +17,40 @@ import { requirePro } from "@/lib/billing-guards";
 import { logAudit } from "@/lib/audit";
 import { belowMinPrice, floorErrorMessage } from "@/lib/min-price";
 import { enforceCreditLimit, CreditLimitError } from "@/lib/credit-limit";
+import {
+  extractIdempotencyKey,
+  findByIdempotencyKey,
+  isIdempotencyConflict,
+  throttleMoneyCreate,
+} from "@/lib/idempotency";
+
+// Idempotent replay: the doc for this key already exists — answer 200 with
+// its identifiers (same shape the client already handles) instead of posting
+// a second invoice. Change/advance breakdowns belong to the original attempt
+// and are not recomputed here.
+async function replayCheckout(docId: string, docNo: string | null) {
+  const rows = await db
+    .select({ grandTotal: salesDocs.grandTotal, amountPaid: salesDocs.amountPaid })
+    .from(salesDocs)
+    .where(eq(salesDocs.id, docId))
+    .limit(1);
+  const row = rows[0];
+  return json(
+    {
+      data: {
+        docId,
+        docNo,
+        paymentIds: [],
+        grandTotal: row?.grandTotal ?? "0",
+        paidTotal: row?.amountPaid ?? "0",
+        advanceApplied: "0",
+        change: "0",
+        idempotentReplay: true,
+      },
+    },
+    { status: 200 }
+  );
+}
 
 // POST /api/pos/checkout — atomic POS sale.
 // Creates the invoice AND its receipt(s) inside ONE database transaction:
@@ -32,8 +66,27 @@ export async function POST(req: NextRequest) {
   const pro = await requirePro("pos");
   if (!pro.ok) return pro.response;
 
-  if (!parsed.success) return err("Please check the form and try again.", 422);
+  if (!parsed.success) return err("Please check the form and try again.", 422, "VALIDATION_ERROR");
   const b = parsed.data;
+
+  // Idempotency: a retry of the same submission (same key) returns the
+  // already-created invoice with 200 instead of double-posting.
+  let idemKey: string | undefined;
+  try {
+    idemKey = extractIdempotencyKey(req, body);
+  } catch (e) {
+    return toApiError(e, { route: "/api/pos/checkout", companyId });
+  }
+  if (idemKey) {
+    const existing = await findByIdempotencyKey(db, salesDocs, companyId, idemKey);
+    if (existing) return replayCheckout(existing.id, existing.docNo);
+  }
+  const rl = await throttleMoneyCreate(db, "pos-checkout", session.uid, companyId);
+  if (!rl.ok)
+    return json(
+      { error: "Too many requests. Please wait a moment and try again.", code: "RATE_LIMITED" },
+      { status: 429, headers: { "Retry-After": String(rl.retryAfterSec) } }
+    );
 
   // Party must be an active customer of this company.
   const partyRows = await db
@@ -62,7 +115,7 @@ export async function POST(req: NextRequest) {
   // an explicit override (which is audit-logged below).
   const belowFloor = belowMinPrice(b.items, prodMap);
   if (belowFloor.length > 0 && !b.priceOverride) {
-    return err(floorErrorMessage(belowFloor), 422);
+    return err(floorErrorMessage(belowFloor), 422, "BELOW_MIN_PRICE");
  }
 
   // Batch choices: the chosen batch must belong to this company and to the line's product.
@@ -128,7 +181,7 @@ export async function POST(req: NextRequest) {
   }
 
   const lockErr = await periodLockError(db, companyId, date);
-  if (lockErr) return err(lockErr, 422);
+  if (lockErr) return err(lockErr, 422, "PERIOD_LOCKED");
 
   try {
     const result = await db.transaction(async (tx) => {
@@ -153,6 +206,7 @@ export async function POST(req: NextRequest) {
         grandTotal: totals.grandTotal,
         notes: b.notes || "POS sale",
         createdById: session.uid,
+        ...(idemKey ? { idempotencyKey: idemKey } : {}),
  });
       await tx.insert(salesDocItems).values(
         totals.items.map((i) => ({
@@ -277,6 +331,12 @@ export async function POST(req: NextRequest) {
       { status: 201 }
     );
  } catch (e) {
+    // Lost the idempotency race: a concurrent request already created the
+    // doc for this key — return it with 200 instead of an error.
+    if (idemKey && isIdempotencyConflict(e)) {
+      const existing = await findByIdempotencyKey(db, salesDocs, companyId, idemKey);
+      if (existing) return replayCheckout(existing.id, existing.docNo);
+    }
     if (e instanceof CreditLimitError)
       return json({ error: e.message, code: "CREDIT_LIMIT_EXCEEDED", details: e.details }, { status: 409 });
     return toApiError(e, { route: "/api/pos/checkout", companyId });

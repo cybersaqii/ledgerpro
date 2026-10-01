@@ -24,7 +24,7 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
   const { companyId } = gate;
   const { id } = await params;
   const row = await find(companyId, id);
-  if (!row) return err("Not found.", 404);
+  if (!row) return err("Not found.", 404, "NOT_FOUND");
   return json({ data: row });
 }
 
@@ -34,10 +34,10 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   const { session, companyId } = gate;
   const { id } = await params;
   const row = await find(companyId, id);
-  if (!row) return err("Not found.", 404);
+  if (!row) return err("Not found.", 404, "NOT_FOUND");
   const body = await req.json().catch(() => null);
   const parsed = partySchema.partial().safeParse(body);
-  if (!parsed.success) return err("Please check the form and try again.", 422);
+  if (!parsed.success) return err("Please check the form and try again.", 422, "VALIDATION_ERROR");
   const p = parsed.data;
 
   await db
@@ -72,12 +72,12 @@ export async function DELETE(_req: NextRequest, { params }: { params: Promise<{ 
   const { session, companyId } = gate;
   const { id } = await params;
   const row = await find(companyId, id);
-  if (!row) return err("Not found.", 404);
-  if (row.balance !== 0n) return err("Cannot delete a party with an outstanding balance.", 400);
+  if (!row) return err("Not found.", 404, "NOT_FOUND");
+  if (row.balance !== 0n) return err("Cannot delete a party with an outstanding balance.", 400, "DELETE_BLOCKED");
   try {
     await db.update(parties).set({ isActive: false }).where(eq(parties.id, id));
   } catch (e) {
-    if (isForeignKeyViolation(e)) return err("Cannot delete this party: linked records exist.", 409);
+    if (isForeignKeyViolation(e)) return err("Cannot delete this party: linked records exist.", 409, "DELETE_BLOCKED");
     throw e;
   }
   await logAudit(db, {

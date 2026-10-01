@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Plus, CalendarDays, ReceiptText, Ban } from "lucide-react";
 import { PageHeader, EmptyState, Field, ErrorNote, FilterBar, SummaryChips, Pagination } from "@/components/ui";
 import { Modal } from "@/components/modal";
@@ -34,6 +34,10 @@ export default function ExpensesPage() {
   const [loading, setLoading] = useState(true);
   const [modal, setModal] = useState(false);
   const [form, setForm] = useState({ accountId: "", bankAccountId: "", date: fmtDateInput(), amount: "", taxAmount: "", notes: "" });
+  // One idempotency key per user submission: kept across save attempts so a
+  // retry after a network blip replays instead of double-creating. Cleared
+  // on success so the next expense gets a fresh key.
+  const idemRef = useRef<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [voidTarget, setVoidTarget] = useState<Expense | null>(null);
@@ -88,7 +92,11 @@ export default function ExpensesPage() {
     e.preventDefault();
     setSaving(true); setError(null);
     try {
-      await api("/api/expenses", { method: "POST", body: JSON.stringify(form) });
+      // One idempotency key per user submission (kept across retries so a
+      // retry after a network blip replays instead of double-creating).
+      idemRef.current ??= crypto.randomUUID();
+      await api("/api/expenses", { method: "POST", body: JSON.stringify({ ...form, idempotencyKey: idemRef.current }) });
+      idemRef.current = null;
       setModal(false);
       load();
     } catch (err) {

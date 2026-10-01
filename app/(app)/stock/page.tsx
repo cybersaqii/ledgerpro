@@ -2,8 +2,9 @@
 
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
-import { Search, TriangleAlert, Boxes, ClipboardList } from "lucide-react";
+import { Search, TriangleAlert, Boxes, ClipboardList, ArrowRightLeft } from "lucide-react";
 import { PageHeader, EmptyState, ExportCsv } from "@/components/ui";
+import StockTransferDialog from "@/components/stock-transfer-dialog";
 import { csvMoney } from "@/lib/csv";
 import { api, fmtMoney, fmtQty } from "@/lib/format";
 import { useBusinessProfile } from "@/components/business-type";
@@ -38,6 +39,7 @@ export default function StockPage() {
   const [loading, setLoading] = useState(true);
   const [expired, setExpired] = useState<BatchAlert[]>([]);
   const [expiring, setExpiring] = useState<BatchAlert[]>([]);
+  const [showTransfer, setShowTransfer] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -69,7 +71,7 @@ export default function StockPage() {
         title={bp.stock}
         icon={<Boxes size={20} />}
         subtitle={<>{t("stockpage.subtitle", { stock: bp.stock.toLowerCase() })}:  <span className="font-extrabold text-primary">{fmtMoney(totalValue)}</span></>}
-        actions={<><Link href="/stock/adjustments" className="btn btn-ghost text-sm"><ClipboardList size={16} /> {t("fix3.adjTitle")}</Link><ExportCsv filename={lowOnly ? "stock-low" : "stock"} disabled={loading || rows.length === 0} rows={() => [          ["SKU", t("stockpage.csvProduct"), t("stockpage.csvUnit"), t("stockpage.csvCategory"), t("stockpage.csvBranch"), t("stockpage.csvQty"), t("stockpage.csvAvgCost"), t("stockpage.csvValue"), t("stockpage.csvReorder"), t("stockpage.csvLow")],
+        actions={<><Link href="/stock/adjustments" className="btn btn-ghost text-sm"><ClipboardList size={16} /> {t("fix3.adjTitle")}</Link><button type="button" className="btn btn-ghost text-sm" onClick={() => setShowTransfer(true)}><ArrowRightLeft size={16} /> {t("stocktransfer.btn")}</button><ExportCsv filename={lowOnly ? "stock-low" : "stock"} disabled={loading || rows.length === 0} rows={() => [          ["SKU", t("stockpage.csvProduct"), t("stockpage.csvUnit"), t("stockpage.csvCategory"), t("stockpage.csvBranch"), t("stockpage.csvQty"), t("stockpage.csvAvgCost"), t("stockpage.csvValue"), t("stockpage.csvReorder"), t("stockpage.csvLow")],
           ...rows.map((r) => [r.sku, r.name, r.unit, r.category ?? "", r.branchName ?? "", r.qty, csvMoney(r.avgCost), csvMoney(r.value), r.reorderLevel, r.low ? t("stockpage.csvYes") : ""]),
           ["", "", "", "", t("stockpage.csvTotal"), "", "", csvMoney(totalValue), "", ""],
         ]} /></>}
@@ -148,6 +150,7 @@ export default function StockPage() {
           </div>
         )}
       </div>
+      {showTransfer && <StockTransferDialog onClose={() => setShowTransfer(false)} onSaved={load} />}
     </div>
   );
 }

@@ -30,7 +30,7 @@ export async function POST(req: NextRequest) {
   }
   const body = await req.json().catch(() => null);
   const parsed = signupWithVerification.safeParse(body);
-  if (!parsed.success) return err("Please check the form and try again.", 422);
+  if (!parsed.success) return err("Please check the form and try again.", 422, "VALIDATION_ERROR");
   const { name, email, password, companyName, phone, businessType, address, city, verificationToken, referralCode } = parsed.data;
   const emailLc = email.toLowerCase();
 
@@ -65,8 +65,8 @@ export async function POST(req: NextRequest) {
   // Deactivated users can never sign back in through this path either.
   if (existing[0]) {
     const u = existing[0];
-    if (!emailVerified) return err("This email is already registered. Please log in instead.", 409);
-    if (!u.isActive) return err("This account has been deactivated. Please contact support.", 403);
+    if (!emailVerified) return err("This email is already registered. Please log in instead.", 409, "EMAIL_REGISTERED");
+    if (!u.isActive) return err("This account has been deactivated. Please contact support.", 403, "ACCOUNT_DEACTIVATED");
     // Link Google identity if this signup came through Google.
     if (googleSub) {
       await db.update(users).set({ googleSub }).where(eq(users.id, u.id));

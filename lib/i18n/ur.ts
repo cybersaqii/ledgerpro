@@ -459,7 +459,8 @@ export const ur: DeepPartial<EnDict> = {
     reorderLevel: "ری آرڈر لیول",
     trackStock: "اس {product} کا اسٹاک ٹریک کریں",
     saveError: "محفوظ نہیں ہو سکا۔",
-    loadError: "پروڈکٹ کی تفصیلات لوڈ نہیں ہو سکیں۔"
+    loadError: "پروڈکٹ کی تفصیلات لوڈ نہیں ہو سکیں۔",
+    negativePrice: "قیمت منفی نہیں ہو سکتی۔"
   },
   bundles: {
     badge: "بنڈل",
@@ -474,6 +475,23 @@ export const ur: DeepPartial<EnDict> = {
     saveError: "بنڈل کے اجزاء محفوظ نہیں ہو سکے۔",
     duplicateError: "یہ پروڈکٹ پہلے سے جزو ہے۔",
     isBundleNote: "بنڈل — اسٹاک یہاں نہیں بلکہ اس کے اجزاء پر ٹریک ہوتا ہے۔"
+  },
+  banks: {
+    title: "بینک اکاؤنٹس",
+    subtitle: "کیش، بینک اور والیٹ اکاؤنٹس — جن کی ضرورت نہیں انہیں بند کر دیں",
+    colAccount: "اکاؤنٹ",
+    colType: "قسم",
+    colBalance: "بیلنس",
+    colStatus: "حیثیت",
+    kindBank: "بینک",
+    kindCash: "کیش",
+    kindWallet: "والیٹ",
+    active: "فعال",
+    inactive: "غیر فعال",
+    deactivateBlocked: "اس اکاؤنٹ میں لین دین درج ہیں، اس لیے اسے غیر فعال نہیں کیا جا سکتا۔",
+    errLoad: "بینک اکاؤنٹس لوڈ نہیں ہو سکے۔",
+    errSave: "اکاؤنٹ اپ ڈیٹ نہیں ہو سکا۔",
+    backToPayments: "ادائیگیاں"
   },
   batches: {
     title: "بیچز",
@@ -522,6 +540,7 @@ export const ur: DeepPartial<EnDict> = {
     tabPayments: "ادائیگیاں",
     transfers: "منتقلیاں",
     reconcile: "مطابقت",
+    banks: "بینک اکاؤنٹس",
     fromDate: "از تاریخ",
     toDate: "تا تاریخ",
     toWord: "تا",
@@ -727,6 +746,23 @@ export const ur: DeepPartial<EnDict> = {
     csvYes: "YES",
     csvTotal: "TOTAL"
   },
+  stocktransfer: {
+    btn: "منتقل کریں",
+    title: "اسٹاک منتقلی",
+    subtitle: "دو برانچوں کے درمیان مقدار منتقل کریں۔ ویلیو یا نفع نقصان پر کوئی اثر نہیں — منتقل شدہ مقدار ماخذ برانچ کی اوسط لاگت برقرار رکھتی ہے۔",
+    product: "پروڈکٹ",
+    searchProduct: "پروڈکٹ تلاش کریں…",
+    pickProduct: "پروڈکٹ منتخب کریں",
+    fromBranch: "کہاں سے (برانچ)",
+    toBranch: "کہاں (برانچ)",
+    qty: "مقدار",
+    date: "تاریخ",
+    notes: "نوٹس (اختیاری)",
+    submit: "اسٹاک منتقل کریں",
+    working: "منتقل ہو رہا ہے…",
+    saved: "اسٹاک منتقل ہو گیا۔",
+    saveError: "اسٹاک منتقل نہیں ہو سکا۔"
+  },
   auth: {
     loginTitle: "خوش آمدید",
     loginSub: "اپنا حساب جاری رکھنے کے لیے {brand} میں لاگ اِن کریں۔",
@@ -801,6 +837,7 @@ export const ur: DeepPartial<EnDict> = {
     verifyCode: "کوڈ کی تصدیق کریں",
     verifying: "تصدیق ہو رہی ہے…",
     resendCode: "کوڈ دوبارہ بھیجیں",
+    sending: "بھیجا جا رہا ہے…",
     editDetails: "تفصیلات بدلیں",
     noAccount: "اس ای میل کا کوئی اکاؤنٹ نہیں ملا۔",
     verifyFirst: "پہلے کوڈ سے اپنے ای میل کی تصدیق کریں۔",
@@ -901,6 +938,21 @@ export const ur: DeepPartial<EnDict> = {
     sub: "اس صفحے میں غیر متوقع خرابی آئی۔ آپ کا محفوظ ڈیٹا متاثر نہیں ہوا — دوبارہ کوشش کریں یا ڈیش بورڈ پر واپس جائیں۔",
     retry: "دوبارہ کوشش کریں",
     dashboard: "ڈیش بورڈ پر جائیں"
+  },
+  errors: {
+    generic: "کچھ غلط ہو گیا۔ براہ کرم دوبارہ کوشش کریں۔",
+    periodLocked: "اس تاریخ کا حساب بند (لاک) ہے۔ لاک تاریخ سے پہلے یا اس پر اندراج نہیں ہو سکتا۔",
+    insufficientStock: "اسٹاک میں اتنا مال موجود نہیں ہے۔",
+    belowMinPrice: "ایک قیمت کم سے کم فروخت قیمت سے کم ہے۔",
+    duplicate: "اسی نام یا کوڈ کا ریکارڈ پہلے سے موجود ہے۔",
+    notFound: "مطلوبہ ریکارڈ نہیں ملا۔",
+    invalidCredentials: "ای میل یا پاس ورڈ غلط ہے۔",
+    emailRegistered: "یہ ای میل پہلے سے رجسٹرڈ ہے۔ براہ کرم لاگ اِن کریں۔",
+    accountDeactivated: "یہ اکاؤنٹ بند کر دیا گیا ہے۔ سپورٹ سے رابطہ کریں۔",
+    invalidCode: "کوڈ غلط ہے یا ختم ہو گیا ہے۔",
+    docLocked: "پوسٹ شدہ دستاویز حذف نہیں ہو سکتی۔ اسے واپس کرنے کے لیے ریٹرن بنائیں۔",
+    deleteBlocked: "یہ ریکارڈ حذف نہیں ہو سکتا کیونکہ یہ ابھی استعمال میں ہے۔",
+    validationError: "براہ کرم فارم چیک کریں اور دوبارہ کوشش کریں۔"
   },
   authlayout: {
     headline: "آپ کے کاروبار کا مکمل حساب، آخرکار ایک جگہ۔",

@@ -14,6 +14,12 @@ import { requirePermission, db, parseDateOnly, defaultBranchId, assertBranch } f
 import { logAudit } from "@/lib/audit";
 import { userHasPermission } from "@/lib/permissions";
 import type { Permission } from "@/lib/permissions";
+import {
+  extractIdempotencyKey,
+  findByIdempotencyKey,
+  isIdempotencyConflict,
+  throttleMoneyCreate,
+} from "@/lib/idempotency";
 
 const POSTED_TYPES = ["BILL", "RETURN"] as const;
 
@@ -74,11 +80,34 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   const body = await req.json().catch(() => null);
   const parsed = purchaseDocSchema.safeParse(body);
-  if (!parsed.success) return err("Please check the form and try again.", 422);
+  if (!parsed.success) return err("Please check the form and try again.", 422, "VALIDATION_ERROR");
   const gate = await requirePermission(permForDocType(parsed.data.docType));
   if (!gate.ok) return gate.response;
   const { session, companyId } = gate;
   const b = parsed.data;
+
+  // Idempotency: a retry of the same submission (same key) returns the
+  // already-created doc with 200 instead of double-posting.
+  let idemKey: string | undefined;
+  try {
+    idemKey = extractIdempotencyKey(req, body);
+  } catch (e) {
+    return toApiError(e, { route: "/api/purchases", companyId });
+  }
+  if (idemKey) {
+    const existing = await findByIdempotencyKey(db, purchaseDocs, companyId, idemKey);
+    if (existing)
+      return json(
+        { data: { docId: existing.id, docNo: existing.docNo, idempotentReplay: true } },
+        { status: 200 }
+      );
+  }
+  const rl = await throttleMoneyCreate(db, "purchases", session.uid, companyId);
+  if (!rl.ok)
+    return json(
+      { error: "Too many requests. Please wait a moment and try again.", code: "RATE_LIMITED" },
+      { status: 429, headers: { "Retry-After": String(rl.retryAfterSec) } }
+    );
 
   // A payment moves money, so paying with the bill needs the payments
   // permission on top of the purchases permission.
@@ -157,7 +186,7 @@ export async function POST(req: NextRequest) {
   }
 
   const lockErr = await periodLockError(db, companyId, date);
-  if (lockErr) return err(lockErr, 422);
+  if (lockErr) return err(lockErr, 422, "PERIOD_LOCKED");
 
   // Landed extra costs: distribute over stock-tracked lines (same math as posting)
   const extraCosts = (b.extraCosts ?? [])
@@ -201,6 +230,7 @@ export async function POST(req: NextRequest) {
         notes: b.notes || null,
         terms: b.terms || null,
         createdById: session.uid,
+        ...(idemKey ? { idempotencyKey: idemKey } : {}),
       });
       await tx.insert(purchaseDocItems).values(
         totals.items.map((i, idx) => ({
@@ -292,6 +322,16 @@ export async function POST(req: NextRequest) {
     }
     return json({ data: result }, { status: 201 });
   } catch (e) {
+    // Lost the idempotency race: a concurrent request already created the
+    // doc for this key — return it with 200 instead of an error.
+    if (idemKey && isIdempotencyConflict(e)) {
+      const existing = await findByIdempotencyKey(db, purchaseDocs, companyId, idemKey);
+      if (existing)
+        return json(
+          { data: { docId: existing.id, docNo: existing.docNo, idempotentReplay: true } },
+          { status: 200 }
+        );
+    }
     return toApiError(e, { route: "/api/purchases", companyId });
   }
 }

@@ -2,6 +2,9 @@ import { z } from "zod";
 
 // Money as string like "1234.56" (parsed server-side to BigInt paisa).
 const moneyStr = z.string().regex(/^-?\d{1,12}(\.\d{1,2})?$/, "Invalid amount");
+// Non-negative money (no leading "-"): used for product prices —
+// a negative price would corrupt stock valuation and margins.
+const priceStr = z.string().regex(/^\d{1,12}(\.\d{1,2})?$/, "Price cannot be negative");
 const qtyStr = z.string().regex(/^-?\d{1,12}(\.\d{1,3})?$/, "Invalid quantity");
 
 export const signupSchema = z.object({
@@ -42,12 +45,12 @@ export const productSchema = z.object({
   barcode: z.string().trim().max(40).optional().or(z.literal("")),
   category: z.string().trim().max(60).optional().or(z.literal("")),
   unit: z.string().trim().max(12).default("PCS"),
-  purchasePrice: moneyStr.default("0"),
-  salePrice: moneyStr.default("0"),
+  purchasePrice: priceStr.default("0"),
+  salePrice: priceStr.default("0"),
   taxBps: z.coerce.number().int().min(0).max(10000).default(0),
   trackStock: z.boolean().default(true),
   reorderLevel: qtyStr.default("0"),
-  minSalePrice: moneyStr.default("0"),
+  minSalePrice: priceStr.default("0"),
   location: z.string().trim().max(60).optional().or(z.literal("")),
   imageUrl: z.string().trim().max(500).optional().or(z.literal("")),
 });

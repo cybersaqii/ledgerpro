@@ -96,11 +96,21 @@ export async function postNote(tx: DbTx, input: PostNoteInput): Promise<PostNote
 
   // Optional source document: must belong to the same party + company.
   let sourceDocNo: string | null = null;
+  let sourceDoc: { id: string; grandTotal: bigint; amountPaid: bigint; returnedTotal: bigint; writtenOffAmount: bigint } | null = null;
   if (input.sourceDocId) {
     const tbl = isCredit ? salesDocs : purchaseDocs;
     const wantType = isCredit ? "INVOICE" : "BILL";
     const rows = await tx
-      .select({ docNo: tbl.docNo, docType: tbl.docType, partyId: tbl.partyId })
+      .select({
+        id: tbl.id,
+        docNo: tbl.docNo,
+        docType: tbl.docType,
+        partyId: tbl.partyId,
+        grandTotal: tbl.grandTotal,
+        amountPaid: tbl.amountPaid,
+        returnedTotal: tbl.returnedTotal,
+        writtenOffAmount: tbl.writtenOffAmount,
+      })
       .from(tbl)
       .where(and(eq(tbl.id, input.sourceDocId), eq(tbl.companyId, input.companyId)))
       .limit(1);
@@ -113,6 +123,13 @@ export async function postNote(tx: DbTx, input: PostNoteInput): Promise<PostNote
     }
     if (d.partyId !== input.partyId) throw new UserError("The linked document belongs to a different party.");
     sourceDocNo = d.docNo;
+    sourceDoc = {
+      id: d.id,
+      grandTotal: BigInt(d.grandTotal),
+      amountPaid: BigInt(d.amountPaid),
+      returnedTotal: BigInt(d.returnedTotal ?? 0n),
+      writtenOffAmount: BigInt(d.writtenOffAmount ?? 0n),
+    };
   }
 
   await ensureNoteSequence(tx, input.companyId, input.kind);
@@ -165,6 +182,31 @@ export async function postNote(tx: DbTx, input: PostNoteInput): Promise<PostNote
     createdById: input.createdById,
     createdAt: new Date(),
   });
+
+  // A note linked to an invoice/bill reduces that document's collectible
+  // balance: grow its returnedTotal so aging, statements and payment status
+  // (all computed as grandTotal − amountPaid − returnedTotal − writtenOff)
+  // net the note off automatically — same mechanism as a sales return (M3).
+  if (sourceDoc) {
+    const outstanding = sourceDoc.grandTotal - sourceDoc.amountPaid - sourceDoc.returnedTotal - sourceDoc.writtenOffAmount;
+    if (input.amount > outstanding) {
+      throw new UserError(
+        `Note amount exceeds the linked ${isCredit ? "invoice" : "bill"}'s outstanding balance.`
+      );
+    }
+    const newReturned = sourceDoc.returnedTotal + input.amount;
+    const collectible = sourceDoc.grandTotal - sourceDoc.amountPaid - newReturned - sourceDoc.writtenOffAmount;
+    const status =
+      collectible <= 0n ? "PAID"
+      : sourceDoc.amountPaid >= collectible ? "PAID"
+      : sourceDoc.amountPaid > 0n ? "PARTIAL"
+      : "POSTED";
+    const tbl = isCredit ? salesDocs : purchaseDocs;
+    await tx
+      .update(tbl)
+      .set({ returnedTotal: newReturned, status, updatedAt: new Date() })
+      .where(eq(tbl.id, sourceDoc.id));
+  }
 
   return { id: noteId, docNo, journalEntryId: entryId };
 }

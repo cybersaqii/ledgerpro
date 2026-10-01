@@ -42,7 +42,7 @@ export async function POST(req: NextRequest) {
     if (validFrom && validTo && validFrom.getTime() > validTo.getTime()) return err("Start date must be before end date.", 422);
 
     const [existing] = await db.select({ id: coupons.id }).from(coupons).where(eq(coupons.code, v.code)).limit(1);
-    if (existing) return err("A coupon with this code already exists.", 409);
+    if (existing) return err("A coupon with this code already exists.", 409, "DUPLICATE");
 
     const id = crypto.randomUUID();
     await db.insert(coupons).values({

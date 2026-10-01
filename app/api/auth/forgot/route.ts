@@ -92,11 +92,11 @@ export async function POST(req: NextRequest) {
 
     // Generic failure for every case: no/expired/locked/wrong code all look identical.
     if (!(await checkOtp(db, { email, code, purpose: "reset" })).ok) {
-      return err("Invalid or expired code.", 401);
+      return err("Invalid or expired code.", 401, "INVALID_CODE");
     }
 
     const [user] = await db.select().from(users).where(eq(users.email, email)).limit(1);
-    if (!user || !user.isActive) return err("Invalid or expired code.", 401);
+    if (!user || !user.isActive) return err("Invalid or expired code.", 401, "INVALID_CODE");
 
     await db
       .update(users)

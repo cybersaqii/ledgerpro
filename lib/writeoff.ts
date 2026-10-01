@@ -21,6 +21,8 @@ export type PostWriteOffInput = {
   notes?: string;
   createdById: string;
   docNo?: string;
+  /** Double-submit protection: stored on the row; the route checks it first (migration 0031). */
+  idempotencyKey?: string;
 };
 
 async function docOutstanding(tx: DbTx, docId: string): Promise<bigint> {
@@ -109,6 +111,7 @@ export async function postWriteOff(
     journalEntryId: entryId,
     notes: input.notes,
     createdById: input.createdById,
+    ...(input.idempotencyKey ? { idempotencyKey: input.idempotencyKey } : {}),
   });
 
   const remaining = outstanding - input.amount;

@@ -43,6 +43,10 @@ function PaymentFormInner() {
   // the outstanding list for the pre-selected party finishes loading.
   const [prefill] = useState(() => ({ docId: sp.get("allocateDocId") ?? "", amount: sp.get("amount") ?? "" }));
   const prefillApplied = useRef(false);
+  // One idempotency key per user submission: kept across save attempts so a
+  // retry after a network blip replays instead of double-creating. Cleared
+  // on success so the next payment gets a fresh key.
+  const idemRef = useRef<string | null>(null);
 
   const partyKind = isReceipt ? "CUSTOMER" : payPartyKind;
   const isRefund = !isReceipt && partyKind === "CUSTOMER"; // customer refund: plain ledger movement, no allocation
@@ -121,16 +125,19 @@ function PaymentFormInner() {
     if (allocTotal > amountPaisa) { setError(t("payform.errAlloc")); return; }
     setSaving(true);
     try {
+      idemRef.current ??= crypto.randomUUID();
       const d = await api<{ data: { id: string } }>("/api/payments", {
         method: "POST",
         body: JSON.stringify({
           kind, partyId, bankAccountId: bankId, date, amount,
+          idempotencyKey: idemRef.current,
           method, reference: reference || undefined, notes: notes || undefined,
           allocations: isRefund ? [] : Object.entries(alloc)
             .filter(([, v]) => parseFloat(v || "0") > 0)
             .map(([docId, v]) => ({ docId, docKind: isReceipt ? "SALES" : "PURCHASE", amount: v })),
         }),
       });
+      idemRef.current = null;
       router.push(`/payments/${d.data.id}`);
     } catch (err) {
       setError(err instanceof Error ? err.message : t("payform.errSave"));

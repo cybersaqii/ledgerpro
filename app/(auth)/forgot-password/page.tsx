@@ -106,7 +106,7 @@ export default function ForgotPasswordPage() {
           </button>
           <button type="button" onClick={requestCode} disabled={busy}
             className="w-full text-center text-sm font-semibold text-primary hover:underline disabled:opacity-50">
-            {t("auth.resendCode")}
+            {busy ? t("auth.sending") : t("auth.resendCode")}
           </button>
         </form>
       )}

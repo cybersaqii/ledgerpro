@@ -24,7 +24,7 @@ export async function POST(req: NextRequest) {
   const [user] = await db.select().from(users).where(eq(users.id, session.uid)).limit(1);
   if (!user || !user.isActive) return err("Account not found.", 404);
   if (!(await verifyPassword(currentPassword, user.passwordHash))) {
-    return err("Current password is incorrect.", 401);
+    return err("Current password is incorrect.", 401, "INVALID_CREDENTIALS");
   }
 
   const newVersion = user.tokenVersion + 1;

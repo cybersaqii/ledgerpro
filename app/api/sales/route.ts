@@ -17,6 +17,12 @@ import { applyCustomerAdvance } from "@/lib/advance";
 import { enforceCreditLimit, CreditLimitError, newUdhaarForInvoice } from "@/lib/credit-limit";
 import { userHasPermission } from "@/lib/permissions";
 import type { Permission } from "@/lib/permissions";
+import {
+  extractIdempotencyKey,
+  findByIdempotencyKey,
+  isIdempotencyConflict,
+  throttleMoneyCreate,
+} from "@/lib/idempotency";
 
 const POSTED_TYPES = ["INVOICE", "RETURN"] as const;
 
@@ -82,11 +88,34 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   const body = await req.json().catch(() => null);
   const parsed = salesDocSchema.safeParse(body);
-  if (!parsed.success) return err("Please check the form and try again.", 422);
+  if (!parsed.success) return err("Please check the form and try again.", 422, "VALIDATION_ERROR");
   const gate = await requirePermission(permForDocType(parsed.data.docType));
   if (!gate.ok) return gate.response;
   const { session, companyId } = gate;
   const b = parsed.data;
+
+  // Idempotency: a retry of the same submission (same key) returns the
+  // already-created doc with 200 instead of double-posting.
+  let idemKey: string | undefined;
+  try {
+    idemKey = extractIdempotencyKey(req, body);
+  } catch (e) {
+    return toApiError(e, { route: "/api/sales", companyId });
+  }
+  if (idemKey) {
+    const existing = await findByIdempotencyKey(db, salesDocs, companyId, idemKey);
+    if (existing)
+      return json(
+        { data: { docId: existing.id, docNo: existing.docNo, idempotentReplay: true } },
+        { status: 200 }
+      );
+  }
+  const rl = await throttleMoneyCreate(db, "sales", session.uid, companyId);
+  if (!rl.ok)
+    return json(
+      { error: "Too many requests. Please wait a moment and try again.", code: "RATE_LIMITED" },
+      { status: 429, headers: { "Retry-After": String(rl.retryAfterSec) } }
+    );
 
   // A receipt moves money, so recording one with the invoice needs the
   // payments permission on top of the sales permission.
@@ -121,7 +150,7 @@ export async function POST(req: NextRequest) {
   // Minimum sale price lock applies to posted invoices only (not quotes/orders).
   const belowFloor = b.docType === "INVOICE" ? belowMinPrice(b.items, prodMap) : [];
   if (belowFloor.length > 0 && !b.priceOverride) {
-    return err(floorErrorMessage(belowFloor), 422);
+    return err(floorErrorMessage(belowFloor), 422, "BELOW_MIN_PRICE");
   }
 
   const docItems: DocItemInput[] = b.items.map((i) => ({
@@ -172,7 +201,7 @@ export async function POST(req: NextRequest) {
   }
 
   const lockErr = await periodLockError(db, companyId, date);
-  if (lockErr) return err(lockErr, 422);
+  if (lockErr) return err(lockErr, 422, "PERIOD_LOCKED");
 
   try {
     const result = await db.transaction(async (tx) => {
@@ -199,6 +228,7 @@ export async function POST(req: NextRequest) {
         refNo: b.refNo || null,
         terms: b.terms || null,
         createdById: session.uid,
+        ...(idemKey ? { idempotencyKey: idemKey } : {}),
       });
       await tx.insert(salesDocItems).values(
         totals.items.map((i) => ({
@@ -340,6 +370,16 @@ export async function POST(req: NextRequest) {
     }
     return json({ data: result }, { status: 201 });
   } catch (e) {
+    // Lost the idempotency race: a concurrent request already created the
+    // doc for this key — return it with 200 instead of an error.
+    if (idemKey && isIdempotencyConflict(e)) {
+      const existing = await findByIdempotencyKey(db, salesDocs, companyId, idemKey);
+      if (existing)
+        return json(
+          { data: { docId: existing.id, docNo: existing.docNo, idempotentReplay: true } },
+          { status: 200 }
+        );
+    }
     if (e instanceof CreditLimitError)
       return json({ error: e.message, code: "CREDIT_LIMIT_EXCEEDED", details: e.details }, { status: 409 });
     return toApiError(e, { route: "/api/sales", companyId });

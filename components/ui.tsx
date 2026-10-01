@@ -118,15 +118,41 @@ export function ErrorNote({ message }: { message: string | null }) {
   );
 }
 
-export function Field({ label, children, hint, required }: { label: string; children: ReactNode; hint?: string; required?: boolean }) {
+export function Field({ label, children, hint, error, required }: { label: string; children: ReactNode; hint?: string; error?: string | null; required?: boolean }) {
   return (
     <label className="block">
       <span className="mb-1.5 block text-[0.8rem] font-semibold text-foreground/90">
         {label}{required && <span className="text-red-500"> *</span>}
       </span>
       {children}
-      {hint && <span className="mt-1 block text-xs text-muted-foreground">{hint}</span>}
+      {error ? (
+        <span className="mt-1 block text-xs font-semibold text-danger">{error}</span>
+      ) : hint ? (
+        <span className="mt-1 block text-xs text-muted-foreground">{hint}</span>
+      ) : null}
     </label>
+  );
+}
+
+/** Accessible on/off toggle (RTL-safe, dark-mode aware). */
+export function Switch({ checked, onChange, label, disabled }: {
+  checked: boolean; onChange: (v: boolean) => void; label?: string; disabled?: boolean;
+}) {
+  return (
+    <button
+      type="button"
+      role="switch"
+      aria-checked={checked}
+      aria-label={label}
+      disabled={disabled}
+      onClick={() => onChange(!checked)}
+      className={`relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${checked ? "bg-primary" : "bg-muted dark:bg-white/15"}`}
+    >
+      <span
+        aria-hidden
+        className={`ms-1 inline-block h-4 w-4 rounded-full bg-white shadow transition-transform ${checked ? "translate-x-5 rtl:-translate-x-5" : ""}`}
+      />
+    </button>
   );
 }
 

@@ -26,12 +26,12 @@ export async function POST(req: NextRequest) {
   }
   const body = await req.json().catch(() => null);
   const parsed = verifySchema.safeParse(body);
-  if (!parsed.success) return err("Please check the form and try again.", 422);
+  if (!parsed.success) return err("Please check the form and try again.", 422, "VALIDATION_ERROR");
   const { email, code, purpose } = parsed.data;
 
   // Generic failure for every case: no/expired/locked/wrong code all look identical.
   if (!(await checkOtp(db, { email, code, purpose })).ok) {
-    return err("Invalid or expired code.", 401);
+    return err("Invalid or expired code.", 401, "INVALID_CODE");
   }
 
   if (purpose === "signup") {

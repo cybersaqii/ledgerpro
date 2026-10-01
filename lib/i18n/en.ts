@@ -457,7 +457,8 @@ export const en = {
     reorderLevel: "Reorder level",
     trackStock: "Track stock for this {product}",
     saveError: "Could not save.",
-    loadError: "Could not load product details."
+    loadError: "Could not load product details.",
+    negativePrice: "Price cannot be negative."
   },
   bundles: {
     badge: "Bundle",
@@ -472,6 +473,23 @@ export const en = {
     saveError: "Could not save bundle components.",
     duplicateError: "This product is already a component.",
     isBundleNote: "Bundle — stock is tracked on its components, not here."
+  },
+  banks: {
+    title: "Bank accounts",
+    subtitle: "Cash, bank & wallet accounts — switch off the ones you no longer use",
+    colAccount: "Account",
+    colType: "Type",
+    colBalance: "Balance",
+    colStatus: "Status",
+    kindBank: "Bank",
+    kindCash: "Cash",
+    kindWallet: "Wallet",
+    active: "Active",
+    inactive: "Inactive",
+    deactivateBlocked: "This account has recorded transactions and cannot be deactivated.",
+    errLoad: "Could not load bank accounts.",
+    errSave: "Could not update the account.",
+    backToPayments: "Payments"
   },
   batches: {
     title: "Batches",
@@ -520,6 +538,7 @@ export const en = {
     tabPayments: "Payments",
     transfers: "Transfers",
     reconcile: "Reconcile",
+    banks: "Bank accounts",
     fromDate: "From date",
     toDate: "To date",
     toWord: "to",
@@ -725,6 +744,23 @@ export const en = {
     csvYes: "YES",
     csvTotal: "TOTAL"
   },
+  stocktransfer: {
+    btn: "Transfer",
+    title: "Transfer stock",
+    subtitle: "Move quantity between two branches. No value or P&L impact — the moved quantity keeps the source branch's average cost.",
+    product: "Product",
+    searchProduct: "Search product…",
+    pickProduct: "Choose a product",
+    fromBranch: "From branch",
+    toBranch: "To branch",
+    qty: "Quantity",
+    date: "Date",
+    notes: "Notes (optional)",
+    submit: "Transfer stock",
+    working: "Transferring…",
+    saved: "Stock transferred.",
+    saveError: "Could not transfer stock."
+  },
   auth: {
     loginTitle: "Welcome back",
     loginSub: "Log in to {brand} to continue your hisaab.",
@@ -799,6 +835,7 @@ export const en = {
     verifyCode: "Verify code",
     verifying: "Verifying…",
     resendCode: "Resend code",
+    sending: "Sending…",
     editDetails: "Edit details",
     noAccount: "No account found for this email.",
     verifyFirst: "Please verify your email with the code first.",
@@ -899,6 +936,21 @@ export const en = {
     sub: "This page hit an unexpected error. Your saved data is not affected — try again or head back to the dashboard.",
     retry: "Try again",
     dashboard: "Go to dashboard"
+  },
+  errors: {
+    generic: "Something went wrong. Please try again.",
+    periodLocked: "Books are locked for this date. Entries on or before the lock date cannot be added or changed.",
+    insufficientStock: "There is not enough stock for one of the items.",
+    belowMinPrice: "One of the prices is below the minimum sale price.",
+    duplicate: "A record with the same name or code already exists.",
+    notFound: "The requested record was not found.",
+    invalidCredentials: "Invalid email or password.",
+    emailRegistered: "This email is already registered. Please log in instead.",
+    accountDeactivated: "This account has been deactivated. Please contact support.",
+    invalidCode: "The code is invalid or has expired.",
+    docLocked: "Posted documents cannot be deleted. Create a return to reverse them.",
+    deleteBlocked: "This record cannot be deleted because it is still in use.",
+    validationError: "Please check the form and try again."
   },
   authlayout: {
     headline: "Your entire business hisaab, finally in one place.",

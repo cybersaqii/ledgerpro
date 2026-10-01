@@ -1,9 +1,9 @@
 import { NextRequest } from "next/server";
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { billingPayments, users } from "@/db/schema";
 import { db } from "@/lib/route-helpers";
 import { json, err } from "@/lib/api";
-import { toApiError } from "@/lib/errors";
+import { toApiError, UserError } from "@/lib/errors";
 import { requirePlatformAdmin } from "@/lib/billing-guards";
 import { releaseCoupon } from "@/lib/coupons";
 import { logAudit } from "@/lib/audit";
@@ -23,19 +23,26 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     if (!p) return err("Payment not found.", 404);
     if (p.status !== "PENDING") return err(`Already ${p.status.toLowerCase()}.`, 409);
 
-    await db
-      .update(billingPayments)
-      .set({ status: "REJECTED", note: note || null, reviewedBy: session.email, reviewedAt: new Date() })
-      .where(eq(billingPayments.id, id));
+    // Status flip + coupon release run in ONE transaction (mirroring the
+    // approve path's atomicity): a consumed coupon can never leak on a
+    // rejected payment, and a release failure rolls the flip back instead
+    // of leaving the payment REJECTED with the coupon still burned.
+    // The conditional PENDING update also closes the double-reject race —
+    // only the first concurrent reject flips the row.
+    const now = new Date();
+    await db.transaction(async (tx) => {
+      const flipped = await tx
+        .update(billingPayments)
+        .set({ status: "REJECTED", note: note || null, reviewedBy: session.email, reviewedAt: now })
+        .where(and(eq(billingPayments.id, id), eq(billingPayments.status, "PENDING")))
+        .returning({ id: billingPayments.id });
+      if (flipped.length === 0) throw new UserError("This payment was already processed.", 409);
 
-    // A rejected payment frees its coupon for reuse.
-    if (p.couponId) {
-      try {
-        await releaseCoupon(db, { couponId: p.couponId, companyId: p.companyId });
-      } catch (e) {
-        console.error("[reject] coupon release failed", e);
+      // A rejected payment frees its coupon for reuse.
+      if (p.couponId) {
+        await releaseCoupon(tx, { couponId: p.couponId, companyId: p.companyId });
       }
-    }
+    });
 
     const owners = await db
       .select({ name: users.name })

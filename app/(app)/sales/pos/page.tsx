@@ -10,6 +10,7 @@ import {
 import { ErrorNote } from "@/components/ui";
 import { useDismiss } from "@/components/use-dismiss";
 import { api, ApiError, fmtMoney, fmtQty, fmtDate, fmtDateInput } from "@/lib/format";
+import { localizedApiError } from "@/lib/api-errors";
 import {
   addToCart, addAsNewLine, cartTotals, lineTotalPaisa, toDocItems, validateCart, priceWarnings,
   type PosLine, type PosProduct,
@@ -296,7 +297,10 @@ export default function PosPage() {
     return c.data.id;
   }
 
-  async function completeSale(priceOverride = false, creditOverride = false) {
+  // One idempotency key per user submission: the credit-limit confirm retry
+  // re-enters completeSale, so the key is threaded through as a parameter —
+  // a retry after a network blip replays instead of double-creating.
+  async function completeSale(priceOverride = false, creditOverride = false, idemKey = crypto.randomUUID()) {
     const err = validateCart(lines);
     if (err) { setError(t(err)); return; }
     setError(null);
@@ -365,6 +369,7 @@ export default function PosPage() {
         body: JSON.stringify({
           partyId,
           date,
+          idempotencyKey: idemKey,
           discountTotal: discount || "0",
           notes: notes.trim() || t("pos.defaultNote"),
           items: toDocItems(lines),
@@ -394,10 +399,10 @@ export default function PosPage() {
           balance: paisa(det.balancePaisa),
         }))) {
           setSaving(false);
-          return completeSale(priceOverride, true);
+          return completeSale(priceOverride, true, idemKey);
         }
       }
-      setError(e instanceof Error ? e.message : t("pos.errSaveBill"));
+      setError(localizedApiError(e instanceof Error ? e : null, t, t("pos.errSaveBill")));
     } finally {
       setSaving(false);
     }

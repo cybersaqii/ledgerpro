@@ -21,7 +21,7 @@ export async function POST(req: NextRequest) {
     const id = await createSupportRequest(db, input);
     return json({ ok: true, id });
   } catch (e) {
-    if (e instanceof UserError) return err(e.message, e.status);
+    if (e instanceof UserError) return err(e.message, e.status, e.code);
     return toApiError(e, { route: "/api/support", companyId: null });
   }
 }

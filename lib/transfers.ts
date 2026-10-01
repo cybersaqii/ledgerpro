@@ -20,6 +20,8 @@ export type PostTransferInput = {
   /** Optional explicit id/docNo (sync-style); defaults to fresh UUID + TRF- sequence. */
   id?: string;
   docNo?: string;
+  /** Double-submit protection: stored on the row; the route checks it first (migration 0031). */
+  idempotencyKey?: string;
 };
 
 /**
@@ -74,6 +76,7 @@ export async function postTransfer(
     notes: input.notes,
     journalEntryId: entryId,
     createdById: input.createdById,
+    ...(input.idempotencyKey ? { idempotencyKey: input.idempotencyKey } : {}),
   });
 
   await tx

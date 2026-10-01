@@ -22,7 +22,7 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
   const { companyId } = auth;
   const { id } = await params;
   const doc = await find(companyId, id);
-  if (!doc) return err("Not found.", 404);
+  if (!doc) return err("Not found.", 404, "NOT_FOUND");
   const gate = await requirePermission(permForDocType(doc.docType));
   if (!gate.ok) return gate.response;
   return json({ data: doc });
@@ -36,14 +36,14 @@ export async function DELETE(_req: NextRequest, { params }: { params: Promise<{ 
   const { companyId } = auth;
   const { id } = await params;
   const doc = await find(companyId, id);
-  if (!doc) return err("Not found.", 404);
+  if (!doc) return err("Not found.", 404, "NOT_FOUND");
   const gate = await requirePermission(permForDocType(doc.docType));
   if (!gate.ok) return gate.response;
   if (doc.status !== "DRAFT") {
-    return err("Posted documents cannot be deleted. Create a return to reverse them.", 400);
+    return err("Posted documents cannot be deleted. Create a return to reverse them.", 400, "DOC_LOCKED");
   }
   const lockErr = await periodLockError(db, companyId, doc.date);
-  if (lockErr) return err(lockErr, 422);
+  if (lockErr) return err(lockErr, 422, "PERIOD_LOCKED");
   await db.transaction(async (tx) => {
     await tx.delete(salesDocItems).where(eq(salesDocItems.docId, id));
     await tx.delete(salesDocs).where(eq(salesDocs.id, id));

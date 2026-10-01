@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Modal } from "@/components/modal";
 import { Field, ErrorNote } from "@/components/ui";
 import { api, fmtMoney, fmtDateInput } from "@/lib/format";
@@ -19,6 +19,10 @@ export function WriteOffModal({
   const f = (k: string, vars?: Record<string, string | number>) => t(k, vars);
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [form, setForm] = useState({ accountId: "", date: fmtDateInput(), amount: "", notes: "" });
+  // One idempotency key per user submission: kept across save attempts so a
+  // retry after a network blip replays instead of double-creating. Cleared
+  // on success so the next write-off gets a fresh key.
+  const idemRef = useRef<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -37,6 +41,9 @@ export function WriteOffModal({
     setSaving(true);
     setError(null);
     try {
+      // One idempotency key per user submission (kept across retries so a
+      // retry after a network blip replays instead of double-creating).
+      idemRef.current ??= crypto.randomUUID();
       await api(`/api/parties/${partyId}/write-off`, {
         method: "POST",
         body: JSON.stringify({
@@ -45,8 +52,10 @@ export function WriteOffModal({
           date: form.date,
           amount: form.amount,
           notes: form.notes,
+          idempotencyKey: idemRef.current,
         }),
       });
+      idemRef.current = null;
       onDone();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not write off.");

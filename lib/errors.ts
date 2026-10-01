@@ -4,14 +4,18 @@ import { errorLogs } from "@/db/schema";
 
 /**
  * User-facing domain/validation error. The message is safe to show to the
- * user and carries the HTTP status the API should answer with.
+ * user and carries the HTTP status the API should answer with. The optional
+ * stable `code` (e.g. "PERIOD_LOCKED") lets the client localize the toast
+ * (see lib/api-errors.ts) instead of showing the English message.
  */
 export class UserError extends Error {
   status: number;
-  constructor(message: string, status = 422) {
+  code?: string;
+  constructor(message: string, status = 422, code?: string) {
     super(message);
     this.name = "UserError";
     this.status = status;
+    this.code = code;
   }
 }
 
@@ -45,7 +49,7 @@ export async function toApiError(
   ctx: { route: string; companyId?: string | null },
   dbInstance: Db | DbTx = globalDb
 ) {
-  if (e instanceof UserError) return err(e.message, e.status);
+  if (e instanceof UserError) return err(e.message, e.status, e.code);
   const message = e instanceof Error ? e.message : "Unknown error";
   await reportError(
     {

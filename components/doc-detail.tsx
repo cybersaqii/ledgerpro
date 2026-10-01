@@ -812,7 +812,7 @@ function DocActions({ doc, isSales }: { doc: Doc; isSales: boolean }) {
     }
   }, [doc.sourceDocId, isSales]);
 
-  const canConvert = doc.status !== "CONVERTED" && (isSales ? doc.docType === "QUOTATION" || doc.docType === "ORDER" : doc.docType === "ORDER");
+  const canConvert = doc.status !== "CONVERTED" && (isSales ? doc.docType === "QUOTATION" || doc.docType === "ORDER" || doc.docType === "CHALLAN" : doc.docType === "ORDER");
   const canReturn = ["POSTED", "PARTIAL", "PAID"].includes(doc.status) && (isSales ? doc.docType === "INVOICE" : doc.docType === "BILL");
 
   async function run(action: "convert" | "return", priceOverride = false) {

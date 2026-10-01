@@ -10,6 +10,12 @@ import { toApiError } from "@/lib/errors";
 import { requirePermission, db, parseDateOnly, defaultBranchId, assertBranch } from "@/lib/route-helpers";
 import { periodLockError } from "@/lib/period";
 import { logAudit } from "@/lib/audit";
+import {
+  extractIdempotencyKey,
+  findByIdempotencyKey,
+  isIdempotencyConflict,
+  throttleMoneyCreate,
+} from "@/lib/idempotency";
 
 const transferSchema = z.object({
   fromBankAccountId: z.string().min(1),
@@ -80,14 +86,37 @@ export async function POST(req: NextRequest) {
   const { session, companyId } = gate;
   const body = await req.json().catch(() => null);
   const parsed = transferSchema.safeParse(body);
-  if (!parsed.success) return err("Please check the form and try again.", 422);
+  if (!parsed.success) return err("Please check the form and try again.", 422, "VALIDATION_ERROR");
   const b = parsed.data;
+
+  // Idempotency: a retry of the same submission (same key) returns the
+  // already-created transfer with 200 instead of double-posting.
+  let idemKey: string | undefined;
+  try {
+    idemKey = extractIdempotencyKey(req, body);
+  } catch (e) {
+    return toApiError(e, { route: "/api/transfers", companyId });
+  }
+  if (idemKey) {
+    const existing = await findByIdempotencyKey(db, transfers, companyId, idemKey);
+    if (existing)
+      return json(
+        { data: { id: existing.id, docNo: existing.docNo, idempotentReplay: true } },
+        { status: 200 }
+      );
+  }
+  const rl = await throttleMoneyCreate(db, "transfers", session.uid, companyId);
+  if (!rl.ok)
+    return json(
+      { error: "Too many requests. Please wait a moment and try again.", code: "RATE_LIMITED" },
+      { status: 429, headers: { "Retry-After": String(rl.retryAfterSec) } }
+    );
 
   const amount = parseMoney(b.amount);
   if (amount <= 0n) return err("Amount must be positive.", 422);
   const date = parseDateOnly(b.date);
   const lockErr = await periodLockError(db, companyId, date);
-  if (lockErr) return err(lockErr, 422);
+  if (lockErr) return err(lockErr, 422, "PERIOD_LOCKED");
 
   try {
     const result = await db.transaction(async (tx) => {
@@ -102,6 +131,7 @@ export async function POST(req: NextRequest) {
         amount,
         notes: b.notes || undefined,
         createdById: session.uid,
+        ...(idemKey ? { idempotencyKey: idemKey } : {}),
       });
     });
     await logAudit(db, {
@@ -111,6 +141,16 @@ export async function POST(req: NextRequest) {
     });
     return json({ data: result }, { status: 201 });
   } catch (e) {
+    // Lost the idempotency race: a concurrent request already created the
+    // transfer for this key — return it with 200 instead of an error.
+    if (idemKey && isIdempotencyConflict(e)) {
+      const existing = await findByIdempotencyKey(db, transfers, companyId, idemKey);
+      if (existing)
+        return json(
+          { data: { id: existing.id, docNo: existing.docNo, idempotentReplay: true } },
+          { status: 200 }
+        );
+    }
     return toApiError(e, { route: "/api/transfers", companyId });
   }
 }

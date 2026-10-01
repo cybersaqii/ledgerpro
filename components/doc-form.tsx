@@ -5,6 +5,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { Plus, Printer, Search, Trash2 } from "lucide-react";
 import { PageHeader, Field, ErrorNote } from "@/components/ui";
 import { api, ApiError, fmtMoney, fmtQty, fmtDateInput, fmtDate } from "@/lib/format";
+import { localizedApiError } from "@/lib/api-errors";
 import { lineMath, docMath, taxBpsOf } from "@/lib/doc-math";
 import { useBusinessProfile } from "@/components/business-type";
 import { useLang } from "@/components/lang-provider";
@@ -405,7 +406,7 @@ export function DocForm({ mode }: { mode: "SALES" | "PURCHASE" }) {
       setShowPartyList(false);
       setShowQuickAdd(false);
     } catch (err) {
-      setError(err instanceof Error ? err.message : t("docform.errCreateParty"));
+      setError(localizedApiError(err instanceof Error ? err : null, t, t("docform.errCreateParty")));
     } finally {
       setCreatingParty(false);
     }
@@ -459,10 +460,14 @@ export function DocForm({ mode }: { mode: "SALES" | "PURCHASE" }) {
   const computed = lines.map((l) => lineMath(l.qty, l.rate, l.discount, l.taxPct));
   const { subtotal, itemDisc: itemDiscTotal, taxTotal, grand } = docMath(computed, discountTotal);
 
-  async function submit(e: React.FormEvent, opts: { priceOverride?: boolean; creditOverride?: boolean; printAfter?: boolean } = {}) {
+  async function submit(e: React.FormEvent, opts: { priceOverride?: boolean; creditOverride?: boolean; printAfter?: boolean; idemKey?: string } = {}) {
     const { priceOverride = false, creditOverride = false, printAfter = false } = opts;
     e.preventDefault();
     setError(null);
+    // One idempotency key per user submission: generated here so the
+    // min-price / credit-limit confirm retries reuse the SAME key — a retry
+    // after a network blip then replays instead of double-creating.
+    const idemKey = opts.idemKey ?? crypto.randomUUID();
     if (!partyId) { setError(t("docform.errSelectParty", { party: isSales ? bp.partyOne.toLowerCase() : t("docs.supplier").toLowerCase() })); return; }
     if (lines.length === 0) { setError(t("docform.errNoItems")); return; }
     for (const l of lines) {
@@ -489,7 +494,7 @@ export function DocForm({ mode }: { mode: "SALES" | "PURCHASE" }) {
       if (low.length > 0) {
         const names = low.slice(0, 3).map((l) => l.description).join(", ") + (low.length > 3 ? "…" : "");
         if (!window.confirm(t("docform.minPriceConfirm", { names }))) return;
-        return submit(e, { priceOverride: true, printAfter });
+        return submit(e, { priceOverride: true, printAfter, idemKey });
       }
     }
     setSaving(true);
@@ -497,6 +502,7 @@ export function DocForm({ mode }: { mode: "SALES" | "PURCHASE" }) {
       const endpoint = isSales ? "/api/sales" : "/api/purchases";
       const body: Record<string, unknown> = {
         docType, partyId, date,
+        idempotencyKey: idemKey,
         dueDate: dueDate || undefined,
         discountTotal: discountTotal || "0",
         notes: notes || undefined,
@@ -554,10 +560,10 @@ export function DocForm({ mode }: { mode: "SALES" | "PURCHASE" }) {
           balance: paisa(det.balancePaisa),
         }))) {
           setSaving(false);
-          return submit(e, { priceOverride, creditOverride: true, printAfter });
+          return submit(e, { priceOverride, creditOverride: true, printAfter, idemKey });
         }
       }
-      setError(err instanceof Error ? err.message : t("docform.errSave"));
+      setError(localizedApiError(err instanceof Error ? err : null, t, t("docform.errSave")));
       setSaving(false);
     }
   }

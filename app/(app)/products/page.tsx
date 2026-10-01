@@ -62,6 +62,7 @@ export default function ProductsPage() {
   const [form, setForm] = useState(emptyForm);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [priceError, setPriceError] = useState<string | null>(null);
   // bundle components editor
   const [components, setComponents] = useState<BundleRow[]>([]);
   const [componentsLoaded, setComponentsLoaded] = useState(false);
@@ -89,7 +90,7 @@ export default function ProductsPage() {
   }, [load, q]);
 
   function openAdd() {
-    setForm(emptyForm); setError(null);
+    setForm(emptyForm); setError(null); setPriceError(null);
     setComponents([]); setComponentsLoaded(true);
     setCompQuery(""); setCompResults([]);
     setModal({ mode: "add" });
@@ -97,7 +98,7 @@ export default function ProductsPage() {
   // Fetch the full row first: the list omits barcode and several flags, and
   // sending those back blank would silently wipe them on save.
   async function openEdit(p: Product) {
-    setError(null);
+    setError(null); setPriceError(null);
     try {
       const d = await api<{ data: ProductDetail }>(`/api/products/${p.id}`);
       const full = d.data;
@@ -169,7 +170,15 @@ export default function ProductsPage() {
 
   async function save(e: React.FormEvent) {
     e.preventDefault();
-    setSaving(true); setError(null);
+    setSaving(true); setError(null); setPriceError(null);
+    // Inline guard: prices can never be negative (the API rejects them too).
+    const neg = [form.purchasePrice, form.salePrice, form.minSalePrice]
+      .some((v) => v.trim().startsWith("-") || Number(v) < 0);
+    if (neg) {
+      setPriceError(t("products.negativePrice"));
+      setSaving(false);
+      return;
+    }
     try {
       let id: string;
       if (modal?.mode === "add") {
@@ -340,9 +349,9 @@ export default function ProductsPage() {
               </div>
             </Field>
             <div className="grid gap-4 sm:grid-cols-3">
-              <Field label={t("products.buyPrice")}><input className="field" type="number" min="0" step="0.01" placeholder="0.00" value={form.purchasePrice} onChange={set("purchasePrice")} /></Field>
-              <Field label={t("products.salePrice")}><input className="field" type="number" min="0" step="0.01" placeholder="0.00" value={form.salePrice} onChange={set("salePrice")} /></Field>
-              <Field label={t("products.minSalePrice")} hint={t("products.minSaleHint")}><input className="field" type="number" min="0" step="0.01" placeholder="0.00" value={form.minSalePrice} onChange={set("minSalePrice")} /></Field>
+              <Field label={t("products.buyPrice")} error={priceError}><input className="field" type="number" min="0" step="0.01" placeholder="0.00" value={form.purchasePrice} onChange={set("purchasePrice")} /></Field>
+              <Field label={t("products.salePrice")} error={priceError}><input className="field" type="number" min="0" step="0.01" placeholder="0.00" value={form.salePrice} onChange={set("salePrice")} /></Field>
+              <Field label={t("products.minSalePrice")} hint={t("products.minSaleHint")} error={priceError}><input className="field" type="number" min="0" step="0.01" placeholder="0.00" value={form.minSalePrice} onChange={set("minSalePrice")} /></Field>
             </div>
             <div className="grid gap-4 sm:grid-cols-3">
               <Field label={t("products.reorderLevel")}><input className="field" type="number" min="0" step="0.001" placeholder="0" value={form.reorderLevel} onChange={set("reorderLevel")} /></Field>

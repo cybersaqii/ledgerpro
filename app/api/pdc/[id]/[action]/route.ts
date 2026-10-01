@@ -32,11 +32,11 @@ export async function POST(req: NextRequest, ctx: Ctx) {
     if (action === "clear") {
       const body = await req.json().catch(() => null);
       const parsed = pdcClearSchema.safeParse(body);
-      if (!parsed.success) return err("Please check the form and try again.", 422);
+      if (!parsed.success) return err("Please check the form and try again.", 422, "VALIDATION_ERROR");
       const b = parsed.data;
       const date = parseDateOnly(b.date);
       const lockErr = await periodLockError(db, companyId, date);
-      if (lockErr) return err(lockErr, 422);
+      if (lockErr) return err(lockErr, 422, "PERIOD_LOCKED");
       const paymentId = await db.transaction(async (tx) => {
         const branchId = b.branchId || (await defaultBranchId(tx, companyId));
         await assertBranch(tx, companyId, branchId);
@@ -55,11 +55,11 @@ export async function POST(req: NextRequest, ctx: Ctx) {
 
     const body = await req.json().catch(() => null);
     const parsed = pdcReverseSchema.safeParse(body ?? {});
-    if (!parsed.success) return err("Please check the form and try again.", 422);
+    if (!parsed.success) return err("Please check the form and try again.", 422, "VALIDATION_ERROR");
     const b = parsed.data;
     const date = parseDateOnly(b.date);
     const lockErr = await periodLockError(db, companyId, date);
-    if (lockErr) return err(lockErr, 422);
+    if (lockErr) return err(lockErr, 422, "PERIOD_LOCKED");
     await db.transaction(async (tx) => {
       const branchId = b.branchId || (await defaultBranchId(tx, companyId));
       await assertBranch(tx, companyId, branchId);

@@ -7,15 +7,16 @@ import { addBankAccount } from "@/lib/setup";
 import { parseMoney } from "@/lib/money";
 import { z } from "zod";
 
-// GET /api/banks
-export async function GET() {
+// GET /api/banks — ?all=1 includes deactivated accounts (for the management page)
+export async function GET(req: NextRequest) {
   const gate = await requireCompany();
   if (!gate.ok) return gate.response;
   const { companyId } = gate;
+  const all = req.nextUrl.searchParams.get("all") === "1";
   const rows = await db
     .select()
     .from(bankAccounts)
-    .where(and(eq(bankAccounts.companyId, companyId), eq(bankAccounts.isActive, true)));
+    .where(all ? eq(bankAccounts.companyId, companyId) : and(eq(bankAccounts.companyId, companyId), eq(bankAccounts.isActive, true)));
   return json({ data: rows });
 }
 
@@ -34,7 +35,7 @@ export async function POST(req: NextRequest) {
   const { companyId } = gate;
   const body = await req.json().catch(() => null);
   const parsed = bankSchema.safeParse(body);
-  if (!parsed.success) return err("Please check the form and try again.", 422);
+  if (!parsed.success) return err("Please check the form and try again.", 422, "VALIDATION_ERROR");
   const b = parsed.data;
 
   const dup = await db
@@ -42,7 +43,7 @@ export async function POST(req: NextRequest) {
     .from(bankAccounts)
     .where(and(eq(bankAccounts.companyId, companyId), eq(bankAccounts.name, b.name)))
     .limit(1);
-  if (dup[0]) return err("An account with this name already exists.", 409);
+  if (dup[0]) return err("An account with this name already exists.", 409, "DUPLICATE");
 
   const opening = parseMoney(b.openingBalance);
   if (opening < 0n) return err("Opening balance cannot be negative.", 422);

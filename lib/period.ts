@@ -43,5 +43,5 @@ export async function periodLockError(
 /** Throw-style variant for lib/ code paths that surface errors via thrown Error. */
 export async function assertPeriodOpen(tx: Db | DbTx, companyId: string, date: Date | number): Promise<void> {
   const msg = await periodLockError(tx, companyId, date);
-  if (msg) throw new UserError(msg);
+  if (msg) throw new UserError(msg, 422, "PERIOD_LOCKED");
 }

@@ -69,7 +69,7 @@ export async function POST(req: NextRequest) {
   const { session, companyId } = gate;
   const body = await req.json().catch(() => null);
   const parsed = productSchema.safeParse(body);
-  if (!parsed.success) return err("Please check the form and try again.", 422);
+  if (!parsed.success) return err("Please check the form and try again.", 422, "VALIDATION_ERROR");
   const p = parsed.data;
   let imageUrl: string | null = null;
   try {
@@ -84,7 +84,7 @@ export async function POST(req: NextRequest) {
     .from(products)
     .where(and(eq(products.companyId, companyId), eq(products.sku, p.sku)))
     .limit(1);
-  if (dup[0]) return err("A product with this SKU already exists.", 409);
+  if (dup[0]) return err("A product with this SKU already exists.", 409, "DUPLICATE");
 
   const id = crypto.randomUUID();
   await db.insert(products).values({

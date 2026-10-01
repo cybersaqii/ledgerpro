@@ -1,3 +1,4 @@
+import { sql } from "drizzle-orm";
 import { sqliteTable, text, integer, numeric, index, uniqueIndex, primaryKey } from "drizzle-orm/sqlite-core";
 
 const id = () =>
@@ -389,6 +390,7 @@ export const salesDocs = sqliteTable(
     journalEntryId: text("journal_entry_id").unique(),
     sourceDocId: text("source_doc_id"), // quotation/order this invoice was converted from
     createdById: text("created_by_id").notNull(),
+    idempotencyKey: text("idempotency_key"), // double-submit protection (migration 0031)
     createdAt: createdAt(),
     updatedAt: updatedAt(),
   },
@@ -396,6 +398,7 @@ export const salesDocs = sqliteTable(
     uniqueIndex("sales_company_type_no").on(t.companyId, t.docType, t.docNo),
     index("sales_company_type_status").on(t.companyId, t.docType, t.status),
     index("sales_company_party").on(t.companyId, t.partyId),
+    uniqueIndex("sales_docs_idem_key").on(t.companyId, t.idempotencyKey).where(sql`idempotency_key IS NOT NULL`),
   ]
 );
 
@@ -438,6 +441,7 @@ export const purchaseDocs = sqliteTable(
     journalEntryId: text("journal_entry_id").unique(),
     sourceDocId: text("source_doc_id"), // order this bill was converted from
     createdById: text("created_by_id").notNull(),
+    idempotencyKey: text("idempotency_key"), // double-submit protection (migration 0031)
     createdAt: createdAt(),
     updatedAt: updatedAt(),
   },
@@ -445,6 +449,7 @@ export const purchaseDocs = sqliteTable(
     uniqueIndex("purch_company_type_no").on(t.companyId, t.docType, t.docNo),
     index("purch_company_type_status").on(t.companyId, t.docType, t.status),
     index("purch_company_party").on(t.companyId, t.partyId),
+    uniqueIndex("purchase_docs_idem_key").on(t.companyId, t.idempotencyKey).where(sql`idempotency_key IS NOT NULL`),
   ]
 );
 
@@ -487,8 +492,12 @@ export const payments = sqliteTable(
     voidedAt: ts("voided_at"), // set when voided (migration 0027)
     voidJournalEntryId: text("void_journal_entry_id"),
     voidedById: text("voided_by_id"),
+    idempotencyKey: text("idempotency_key"), // double-submit protection (migration 0031)
   },
-  (t) => [index("payments_company_kind_date").on(t.companyId, t.kind, t.date)]
+  (t) => [
+    index("payments_company_kind_date").on(t.companyId, t.kind, t.date),
+    uniqueIndex("payments_idem_key").on(t.companyId, t.idempotencyKey).where(sql`idempotency_key IS NOT NULL`),
+  ]
 );
 
 export const paymentAllocations = sqliteTable("payment_allocations", {
@@ -572,8 +581,12 @@ export const expenses = sqliteTable(
     voidedAt: ts("voided_at"), // set when voided (migration 0027)
     voidJournalEntryId: text("void_journal_entry_id"),
     voidedById: text("voided_by_id"),
+    idempotencyKey: text("idempotency_key"), // double-submit protection (migration 0031)
   },
-  (t) => [index("expenses_company_date").on(t.companyId, t.date)]
+  (t) => [
+    index("expenses_company_date").on(t.companyId, t.date),
+    uniqueIndex("expenses_idem_key").on(t.companyId, t.idempotencyKey).where(sql`idempotency_key IS NOT NULL`),
+  ]
 );
 
 // ─── Double-entry journal ──────────────────────────────────────
@@ -894,27 +907,39 @@ export const transfers = sqliteTable("transfers", {
   notes: text("notes"),
   journalEntryId: text("journal_entry_id").unique(),
   createdById: text("created_by_id").notNull(),
+  idempotencyKey: text("idempotency_key"), // double-submit protection (migration 0031)
   createdAt: createdAt(),
-});
+  },
+  (t) => [
+    uniqueIndex("transfers_idem_key").on(t.companyId, t.idempotencyKey).where(sql`idempotency_key IS NOT NULL`),
+  ]
+);
 
 /** G7 — bad-debt write-off on an overdue invoice (Dr Bad Debts / Cr AR). */
-export const writeOffs = sqliteTable("write_offs", {
-  id: id(),
-  companyId: text("company_id").notNull(),
-  branchId: text("branch_id").notNull(),
-  docNo: text("doc_no").notNull(), // WO-0001
-  date: ts("date").notNull(),
-  partyId: text("party_id").notNull(),
-  salesDocId: text("sales_doc_id"),
-  accountId: text("account_id").notNull(), // bad-debts expense account
-  amount: money("amount"),
-  journalEntryId: text("journal_entry_id").unique(),
-  recoveredAt: ts("recovered_at"),
-  recoveredJournalEntryId: text("recovered_journal_entry_id"),
-  notes: text("notes"),
-  createdById: text("created_by_id").notNull(),
-  createdAt: createdAt(),
-});
+export const writeOffs = sqliteTable(
+  "write_offs",
+  {
+    id: id(),
+    companyId: text("company_id").notNull(),
+    branchId: text("branch_id").notNull(),
+    docNo: text("doc_no").notNull(), // WO-0001
+    date: ts("date").notNull(),
+    partyId: text("party_id").notNull(),
+    salesDocId: text("sales_doc_id"),
+    accountId: text("account_id").notNull(), // bad-debts expense account
+    amount: money("amount"),
+    journalEntryId: text("journal_entry_id").unique(),
+    recoveredAt: ts("recovered_at"),
+    recoveredJournalEntryId: text("recovered_journal_entry_id"),
+    notes: text("notes"),
+    createdById: text("created_by_id").notNull(),
+    idempotencyKey: text("idempotency_key"), // double-submit protection (migration 0031)
+    createdAt: createdAt(),
+  },
+  (t) => [
+    uniqueIndex("write_offs_idem_key").on(t.companyId, t.idempotencyKey).where(sql`idempotency_key IS NOT NULL`),
+  ]
+);
 
 // ─── QA wave: bank reconciliation + notes (migrations 0025/0026) ────────
 
