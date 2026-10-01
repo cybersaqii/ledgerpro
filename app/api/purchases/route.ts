@@ -6,6 +6,8 @@ import { computeTotals, type DocItemInput } from "@/lib/totals";
 import { parseMoney } from "@/lib/money";
 import { parseQty } from "@/lib/qty";
 import { postPurchaseDoc, distributeExtraCost, postPayment } from "@/lib/posting";
+import { approvalRequired, stageApprovalRequest, findApprovalRequestByIdemKey } from "@/lib/approvals";
+import { clientIp } from "@/lib/rate-limit-db";
 import { createGrn } from "@/lib/grn";
 import { applySupplierAdvance } from "@/lib/supplier-advance";
 import { whtRateBps, whtAmountPaisa } from "@/lib/wht";
@@ -102,6 +104,19 @@ export async function POST(req: NextRequest) {
     if (existing)
       return json(
         { data: { docId: existing.id, docNo: existing.docNo, idempotentReplay: true } },
+        { status: 200 }
+      );
+    const staged = await findApprovalRequestByIdemKey(db, companyId, idemKey);
+    if (staged)
+      return json(
+        {
+          data: {
+            approvalId: staged.id,
+            docNo: staged.docNo,
+            status: staged.status,
+            idempotentReplay: true,
+          },
+        },
         { status: 200 }
       );
   }
@@ -271,6 +286,21 @@ export async function POST(req: NextRequest) {
     .filter((c) => c.amount > 0n);
   const totalExtra = extraCosts.reduce((a, c) => a + c.amount, 0n);
 
+  // Module 6.3: an active approval rule stages over-threshold bills instead
+  // of posting them — no journal, stock, payment or advance moves until an
+  // approver approves the staged request. Same-transaction payments are
+  // rejected; supplier-advance auto-apply is skipped for staged bills (the
+  // approver can allocate the advance manually after approval).
+  const needsApproval =
+    b.docType === "BILL" &&
+    (await approvalRequired(db, companyId, "PURCHASE_BILL", totals.grandTotal));
+  if (needsApproval && b.receipt)
+    return err(
+      "This bill exceeds the approval threshold, so it is staged for approval — record the payment after it is approved.",
+      422,
+      "APPROVAL_NO_RECEIPT"
+    );
+
   try {
     const result = await db.transaction(async (tx) => {
       const branchId = b.branchId || (await defaultBranchId(tx, companyId));
@@ -309,7 +339,7 @@ export async function POST(req: NextRequest) {
         refNo: b.refNo || null,
         date,
         dueDate,
-        status: isPosted ? "POSTED" : "DRAFT",
+        status: needsApproval ? "PENDING_APPROVAL" : isPosted ? "POSTED" : "DRAFT",
         subtotal: totals.subtotal,
         discountTotal: parseMoney(b.discountTotal || "0"),
         taxTotal: totals.taxTotal,
@@ -344,6 +374,33 @@ export async function POST(req: NextRequest) {
       let entryId: string | null = null;
       let paymentDocNo: string | null = null;
       let advanceApplied = 0n;
+      // Module 6.3: staged bills stop here. The payload carries the landed
+      // extra-cost inputs (per-line distribution is already on the item rows)
+      // so approval can replay posting exactly. Nothing financial moves yet.
+      if (needsApproval) {
+        const approvalId = await stageApprovalRequest(tx, {
+          companyId,
+          docType: "PURCHASE_BILL",
+          docId,
+          docNo,
+          partyId: party.id,
+          partyName: party.name,
+          amountPaisa: totals.grandTotal,
+          payload: {
+            extraCosts: extraCosts.map((c) => ({ label: c.label, amountPaisa: c.amount.toString() })),
+            extraCostPaidFrom: b.extraCostPaidFrom,
+            extraCostAccountId: b.extraCostAccountId || undefined,
+            lineBatches: b.items.map((i) => ({
+              batchNo: (i.batchNo || "").trim() || null,
+              expiryDate: (i.expiryDate || "").trim() || null,
+            })),
+          },
+          requestedById: session.uid,
+          requestedByName: session.name,
+          idempotencyKey: idemKey,
+        });
+        return { docId, docNo, entryId, paymentDocNo, advanceApplied, approvalId };
+      }
       if (isPosted) {
         entryId = await postPurchaseDoc(tx, {
           companyId,
@@ -421,8 +478,30 @@ export async function POST(req: NextRequest) {
           });
         }
       }
-      return { docId, docNo, entryId, paymentDocNo, advanceApplied };
+      return { docId, docNo, entryId, paymentDocNo, advanceApplied, approvalId: null as string | null };
     });
+    // Module 6.3: staged for approval — nothing posted yet.
+    if (result.approvalId) {
+      await logAudit(db, {
+        companyId, userId: session.uid, userName: session.name,
+        action: "approval.requested",
+        entity: "approval", entityId: result.approvalId,
+        detail: `Bill ${result.docNo} staged for approval (Rs ${(totals.grandTotal / 100n).toLocaleString()})`,
+        ip: clientIp(req),
+        newValues: { status: "PENDING_APPROVAL", grandTotalPaisa: totals.grandTotal.toString() },
+      });
+      return json(
+        {
+          data: {
+            docId: result.docId,
+            docNo: result.docNo,
+            approvalId: result.approvalId,
+            status: "PENDING_APPROVAL",
+          },
+        },
+        { status: 202 }
+      );
+    }
     await logAudit(db, {
       companyId, userId: session.uid, userName: session.name,
       action: `purchase.${b.docType.toLowerCase()}.created`,
@@ -446,6 +525,19 @@ export async function POST(req: NextRequest) {
       if (existing)
         return json(
           { data: { docId: existing.id, docNo: existing.docNo, idempotentReplay: true } },
+          { status: 200 }
+        );
+      const staged = await findApprovalRequestByIdemKey(db, companyId, idemKey);
+      if (staged)
+        return json(
+          {
+            data: {
+              approvalId: staged.id,
+              docNo: staged.docNo,
+              status: staged.status,
+              idempotentReplay: true,
+            },
+          },
           { status: 200 }
         );
     }

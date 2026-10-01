@@ -803,6 +803,11 @@ export async function allocatePaymentToDoc(
       .limit(1);
     const doc = rows[0];
     if (!doc || doc.partyId !== opts.partyId) throw new UserError("Invalid sales document for allocation");
+    // Module 6: never allocate to an unposted document (DRAFT, PENDING_APPROVAL,
+    // REJECTED) — its journal doesn't exist, so the allocation would mark a
+    // ghost document paid while the money sits nowhere.
+    if (!["POSTED", "PARTIAL", "PAID"].includes(doc.status))
+      throw new UserError(`Cannot allocate to ${doc.docNo}: it is not posted.`, 422, "DOC_NOT_POSTED");
     const remaining = doc.grandTotal - doc.amountPaid - doc.returnedTotal;
     if (opts.amount > remaining) throw new UserError(`Allocation exceeds remaining balance of ${doc.docNo}`);
     const paid = doc.amountPaid + opts.amount;
@@ -826,6 +831,9 @@ export async function allocatePaymentToDoc(
       .limit(1);
     const doc = rows[0];
     if (!doc || doc.partyId !== opts.partyId) throw new UserError("Invalid purchase document for allocation");
+    // Module 6: never allocate to an unposted document (see sales-side note).
+    if (!["POSTED", "PARTIAL", "PAID"].includes(doc.status))
+      throw new UserError(`Cannot allocate to ${doc.docNo}: it is not posted.`, 422, "DOC_NOT_POSTED");
     const remaining = doc.grandTotal - doc.amountPaid - doc.returnedTotal;
     if (opts.amount > remaining) throw new UserError(`Allocation exceeds remaining balance of ${doc.docNo}`);
     const paid = doc.amountPaid + opts.amount;

@@ -31,6 +31,10 @@ export const companies = sqliteTable("companies", {
   address: text("address"),
   city: text("city"),
   ntn: text("ntn"),
+  // ── Module 6 (migration 0037): trade (display) name printed on invoices
+  // when set; STRN (Sales Tax Registration Number) alongside NTN.
+  tradeName: text("trade_name"),
+  strn: text("strn"),
   bankInfo: text("bank_info"), // bank/payment lines printed on invoices
   invoiceFooter: text("invoice_footer"), // default note printed under every invoice
   defaultInvoiceFormat: text("default_invoice_format").notNull().default("80mm"), // 80mm | a4 | challan (migration 0026)
@@ -781,6 +785,8 @@ export const heldBills = sqliteTable(
 );
 
 // Audit trail: who did what, when.
+// ── Module 6 (migration 0037): client IP + before/after JSON snapshots so
+// every CREATE/UPDATE/DELETE/APPROVE/VOID is a complete forensic record.
 export const auditLogs = sqliteTable(
   "audit_logs",
   {
@@ -792,9 +798,69 @@ export const auditLogs = sqliteTable(
     entity: text("entity"), // e.g. "sale", "payment", "user"
     entityId: text("entity_id"),
     detail: text("detail"),
+    ip: text("ip"), // client IP at the time of the action
+    oldValues: text("old_values"), // JSON snapshot before the change
+    newValues: text("new_values"), // JSON snapshot after the change
     createdAt: createdAt(),
   },
   (t) => [index("audit_company_time").on(t.companyId, t.createdAt)]
+);
+
+// ─── Module 6: approval workflows ──────────────────────────────────
+
+// Per-company amount thresholds: a document whose amount exceeds the active
+// rule's threshold is staged as PENDING_APPROVAL instead of posting.
+export const approvalRules = sqliteTable(
+  "approval_rules",
+  {
+    id: id(),
+    companyId: text("company_id").notNull(),
+    docType: text("doc_type").notNull(), // SALES_INVOICE | PURCHASE_BILL | PAYMENT | JOURNAL
+    thresholdPaisa: money("threshold_paisa"), // fires when amount > threshold
+    isActive: flag("is_active", true),
+    createdById: text("created_by_id").notNull(),
+    createdAt: createdAt(),
+    updatedAt: updatedAt(),
+  },
+  (t) => [
+    uniqueIndex("approval_rules_company_doctype").on(t.companyId, t.docType),
+    index("approval_rules_company").on(t.companyId),
+  ]
+);
+
+// Staged approval requests. Invoices/bills have a PENDING_APPROVAL doc row
+// (docId) with no journal/stock/allocation effects yet; payments and journals
+// are staged purely as a validated payload and create no rows until approval.
+export const approvalRequests = sqliteTable(
+  "approval_requests",
+  {
+    id: id(),
+    companyId: text("company_id").notNull(),
+    docType: text("doc_type").notNull(), // SALES_INVOICE | PURCHASE_BILL | PAYMENT | JOURNAL
+    status: text("status").notNull().default("PENDING"), // PENDING | APPROVED | REJECTED | CANCELLED
+    docId: text("doc_id"),
+    docNo: text("doc_no"),
+    partyId: text("party_id"),
+    partyName: text("party_name"),
+    amountPaisa: money("amount_paisa"),
+    payload: text("payload").notNull().default("{}"),
+    requestedById: text("requested_by_id").notNull(),
+    requestedByName: text("requested_by_name"),
+    requestedAt: ts("requested_at").notNull(),
+    decidedById: text("decided_by_id"),
+    decidedByName: text("decided_by_name"),
+    decidedAt: ts("decided_at"),
+    decisionComment: text("decision_comment"),
+    idempotencyKey: text("idempotency_key"),
+    createdAt: createdAt(),
+    updatedAt: updatedAt(),
+  },
+  (t) => [
+    index("approval_requests_company_status").on(t.companyId, t.status, t.requestedAt),
+    uniqueIndex("approval_requests_idem_key")
+      .on(t.companyId, t.idempotencyKey)
+      .where(sql`idempotency_key IS NOT NULL`),
+  ]
 );
 
 // ─── Trial + subscription billing ───────────────────────────────

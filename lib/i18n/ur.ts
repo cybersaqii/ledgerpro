@@ -10,6 +10,7 @@ export const ur: DeepPartial<EnDict> = {
     save: "محفوظ کریں",
     saving: "محفوظ ہو رہا ہے…",
     adding: "شامل ہو رہا ہے…",
+    noPermission: "آپ کو یہ دیکھنے کی اجازت نہیں۔ اپنے مالک سے رابطہ کریں۔",
     cancel: "منسوخ کریں",
     close: "بند کریں",
     closeDialog: "ڈائیلاگ بند کریں",
@@ -84,6 +85,7 @@ export const ur: DeepPartial<EnDict> = {
     products: "مصنوعات",
     stock: "اسٹاک",
     reports: "رپورٹس",
+    approvals: "منظوریاں",
     settings: "ترتیبات",
     billing: "بلنگ",
     admin: "ایڈمن",
@@ -1502,6 +1504,13 @@ export const ur: DeepPartial<EnDict> = {
     city: "شہر",
     cityPh: "مثلاً لاہور",
     ntn: "NTN (اختیاری)",
+    strn: "STRN (اختیاری)",
+    tradeName: "تجارتی نام (اختیاری)",
+    tradeNamePh: "مثلاً احسان الیکٹرانکس",
+    tradeNameHint: "انوائس پر رجسٹرڈ نام کی بجائے چھپے گا، اگر لکھا ہو۔",
+    fiscalYearStart: "مالی سال کا آغاز",
+    fiscalYearStartHint: "آپ کے مالی سال کے آغاز کا مہینہ-دن، MM-DD میں (مثلاً 07-01 یعنی یکم جولائی)۔",
+    navApprovals: "منظوری کے اصول",
     bankInfo: "بینک / ادائیگی کی معلومات",
     bankInfoPh: "Allied Bank : PK59ABPA0010072043610014",
     bankInfoHint: "ہر لائن الگ لکھیں — انوائس کے ہیڈر میں چھپے گا، جیسے بینک اکاؤنٹس۔",
@@ -1626,7 +1635,9 @@ export const ur: DeepPartial<EnDict> = {
     period_lock: "پیریڈ لاک",
     period_lockDesc: "اکاؤنٹنگ پیریڈ لاک کریں",
     audit: "آڈٹ ٹریل",
-    auditDesc: "سرگرمی اور آڈٹ لاگ دیکھیں"
+    auditDesc: "سرگرمی اور آڈٹ لاگ دیکھیں",
+    approvals: "منظوریاں",
+    approvalsDesc: "منظوری کے منتظر دستاویزات منظور یا مسترد کریں"
   },
   settingsteam: {
     title: "ٹیم",
@@ -3031,5 +3042,71 @@ export const ur: DeepPartial<EnDict> = {
     locationTypeSHOP: "دکان",
     locationTypeVAN: "وین",
     locationTypeOTHER: "دیگر"
+  },
+  approvals: {
+    title: "منظوریاں",
+    subtitle: "آپ کی منظوری کے منتظر دستاویزات اور ادائیگیاں",
+    rulesTitle: "منظوری کے اصول",
+    rulesHint: "جب کوئی دستاویز یا ادائیگی اصول کی حد سے زیادہ ہو تو وہ فوراً پوسٹ ہونے کی بجائے منظوری کے لیے رک جاتی ہے۔ منظوری تک کچھ نہیں ہوتا — نہ جرنل، نہ اسٹاک، نہ بیلنس۔",
+    noRules: "ابھی کوئی منظوری کا اصول نہیں۔ بڑے دستاویزات کو منظوری کے لیے روکنے کے لیے نیچے ایک اصول بنائیں۔",
+    documentType: "دستاویز کی قسم",
+    threshold: "منظوری کی حد (روپے)",
+    above: "سے زیادہ",
+    on: "آن",
+    off: "آف",
+    deleteConfirm: "کیا یہ منظوری کا اصول حذف کریں؟",
+    loadError: "منظوریاں لوڈ نہ ہو سکیں۔",
+    saveError: "محفوظ نہ ہو سکا۔ دوبارہ کوشش کریں۔",
+    actionError: "عمل مکمل نہ ہو سکا۔",
+    empty: "منظوری کے لیے کچھ منتظر نہیں",
+    emptyHint: "منظوری کی حد سے زیادہ کے نئے انوائس، بل، ادائیگیاں اور جرنل واؤچر یہاں نظر آئیں گے۔",
+    requestedBy: "درخواست کنندہ",
+    approve: "منظور کریں",
+    reject: "مسترد کریں",
+    cancel: "درخواست منسوخ کریں",
+    approveConfirm: "کیا یہ دستاویز منظور کریں؟ یہ فوراً پوسٹ ہو جائے گی۔",
+    cancelConfirm: "کیا یہ منظوری کی درخواست منسوخ کریں؟",
+    rejectComment: "مسترد کرنے کی وجہ",
+    rejectCommentPh: "مسترد کیوں کیا جا رہا ہے؟",
+    docType: {
+      SALES_INVOICE: "سیلز انوائس",
+      PURCHASE_BILL: "خریداری کا بل",
+      PAYMENT: "ادائیگی",
+      JOURNAL: "جرنل واؤچر"
+    },
+    status: {
+      PENDING: "منظوری منتظر",
+      APPROVED: "منظور شدہ",
+      REJECTED: "مسترد شدہ",
+      CANCELLED: "منسوخ شدہ"
+    },
+    filter: {
+      PENDING: "منتظر",
+      DECIDED: "فیصلہ شدہ"
+    },
+    lines: "{n} لائنیں",
+    pause: "اصول روکیں",
+    resume: "اصول بحال کریں"
+  },
+  template: {
+    title: "انوائس ٹیمپلیٹ",
+    subtitle: "چھپے انوائسز کے لیے برانڈنگ اور ڈیفالٹ",
+    loadError: "ٹیمپلیٹ سیٹنگز لوڈ نہ ہو سکیں۔",
+    saveError: "محفوظ نہ ہو سکا۔ دوبارہ کوشش کریں۔",
+    primaryColor: "بنیادی رنگ",
+    primaryColorHint: "چھپے انوائس پر کاروباری نام کے لیے نمایاں رنگ۔",
+    terms: "پہلے سے طے شرائط",
+    termsPh: "مثلاً بیچا ہوا سامان واپس نہیں ہوگا۔",
+    termsHint: "ان انوائسز پر چھپے گا جن کی اپنی شرائط نہ ہوں۔",
+    signature: "دستخط کی تصویر کا لنک",
+    signatureHint: "آپ کے مجاز دستخط کی تصویر کا HTTPS لنک، انوائس کے آخر میں چھپے گا۔",
+    qrEnabled: "انوائس پر QR کوڈ چھاپیں",
+    qrEnabledHint: "QR میں انوائس کا لنک ہوگا تاکہ جلدی تلاش ہو سکے۔",
+    showLogo: "انوائس پر کمپنی کا لوگو دکھائیں",
+    authorizedSignature: "مجاز دستخط"
+  },
+  activity: {
+    title: "سرگرمی",
+    empty: "ابھی کوئی سرگرمی ریکارڈ نہیں۔"
   }
 };

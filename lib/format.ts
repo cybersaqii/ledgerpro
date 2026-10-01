@@ -43,6 +43,19 @@ export function fmtDate(ms: number | string): string {
   return d.toLocaleDateString("en-PK", { day: "numeric", month: "short", year: "numeric" });
 }
 
+// Module 6: date + time for audit/activity timelines.
+export function fmtDateTime(ms: number | string): string {
+  const d =
+    typeof ms === "string" && !/^-?\d+$/.test(ms.trim())
+      ? new Date(ms)
+      : new Date(typeof ms === "string" ? parseInt(ms, 10) : ms);
+  return (
+    d.toLocaleDateString("en-PK", { day: "numeric", month: "short", year: "numeric" }) +
+    " " +
+    d.toLocaleTimeString("en-PK", { hour: "2-digit", minute: "2-digit" })
+  );
+}
+
 export function fmtDateInput(d: Date = new Date()): string {
   const y = d.getFullYear();
   const m = String(d.getMonth() + 1).padStart(2, "0");

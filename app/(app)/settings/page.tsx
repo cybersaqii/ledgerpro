@@ -11,17 +11,19 @@ import { BUSINESS_TYPES } from "@/lib/business-types";
 import { AUDIT_LOG_RETENTION_YEARS } from "@/lib/audit";
 import { PERMISSION_GROUPS } from "@/lib/permission-keys";
 import { usePermissions } from "@/components/permissions";
+import { ApprovalRulesCard } from "@/components/approval-rules-card";
 
 type Company = {
-  name: string; email: string | null; phone: string | null; address: string | null;
-  city: string | null; ntn: string | null; bankInfo: string | null; invoiceFooter: string | null;
-  businessType: string; defaultInvoiceFormat: string;
+  name: string; tradeName: string | null; email: string | null; phone: string | null; address: string | null;
+  city: string | null; ntn: string | null; strn: string | null; bankInfo: string | null; invoiceFooter: string | null;
+  businessType: string; defaultInvoiceFormat: string; fiscalYearStart: string;
 };
 
-const empty: Company = { name: "", email: "", phone: "", address: "", city: "", ntn: "", bankInfo: "", invoiceFooter: "", businessType: "WHOLESALE", defaultInvoiceFormat: "80mm" };
+const empty: Company = { name: "", tradeName: "", email: "", phone: "", address: "", city: "", ntn: "", strn: "", bankInfo: "", invoiceFooter: "", businessType: "WHOLESALE", defaultInvoiceFormat: "80mm", fiscalYearStart: "07-01" };
 
 const SECTIONS = [
   "sec-company",
+  "sec-approvals",
   "sec-data",
   "sec-import",
   "sec-backups",
@@ -36,6 +38,7 @@ const SECTIONS = [
 
 const SECTION_KEYS: Record<(typeof SECTIONS)[number], string> = {
   "sec-company": "navCompany",
+  "sec-approvals": "navApprovals",
   "sec-data": "navData",
   "sec-import": "navImport",
   "sec-backups": "navBackups",
@@ -80,11 +83,12 @@ export default function SettingsPage() {
   useEffect(() => {
     api<{ data: Company }>("/api/company")
       .then((d) => setForm({
-        name: d.data.name ?? "", email: d.data.email ?? "", phone: d.data.phone ?? "",
-        address: d.data.address ?? "", city: d.data.city ?? "", ntn: d.data.ntn ?? "",
+        name: d.data.name ?? "", tradeName: d.data.tradeName ?? "", email: d.data.email ?? "", phone: d.data.phone ?? "",
+        address: d.data.address ?? "", city: d.data.city ?? "", ntn: d.data.ntn ?? "", strn: d.data.strn ?? "",
         bankInfo: d.data.bankInfo ?? "", invoiceFooter: d.data.invoiceFooter ?? "",
         businessType: d.data.businessType ?? "WHOLESALE",
         defaultInvoiceFormat: (d.data as { defaultInvoiceFormat?: string }).defaultInvoiceFormat ?? "80mm",
+        fiscalYearStart: (d.data as { fiscalYearStart?: string }).fiscalYearStart ?? "07-01",
       }))
       .catch(() => setError(t("settings.loadError")))
       .finally(() => setLoading(false));
@@ -133,6 +137,10 @@ export default function SettingsPage() {
             <Field label={t("settings.businessName")}>
               <input className="field" required value={form.name} onChange={set("name")} />
             </Field>
+            <Field label={t("settings.tradeName")}>
+              <input className="field" value={form.tradeName ?? ""} onChange={set("tradeName")} placeholder={t("settings.tradeNamePh")} />
+              <p className="mt-1 text-xs text-muted-foreground">{t("settings.tradeNameHint")}</p>
+            </Field>
             <Field label={t("settings.businessType")}>
               <select className="field" value={form.businessType} onChange={set("businessType")}>
                 {BUSINESS_TYPES.map((b) => <option key={b.value} value={b.value}>{t(b.label)} — {t(b.hint)}</option>)}
@@ -159,7 +167,21 @@ export default function SettingsPage() {
               <Field label={t("settings.ntn")}>
                 <input className="field" value={form.ntn ?? ""} onChange={set("ntn")} />
               </Field>
+              <Field label={t("settings.strn")}>
+                <input className="field" value={form.strn ?? ""} onChange={set("strn")} />
+              </Field>
             </div>
+            <Field label={t("settings.fiscalYearStart")}>
+              <input
+                className="field max-w-40"
+                value={form.fiscalYearStart}
+                onChange={set("fiscalYearStart")}
+                placeholder="07-01"
+                pattern="(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])"
+                title="MM-DD"
+              />
+              <p className="mt-1 text-xs text-muted-foreground">{t("settings.fiscalYearStartHint")}</p>
+            </Field>
             <Field label={t("settings.bankInfo")}>
               <textarea className="field min-h-20" value={form.bankInfo ?? ""} onChange={set("bankInfo")} placeholder={t("settings.bankInfoPh")} />
               <p className="mt-1 text-xs text-muted-foreground">{t("settings.bankInfoHint")}</p>
@@ -183,6 +205,9 @@ export default function SettingsPage() {
             </div>
           </form>
         )}
+      </div>
+      <div id="sec-approvals" className="card card-gloss anchor-scroll mt-6 mx-auto max-w-2xl p-6 sm:p-8">
+        {canEditCompany && <ApprovalRulesCard />}
       </div>
       <div id="sec-data" className="card card-gloss anchor-scroll mt-6 mx-auto max-w-2xl p-6 sm:p-8">
         <h2 className="text-lg font-extrabold">{t("settings.dataTitle")}</h2>

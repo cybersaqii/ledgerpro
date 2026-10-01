@@ -17,8 +17,22 @@ export async function logAudit(
     entity?: string;
     entityId?: string;
     detail?: string;
+    // ── Module 6: forensic fields. `ip` is the client IP at action time;
+    // oldValues/newValues are JSON-serializable before/after snapshots.
+    ip?: string | null;
+    oldValues?: unknown;
+    newValues?: unknown;
   }
 ): Promise<void> {
+  const safeJson = (v: unknown): string | null => {
+    if (v === undefined) return null;
+    try {
+      const s = JSON.stringify(v, (_k, val) => (typeof val === "bigint" ? val.toString() : val));
+      return s ?? null;
+    } catch {
+      return null;
+    }
+  };
   try {
     await dbx.insert(auditLogs).values({
       id: crypto.randomUUID(),
@@ -29,6 +43,9 @@ export async function logAudit(
       entity: input.entity ?? null,
       entityId: input.entityId ?? null,
       detail: input.detail ?? null,
+      ip: input.ip ?? null,
+      oldValues: safeJson(input.oldValues),
+      newValues: safeJson(input.newValues),
     });
   } catch (err) {
     // Audit is best-effort and never throws — but a failed audit write is a

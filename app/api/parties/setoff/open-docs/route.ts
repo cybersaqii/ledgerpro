@@ -1,5 +1,5 @@
 import { NextRequest } from "next/server";
-import { eq, and, ne } from "drizzle-orm";
+import { eq, and, inArray } from "drizzle-orm";
 import { parties, salesDocs, purchaseDocs } from "@/db/schema";
 import { json, err } from "@/lib/api";
 import { requirePermission, db } from "@/lib/route-helpers";
@@ -46,7 +46,9 @@ export async function GET(req: NextRequest) {
         eq(salesDocs.companyId, companyId),
         eq(salesDocs.partyId, customerId),
         eq(salesDocs.docType, "INVOICE"),
-        ne(salesDocs.status, "VOID")
+        // Only posted-side docs can be netted — DRAFT, PENDING_APPROVAL and
+        // REJECTED docs have no journal behind them.
+        inArray(salesDocs.status, ["POSTED", "PARTIAL"])
       )
     )
     .orderBy(salesDocs.date);
@@ -67,7 +69,9 @@ export async function GET(req: NextRequest) {
         eq(purchaseDocs.companyId, companyId),
         eq(purchaseDocs.partyId, supplierId),
         eq(purchaseDocs.docType, "BILL"),
-        ne(purchaseDocs.status, "VOID")
+        // Only posted-side docs can be netted — DRAFT, PENDING_APPROVAL and
+        // REJECTED docs have no journal behind them.
+        inArray(purchaseDocs.status, ["POSTED", "PARTIAL"])
       )
     )
     .orderBy(purchaseDocs.date);

@@ -195,6 +195,7 @@ describe("idempotency keys + money-create rate limits", () => {
     );
     const idxNames = (idx.rows as unknown as { name: string; sql: string }[]).map((r) => r.name).sort();
     expect(idxNames).toEqual([
+      "approval_requests_idem_key", // Module 6: staged approval requests
       "bank_adjustments_idem_key", // Module 3
       "expenses_idem_key",
       "journal_entries_idem_key", // Module 5: manual journal vouchers + set-off entries

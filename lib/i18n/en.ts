@@ -28,6 +28,7 @@ export const en = {
     print: "Print",
     actions: "Actions",
     total: "Total",
+    noPermission: "You don't have permission to view this. Ask your owner for access.",
     subtotal: "Subtotal",
     discount: "Discount",
     grandTotal: "Grand total",
@@ -82,6 +83,7 @@ export const en = {
     products: "Products",
     stock: "Stock",
     reports: "Reports",
+    approvals: "Approvals",
     settings: "Settings",
     billing: "Billing",
     admin: "Admin",
@@ -1505,6 +1507,13 @@ export const en = {
     city: "City",
     cityPh: "e.g. Lahore",
     ntn: "NTN (optional)",
+    strn: "STRN (optional)",
+    tradeName: "Trade name (optional)",
+    tradeNamePh: "e.g. Ihsan Electronics",
+    tradeNameHint: "Printed on invoices instead of the registered business name, when set.",
+    fiscalYearStart: "Fiscal year start",
+    fiscalYearStartHint: "Month-day your financial year begins, as MM-DD (e.g. 07-01 for July 1st).",
+    navApprovals: "Approval rules",
     bankInfo: "Bank / payment info",
     bankInfoPh: "Allied Bank : PK59ABPA0010072043610014",
     bankInfoHint: "One per line — printed in the invoice header, like bank accounts.",
@@ -1629,7 +1638,9 @@ export const en = {
     period_lock: "Period lock",
     period_lockDesc: "Lock accounting periods",
     audit: "Audit trail",
-    auditDesc: "View the activity and audit log"
+    auditDesc: "View the activity and audit log",
+    approvals: "Approvals",
+    approvalsDesc: "Approve or reject documents waiting for approval"
   },
   settingsteam: {
     title: "Team",
@@ -3034,6 +3045,72 @@ export const en = {
     locationTypeSHOP: "Shop",
     locationTypeVAN: "Van",
     locationTypeOTHER: "Other"
+  },
+  approvals: {
+    title: "Approvals",
+    subtitle: "Documents and payments waiting for your approval",
+    rulesTitle: "Approval rules",
+    rulesHint: "When a document or payment is above a rule's threshold, it is held for approval instead of posting immediately. Nothing moves — no journal, no stock, no balances — until an approver approves it.",
+    noRules: "No approval rules yet. Add one below to start holding large documents for approval.",
+    documentType: "Document type",
+    threshold: "Approval threshold (Rs)",
+    above: "Above",
+    on: "On",
+    off: "Off",
+    deleteConfirm: "Delete this approval rule?",
+    loadError: "Could not load approvals.",
+    saveError: "Could not save. Please try again.",
+    actionError: "Could not complete the action.",
+    empty: "Nothing waiting for approval",
+    emptyHint: "New invoices, bills, payments and journal vouchers above your approval thresholds will appear here.",
+    requestedBy: "Requested by",
+    approve: "Approve",
+    reject: "Reject",
+    cancel: "Cancel request",
+    approveConfirm: "Approve this document? It will post immediately.",
+    cancelConfirm: "Cancel this approval request?",
+    rejectComment: "Rejection reason",
+    rejectCommentPh: "Why is this being rejected?",
+    docType: {
+      SALES_INVOICE: "Sales invoice",
+      PURCHASE_BILL: "Purchase bill",
+      PAYMENT: "Payment",
+      JOURNAL: "Journal voucher"
+    },
+    status: {
+      PENDING: "Pending approval",
+      APPROVED: "Approved",
+      REJECTED: "Rejected",
+      CANCELLED: "Cancelled"
+    },
+    filter: {
+      PENDING: "Waiting",
+      DECIDED: "Decided"
+    },
+    lines: "{n} lines",
+    pause: "Pause rule",
+    resume: "Resume rule"
+  },
+  template: {
+    title: "Invoice template",
+    subtitle: "Branding and defaults for printed invoices",
+    loadError: "Could not load template settings.",
+    saveError: "Could not save. Please try again.",
+    primaryColor: "Primary colour",
+    primaryColorHint: "Accent colour for the business name on printed invoices.",
+    terms: "Default terms & conditions",
+    termsPh: "e.g. Goods once sold cannot be returned.",
+    termsHint: "Printed on invoices that don't have their own terms.",
+    signature: "Signature image URL",
+    signatureHint: "HTTPS link to your authorised-signature image, printed at the bottom of invoices.",
+    qrEnabled: "Print a QR code on invoices",
+    qrEnabledHint: "The QR encodes the invoice link for quick lookup.",
+    showLogo: "Show company logo on invoices",
+    authorizedSignature: "Authorized signature"
+  },
+  activity: {
+    title: "Activity",
+    empty: "No activity recorded yet."
   }
 } as const;
 

@@ -2,11 +2,11 @@ import { NextRequest } from "next/server";
 import { eq, and, sql, inArray } from "drizzle-orm";
 import { parties, salesDocs, purchaseDocs, payments } from "@/db/schema";
 import { json, err } from "@/lib/api";
-import { requireCompany, db } from "@/lib/route-helpers";
+import { requirePermission, db } from "@/lib/route-helpers";
 
 // GET /api/parties/[id]/stats — Customer 360: lifetime value, bills, payments, last activity
 export async function GET(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-  const gate = await requireCompany();
+  const gate = await requirePermission("parties");
   if (!gate.ok) return gate.response;
   const { companyId } = gate;
   const { id } = await params;

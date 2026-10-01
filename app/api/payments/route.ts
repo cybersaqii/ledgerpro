@@ -8,6 +8,8 @@ import { fifoAllocations } from "@/lib/auto-allocate";
 import { json, err } from "@/lib/api";
 import { toApiError, UserError } from "@/lib/errors";
 import { requirePermission, db, parseDateOnly, defaultBranchId, assertBranch } from "@/lib/route-helpers";
+import { approvalRequired, stageApprovalRequest, findApprovalRequestByIdemKey } from "@/lib/approvals";
+import { clientIp } from "@/lib/rate-limit-db";
 import { periodLockError } from "@/lib/period";
 import { logAudit } from "@/lib/audit";
 import {
@@ -95,6 +97,19 @@ export async function POST(req: NextRequest) {
         { data: { id: existing.id, docNo: existing.docNo, idempotentReplay: true } },
         { status: 200 }
       );
+    const staged = await findApprovalRequestByIdemKey(db, companyId, idemKey);
+    if (staged)
+      return json(
+        {
+          data: {
+            approvalId: staged.id,
+            docNo: staged.docNo,
+            status: staged.status,
+            idempotentReplay: true,
+          },
+        },
+        { status: 200 }
+      );
   }
   const rl = await throttleMoneyCreate(db, "payments", session.uid, companyId);
   if (!rl.ok)
@@ -110,12 +125,17 @@ export async function POST(req: NextRequest) {
   const lockErr = await periodLockError(db, companyId, date);
   if (lockErr) return err(lockErr, 422, "PERIOD_LOCKED");
 
+  // Module 6.3: an active approval rule stages over-threshold payments —
+  // no journal, no allocation, no balance movement until approved.
+  const needsApproval = await approvalRequired(db, companyId, "PAYMENT", amount);
+
   try {
     const paymentResult = await db.transaction(async (tx) => {
       const branchId = b.branchId || (await defaultBranchId(tx, companyId));
       await assertBranch(tx, companyId, branchId);
 
       let partyId: string;
+      let partyName: string | null = null;
       {
         if (!b.partyId) throw new UserError("Please select a customer or supplier.", 422);
         const pr = await tx
@@ -125,7 +145,39 @@ export async function POST(req: NextRequest) {
           .limit(1);
         if (!pr[0]) throw new UserError("Selected party is invalid.", 422);
         partyId = pr[0].id;
- }
+        partyName = pr[0].name;
+      }
+
+      if (needsApproval) {
+        const approvalId = await stageApprovalRequest(tx, {
+          companyId,
+          docType: "PAYMENT",
+          partyId,
+          partyName: partyName ?? undefined,
+          amountPaisa: amount,
+          payload: {
+            kind: b.kind,
+            partyId,
+            branchId,
+            dateISO: date.toISOString(),
+            bankAccountId: b.bankAccountId,
+            amountPaisa: amount.toString(),
+            method: b.method,
+            reference: b.reference || undefined,
+            notes: b.notes || undefined,
+            allocations: b.allocations.map((a) => ({
+              docId: a.docId,
+              docKind: a.docKind,
+              amountPaisa: a.amount,
+            })),
+            autoAllocate: !!b.autoAllocate,
+          },
+          requestedById: session.uid,
+          requestedByName: session.name,
+          idempotencyKey: idemKey,
+        });
+        return { id: "", docNo: "", approvalId };
+      }
 
       const { id: pid, docNo } = await postPayment(tx, {
         companyId,
@@ -153,9 +205,25 @@ export async function POST(req: NextRequest) {
         createdById: session.uid,
         ...(idemKey ? { idempotencyKey: idemKey } : {}),
  });
-      return { id: pid, docNo };
+      return { id: pid, docNo, approvalId: null as string | null };
  });
     const { id: paymentId, docNo } = paymentResult;
+    // Module 6.3: staged for approval — no journal, no allocation, no
+    // balance movement yet.
+    if (paymentResult.approvalId) {
+      await logAudit(db, {
+        companyId, userId: session.uid, userName: session.name,
+        action: "approval.requested",
+        entity: "approval", entityId: paymentResult.approvalId,
+        detail: `${b.kind === "RECEIPT" ? "Receipt" : "Payment"} of Rs ${(amount / 100n).toLocaleString()} staged for approval`,
+        ip: clientIp(req),
+        newValues: { status: "PENDING_APPROVAL", amountPaisa: amount.toString() },
+      });
+      return json(
+        { data: { approvalId: paymentResult.approvalId, status: "PENDING_APPROVAL" } },
+        { status: 202 }
+      );
+    }
     await logAudit(db, {
       companyId, userId: session.uid, userName: session.name,
       action: "payment.created", entity: "payment", entityId: paymentId,
@@ -170,6 +238,19 @@ export async function POST(req: NextRequest) {
       if (existing)
         return json(
           { data: { id: existing.id, docNo: existing.docNo, idempotentReplay: true } },
+          { status: 200 }
+        );
+      const staged = await findApprovalRequestByIdemKey(db, companyId, idemKey);
+      if (staged)
+        return json(
+          {
+            data: {
+              approvalId: staged.id,
+              docNo: staged.docNo,
+              status: staged.status,
+              idempotentReplay: true,
+            },
+          },
           { status: 200 }
         );
     }

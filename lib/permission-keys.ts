@@ -21,6 +21,9 @@ export const PERMISSIONS = [
   "backups",
   "period_lock",
   "audit",
+  // Module 6: approve/reject staged documents (amount-threshold workflows).
+  // Kept out of the staff defaults: approval power is explicitly granted.
+  "approvals",
 ] as const;
 
 export type Permission = (typeof PERMISSIONS)[number];
@@ -55,7 +58,7 @@ export const PERMISSION_GROUPS: { key: string; permissions: Permission[] }[] = [
   { key: "daily", permissions: ["sales", "purchases", "pos", "payments", "expenses", "held_bills"] },
   { key: "masters", permissions: ["parties", "products", "stock", "documents"] },
   { key: "insights", permissions: ["reports_basic", "reports_accounting", "audit"] },
-  { key: "admin", permissions: ["settings", "team", "import_export", "backups", "period_lock"] },
+  { key: "admin", permissions: ["settings", "team", "import_export", "backups", "period_lock", "approvals"] },
 ];
 
 /** Label/description i18n keys for a permission: perms.<key>, perms.<key>Desc. */

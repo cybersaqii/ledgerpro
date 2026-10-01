@@ -1,4 +1,4 @@
-import { and, eq, asc, sql } from "drizzle-orm";
+import { and, eq, asc, sql, inArray } from "drizzle-orm";
 import { salesDocs, purchaseDocs } from "@/db/schema";
 import type { DbTx } from "./db";
 
@@ -29,6 +29,10 @@ export async function fifoAllocations(
           eq(salesDocs.companyId, input.companyId),
           eq(salesDocs.partyId, input.partyId),
           eq(salesDocs.docType, "INVOICE"),
+          // Only posted-side docs: DRAFT and PENDING_APPROVAL invoices have
+          // no journal/AR behind them, so allocating to one would both move
+          // cash and mark a ghost document paid.
+          inArray(salesDocs.status, ["POSTED", "PARTIAL"]),
           sql`${salesDocs.grandTotal} - ${salesDocs.amountPaid} - ${salesDocs.returnedTotal} - ${salesDocs.writtenOffAmount} > 0`
         )
       )
@@ -50,6 +54,8 @@ export async function fifoAllocations(
           eq(purchaseDocs.companyId, input.companyId),
           eq(purchaseDocs.partyId, input.partyId),
           eq(purchaseDocs.docType, "BILL"),
+          // Only posted-side docs (see the sales-side note above).
+          inArray(purchaseDocs.status, ["POSTED", "PARTIAL"]),
           sql`${purchaseDocs.grandTotal} - ${purchaseDocs.amountPaid} - ${purchaseDocs.returnedTotal} - ${purchaseDocs.writtenOffAmount} > 0`
         )
       )

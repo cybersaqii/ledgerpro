@@ -11,6 +11,7 @@ import { useLang } from "@/components/lang-provider";
 import { useBusinessProfile } from "@/components/business-type";
 import { usePermissions } from "@/components/permissions";
 import { WriteOffModal, recoverWriteOff } from "@/components/write-off-modal";
+import { ActivityTimeline } from "@/components/activity-timeline";
 import { GrnReceiveDialog } from "@/components/grn-receive-dialog";
 import { tr, type Lang } from "@/lib/i18n";
 
@@ -32,8 +33,15 @@ type Doc = {
 };
 type Company = {
   name: string; phone: string | null; address: string | null; city: string | null; ntn: string | null;
-  bankInfo: string | null; invoiceFooter: string | null; defaultInvoiceFormat: string | null;
+  bankInfo: string | null; invoiceFooter: string | null; logoUrl: string | null;
+  defaultInvoiceFormat: string | null;
 };
+
+// Module 6.5: template designer branding applied to the print views.
+type Template = {
+  primaryColor: string; terms: string; signatureUrl: string; qrEnabled: boolean; showLogo: boolean;
+};
+const TEMPLATE_DEFAULTS: Template = { primaryColor: "#0f766e", terms: "", signatureUrl: "", qrEnabled: false, showLogo: true };
 
 type PrintFormat = "a4" | "80mm" | "challan";
 type CopyKind = "ORIGINAL" | "DUPLICATE" | "OFFICE_COPY";
@@ -139,6 +147,8 @@ export function DocDetail({ mode, id }: { mode: "SALES" | "PURCHASE" | "NOTE"; i
   const canWriteOff = permissions.includes("payments");
   const [doc, setDoc] = useState<Doc | null>(null);
   const [company, setCompany] = useState<Company | null>(null);
+  const [tpl, setTpl] = useState<Template>(TEMPLATE_DEFAULTS);
+  const [qrUrl, setQrUrl] = useState<string | null>(null);
   const [formatSel, setFormatSel] = useState<PrintFormat | null>(null);
   const [copySel, setCopySel] = useState<CopyKind>("ORIGINAL");
   const [error, setError] = useState<string | null>(null);
@@ -171,13 +181,28 @@ export function DocDetail({ mode, id }: { mode: "SALES" | "PURCHASE" | "NOTE"; i
     Promise.all([
       api<{ data: Doc }>(docUrl),
       api<{ data: Company }>("/api/company").catch(() => null),
+      api<{ data: Template }>("/api/company/template").catch(() => null),
     ])
-      .then(([d, c]) => {
+      .then(([d, c, tmpl]) => {
         setDoc(d.data);
         if (c) setCompany(c.data);
+        if (tmpl) setTpl({ ...TEMPLATE_DEFAULTS, ...tmpl.data });
       })
       .catch((e) => setError(e instanceof Error ? e.message : t("docdetail.loadError")));
   }, [id, isSales, noteMode, t]);
+
+  // Module 6.5: QR code for the printed invoice (encodes the document URL).
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- clear a stale QR when the doc/template context changes, then regenerate
+    if (!tpl.qrEnabled || !doc) { setQrUrl(null); return; }
+    let alive = true;
+    const text = `${window.location.origin}${isSales ? "/sales" : "/purchases"}/${doc.id}`;
+    import("qrcode")
+      .then(({ default: QRCode }) => QRCode.toDataURL(text, { width: 132, margin: 1 }))
+      .then((url) => { if (alive) setQrUrl(url); })
+      .catch(() => { if (alive) setQrUrl(null); });
+    return () => { alive = false; };
+  }, [tpl.qrEnabled, doc, isSales]);
 
   // Notes linked to this document (credit/debit notes against the invoice/bill).
   const linkedDocId = doc?.id;
@@ -299,6 +324,34 @@ export function DocDetail({ mode, id }: { mode: "SALES" | "PURCHASE" | "NOTE"; i
     return `${base}?text=${encodeURIComponent(waText(d))}`;
   }
 
+  // ── Module 6.5: template-designer footer extras shared by both print formats.
+  const renderTemplateFooter = (textCls: string) => (
+    <>
+      {tpl.terms && !doc?.terms && (
+        <div className="mt-2">
+          <p className={`font-extrabold ${textCls}`}>{t("docdetail.terms")}</p>
+          <div className="border-t border-black" />
+          <p className={`mt-1 break-words whitespace-pre-wrap ${textCls}`}>{tpl.terms}</p>
+        </div>
+      )}
+      {(tpl.signatureUrl || qrUrl) && (
+        <div className="mt-4 flex items-end justify-between gap-4">
+          {tpl.signatureUrl ? (
+            <div className="text-center">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={tpl.signatureUrl} alt="signature" className="mx-auto max-h-16 object-contain" />
+              <p className={`mt-1 border-t border-black pt-1 ${textCls}`}>{t("template.authorizedSignature")}</p>
+            </div>
+          ) : <span />}
+          {qrUrl && (
+            /* eslint-disable-next-line @next/next/no-img-element */
+            <img src={qrUrl} alt="QR" className="h-20 w-20" />
+          )}
+        </div>
+      )}
+    </>
+  );
+
   return (
     <div>
       <div className="print:hidden">
@@ -363,7 +416,13 @@ export function DocDetail({ mode, id }: { mode: "SALES" | "PURCHASE" | "NOTE"; i
         <div className="card mx-auto max-w-3xl p-6 sm:p-10 print:border-0 print:shadow-none">
           <div className="flex items-start justify-between gap-4">
             <div>
-              <h1 className="text-2xl font-extrabold tracking-tight">{sellerName}</h1>
+              <div className="flex items-center gap-3">
+                {tpl.showLogo && company?.logoUrl && (
+                  /* eslint-disable-next-line @next/next/no-img-element */
+                  <img src={company.logoUrl} alt="" className="h-14 w-14 rounded-xl object-contain" />
+                )}
+                <h1 className="text-2xl font-extrabold tracking-tight" style={{ color: tpl.primaryColor }}>{sellerName}</h1>
+              </div>
               {sellerLines && <p className="mt-1 max-w-sm text-sm text-muted-foreground">{sellerLines}</p>}
               {company?.ntn && <p className="mt-0.5 text-xs text-muted-foreground">NTN: {company.ntn}</p>}
               <p className="mt-2 text-sm font-bold text-primary">{t("docdetail.deliveryChallan")}</p>
@@ -407,12 +466,19 @@ export function DocDetail({ mode, id }: { mode: "SALES" | "PURCHASE" | "NOTE"; i
           </div>
 
           <p className="mt-10 text-center text-xs text-muted-foreground">{t("docdetail.goodsReceived", { brand: brand.name })}</p>
+          {renderTemplateFooter("text-xs")}
         </div>
       ) : format === "a4" ? (
         <div className="card mx-auto max-w-3xl p-4 sm:p-10 print:border-0 print:shadow-none">
           <div className="flex items-start justify-between gap-4">
             <div>
-              <h1 className="text-2xl font-extrabold tracking-tight">{sellerName}</h1>
+              <div className="flex items-center gap-3">
+                {tpl.showLogo && company?.logoUrl && (
+                  /* eslint-disable-next-line @next/next/no-img-element */
+                  <img src={company.logoUrl} alt="" className="h-14 w-14 rounded-xl object-contain" />
+                )}
+                <h1 className="text-2xl font-extrabold tracking-tight" style={{ color: tpl.primaryColor }}>{sellerName}</h1>
+              </div>
               {sellerLines && <p className="mt-1 max-w-sm text-sm text-muted-foreground">{sellerLines}</p>}
               {company?.ntn && <p className="mt-0.5 text-xs text-muted-foreground">NTN: {company.ntn}</p>}
               <p className="mt-2 text-sm font-bold text-primary">{docTitle}</p>
@@ -520,6 +586,7 @@ export function DocDetail({ mode, id }: { mode: "SALES" | "PURCHASE" | "NOTE"; i
           )}
 
           {company?.invoiceFooter && <p className="mt-6 text-sm">{company.invoiceFooter}</p>}
+          {renderTemplateFooter("text-sm")}
           <p className="mt-2 text-center text-sm font-semibold">{t("docdetail.thankYou")}</p>
           <p className="mt-4 text-center text-xs text-muted-foreground">{t("docdetail.generatedBy", { brand: brand.name, tagline: brand.tagline })}</p>
         </div>
@@ -527,7 +594,11 @@ export function DocDetail({ mode, id }: { mode: "SALES" | "PURCHASE" | "NOTE"; i
         <div className="thermal mx-auto bg-white p-3 text-black print:shadow-none">
           {/* header: business name, address, bank lines, phone */}
           <div className="text-center">
-            <p className="break-words text-[15px] font-extrabold leading-tight">{sellerName}</p>
+            {tpl.showLogo && company?.logoUrl && (
+              /* eslint-disable-next-line @next/next/no-img-element */
+              <img src={company.logoUrl} alt="" className="mx-auto mb-1 h-12 w-12 rounded-lg object-contain" />
+            )}
+            <p className="break-words text-[15px] font-extrabold leading-tight" style={{ color: tpl.primaryColor }}>{sellerName}</p>
             {company?.address && <p className="mt-0.5 break-words text-[11px] leading-snug">{company.address}</p>}
             {company?.city && <p className="break-words text-[11px] leading-snug">{company.city}</p>}
             {company?.bankInfo && company.bankInfo.split("\n").map((line, i) => (
@@ -639,6 +710,7 @@ export function DocDetail({ mode, id }: { mode: "SALES" | "PURCHASE" | "NOTE"; i
               <p className="mt-1 break-words">{company.invoiceFooter}</p>
             </div>
           )}
+          {renderTemplateFooter("text-[11px]")}
 
           <p className="mt-3 text-center text-[11px]">{t("docdetail.thankYou")}</p>
           <p className="mt-1 text-center text-[10px] text-neutral-500">{t("docdetail.poweredBy", { brand: brand.name })}</p>
@@ -697,6 +769,11 @@ export function DocDetail({ mode, id }: { mode: "SALES" | "PURCHASE" | "NOTE"; i
           </div>
         </div>
       )}
+
+      {/* Module 6.4: audit activity timeline for this document (screen only) */}
+      <div className="mx-auto mt-5 max-w-3xl print:hidden">
+        <ActivityTimeline entity={isSales ? "sale" : "purchase"} entityId={doc.id} />
+      </div>
 
       <style>{`
         .thermal { width: 72mm; max-width: 100%; }

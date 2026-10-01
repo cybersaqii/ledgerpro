@@ -164,10 +164,14 @@ export function StatusPill({ status }: { status: string }) {
     : s === "POSTED" || s === "APPROVED" || s === "PAID" || s === "CONVERTED" ? "bg-primary-soft text-primary"
     : s === "ISSUED" ? "bg-accent-soft text-accent"
     : s === "PARTIAL" || s === "PARTIALLY_RECEIVED" ? "bg-warning-soft text-warning"
+    : s === "PENDING_APPROVAL" ? "bg-warning-soft text-warning"
     : s === "RETURN" || s === "RETURNED" || s === "REJECTED" || s === "CANCELLED" || s === "VOID" ? "bg-danger-soft text-danger"
     : "bg-muted text-muted-foreground";
   // Module 2 statuses read better with a space: PARTIALLY_RECEIVED -> Partially received
-  const label = s === "PARTIALLY_RECEIVED" ? "Partially received" : s.charAt(0) + s.slice(1).toLowerCase();
+  const label =
+    s === "PARTIALLY_RECEIVED" ? "Partially received"
+    : s === "PENDING_APPROVAL" ? "Pending approval"
+    : s.charAt(0) + s.slice(1).toLowerCase();
   return <span className={`badge ${cls}`}>{label}</span>;
 }
 

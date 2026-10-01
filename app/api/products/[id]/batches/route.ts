@@ -3,11 +3,11 @@ import { eq, and } from "drizzle-orm";
 import { products } from "@/db/schema";
 import { getProductBatches } from "@/lib/batches";
 import { json, err } from "@/lib/api";
-import { requireCompany, db } from "@/lib/route-helpers";
+import { requirePermission, db } from "@/lib/route-helpers";
 
 // GET /api/products/[id]/batches — batch rows for one product (FIFO order).
 export async function GET(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-  const gate = await requireCompany();
+  const gate = await requirePermission("products");
   if (!gate.ok) return gate.response;
   const { companyId } = gate;
   const { id } = await params;

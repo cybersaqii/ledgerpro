@@ -6,6 +6,8 @@ import { toApiError } from "@/lib/errors";
 import { requirePermission, db, defaultBranchId, assertBranch, parseDateOnly } from "@/lib/route-helpers";
 import { periodLockError } from "@/lib/period";
 import { postManualJournal, parseLineAmount } from "@/lib/journal-vouchers";
+import { approvalRequired, stageApprovalRequest, findApprovalRequestByIdemKey } from "@/lib/approvals";
+import { clientIp } from "@/lib/rate-limit-db";
 import { logAudit } from "@/lib/audit";
 import {
   extractIdempotencyKey,
@@ -50,6 +52,19 @@ export async function POST(req: NextRequest) {
     const existing = await findByIdempotencyKey(db, journalEntries, companyId, idemKey);
     if (existing)
       return json({ data: { id: existing.id, docNo: existing.docNo, idempotentReplay: true } }, { status: 200 });
+    const staged = await findApprovalRequestByIdemKey(db, companyId, idemKey);
+    if (staged)
+      return json(
+        {
+          data: {
+            approvalId: staged.id,
+            docNo: staged.docNo,
+            status: staged.status,
+            idempotentReplay: true,
+          },
+        },
+        { status: 200 }
+      );
   }
   const rl = await throttleMoneyCreate(db, "journal-vouchers", session.uid, companyId);
   if (!rl.ok)
@@ -75,11 +90,39 @@ export async function POST(req: NextRequest) {
     return toApiError(e, { route: "/api/journal-vouchers", companyId });
   }
 
+  // Module 6.3: an active approval rule stages over-threshold vouchers —
+  // no journal entry is written until an approver approves the request.
+  const totalPaisa = lines.reduce((a, l) => a + l.debit, 0n);
+  const needsApproval = await approvalRequired(db, companyId, "JOURNAL", totalPaisa);
+
   try {
-    const { entryId, docNo } = await db.transaction(async (tx) => {
+    const { entryId, docNo, approvalId } = await db.transaction(async (tx) => {
       const branchId = b.data.branchId || (await defaultBranchId(tx, companyId));
       await assertBranch(tx, companyId, branchId);
-      return postManualJournal(tx, {
+      if (needsApproval) {
+        const stagedId = await stageApprovalRequest(tx, {
+          companyId,
+          docType: "JOURNAL",
+          amountPaisa: totalPaisa,
+          payload: {
+            branchId,
+            dateISO: date.toISOString(),
+            memo: b.data.memo,
+            lines: lines.map((l) => ({
+              accountId: l.accountId,
+              debitPaisa: l.debit.toString(),
+              creditPaisa: l.credit.toString(),
+              partyId: l.partyId,
+              memo: l.memo,
+            })),
+          },
+          requestedById: session.uid,
+          requestedByName: session.name,
+          idempotencyKey: idemKey,
+        });
+        return { entryId: "", docNo: "", approvalId: stagedId };
+      }
+      const posted = await postManualJournal(tx, {
         companyId,
         branchId,
         date,
@@ -88,7 +131,19 @@ export async function POST(req: NextRequest) {
         createdById: session.uid,
         ...(idemKey ? { idempotencyKey: idemKey } : {}),
       });
+      return { ...posted, approvalId: null as string | null };
     });
+    if (approvalId) {
+      await logAudit(db, {
+        companyId, userId: session.uid, userName: session.name,
+        action: "approval.requested",
+        entity: "approval", entityId: approvalId,
+        detail: `Journal voucher "${b.data.memo.slice(0, 60)}" staged for approval (Rs ${(totalPaisa / 100n).toLocaleString()})`,
+        ip: clientIp(req),
+        newValues: { status: "PENDING_APPROVAL", totalPaisa: totalPaisa.toString() },
+      });
+      return json({ data: { approvalId, status: "PENDING_APPROVAL" } }, { status: 202 });
+    }
     await logAudit(db, {
       companyId, userId: session.uid, userName: session.name,
       action: "journal.created", entity: "journal", entityId: entryId,
@@ -100,6 +155,12 @@ export async function POST(req: NextRequest) {
       const existing = await findByIdempotencyKey(db, journalEntries, companyId, idemKey);
       if (existing)
         return json({ data: { id: existing.id, docNo: existing.docNo, idempotentReplay: true } }, { status: 200 });
+      const staged = await findApprovalRequestByIdemKey(db, companyId, idemKey);
+      if (staged)
+        return json(
+          { data: { approvalId: staged.id, docNo: staged.docNo, status: staged.status, idempotentReplay: true } },
+          { status: 200 }
+        );
     }
     return toApiError(e, { route: "/api/journal-vouchers", companyId });
   }

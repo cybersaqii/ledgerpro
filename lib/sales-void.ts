@@ -51,7 +51,9 @@ export async function voidSalesInvoice(
   if (!doc) throw new UserError("Invoice not found.");
   if (doc.docType !== "INVOICE") throw new UserError("Only sales invoices can be voided.");
   if (doc.voidedAt) throw new UserError("This invoice is already voided.");
-  if (doc.status === "DRAFT" || doc.status === "CONVERTED")
+  // Module 6: a PENDING_APPROVAL/REJECTED invoice has no journal to reverse
+  // (reject it from the approvals inbox instead of voiding).
+  if (["DRAFT", "CONVERTED", "PENDING_APPROVAL", "REJECTED"].includes(doc.status))
     throw new UserError("Only posted invoices can be voided.");
   if (BigInt(doc.returnedTotal ?? 0n) > 0n)
     throw new UserError("This invoice has returns or credit notes linked — void those first.");

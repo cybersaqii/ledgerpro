@@ -1,27 +1,35 @@
 import { NextRequest } from "next/server";
-import { eq } from "drizzle-orm";
+import { eq, and } from "drizzle-orm";
 import { z } from "zod";
-import { companies, users } from "@/db/schema";
+import { companies, settings, users } from "@/db/schema";
 
 import { json, err } from "@/lib/api";
 import { requireCompany, requireOwner, requirePermission, db } from "@/lib/route-helpers";
 import { logAudit } from "@/lib/audit";
+import { clientIp } from "@/lib/rate-limit-db";
 import { businessTypeLabel } from "@/lib/business-types";
 import { verifyPassword, destroySession } from "@/lib/auth";
 import { deleteCompanyData } from "@/lib/company-delete";
 import { reportError, toApiError } from "@/lib/errors";
 
+const FISCAL_START_RE = /^(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$/;
+
 const companySchema = z.object({
   name: z.string().trim().min(2).max(80),
+  tradeName: z.string().trim().max(80).optional().or(z.literal("")),
   email: z.string().trim().max(120).optional().or(z.literal("")),
   phone: z.string().trim().max(30).optional().or(z.literal("")),
   address: z.string().trim().max(300).optional().or(z.literal("")),
   city: z.string().trim().max(60).optional().or(z.literal("")),
   ntn: z.string().trim().max(30).optional().or(z.literal("")),
+  strn: z.string().trim().max(30).optional().or(z.literal("")),
   bankInfo: z.string().trim().max(500).optional().or(z.literal("")),
   invoiceFooter: z.string().trim().max(500).optional().or(z.literal("")),
   businessType: z.enum(["WHOLESALE", "RETAIL", "DISTRIBUTION", "PHARMACY", "CLINIC", "RESTAURANT", "SERVICES", "MANUFACTURING", "OTHER"]),
   defaultInvoiceFormat: z.enum(["a4", "80mm", "challan"]).default("80mm"),
+  // Module 6.1: the month-day the fiscal year starts on (drives year-end
+  // close labels). Stored in the company settings table.
+  fiscalYearStart: z.string().regex(FISCAL_START_RE, "Use MM-DD, e.g. 07-01.").default("07-01"),
 });
 
 // GET /api/company — current company's profile
@@ -33,14 +41,20 @@ export async function GET() {
   if (!c) return err("Company not found.", 404);
   const fmtRows = await db.select().from(companies).where(eq(companies.id, gate.companyId)).limit(1);
   const defaultInvoiceFormat = fmtRows[0]?.defaultInvoiceFormat ?? "80mm";
+  const fyRows = await db
+    .select({ value: settings.value })
+    .from(settings)
+    .where(and(eq(settings.companyId, gate.companyId), eq(settings.key, "fiscal_year_start")))
+    .limit(1);
   return json({
     data: {
-      id: c.id, name: c.name, email: c.email, phone: c.phone,
-      address: c.address, city: c.city, ntn: c.ntn,
-      bankInfo: c.bankInfo, invoiceFooter: c.invoiceFooter,
+      id: c.id, name: c.name, tradeName: c.tradeName, email: c.email, phone: c.phone,
+      address: c.address, city: c.city, ntn: c.ntn, strn: c.strn,
+      bankInfo: c.bankInfo, invoiceFooter: c.invoiceFooter, logoUrl: c.logoUrl,
       businessType: c.businessType, businessTypeLabel: businessTypeLabel(c.businessType),
       currency: c.currency,
       defaultInvoiceFormat: String(defaultInvoiceFormat),
+      fiscalYearStart: fyRows[0]?.value || "07-01",
       lockedUntil: c.lockedUntil ? c.lockedUntil.toISOString().slice(0, 10) : null,
     },
   });
@@ -54,23 +68,47 @@ export async function PUT(req: NextRequest) {
   const parsed = companySchema.safeParse(body);
   if (!parsed.success) return err("Please check the form and try again.", 422, "VALIDATION_ERROR");
   const d = parsed.data;
+  const [before] = await db.select().from(companies).where(eq(companies.id, gate.companyId)).limit(1);
   await db.update(companies).set({
     name: d.name,
+    tradeName: d.tradeName || null,
     email: d.email || null,
     phone: d.phone || null,
     address: d.address || null,
     city: d.city || null,
     ntn: d.ntn || null,
+    strn: d.strn || null,
     bankInfo: d.bankInfo || null,
     invoiceFooter: d.invoiceFooter || null,
     businessType: d.businessType,
     updatedAt: new Date(),
   }).where(eq(companies.id, gate.companyId));
   await db.update(companies).set({ defaultInvoiceFormat: d.defaultInvoiceFormat }).where(eq(companies.id, gate.companyId));
+  // Module 6.1: fiscal year start lives in the settings table (upsert).
+  const fyExisting = await db
+    .select({ id: settings.id })
+    .from(settings)
+    .where(and(eq(settings.companyId, gate.companyId), eq(settings.key, "fiscal_year_start")))
+    .limit(1);
+  if (fyExisting[0]) {
+    await db.update(settings).set({ value: d.fiscalYearStart, updatedAt: new Date() }).where(eq(settings.id, fyExisting[0].id));
+  } else {
+    await db.insert(settings).values({
+      id: crypto.randomUUID(),
+      companyId: gate.companyId,
+      key: "fiscal_year_start",
+      value: d.fiscalYearStart,
+    });
+  }
   await logAudit(db, {
     companyId: gate.companyId, userId: gate.session.uid, userName: gate.session.name,
     action: "settings.updated", entity: "company", entityId: gate.companyId,
     detail: `Business profile updated ("${d.name}")`,
+    ip: clientIp(req),
+    oldValues: before
+      ? { name: before.name, tradeName: before.tradeName, ntn: before.ntn, strn: before.strn }
+      : null,
+    newValues: { name: d.name, tradeName: d.tradeName || null, ntn: d.ntn || null, strn: d.strn || null, fiscalYearStart: d.fiscalYearStart },
   });
   return json({ ok: true });
 }

@@ -251,8 +251,10 @@ export async function createSalesReturn(
   if (!src) throw new UserError("Source invoice not found.");
   if (src.docType !== "INVOICE") throw new UserError("Only invoices can be returned.");
   // Paid and partially-paid invoices CAN be returned (M3) — the return frees
-  // their allocations back into advance credit. Draft/converted docs cannot.
-  if (src.status === "DRAFT" || src.status === "CONVERTED") throw new UserError("Only posted invoices can be returned.");
+  // their allocations back into advance credit. Draft/converted docs, and
+  // Module 6 PENDING_APPROVAL/REJECTED docs (no journal yet), cannot.
+  if (["DRAFT", "CONVERTED", "PENDING_APPROVAL", "REJECTED"].includes(src.status))
+    throw new UserError("Only posted invoices can be returned.");
   if (src.status === "RETURNED") throw new UserError("This invoice was already fully returned.");
   await assertPeriodOpen(tx, input.companyId, src.date);
 
@@ -494,8 +496,10 @@ export async function createPurchaseReturn(
     .where(and(eq(purchaseDocs.id, input.sourceId), eq(purchaseDocs.companyId, input.companyId))).limit(1);
   if (!src) throw new UserError("Source bill not found.");
   if (src.docType !== "BILL") throw new UserError("Only bills can be returned.");
-  // Paid and partially-paid bills CAN be returned (M3). Draft/converted docs cannot.
-  if (src.status === "DRAFT" || src.status === "CONVERTED") throw new UserError("Only posted bills can be returned.");
+  // Paid and partially-paid bills CAN be returned (M3). Draft/converted docs,
+  // and Module 6 PENDING_APPROVAL/REJECTED docs (no journal yet), cannot.
+  if (["DRAFT", "CONVERTED", "PENDING_APPROVAL", "REJECTED"].includes(src.status))
+    throw new UserError("Only posted bills can be returned.");
   if (src.status === "RETURNED") throw new UserError("This bill was already fully returned.");
   await assertPeriodOpen(tx, input.companyId, src.date);
 
