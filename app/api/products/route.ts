@@ -6,6 +6,7 @@ import { parseMoney } from "@/lib/money";
 import { parseQty } from "@/lib/qty";
 import { bundleProductIds } from "@/lib/bundles";
 import { validateImageUrl, ImageUrlError } from "@/lib/product-image";
+import { assertProductAccount } from "@/lib/stock-ledger";
 import { json, err } from "@/lib/api";
 import { requireCompany, db, defaultBranchId, requirePermission } from "@/lib/route-helpers";
 import { logAudit } from "@/lib/audit";
@@ -87,23 +88,36 @@ export async function POST(req: NextRequest) {
   if (dup[0]) return err("A product with this SKU already exists.", 409, "DUPLICATE");
 
   const id = crypto.randomUUID();
-  await db.insert(products).values({
-    id,
-    companyId,
-    sku: p.sku,
-    name: p.name,
-    barcode: p.barcode || null,
-    category: p.category || null,
-    unit: p.unit,
-    purchasePrice: parseMoney(p.purchasePrice || "0"),
-    salePrice: parseMoney(p.salePrice || "0"),
-    taxBps: p.taxBps,
-    trackStock: p.trackStock,
-    reorderLevel: parseQty(p.reorderLevel),
-    minSalePrice: parseMoney(p.minSalePrice || "0"),
-    location: p.location?.trim() ? p.location.trim().slice(0, 60) : null,
-    imageUrl,
- });
+  // Module 4.1: item type drives stock tracking — only INVENTORY items are
+  // stocked. When itemType is absent (legacy clients), derive it from trackStock.
+  const itemType = p.itemType ?? (p.trackStock ? "INVENTORY" : "NON_INVENTORY");
+  const trackStock = itemType === "INVENTORY";
+  await db.transaction(async (tx) => {
+    if (p.revenueAccountId) await assertProductAccount(tx, companyId, p.revenueAccountId, "INCOME", "Revenue account");
+    if (p.cogsAccountId) await assertProductAccount(tx, companyId, p.cogsAccountId, "EXPENSE", "COGS account");
+    if (p.inventoryAccountId) await assertProductAccount(tx, companyId, p.inventoryAccountId, "ASSET", "Inventory account");
+    await tx.insert(products).values({
+      id,
+      companyId,
+      sku: p.sku,
+      name: p.name,
+      barcode: p.barcode || null,
+      category: p.category || null,
+      unit: p.unit,
+      purchasePrice: parseMoney(p.purchasePrice || "0"),
+      salePrice: parseMoney(p.salePrice || "0"),
+      taxBps: p.taxBps,
+      trackStock,
+      itemType,
+      reorderLevel: parseQty(p.reorderLevel),
+      minSalePrice: parseMoney(p.minSalePrice || "0"),
+      location: p.location?.trim() ? p.location.trim().slice(0, 60) : null,
+      imageUrl,
+      revenueAccountId: p.revenueAccountId || null,
+      cogsAccountId: p.cogsAccountId || null,
+      inventoryAccountId: p.inventoryAccountId || null,
+    });
+  });
   await logAudit(db, {
     companyId, userId: session.uid, userName: session.name,
     action: "product.created", entity: "product", entityId: id,

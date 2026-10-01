@@ -1,6 +1,6 @@
 import { NextRequest } from "next/server";
 import { eq, and, desc, sql, inArray } from "drizzle-orm";
-import { purchaseDocs, purchaseDocItems, parties, products, productBatches } from "@/db/schema";
+import { purchaseDocs, purchaseDocItems, parties, products, productBatches, branches } from "@/db/schema";
 import { purchaseDocSchema } from "@/lib/validators";
 import { computeTotals, type DocItemInput } from "@/lib/totals";
 import { parseMoney } from "@/lib/money";
@@ -12,7 +12,7 @@ import { whtRateBps, whtAmountPaisa } from "@/lib/wht";
 import { periodLockError } from "@/lib/period";
 import { nextDocNo } from "@/lib/setup";
 import { json, err } from "@/lib/api";
-import { toApiError } from "@/lib/errors";
+import { toApiError, UserError } from "@/lib/errors";
 import { requirePermission, db, parseDateOnly, defaultBranchId, assertBranch } from "@/lib/route-helpers";
 import { logAudit } from "@/lib/audit";
 import { userHasPermission } from "@/lib/permissions";
@@ -275,6 +275,16 @@ export async function POST(req: NextRequest) {
     const result = await db.transaction(async (tx) => {
       const branchId = b.branchId || (await defaultBranchId(tx, companyId));
       await assertBranch(tx, companyId, branchId);
+      // Module 4.2: per-line location overrides must be branches of this company.
+      const lineBranches = [...new Set(b.items.map((i) => (i.branchId || "").trim()).filter(Boolean))];
+      if (lineBranches.length > 0) {
+        const rows = await tx
+          .select({ id: branches.id })
+          .from(branches)
+          .where(and(eq(branches.companyId, companyId), inArray(branches.id, lineBranches)));
+        if (rows.length !== lineBranches.length)
+          throw new UserError("A selected line location is invalid.", 422);
+      }
       const docNo = await nextDocNo(tx, companyId, b.docType === "RETURN" ? "PURCHASE_RETURN" : b.docType);
       const docId = crypto.randomUUID();
 
@@ -326,6 +336,8 @@ export async function POST(req: NextRequest) {
           taxAmount: i.taxAmountPaisa,
           lineTotal: i.lineTotalPaisa,
           extraCost: landed[idx] ?? 0n,
+          // Module 4.2: per-line location override (NULL = doc branch).
+          branchId: (b.items[idx]?.branchId || "").trim() || null,
         }))
       );
 
@@ -347,6 +359,8 @@ export async function POST(req: NextRequest) {
             batchNo: (b.items[idx]?.batchNo || "").trim() || null,
             expiryDate: (b.items[idx]?.expiryDate || "").trim() || null,
             batchId: (b.items[idx]?.batchId || "").trim() || null,
+            // Module 4.2: per-line location override (NULL = doc branch).
+            branchId: (b.items[idx]?.branchId || "").trim() || null,
           })),
           discountTotal: parseMoney(b.discountTotal || "0"),
           taxTotal: totals.taxTotal,

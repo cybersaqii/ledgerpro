@@ -1,9 +1,9 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Building2, Database, Download, Save, Upload, Users, UserPlus, ScrollText, KeyRound, Copy, Check, Lock, Activity, TriangleAlert, MonitorSmartphone, LogOut, CircleCheck, History, ShieldCheck, RefreshCw, Crown } from "lucide-react";
+import { Building2, Database, Download, Save, Upload, Users, UserPlus, ScrollText, KeyRound, Copy, Check, Lock, Activity, TriangleAlert, MonitorSmartphone, LogOut, CircleCheck, History, ShieldCheck, RefreshCw, Crown, Store } from "lucide-react";
 import { PageHeader, Field, ErrorNote } from "@/components/ui";
 import { useLang } from "@/components/lang-provider";
 import { api, fmtDate } from "@/lib/format";
@@ -216,6 +216,7 @@ export default function SettingsPage() {
       <ImportCard />
       <BackupsCard isOwner={pageIsOwner} />
       <TeamCard />
+      <BranchesCard />
       <SecurityCard />
       <SessionsCard />
       <PeriodLockCard />
@@ -665,6 +666,67 @@ function PermissionEditor({ user, onSaved }: { user: TeamUser; onSaved: () => vo
           {busy ? t("settingsteam.permsSaving") : t("settingsteam.permsSave")}
         </button>
       </div>
+    </div>
+  );
+}
+
+function BranchesCard() {
+  const { t } = useLang();
+  const { role: myRole, permissions } = usePermissions();
+  const canEdit = myRole === "OWNER" || permissions.includes("settings");
+  const [rows, setRows] = useState<{ id: string; name: string; isDefault: boolean; locationType: string }[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [busy, setBusy] = useState<string | null>(null);
+
+  const load = useCallback(() => {
+    setLoading(true);
+    api<{ data: { id: string; name: string; isDefault: boolean; locationType: string }[] }>("/api/branches")
+      .then((d) => setRows(d.data))
+      .catch(() => setRows([]))
+      .finally(() => setLoading(false));
+  }, []);
+  useEffect(() => { load(); }, [load]);
+
+  async function setLocationType(id: string, locationType: string) {
+    setBusy(id);
+    try {
+      await api("/api/branches", { method: "PATCH", body: JSON.stringify({ locationType }) });
+      setRows((rs) => rs.map((r) => (r.id === id ? { ...r, locationType } : r)));
+    } catch {
+      /* keep old value on failure */
+    } finally { setBusy(null); }
+  }
+
+  const TYPES = ["WAREHOUSE", "SHOP", "VAN", "OTHER"];
+  return (
+    <div id="sec-branches" className="card card-gloss anchor-scroll mt-6 mx-auto max-w-2xl p-6 sm:p-8">
+      <h2 className="inline-flex items-center gap-2 text-lg font-extrabold"><Store size={19} /> {t("m4.branchesTitle")}</h2>
+      <p className="mt-1 text-sm text-muted-foreground">{t("m4.branchesHint")}</p>
+      {loading ? (
+        <div className="mt-4 space-y-2">{[1, 2].map((i) => <div key={i} className="skeleton h-12 rounded-xl" />)}</div>
+      ) : (
+        <ul className="mt-4 space-y-2">
+          {rows.map((r) => (
+            <li key={r.id} className="flex flex-wrap items-center gap-3 rounded-xl border border-border px-4 py-3">
+              <div className="min-w-0 flex-1">
+                <div className="font-bold">{r.name}</div>
+                {r.isDefault && <div className="text-xs text-muted-foreground">{t("m4.branchDefault")}</div>}
+              </div>
+              <select
+                className="field !w-auto !py-1.5 text-sm"
+                value={r.locationType}
+                disabled={!canEdit || busy === r.id}
+                aria-label={t("m4.branchLocationType")}
+                onChange={(e) => setLocationType(r.id, e.target.value)}
+              >
+                {TYPES.map((ty) => (
+                  <option key={ty} value={ty}>{t(`m4.locationType${ty}` as never)}</option>
+                ))}
+              </select>
+            </li>
+          ))}
+        </ul>
+      )}
     </div>
   );
 }

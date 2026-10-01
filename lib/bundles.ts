@@ -219,6 +219,8 @@ export type SalesLineForStock = {
   productId: string | null;
   qtyMilli: bigint;
   trackStock: boolean;
+  /** Per-line location override (Module 4); propagated to exploded moves. */
+  branchId?: string | null;
   /** Explicit batch choice for plain lines. Dropped when a bundle explodes —
    *  component moves always use FIFO (see lib/batches). */
   batchId?: string | null;
@@ -227,6 +229,8 @@ export type SalesLineForStock = {
 export type ExplodedStockMove = {
   /** Always a leaf component product — never a bundle product itself. */
   productId: string;
+  /** Per-line location override (Module 4), inherited from the sales line. */
+  branchId?: string | null;
   /** Signed component quantity in milli-units (negative = stock out). */
   qtyMilli: bigint;
   /** Batch choice, only ever set for non-exploded (plain) lines. */
@@ -280,7 +284,7 @@ export async function explodeSalesStockMoves(
   for (const line of lines) {
     if (!line.productId || line.qtyMilli === 0n) continue;
     const leafMoves = expand(graph, tsMap, line.productId, line.qtyMilli, 0, new Set(), line.trackStock, line.batchId ?? null);
-    for (const m of leafMoves) out.push({ productId: m.productId, qtyMilli: m.qtyMilli * sign, batchId: m.batchId });
+    for (const m of leafMoves) out.push({ productId: m.productId, qtyMilli: m.qtyMilli * sign, batchId: m.batchId, branchId: line.branchId ?? null });
   }
   return out;
 }

@@ -36,6 +36,7 @@ let bankId = "";
 let cashGlId = "";
 let bankGlId = "";
 let expenseAcctId = "";
+let gainAcctId = "";
 let inventoryAcctId = "";
 let arAcctId = "";
 
@@ -80,6 +81,7 @@ beforeAll(async () => {
 
   const ac = await db.transaction((tx) => accountMap(tx, companyId));
   expenseAcctId = ac[SYS.EXPENSES]!;
+  gainAcctId = ac[SYS.ADJUSTMENT_GAIN]!;
   inventoryAcctId = ac[SYS.INVENTORY]!;
   arAcctId = ac[SYS.AR]!;
 });
@@ -187,7 +189,7 @@ describe("G1 stock adjustment", () => {
     const before = await stockOf(productId);
     const r = await db.transaction((tx) =>
       postStockAdjustment(tx, {
-        companyId, branchId, reason: "FOUND", accountId: expenseAcctId,
+        companyId, branchId, reason: "FOUND",
         date: new Date(), lines: [{ productId, qtyMilli: 1_000n }],
         createdById: userId,
       })
@@ -200,7 +202,7 @@ describe("G1 stock adjustment", () => {
     expectEntryBalanced(lines);
     const gain = parseMoney("100");
     expect(lines.find((l) => l.accountId === inventoryAcctId)).toMatchObject({ debit: gain, credit: 0n });
-    expect(lines.find((l) => l.accountId === expenseAcctId)).toMatchObject({ debit: 0n, credit: gain });
+    expect(lines.find((l) => l.accountId === gainAcctId)).toMatchObject({ debit: 0n, credit: gain });
   });
 
   it("rejects wrong-direction quantities for loss reasons", async () => {
@@ -239,7 +241,7 @@ describe("G1 stock adjustment", () => {
   it("adjusts quantity with no journal for a zero-value move", async () => {
     const r = await db.transaction((tx) =>
       postStockAdjustment(tx, {
-        companyId, branchId, reason: "FOUND", accountId: expenseAcctId,
+        companyId, branchId, reason: "FOUND",
         date: new Date(), lines: [{ productId: zeroCostProductId, qtyMilli: 5_000n }],
         createdById: userId,
       })

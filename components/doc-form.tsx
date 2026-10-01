@@ -34,9 +34,13 @@ type Line = {
   batchNo: string;
   /** purchase bill: expiry date for this receipt (YYYY-MM-DD). */
   expiryDate: string;
+  /** Module 4.2: per-line location override — branch id, "" = document branch. */
+  branchId: string;
 };
 
 type TFn = (key: string, vars?: Record<string, string | number>) => string;
+
+type BranchOpt = { id: string; name: string; isDefault: boolean; locationType: string };
 
 /**
  * Per-line batch controls. Sales invoices get a batch dropdown (blank = FIFO
@@ -127,6 +131,36 @@ function BatchControls({ line, isSales, docType, batches, t, onChange }: {
 type RowFieldName = "desc" | "qty" | "rate" | "discount" | "tax";
 const ROW_FIELD_ORDER: RowFieldName[] = ["desc", "qty", "rate", "discount", "tax"];
 
+/**
+ * Module 4.2 — per-line location picker. Shown only when the company has
+ * more than one location (branch); blank = the document's branch. The
+ * server validates the chosen branch and posts/receives stock at it.
+ */
+function LocationControls({ line, branches, t, onChange }: {
+  line: Line;
+  branches: BranchOpt[];
+  t: TFn;
+  onChange: (patch: Partial<Line>) => void;
+}) {
+  if (branches.length <= 1) return null;
+  return (
+    <div className="mt-1">
+      <select
+        className="field !w-auto !max-w-full !py-1 !text-xs"
+        value={line.branchId}
+        aria-label={t("docform.lineLocation")}
+        title={t("docform.lineLocationHint")}
+        onChange={(e) => onChange({ branchId: e.target.value })}
+      >
+        <option value="">{t("docform.lineLocationDoc")}</option>
+        {branches.map((b) => (
+          <option key={b.id} value={b.id}>{b.name}</option>
+        ))}
+      </select>
+    </div>
+  );
+}
+
 export function DocForm({ mode }: { mode: "SALES" | "PURCHASE" }) {
   const bp = useBusinessProfile();
   const { t } = useLang();
@@ -193,6 +227,14 @@ export function DocForm({ mode }: { mode: "SALES" | "PURCHASE" }) {
   // batch rows per product (undefined = not loaded yet)
   const [batchCache, setBatchCache] = useState<Record<string, BatchOpt[] | undefined>>({});
   const batchLoadingRef = useRef(new Set<string>());
+  // Module 4.2: branch list for the per-line location picker (only shown
+  // when the company has more than one location).
+  const [branches, setBranches] = useState<BranchOpt[]>([]);
+  useEffect(() => {
+    api<{ data: BranchOpt[] }>("/api/branches")
+      .then((d) => setBranches(d.data))
+      .catch(() => setBranches([]));
+  }, []);
   const loadBatches = useCallback((productId: string) => {
     if (!productId || batchLoadingRef.current.has(productId)) return;
     batchLoadingRef.current.add(productId);
@@ -370,6 +412,7 @@ export function DocForm({ mode }: { mode: "SALES" | "PURCHASE" }) {
       batchId: "",
       batchNo: "",
       expiryDate: "",
+      branchId: "",
     }]);
     loadBatches(p.id);
     loadLastRate(p.id);
@@ -391,7 +434,7 @@ export function DocForm({ mode }: { mode: "SALES" | "PURCHASE" }) {
   function addCustomLine(desc = "") {
     keyRef.current += 1;
     const key = keyRef.current;
-    setLines((ls) => [...ls, { key, productId: "", description: desc, unit: "", qty: "1", rate: "", discount: "", taxPct: "", availQty: null, isBundle: false, batchId: "", batchNo: "", expiryDate: "" }]);
+    setLines((ls) => [...ls, { key, productId: "", description: desc, unit: "", qty: "1", rate: "", discount: "", taxPct: "", availQty: null, isBundle: false, batchId: "", batchNo: "", expiryDate: "", branchId: "" }]);
     flashRow(key);
     setTimeout(() => lineFieldRefs.current.get(key)?.desc?.focus(), 60);
   }
@@ -552,6 +595,8 @@ export function DocForm({ mode }: { mode: "SALES" | "PURCHASE" }) {
           batchId: l.batchId || undefined,
           batchNo: l.batchNo || undefined,
           expiryDate: l.expiryDate || undefined,
+          // Module 4.2: per-line location override (blank = doc branch).
+          branchId: l.branchId || undefined,
         })),
       };
       if (!isSales && docType === "BILL") {
@@ -847,6 +892,7 @@ export function DocForm({ mode }: { mode: "SALES" | "PURCHASE" }) {
                               </p>
                             )}
                             <BatchControls line={l} isSales={isSales} docType={docType} batches={batchCache[l.productId]} t={t} onChange={(patch) => updateLine(l.key, patch)} />
+                            <LocationControls line={l} branches={branches} t={t} onChange={(patch) => updateLine(l.key, patch)} />
                           </td>
                           <td><input ref={setRowRef(l.key, "qty")} onKeyDown={(e) => rowKeyDown(e, l.key, "qty")}
                             className="field num !px-2 !py-1.5" type="number" min="0" step="0.001" value={l.qty}
@@ -910,6 +956,7 @@ export function DocForm({ mode }: { mode: "SALES" | "PURCHASE" }) {
                             </p>
                           )}
                           <BatchControls line={l} isSales={isSales} docType={docType} batches={batchCache[l.productId]} t={t} onChange={(patch) => updateLine(l.key, patch)} />
+                          <LocationControls line={l} branches={branches} t={t} onChange={(patch) => updateLine(l.key, patch)} />
                         </div>
                         <div className="grid grid-cols-4 gap-2">
                           <input ref={setRowRef(l.key, "qty")} onKeyDown={(e) => rowKeyDown(e, l.key, "qty")}

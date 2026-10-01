@@ -57,6 +57,10 @@ export const branches = sqliteTable(
     phone: text("phone"),
     isDefault: flag("is_default", false),
     isActive: flag("is_active", true),
+    // ── Module 4 (migration 0035): branches are the stock locations —
+    // WAREHOUSE | SHOP | VAN | OTHER, so "Central", "Retail Shop", "Mobile Van"
+    // can be modelled without a separate warehouses table.
+    locationType: text("location_type").notNull().default("SHOP"),
     updatedAt: updatedAt(),
   },
   (t) => [uniqueIndex("branches_company_name").on(t.companyId, t.name), index("branches_company").on(t.companyId)]
@@ -223,6 +227,16 @@ export const products = sqliteTable(
     trackStock: flag("track_stock", true),
     reorderLevel: qty("reorder_level"),
     minSalePrice: money("min_sale_price"), // floor price; selling below needs an override
+    // ── Module 4 (migration 0035): item types + per-product GL accounts +
+    // opening stock. item_type INVENTORY | NON_INVENTORY | SERVICE.
+    itemType: text("item_type").notNull().default("INVENTORY"),
+    revenueAccountId: text("revenue_account_id"), // sales revenue account (fallback SYS.SALES 4001)
+    cogsAccountId: text("cogs_account_id"), // cost-of-goods account (fallback SYS.COGS 5001)
+    inventoryAccountId: text("inventory_account_id"), // inventory asset account (fallback SYS.INVENTORY 1200)
+    openingStockQty: qty("opening_stock_qty"),
+    openingStockCost: money("opening_stock_cost"), // per-unit cost, paisa
+    openingStockDate: ts("opening_stock_date"),
+    openingStockPosted: flag("opening_stock_posted", false), // guard: opening posts exactly once
     location: text("location"), // godown/rack free text, e.g. "Godown A · Rack 3"
     imageUrl: text("image_url"), // external https image URL (validated app-side); null = generated fallback
     isActive: flag("is_active", true),
@@ -442,6 +456,8 @@ export const salesDocItems = sqliteTable("sales_doc_items", {
   taxBps: integer("tax_bps").notNull().default(0),
   taxAmount: money("tax_amount"),
   lineTotal: money("line_total"),
+  // ── Module 4 (migration 0035): per-line location override; NULL = doc branch.
+  branchId: text("branch_id"),
 });
 
 export const purchaseDocs = sqliteTable(
@@ -507,6 +523,8 @@ export const purchaseDocItems = sqliteTable("purchase_doc_items", {
   qtyReceived: qty("qty_received"), // accepted qty — posts to stock / GRNI
   qtyDamaged: qty("qty_damaged"), // damaged units captured, never posted
   sourceItemId: text("source_item_id"), // GRN line -> purchase order line link
+  // ── Module 4 (migration 0035): per-line location override; NULL = doc branch.
+  branchId: text("branch_id"),
 });
 
 // ─── Sales order fulfillment (Module 1, migration 0032) ──────────
@@ -1206,4 +1224,76 @@ export const couponRedemptions = sqliteTable(
     createdAt: createdAt(),
   },
   (t) => [uniqueIndex("coupon_redemptions_coupon_company").on(t.couponId, t.companyId)]
+);
+
+// ─── Module 4: stock transfer documents (migration 0035) ──────────
+// Multi-line transfer docs with lifecycle DRAFT -> IN_TRANSIT -> RECEIVED
+// (+ CANCELLED). Issue deducts the source branch at its moving-average cost
+// (captured on the line); receive adds the destination branch at the captured
+// cost, so value is conserved. No journal — a location move is not a
+// financial event.
+export const stockTransferDocs = sqliteTable(
+  "stock_transfer_docs",
+  {
+    id: id(),
+    companyId: text("company_id").notNull(),
+    docNo: text("doc_no").notNull(), // STR-0001 …
+    date: ts("date").notNull(),
+    status: text("status").notNull().default("DRAFT"), // DRAFT | IN_TRANSIT | RECEIVED | CANCELLED
+    fromBranchId: text("from_branch_id").notNull(),
+    toBranchId: text("to_branch_id").notNull(),
+    notes: text("notes"),
+    idempotencyKey: text("idempotency_key"),
+    createdById: text("created_by_id").notNull(),
+    issuedAt: ts("issued_at"),
+    receivedAt: ts("received_at"),
+    cancelledAt: ts("cancelled_at"),
+    createdAt: createdAt(),
+    updatedAt: updatedAt(),
+  },
+  (t) => [
+    index("stock_xfer_company_status").on(t.companyId, t.status),
+    uniqueIndex("stock_xfer_company_no").on(t.companyId, t.docNo),
+    uniqueIndex("stock_xfer_idem_key").on(t.companyId, t.idempotencyKey).where(sql`idempotency_key IS NOT NULL`),
+  ]
+);
+
+export const stockTransferLines = sqliteTable(
+  "stock_transfer_lines",
+  {
+    id: id(),
+    transferId: text("transfer_id").notNull(),
+    productId: text("product_id").notNull(),
+    qtyMilli: qty("qty_milli"),
+    costPaisa: money("cost_paisa"), // source-branch moving-average cost captured at issue
+    createdAt: createdAt(),
+  },
+  (t) => [index("stock_xfer_lines_xfer").on(t.transferId)]
+);
+
+// ─── Module 4: stock movement ledger (migration 0035) ─────────────
+// Append-only per-(product, branch) movement ledger backing the Stock
+// Movement Card: in/out qty, running balance and moving-average cost after
+// each movement, with drill-down to the source voucher.
+export const stockMovements = sqliteTable(
+  "stock_movements",
+  {
+    id: id(),
+    companyId: text("company_id").notNull(),
+    productId: text("product_id").notNull(),
+    branchId: text("branch_id").notNull(),
+    date: ts("date").notNull(), // source document date
+    txnType: text("txn_type").notNull(), // INVOICE | BILL | GRN | TRANSFER_OUT | TRANSFER_IN | ADJUSTMENT | OPENING | RETURN
+    docId: text("doc_id"),
+    docNo: text("doc_no"),
+    inQty: qty("in_qty"),
+    outQty: qty("out_qty"),
+    balanceQty: qty("balance_qty"), // running balance (milli-units) after this movement
+    balanceAvg: money("balance_avg"), // moving-average cost (paisa/unit) after this movement
+    createdAt: createdAt(),
+  },
+  (t) => [
+    index("stock_mov_product_branch").on(t.companyId, t.productId, t.branchId, t.date, t.createdAt),
+    index("stock_mov_doc").on(t.companyId, t.docId),
+  ]
 );

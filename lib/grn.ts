@@ -6,6 +6,7 @@ import {
   products,
 } from "@/db/schema";
 import { SYS, accountMap, nextDocNo } from "./setup";
+import { productAccounts, recordStockDetails } from "./stock-ledger";
 import {
   createJournal,
   applyStock,
@@ -130,15 +131,33 @@ export async function postGrn(
     }
   }
   if (moves.length > 0) {
-    await applyStock(
+    const { details } = await applyStock(
       tx,
       input.branchId,
       moves.map((m) => ({ ...m, avgCostPaisa: 0n }))
     );
+    // Module 4.5: movement ledger.
+    await recordStockDetails(tx, input.companyId, input.date, "GRN", input.docId, input.docNo, details);
+  }
+
+  // Module 4.1: inventory debit grouped by each product's inventory account
+  // (fallback SYS.INVENTORY 1200).
+  const prodAccts = await productAccounts(
+    tx,
+    input.companyId,
+    moves.map((m) => m.productId)
+  );
+  const invDr = new Map<string, bigint>();
+  for (const l of input.items) {
+    if (l.qtyReceived <= 0n || !l.productId || !l.trackStock) continue;
+    const gross = (l.qtyReceived * l.ratePaisa + 500n) / 1000n; // half-up
+    const net = gross - l.discountPaisa;
+    const acct = prodAccts.get(l.productId)?.inventory ?? ac[SYS.INVENTORY];
+    invDr.set(acct, (invDr.get(acct) ?? 0n) + net);
   }
 
   const lines: JournalLineInput[] = [
-    ...(stockNet > 0n ? [{ accountId: ac[SYS.INVENTORY], debit: stockNet, credit: 0n }] : []),
+    ...[...invDr.entries()].map(([accountId, debit]) => ({ accountId, debit, credit: 0n })),
     ...(nonStockNet > 0n ? [{ accountId: ac[SYS.PURCHASES], debit: nonStockNet, credit: 0n }] : []),
     { accountId: ac[SYS.GRNI_ACCRUAL], debit: 0n, credit: accrued, partyId: input.partyId },
   ];

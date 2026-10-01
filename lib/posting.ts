@@ -15,6 +15,7 @@ import {
   sundryReceipts,
 } from "@/db/schema";
 import { SYS, accountMap, nextDocNo } from "./setup";
+import { productAccounts, recordStockDetails } from "./stock-ledger";
 import type { DbTx } from "./db";
 import type { ComputedItem } from "./totals";
 import { UserError } from "./errors";
@@ -94,14 +95,27 @@ export type StockMove = {
 
 /** Apply stock moves inside the transaction. Throws on insufficient stock.
  *  Returns the value moved at average cost, split into out (sales/usage) and
- *  in (returns) so callers can book matching COGS entries. */
+ *  in (returns) so callers can book matching COGS entries, plus per-move
+ *  details (running balance + average after the move) for the Module 4
+ *  stock-movement ledger. */
+export type StockMoveDetail = {
+  productId: string;
+  branchId: string;
+  qtyMilli: bigint;
+  qtyAfter: bigint;
+  avgAfter: bigint;
+  /** Paisa value moved at average cost (half-up). */
+  valueMoved: bigint;
+};
+
 export async function applyStock(
   tx: DbTx,
   branchId: string,
   moves: StockMove[]
-): Promise<{ cogsOut: bigint; cogsIn: bigint }> {
+): Promise<{ cogsOut: bigint; cogsIn: bigint; details: StockMoveDetail[] }> {
   let cogsOut = 0n;
   let cogsIn = 0n;
+  const details: StockMoveDetail[] = [];
   for (const m of moves) {
     const rows = await tx
       .select()
@@ -124,10 +138,14 @@ export async function applyStock(
       const inValue = (m.qtyMilli * m.unitCostPaisa + 500n) / 1000n;
       newAvg = next > 0n ? ((currentValue + inValue) * 1000n + next / 2n) / next : avg;
     }
+    const valueMoved =
+      m.qtyMilli < 0n
+        ? ((-m.qtyMilli * avg + 500n) / 1000n) // half-up
+        : ((m.qtyMilli * avg + 500n) / 1000n); // value restored at avg cost
     if (m.qtyMilli < 0n) {
-      cogsOut += ((-m.qtyMilli * avg + 500n) / 1000n); // half-up
+      cogsOut += valueMoved;
     } else if (m.qtyMilli > 0n) {
-      cogsIn += ((m.qtyMilli * avg + 500n) / 1000n); // value restored at avg cost
+      cogsIn += valueMoved;
     }
     if (level) {
       await tx.update(stockLevels).set({ qty: next, avgCost: newAvg }).where(eq(stockLevels.id, level.id));
@@ -140,8 +158,36 @@ export async function applyStock(
         avgCost: newAvg,
       });
     }
+    details.push({ productId: m.productId, branchId, qtyMilli: m.qtyMilli, qtyAfter: next, avgAfter: newAvg, valueMoved });
   }
-  return { cogsOut, cogsIn };
+  return { cogsOut, cogsIn, details };
+}
+
+/** Module 4: apply stock moves grouped by location. Each move carries the
+ *  branch it belongs to (the line-level override, or the doc branch); moves
+ *  are applied per branch so per-location balances stay exact. Returns the
+ *  merged per-move details for the movement ledger. */
+export async function applyStockByBranch(
+  tx: DbTx,
+  moves: (StockMove & { branch: string })[]
+): Promise<{ cogsOut: bigint; cogsIn: bigint; details: StockMoveDetail[] }> {
+  let cogsOut = 0n;
+  let cogsIn = 0n;
+  const details: StockMoveDetail[] = [];
+  const byBranch = new Map<string, StockMove[]>();
+  for (const m of moves) {
+    const list = byBranch.get(m.branch) ?? [];
+    const { branch: _branch, ...rest } = m;
+    list.push(rest);
+    byBranch.set(m.branch, list);
+  }
+  for (const [branchId, ms] of byBranch) {
+    const r = await applyStock(tx, branchId, ms);
+    cogsOut += r.cogsOut;
+    cogsIn += r.cogsIn;
+    details.push(...r.details);
+  }
+  return { cogsOut, cogsIn, details };
 }
 
 /** Cost-only stock adjustment: spreads a value variance (e.g. landed extra
@@ -189,7 +235,12 @@ export type PostSalesInput = {
   docNo: string;
   docType: "INVOICE" | "RETURN";
   date: Date;
-  items: (ComputedItem & { trackStock: boolean; batchId?: string | null })[];
+  items: (ComputedItem & {
+    trackStock: boolean;
+    batchId?: string | null;
+    /** Module 4: per-line location override; NULL/undefined = doc branch. */
+    branchId?: string | null;
+  })[];
   discountTotal: bigint;
   taxTotal: bigint;
   /** Sales-side freight charged to the customer (untaxed) → Freight Income 4020. */
@@ -211,29 +262,27 @@ export async function postSalesDoc(tx: DbTx, input: PostSalesInput): Promise<str
   // product itself never gets a stock movement. Plain lines pass through.
   // Insufficient component stock throws here, rolling back the whole doc.
   // Each exploded move carries the line's batch choice (plain lines only —
-  // bundle explosion drops it, components use FIFO).
-  const stockMoves = (
-    await explodeSalesStockMoves(
-      tx,
-      input.companyId,
-      input.items.map((i) => ({
-        productId: i.productId,
-        qtyMilli: i.qtyMilli,
-        trackStock: i.trackStock,
-        batchId: i.batchId ?? null,
-      })),
-      input.docType
-    )
-  ).map((m) => ({ productId: m.productId, qtyMilli: m.qtyMilli, avgCostPaisa: 0n, batchId: m.batchId }));
-
-  for (const m of stockMoves) {
-    const rows = await tx
-      .select({ avgCost: stockLevels.avgCost })
-      .from(stockLevels)
-      .where(and(eq(stockLevels.productId, m.productId), eq(stockLevels.branchId, input.branchId)))
-      .limit(1);
-    m.avgCostPaisa = rows[0]?.avgCost ?? 0n;
-  }
+  // bundle explosion drops it, components use FIFO) and the line's location
+  // override (Module 4: NULL = the doc branch).
+  const exploded = await explodeSalesStockMoves(
+    tx,
+    input.companyId,
+    input.items.map((i) => ({
+      productId: i.productId,
+      qtyMilli: i.qtyMilli,
+      trackStock: i.trackStock,
+      batchId: i.batchId ?? null,
+      branchId: i.branchId ?? null,
+    })),
+    input.docType
+  );
+  const stockMoves = exploded.map((m) => ({
+    productId: m.productId,
+    qtyMilli: m.qtyMilli,
+    avgCostPaisa: 0n,
+    batchId: m.batchId,
+    branchId: m.branchId || input.branchId,
+  }));
 
   // Batch-tracked products, inside the same transaction as stock + journal:
   // - INVOICE deducts (explicit batch, or FIFO by expiry) and records the
@@ -257,13 +306,64 @@ export async function postSalesDoc(tx: DbTx, input: PostSalesInput): Promise<str
     }
   }
 
-  const { cogsOut, cogsIn } = await applyStock(tx, input.branchId, stockMoves);
+  // Module 4: apply stock per location (line-level branch overrides fall back
+  // to the doc branch) and keep the per-move details for the movement ledger.
+  const { details: allDetails } = await applyStockByBranch(
+    tx,
+    stockMoves.map((m) => ({ ...m, branch: m.branchId }))
+  );
+  await recordStockDetails(
+    tx,
+    input.companyId,
+    input.date,
+    input.docType === "INVOICE" ? "INVOICE" : "RETURN",
+    input.docId,
+    input.docNo,
+    allDetails
+  );
+
+  // Module 4.1: per-product GL accounts — revenue grouped by revenue account,
+  // COGS/inventory grouped by (cogs, inventory) account pair, each falling
+  // back to the system accounts. With no custom accounts the journal is
+  // byte-identical to the old aggregated one.
+  const prodAccts = await productAccounts(
+    tx,
+    input.companyId,
+    input.items.map((i) => i.productId).filter((p): p is string => !!p)
+  );
+  const revenueGroups = new Map<string, bigint>();
+  for (const i of input.items) {
+    const acct = i.productId ? prodAccts.get(i.productId)?.revenue ?? ac[SYS.SALES] : ac[SYS.SALES];
+    revenueGroups.set(acct, (revenueGroups.get(acct) ?? 0n) + i.taxablePaisa);
+  }
+  const cogsGroups = new Map<string, { cogs: string; inventory: string; amount: bigint }>();
+  for (const d of allDetails) {
+    if (d.valueMoved <= 0n) continue;
+    const pa = prodAccts.get(d.productId);
+    const cogs = pa?.cogs ?? ac[SYS.COGS];
+    const inv = pa?.inventory ?? ac[SYS.INVENTORY];
+    const key = `${cogs}|${inv}`;
+    const g = cogsGroups.get(key) ?? { cogs, inventory: inv, amount: 0n };
+    g.amount += d.valueMoved;
+    cogsGroups.set(key, g);
+  }
+  const cogsLines: JournalLineInput[] = [...cogsGroups.values()].flatMap((g) =>
+    input.docType === "INVOICE"
+      ? [
+          { accountId: g.cogs, debit: g.amount, credit: 0n },
+          { accountId: g.inventory, debit: 0n, credit: g.amount },
+        ]
+      : [
+          { accountId: g.inventory, debit: g.amount, credit: 0n },
+          { accountId: g.cogs, debit: 0n, credit: g.amount },
+        ]
+  );
 
   const lines: JournalLineInput[] =
     input.docType === "INVOICE"
       ? [
           { accountId: ac[SYS.AR], debit: input.grandTotal, credit: 0n, partyId: input.partyId },
-          { accountId: ac[SYS.SALES], debit: 0n, credit: grossSales },
+          ...[...revenueGroups.entries()].map(([accountId, credit]) => ({ accountId, debit: 0n, credit })),
           ...(input.taxTotal > 0n ? [{ accountId: ac[SYS.TAX_PAYABLE], debit: 0n, credit: input.taxTotal }] : []),
           ...(input.discountTotal > 0n ? [{ accountId: ac[SYS.DISCOUNT_GIVEN], debit: input.discountTotal, credit: 0n }] : []),
           // Freight charged to the customer is income (SYS 4020), never part
@@ -272,24 +372,14 @@ export async function postSalesDoc(tx: DbTx, input: PostSalesInput): Promise<str
           ...((input.freightTotal ?? 0n) > 0n
             ? [{ accountId: ac[SYS.FREIGHT_INCOME], debit: 0n, credit: input.freightTotal ?? 0n }]
             : []),
-          ...(cogsOut > 0n
-            ? [
-                { accountId: ac[SYS.COGS], debit: cogsOut, credit: 0n },
-                { accountId: ac[SYS.INVENTORY], debit: 0n, credit: cogsOut },
-              ]
-            : []),
+          ...cogsLines,
         ]
       : [
           { accountId: ac[SYS.SALES_RETURN], debit: grossSales, credit: 0n },
           ...(input.taxTotal > 0n ? [{ accountId: ac[SYS.TAX_PAYABLE], debit: input.taxTotal, credit: 0n }] : []),
           ...(input.discountTotal > 0n ? [{ accountId: ac[SYS.DISCOUNT_GIVEN], debit: 0n, credit: input.discountTotal }] : []),
           { accountId: ac[SYS.AR], debit: 0n, credit: input.grandTotal, partyId: input.partyId },
-          ...(cogsIn > 0n
-            ? [
-                { accountId: ac[SYS.INVENTORY], debit: cogsIn, credit: 0n },
-                { accountId: ac[SYS.COGS], debit: 0n, credit: cogsIn },
-              ]
-            : []),
+          ...cogsLines,
         ];
 
   const entryId = await createJournal(tx, {
@@ -327,6 +417,8 @@ export type PostPurchaseInput = {
     expiryDate?: string | null;
     /** Purchase return: optional batch to deduct the returned qty from. */
     batchId?: string | null;
+    /** Module 4: per-line location override; NULL/undefined = doc branch. */
+    branchId?: string | null;
   })[];
   discountTotal: bigint;
   taxTotal: bigint;
@@ -398,7 +490,7 @@ export async function postPurchaseDoc(tx: DbTx, input: PostPurchaseInput): Promi
 
   let stockNet = 0n;
   let nonStockNet = 0n;
-  const stockMoves: StockMove[] = [];
+  const stockMoves: (StockMove & { branch: string })[] = [];
   const stockNets: bigint[] = [];
   const stockItemIdx: number[] = [];
   input.items.forEach((i, idx) => {
@@ -435,6 +527,8 @@ export async function postPurchaseDoc(tx: DbTx, input: PostPurchaseInput): Promi
         qtyMilli: input.docType === "BILL" ? i.qtyMilli : -i.qtyMilli,
         avgCostPaisa: 0n,
         unitCostPaisa: i.qtyMilli > 0n ? (net * 1000n + i.qtyMilli / 2n) / i.qtyMilli : 0n, // half-up
+        // Module 4: per-line location override (NULL = doc branch).
+        branch: i.branchId ?? input.branchId,
       });
     }
   }
@@ -470,10 +564,68 @@ export async function postPurchaseDoc(tx: DbTx, input: PostPurchaseInput): Promi
     }
   }
 
-  const { cogsOut: stockCostOut } = await applyStock(tx, input.branchId, stockMoves);
+  const { cogsOut: stockCostOut, details: purchaseDetails } = await applyStockByBranch(tx, stockMoves);
   // For purchase returns, inventory leaves at average cost (stockCostOut), not at
   // the return document's rate. Any difference is a price gain/loss vs cost.
   const priceDiff = stockNet - stockCostOut;
+
+  // Module 4: movement ledger — bills and stock-deducting returns.
+  if (input.docType === "BILL" || deductStock) {
+    await recordStockDetails(
+      tx,
+      input.companyId,
+      input.date,
+      input.docType === "BILL" ? "BILL" : "RETURN",
+      input.docId,
+      input.docNo,
+      purchaseDetails
+    );
+  }
+
+  // Module 4.1: inventory debits grouped by each product's inventory account
+  // (fallback SYS.INVENTORY 1200). Direct bills debit net+landed per product;
+  // GRN-sourced bills debit only the landed extra costs (the GRN already
+  // booked the goods value, possibly to the same per-product accounts).
+  const prodAccts = await productAccounts(
+    tx,
+    input.companyId,
+    input.items.map((i) => i.productId).filter((p): p is string => !!p)
+  );
+  const invAcctOf = (productId: string) => prodAccts.get(productId)?.inventory ?? ac[SYS.INVENTORY];
+  const invDr = new Map<string, bigint>();
+  for (const idx of stockItemIdx) {
+    const i = input.items[idx]!;
+    const acct = invAcctOf(i.productId!);
+    const amt = fromGrn ? (landedByItem.get(idx) ?? 0n) : i.taxablePaisa + (landedByItem.get(idx) ?? 0n);
+    if (amt > 0n) invDr.set(acct, (invDr.get(acct) ?? 0n) + amt);
+  }
+  const invDrLines: JournalLineInput[] = [...invDr.entries()].map(([accountId, debit]) => ({
+    accountId,
+    debit,
+    credit: 0n,
+  }));
+  // Safety: landed-cost distribution can leave dust undistributed when line
+  // nets are zero (distributeExtraCost returns zeros); the remainder keeps
+  // the exact old totals on the fallback inventory account.
+  {
+    const expected = fromGrn ? totalExtra : stockNet + totalExtra;
+    const got = [...invDr.values()].reduce((a, v) => a + v, 0n);
+    if (expected > got) {
+      invDrLines.push({ accountId: ac[SYS.INVENTORY], debit: expected - got, credit: 0n });
+    }
+  }
+  // Purchase returns: inventory leaves at average cost, grouped per account.
+  const invCr = new Map<string, bigint>();
+  for (const d of purchaseDetails) {
+    if (d.valueMoved <= 0n) continue;
+    const acct = invAcctOf(d.productId);
+    invCr.set(acct, (invCr.get(acct) ?? 0n) + d.valueMoved);
+  }
+  const invCrLines: JournalLineInput[] = [...invCr.entries()].map(([accountId, credit]) => ({
+    accountId,
+    debit: 0n,
+    credit,
+  }));
 
   // GRN-sourced bills move no stock, but landed extra costs still lift the
   // received stock's unit cost (the GRN already holds the quantities).
@@ -481,7 +633,7 @@ export async function postPurchaseDoc(tx: DbTx, input: PostPurchaseInput): Promi
     for (const idx of stockItemIdx) {
       const i = input.items[idx]!;
       const share = landedByItem.get(idx) ?? 0n;
-      if (share > 0n && i.productId) await adjustStockCost(tx, input.branchId, i.productId, share);
+      if (share > 0n && i.productId) await adjustStockCost(tx, i.branchId ?? input.branchId, i.productId, share);
     }
   }
 
@@ -521,7 +673,7 @@ export async function postPurchaseDoc(tx: DbTx, input: PostPurchaseInput): Promi
   const billLines: JournalLineInput[] = fromGrn
     ? [
         { accountId: ac[SYS.GRNI_ACCRUAL], debit: input.grnClearing!.accruedPaisa, credit: 0n, partyId: input.partyId },
-        ...(totalExtra > 0n ? [{ accountId: ac[SYS.INVENTORY], debit: totalExtra, credit: 0n }] : []),
+        ...invDrLines,
         ...(input.taxTotal > 0n ? [{ accountId: ac[SYS.INPUT_TAX], debit: input.taxTotal, credit: 0n }] : []),
         ...(whtAmount > 0n ? [{ accountId: ac[SYS.TAX_PAYABLE], debit: 0n, credit: whtAmount, partyId: input.partyId }] : []),
         { accountId: ac[SYS.AP], debit: 0n, credit: input.grandTotal - whtAmount, partyId: input.partyId },
@@ -529,7 +681,7 @@ export async function postPurchaseDoc(tx: DbTx, input: PostPurchaseInput): Promi
         ...(extraCredit ? [extraCredit] : []),
       ]
     : [
-        ...((stockNet + totalExtra) > 0n ? [{ accountId: ac[SYS.INVENTORY], debit: stockNet + totalExtra, credit: 0n }] : []),
+        ...invDrLines,
         ...(nonStockNet > 0n ? [{ accountId: ac[SYS.PURCHASES], debit: nonStockNet, credit: 0n }] : []),
         ...(input.taxTotal > 0n ? [{ accountId: ac[SYS.INPUT_TAX], debit: input.taxTotal, credit: 0n }] : []),
         ...(whtAmount > 0n ? [{ accountId: ac[SYS.TAX_PAYABLE], debit: 0n, credit: whtAmount, partyId: input.partyId }] : []),
@@ -544,7 +696,7 @@ export async function postPurchaseDoc(tx: DbTx, input: PostPurchaseInput): Promi
   const returnLines: JournalLineInput[] = deductStock
     ? [
         { accountId: ac[SYS.AP], debit: input.grandTotal, credit: 0n, partyId: input.partyId },
-        ...(stockCostOut > 0n ? [{ accountId: ac[SYS.INVENTORY], debit: 0n, credit: stockCostOut }] : []),
+        ...invCrLines,
         ...(nonStockNet > 0n ? [{ accountId: ac[SYS.PURCHASES], debit: 0n, credit: nonStockNet }] : []),
         ...(input.taxTotal > 0n ? [{ accountId: ac[SYS.INPUT_TAX], debit: 0n, credit: input.taxTotal }] : []),
         ...(priceDiff !== 0n

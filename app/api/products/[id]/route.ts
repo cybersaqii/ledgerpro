@@ -10,6 +10,7 @@ import { requireCompany, db, requirePermission } from "@/lib/route-helpers";
 import { logAudit } from "@/lib/audit";
 import { isForeignKeyViolation } from "@/lib/company-delete";
 import { validateImageUrl, ImageUrlError } from "@/lib/product-image";
+import { assertProductAccount } from "@/lib/stock-ledger";
 
 async function find(companyId: string, id: string) {
   const rows = await db
@@ -70,25 +71,38 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     if (dup[0]) return err("A product with this SKU already exists.", 409, "DUPLICATE");
  }
 
-  await db
-    .update(products)
-    .set({
-      ...(p.sku !== undefined ? { sku: p.sku } : {}),
-      ...(p.name !== undefined ? { name: p.name } : {}),
-      ...(p.barcode !== undefined ? { barcode: p.barcode || null } : {}),
-      ...(p.category !== undefined ? { category: p.category || null } : {}),
-      ...(p.unit !== undefined ? { unit: p.unit } : {}),
-      ...(p.purchasePrice !== undefined ? { purchasePrice: parseMoney(p.purchasePrice || "0") } : {}),
-      ...(p.salePrice !== undefined ? { salePrice: parseMoney(p.salePrice || "0") } : {}),
-      ...(p.taxBps !== undefined ? { taxBps: p.taxBps } : {}),
-      ...(p.trackStock !== undefined ? { trackStock: p.trackStock } : {}),
-      ...(p.reorderLevel !== undefined ? { reorderLevel: parseQty(p.reorderLevel) } : {}),
-      ...(p.minSalePrice !== undefined ? { minSalePrice: parseMoney(p.minSalePrice || "0") } : {}),
-      ...(p.location !== undefined ? { location: p.location?.trim() ? p.location.trim().slice(0, 60) : null } : {}),
-      ...(imageUrl !== undefined ? { imageUrl } : {}),
-      updatedAt: new Date(),
- })
-    .where(eq(products.id, id));
+  await db.transaction(async (tx) => {
+    // Module 4.1: item type drives stock tracking; explicit itemType wins,
+    // otherwise keep the legacy trackStock derivation.
+    const itemType = p.itemType ?? (p.trackStock !== undefined ? (p.trackStock ? "INVENTORY" : "NON_INVENTORY") : undefined);
+    const trackStock = itemType !== undefined ? itemType === "INVENTORY" : p.trackStock;
+    if (p.revenueAccountId) await assertProductAccount(tx, companyId, p.revenueAccountId, "INCOME", "Revenue account");
+    if (p.cogsAccountId) await assertProductAccount(tx, companyId, p.cogsAccountId, "EXPENSE", "COGS account");
+    if (p.inventoryAccountId) await assertProductAccount(tx, companyId, p.inventoryAccountId, "ASSET", "Inventory account");
+    await tx
+      .update(products)
+      .set({
+        ...(p.sku !== undefined ? { sku: p.sku } : {}),
+        ...(p.name !== undefined ? { name: p.name } : {}),
+        ...(p.barcode !== undefined ? { barcode: p.barcode || null } : {}),
+        ...(p.category !== undefined ? { category: p.category || null } : {}),
+        ...(p.unit !== undefined ? { unit: p.unit } : {}),
+        ...(p.purchasePrice !== undefined ? { purchasePrice: parseMoney(p.purchasePrice || "0") } : {}),
+        ...(p.salePrice !== undefined ? { salePrice: parseMoney(p.salePrice || "0") } : {}),
+        ...(p.taxBps !== undefined ? { taxBps: p.taxBps } : {}),
+        ...(trackStock !== undefined ? { trackStock } : {}),
+        ...(itemType !== undefined ? { itemType } : {}),
+        ...(p.reorderLevel !== undefined ? { reorderLevel: parseQty(p.reorderLevel) } : {}),
+        ...(p.minSalePrice !== undefined ? { minSalePrice: parseMoney(p.minSalePrice || "0") } : {}),
+        ...(p.location !== undefined ? { location: p.location?.trim() ? p.location.trim().slice(0, 60) : null } : {}),
+        ...(imageUrl !== undefined ? { imageUrl } : {}),
+        ...(p.revenueAccountId !== undefined ? { revenueAccountId: p.revenueAccountId || null } : {}),
+        ...(p.cogsAccountId !== undefined ? { cogsAccountId: p.cogsAccountId || null } : {}),
+        ...(p.inventoryAccountId !== undefined ? { inventoryAccountId: p.inventoryAccountId || null } : {}),
+        updatedAt: new Date(),
+      })
+      .where(eq(products.id, id));
+  });
   await logAudit(db, {
     companyId, userId: session.uid, userName: session.name,
     action: "product.updated", entity: "product", entityId: id,

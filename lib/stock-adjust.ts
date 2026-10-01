@@ -8,6 +8,7 @@ import {
 } from "@/db/schema";
 import { SYS, accountMap, nextDocNo } from "./setup";
 import { createJournal } from "./posting";
+import { productAccounts, recordMovement } from "./stock-ledger";
 import { deductBatchStock, recordBatchUsage } from "./batches";
 import { assertPeriodOpen } from "./period";
 import { UserError } from "./errors";
@@ -53,7 +54,10 @@ export type PostStockAdjustmentInput = {
   companyId: string;
   branchId: string;
   reason: AdjustmentReason;
-  accountId: string;
+  /** Optional override account. Defaults: FOUND → Inventory Adjustment Gain
+   *  (4040); losses → Shrinkage Expense (6020); CORRECTION → per-direction
+   *  defaults. An explicit account must match the reason's direction type. */
+  accountId?: string | null;
   date: Date;
   lines: StockAdjustmentLineInput[];
   notes?: string;
@@ -88,21 +92,44 @@ export async function postStockAdjustment(
   }
   await assertPeriodOpen(tx, input.companyId, input.date);
 
-  const gl = await tx
-    .select()
-    .from(accounts)
-    .where(and(eq(accounts.id, input.accountId), eq(accounts.companyId, input.companyId)))
-    .limit(1);
-  if (!gl[0] || gl[0].type !== "EXPENSE")
-    throw new UserError("Please select a valid expense account for the adjustment.");
-
+  // Module 4.4: default gain/loss accounts — Inventory Adjustment Gain (4040)
+  // for FOUND, Shrinkage Expense (6020) for losses. An explicit account must
+  // match the reason's direction (gain → INCOME, loss → EXPENSE).
   const ac = await accountMap(tx, input.companyId);
+  const isGainOnly = GAIN_REASONS.has(input.reason);
+  const isLossOnly = LOSS_REASONS.has(input.reason);
+  let lossAcct = ac[SYS.SHRINKAGE];
+  let gainAcct = ac[SYS.ADJUSTMENT_GAIN];
+  if (input.accountId) {
+    const gl = await tx
+      .select()
+      .from(accounts)
+      .where(and(eq(accounts.id, input.accountId), eq(accounts.companyId, input.companyId)))
+      .limit(1);
+    if (!gl[0] || !gl[0].isActive) throw new UserError("Please select a valid account for the adjustment.", 404, "NOT_FOUND");
+    if (isGainOnly && gl[0].type !== "INCOME")
+      throw new UserError("Stock-found adjustments need an income account.", 422, "VALIDATION_ERROR");
+    if (isLossOnly && gl[0].type !== "EXPENSE")
+      throw new UserError("Stock-loss adjustments need an expense account.", 422, "VALIDATION_ERROR");
+    lossAcct = gl[0].id;
+    gainAcct = gl[0].id;
+  }
+
   const docNo = input.docNo ?? (await nextDocNo(tx, input.companyId, "STOCK_ADJUSTMENT"));
   const adjustmentId = crypto.randomUUID();
 
-  let lossTotal = 0n;
-  let gainTotal = 0n;
+  // Module 4.1: per-product inventory accounts (fallback SYS.INVENTORY).
+  const prodAccts = await productAccounts(
+    tx,
+    input.companyId,
+    input.lines.map((l) => l.productId)
+  );
+  const invAcctOf = (productId: string) => prodAccts.get(productId)?.inventory ?? ac[SYS.INVENTORY];
+
+  const lossByAcct = new Map<string, bigint>();
+  const gainByAcct = new Map<string, bigint>();
   const storedLines: { productId: string; qtyMilli: bigint; costPaisa: bigint }[] = [];
+  const movements: { productId: string; qtyMilli: bigint; balanceQty: bigint; balanceAvg: bigint }[] = [];
 
   for (const l of input.lines) {
     const pr = await tx
@@ -131,14 +158,19 @@ export async function postStockAdjustment(
       for (const u of used) {
         await recordBatchUsage(tx, input.companyId, adjustmentId, l.productId, u.batchId, -u.qtyMilli);
       }
-      lossTotal += lineValue(l.qtyMilli, avg);
+      const val = lineValue(l.qtyMilli, avg);
+      const acct = invAcctOf(l.productId);
+      lossByAcct.set(acct, (lossByAcct.get(acct) ?? 0n) + val);
       if (level) {
         await tx.update(stockLevels).set({ qty: current - out }).where(eq(stockLevels.id, level.id));
       }
+      movements.push({ productId: l.productId, qtyMilli: l.qtyMilli, balanceQty: current - out, balanceAvg: avg });
     } else {
       // Stock in (found/correction): valued at moving average; with no
       // existing level the cost basis is 0 and no money moves.
-      gainTotal += lineValue(l.qtyMilli, avg);
+      const val = lineValue(l.qtyMilli, avg);
+      const acct = invAcctOf(l.productId);
+      gainByAcct.set(acct, (gainByAcct.get(acct) ?? 0n) + val);
       if (level) {
         await tx.update(stockLevels).set({ qty: current + l.qtyMilli }).where(eq(stockLevels.id, level.id));
       } else {
@@ -150,21 +182,24 @@ export async function postStockAdjustment(
           avgCost: 0n,
         });
       }
+      movements.push({ productId: l.productId, qtyMilli: l.qtyMilli, balanceQty: current + l.qtyMilli, balanceAvg: avg });
     }
     storedLines.push({ productId: l.productId, qtyMilli: l.qtyMilli, costPaisa: avg });
   }
 
-  const moneyTotal = lossTotal + gainTotal;
+  const moneyTotal = [...lossByAcct.values(), ...gainByAcct.values()].reduce((a, v) => a + v, 0n);
   let entryId: string | null = null;
   if (moneyTotal > 0n) {
     const lines: { accountId: string; debit: bigint; credit: bigint }[] = [];
-    if (lossTotal > 0n) {
-      lines.push({ accountId: gl[0].id, debit: lossTotal, credit: 0n });
-      lines.push({ accountId: ac[SYS.INVENTORY], debit: 0n, credit: lossTotal });
+    for (const [acct, val] of lossByAcct) {
+      if (val <= 0n) continue;
+      lines.push({ accountId: lossAcct, debit: val, credit: 0n });
+      lines.push({ accountId: acct, debit: 0n, credit: val });
     }
-    if (gainTotal > 0n) {
-      lines.push({ accountId: ac[SYS.INVENTORY], debit: gainTotal, credit: 0n });
-      lines.push({ accountId: gl[0].id, debit: 0n, credit: gainTotal });
+    for (const [acct, val] of gainByAcct) {
+      if (val <= 0n) continue;
+      lines.push({ accountId: acct, debit: val, credit: 0n });
+      lines.push({ accountId: gainAcct, debit: 0n, credit: val });
     }
     entryId = await createJournal(tx, {
       companyId: input.companyId,
@@ -178,6 +213,22 @@ export async function postStockAdjustment(
     });
   }
 
+  // Module 4.5: movement ledger.
+  for (const m of movements) {
+    await recordMovement(tx, {
+      companyId: input.companyId,
+      productId: m.productId,
+      branchId: input.branchId,
+      date: input.date,
+      txnType: "ADJUSTMENT",
+      docId: adjustmentId,
+      docNo,
+      qtyMilli: m.qtyMilli,
+      balanceQty: m.balanceQty,
+      balanceAvg: m.balanceAvg,
+    });
+  }
+
   await tx.insert(stockAdjustments).values({
     id: adjustmentId,
     companyId: input.companyId,
@@ -185,7 +236,7 @@ export async function postStockAdjustment(
     docNo,
     date: input.date,
     reason: input.reason,
-    accountId: gl[0].id,
+    accountId: isGainOnly ? gainAcct : lossAcct,
     notes: input.notes,
     journalEntryId: entryId,
     createdById: input.createdById,

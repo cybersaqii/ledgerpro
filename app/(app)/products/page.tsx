@@ -17,6 +17,8 @@ type Product = {
   location: string | null; imageUrl: string | null;
 };
 
+type AccountOpt = { id: string; name: string; code: string };
+
 type BatchInfo = {
   id: string; batchNo: string; expiryDate: string | null; qtyThousandths: string; unit: string;
 };
@@ -29,8 +31,11 @@ type ProductPick = { id: string; name: string; sku: string; unit: string };
 
 const emptyForm = {
   sku: "", name: "", barcode: "", category: "", unit: "PCS",
-  purchasePrice: "", salePrice: "", trackStock: true, reorderLevel: "", minSalePrice: "",
+  purchasePrice: "", salePrice: "", reorderLevel: "", minSalePrice: "",
   location: "", imageUrl: "",
+  // Module 4.1: item type drives stock tracking (INVENTORY ⟺ tracked).
+  itemType: "INVENTORY",
+  revenueAccountId: "", cogsAccountId: "", inventoryAccountId: "",
 };
 
 type ProductDetail = {
@@ -38,6 +43,9 @@ type ProductDetail = {
   unit: string; category: string | null; purchasePrice: string; salePrice: string;
   trackStock: boolean; reorderLevel: string; minSalePrice: string | null;
   location: string | null; imageUrl: string | null; isBundle: boolean;
+  itemType: string | null;
+  revenueAccountId: string | null; cogsAccountId: string | null; inventoryAccountId: string | null;
+  openingStockQty: string; openingStockCost: string; openingStockDate: string | null; openingStockPosted: boolean;
 };
 
 const UNITS = ["PCS", "KG", "G", "LTR", "ML", "MTR", "BOX", "CTN", "DOZ", "BAG"];
@@ -72,6 +80,15 @@ export default function ProductsPage() {
   const [openBatches, setOpenBatches] = useState<string | null>(null);
   const [batchRows, setBatchRows] = useState<Record<string, BatchInfo[]>>({});
   const [batchLoading, setBatchLoading] = useState(false);
+  // Module 4.1: per-product GL account pickers + opening-stock posting.
+  const [incomeAccounts, setIncomeAccounts] = useState<AccountOpt[]>([]);
+  const [expenseAccounts, setExpenseAccounts] = useState<AccountOpt[]>([]);
+  const [assetAccounts, setAssetAccounts] = useState<AccountOpt[]>([]);
+  const [branchOpts, setBranchOpts] = useState<{ id: string; name: string }[]>([]);
+  const [openingPosted, setOpeningPosted] = useState(false);
+  const [openingInfo, setOpeningInfo] = useState("");
+  const [opening, setOpening] = useState({ qty: "", cost: "", date: "", branchId: "" });
+  const [postingOpening, setPostingOpening] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -93,7 +110,19 @@ export default function ProductsPage() {
     setForm(emptyForm); setError(null); setPriceError(null);
     setComponents([]); setComponentsLoaded(true);
     setCompQuery(""); setCompResults([]);
+    setOpeningPosted(false); setOpeningInfo(""); setOpening({ qty: "", cost: "", date: "", branchId: "" });
     setModal({ mode: "add" });
+    loadAccountOpts();
+  }
+
+  function loadAccountOpts() {
+    // lazy-load once per session; pickers only need id + name
+    if (incomeAccounts.length === 0) {
+      api<{ data: AccountOpt[] }>("/api/accounts?type=INCOME").then((d) => setIncomeAccounts(d.data)).catch(() => {});
+      api<{ data: AccountOpt[] }>("/api/accounts?type=EXPENSE").then((d) => setExpenseAccounts(d.data)).catch(() => {});
+      api<{ data: AccountOpt[] }>("/api/accounts?type=ASSET").then((d) => setAssetAccounts(d.data)).catch(() => {});
+      api<{ data: { id: string; name: string }[] }>("/api/branches").then((d) => setBranchOpts(d.data)).catch(() => {});
+    }
   }
   // Fetch the full row first: the list omits barcode and several flags, and
   // sending those back blank would silently wipe them on save.
@@ -106,15 +135,24 @@ export default function ProductsPage() {
         sku: full.sku, name: full.name, barcode: full.barcode ?? "", category: full.category ?? "", unit: full.unit,
         purchasePrice: paisaToRupees(full.purchasePrice),
         salePrice: paisaToRupees(full.salePrice),
-        trackStock: full.trackStock,
+        itemType: full.itemType ?? (full.trackStock ? "INVENTORY" : "NON_INVENTORY"),
         reorderLevel: thousandthsToStr(full.reorderLevel),
         minSalePrice: paisaToRupees(full.minSalePrice ?? "0"),
         location: full.location ?? "",
         imageUrl: full.imageUrl ?? "",
+        revenueAccountId: full.revenueAccountId ?? "",
+        cogsAccountId: full.cogsAccountId ?? "",
+        inventoryAccountId: full.inventoryAccountId ?? "",
       });
       setComponents([]); setComponentsLoaded(false);
       setCompQuery(""); setCompResults([]);
       setModal({ mode: "edit", p });
+      setOpeningPosted(!!full.openingStockPosted);
+      setOpeningInfo(full.openingStockPosted && full.openingStockDate
+        ? `${thousandthsToStr(full.openingStockQty)} ${full.unit} @ ${paisaToRupees(full.openingStockCost)}`
+        : "");
+      setOpening({ qty: "", cost: "", date: "", branchId: "" });
+      loadAccountOpts();
       // load bundle components for the editor
       api<{ data: { componentProductId: string; componentName: string; componentSku: string; componentUnit: string; qtyThousandths: number }[] }>(
         `/api/products/${p.id}/bundles`
@@ -159,6 +197,29 @@ export default function ProductsPage() {
     } catch {
       setBatchRows((m) => ({ ...m, [p.id]: [] }));
     } finally { setBatchLoading(false); }
+  }
+
+  /** Module 4.1: post opening stock once (server guards double-posting). */
+  async function postOpening() {
+    if (modal?.mode !== "edit") return;
+    setPostingOpening(true); setError(null);
+    try {
+      await api(`/api/products/${modal.p.id}/opening-stock`, {
+        method: "POST",
+        body: JSON.stringify({
+          qty: opening.qty || "0",
+          cost: opening.cost || "0",
+          date: opening.date,
+          branchId: opening.branchId || undefined,
+        }),
+      });
+      setOpeningPosted(true);
+      setOpeningInfo(`${opening.qty} ${modal.p.unit} @ ${opening.cost}`);
+      setOpening({ qty: "", cost: "", date: "", branchId: "" });
+      load();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : t("products.saveError"));
+    } finally { setPostingOpening(false); }
   }
 
   /** "2026-10-01" -> locale date; null -> "—". */
@@ -355,11 +416,71 @@ export default function ProductsPage() {
             </div>
             <div className="grid gap-4 sm:grid-cols-3">
               <Field label={t("products.reorderLevel")}><input className="field" type="number" min="0" step="0.001" placeholder="0" value={form.reorderLevel} onChange={set("reorderLevel")} /></Field>
+              <Field label={t("m4.itemType")} hint={t("m4.itemTypeHint")}>
+                <select className="field" value={form.itemType} onChange={set("itemType")}>
+                  <option value="INVENTORY">{t("m4.itemTypeInventory")}</option>
+                  <option value="NON_INVENTORY">{t("m4.itemTypeNonInventory")}</option>
+                  <option value="SERVICE">{t("m4.itemTypeService")}</option>
+                </select>
+              </Field>
             </div>
-            <label className="flex cursor-pointer items-center gap-2 text-sm font-semibold">
-              <input type="checkbox" checked={form.trackStock} onChange={set("trackStock")} className="h-4 w-4 accent-[var(--primary)]" />
-              {t("products.trackStock", { product: productOne.toLowerCase() })}
-            </label>
+
+            <div className="rounded-xl border border-border p-4">
+              <div className="mb-1 text-sm font-bold">{t("m4.glAccountsTitle")}</div>
+              <p className="mb-3 text-xs text-muted-foreground">{t("m4.glAccountsHint")}</p>
+              <div className="grid gap-4 sm:grid-cols-3">
+                <Field label={t("m4.revenueAccount")} hint={t("m4.defaultSalesRevenue")}>
+                  <select className="field" value={form.revenueAccountId} onChange={set("revenueAccountId")}>
+                    <option value="">{t("m4.defaultAccount")}</option>
+                    {incomeAccounts.map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}
+                  </select>
+                </Field>
+                <Field label={t("m4.cogsAccount")} hint={t("m4.defaultCogs")}>
+                  <select className="field" value={form.cogsAccountId} onChange={set("cogsAccountId")}>
+                    <option value="">{t("m4.defaultAccount")}</option>
+                    {expenseAccounts.map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}
+                  </select>
+                </Field>
+                <Field label={t("m4.inventoryAccount")} hint={t("m4.defaultInventory")}>
+                  <select className="field" value={form.inventoryAccountId} onChange={set("inventoryAccountId")}>
+                    <option value="">{t("m4.defaultAccount")}</option>
+                    {assetAccounts.map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}
+                  </select>
+                </Field>
+              </div>
+            </div>
+
+            {modal.mode === "edit" && (
+              <div className="rounded-xl border border-border p-4">
+                <div className="mb-1 text-sm font-bold">{t("m4.openingStockTitle")}</div>
+                {openingPosted ? (
+                  <p className="text-xs text-muted-foreground">{t("m4.openingStockPosted", { info: openingInfo })}</p>
+                ) : (
+                  <>
+                    <p className="mb-3 text-xs text-muted-foreground">{t("m4.openingStockHint")}</p>
+                    <div className="grid gap-4 sm:grid-cols-4">
+                      <Field label={t("m4.openingQty")}><input className="field" type="number" min="0" step="0.001" placeholder="0" value={opening.qty} onChange={(e) => setOpening((o) => ({ ...o, qty: e.target.value }))} /></Field>
+                      <Field label={t("m4.openingCost")}><input className="field" type="number" min="0" step="0.01" placeholder="0.00" value={opening.cost} onChange={(e) => setOpening((o) => ({ ...o, cost: e.target.value }))} /></Field>
+                      <Field label={t("m4.openingDate")}><input className="field" type="date" value={opening.date} onChange={(e) => setOpening((o) => ({ ...o, date: e.target.value }))} /></Field>
+                      <Field label={t("docform.lineLocation")}>
+                        <select className="field" value={opening.branchId} onChange={(e) => setOpening((o) => ({ ...o, branchId: e.target.value }))}>
+                          <option value="">{t("docform.lineLocationDoc")}</option>
+                          {branchOpts.map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}
+                        </select>
+                      </Field>
+                    </div>
+                    <button
+                      type="button"
+                      className="btn btn-ghost mt-3 text-sm"
+                      disabled={postingOpening || !opening.qty || !opening.date}
+                      onClick={postOpening}
+                    >
+                      {postingOpening ? t("common.saving") : t("m4.postOpeningStock")}
+                    </button>
+                  </>
+                )}
+              </div>
+            )}
 
             <div className="rounded-xl border border-border p-4">
               <div className="mb-1 text-sm font-bold">{t("bundles.componentsTitle")}</div>

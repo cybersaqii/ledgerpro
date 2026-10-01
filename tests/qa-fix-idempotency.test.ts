@@ -201,6 +201,7 @@ describe("idempotency keys + money-create rate limits", () => {
       "payments_idem_key",
       "purchase_docs_idem_key",
       "sales_docs_idem_key",
+      "stock_xfer_idem_key", // Module 4: stock transfer docs
       "sundry_receipts_idem_key", // Module 3
       "transfers_idem_key",
       "write_offs_idem_key",

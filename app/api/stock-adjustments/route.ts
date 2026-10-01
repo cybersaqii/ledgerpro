@@ -15,7 +15,10 @@ const qtyStr = z.string().regex(/^-?\d{1,12}(\.\d{1,3})?$/, "Invalid quantity");
 
 const adjustmentSchema = z.object({
   reason: z.enum(ADJUSTMENT_REASONS),
-  accountId: z.string().min(1),
+  // Module 4.4: optional — when omitted, FOUND uses the system
+  // Inventory Adjustment Gain account (4040) and all loss reasons use
+  // Shrinkage Expense (6020).
+  accountId: z.string().min(1).optional(),
   branchId: z.string().min(1).optional(),
   date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Invalid date"),
   notes: z.string().trim().max(500).optional().or(z.literal("")),
@@ -92,7 +95,7 @@ export async function POST(req: NextRequest) {
         companyId,
         branchId,
         reason: b.reason,
-        accountId: b.accountId,
+        accountId: b.accountId || undefined,
         date,
         lines: b.lines.map((l) => ({ productId: l.productId, qtyMilli: parseQty(l.qtyMilli) })),
         notes: b.notes || undefined,

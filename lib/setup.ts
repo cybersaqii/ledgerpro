@@ -35,6 +35,8 @@ export const SYS = {
   EXPENSES: "6000",
   BANK_CHARGES: "6010", // Module 3: bank charges / transfer fees
   INTEREST_INCOME: "4030", // Module 3: interest credited by the bank
+  ADJUSTMENT_GAIN: "4040", // Module 4: inventory adjustment gain (stock found)
+  SHRINKAGE: "6020", // Module 4: shrinkage expense (damaged / lost stock)
 } as const;
 
 const SYSTEM_ACCOUNTS: { code: string; name: string; type: string }[] = [
@@ -61,6 +63,8 @@ const SYSTEM_ACCOUNTS: { code: string; name: string; type: string }[] = [
   { code: SYS.EXPENSES, name: "General Expenses", type: "EXPENSE" },
   { code: SYS.BANK_CHARGES, name: "Bank Charges", type: "EXPENSE" },
   { code: SYS.INTEREST_INCOME, name: "Interest Income", type: "INCOME" },
+  { code: SYS.ADJUSTMENT_GAIN, name: "Inventory Adjustment Gain", type: "INCOME" },
+  { code: SYS.SHRINKAGE, name: "Shrinkage Expense", type: "EXPENSE" },
 ];
 
 const DOC_PREFIXES: Record<string, string> = {
@@ -79,6 +83,7 @@ const DOC_PREFIXES: Record<string, string> = {
   RECEIPT: "REC-",
   EXPENSE: "EXP-",
   TRANSFER: "TRF-",
+  STOCK_TRANSFER: "STR-", // Module 4: stock transfer documents (Draft → In-Transit → Received)
   SUNDRY_RECEIPT: "SRC-", // Module 3: direct (non-invoiced) receipts
   BANK_ADJUSTMENT: "BADJ-", // Module 3: bank charges / interest adjustments
   STOCK_ADJUSTMENT: "ADJ-",
@@ -126,6 +131,17 @@ async function nextBankCode(tx: DbTx, companyId: string): Promise<string> {
 /** Account types for bank/cash accounts (Module 3). */
 export const BANK_ACCOUNT_TYPES = ["CURRENT", "SAVINGS", "OVERDRAFT", "PETTY_CASH"] as const;
 export type BankAccountType = (typeof BANK_ACCOUNT_TYPES)[number];
+
+/** Branch location types (Module 4): branches are the stock locations, so a
+ *  branch can be labelled as a warehouse, shop, van or other location. */
+export const BRANCH_LOCATION_TYPES = ["WAREHOUSE", "SHOP", "VAN", "OTHER"] as const;
+export type BranchLocationType = (typeof BRANCH_LOCATION_TYPES)[number];
+
+/** Product item types (Module 4): INVENTORY = stock-tracked, NON_INVENTORY =
+ *  purchased/sold but not stocked (expensed via Purchases 5003), SERVICE =
+ *  never stocked. */
+export const PRODUCT_ITEM_TYPES = ["INVENTORY", "NON_INVENTORY", "SERVICE"] as const;
+export type ProductItemType = (typeof PRODUCT_ITEM_TYPES)[number];
 
 async function createBankAccount(
   tx: DbTx,

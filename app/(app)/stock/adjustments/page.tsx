@@ -66,8 +66,9 @@ export default function StockAdjustmentsPage() {
     try {
       const a = await api<{ data: Account[] }>("/api/accounts?type=EXPENSE");
       setAccounts(a.data);
-      const general = a.data.find((x) => x.code === "6000") ?? a.data[0];
-      if (general) setForm((x) => ({ ...x, accountId: general.id }));
+      // Module 4.4: no pre-selection — blank means the server uses the system
+      // Inventory Adjustment Gain (4040) for FOUND and Shrinkage Expense (6020)
+      // for loss reasons.
     } catch { /* ignore */ }
     setModal(true);
   }
@@ -180,9 +181,9 @@ export default function StockAdjustmentsPage() {
                   {REASONS.map((r) => <option key={r} value={r}>{reasonLabel(f, r)}</option>)}
                 </select>
               </Field>
-              <Field label={f("fix3.adjAccount")} hint={f("fix3.adjAccountHint")}>
-                <select className="field" required value={form.accountId} onChange={(e) => setForm({ ...form, accountId: e.target.value })}>
-                  <option value="">—</option>
+              <Field label={f("fix3.adjAccount")} hint={f("m4.adjAccountAutoHint")}>
+                <select className="field" value={form.accountId} onChange={(e) => setForm({ ...form, accountId: e.target.value })}>
+                  <option value="">{f("m4.adjAccountAuto")}</option>
                   {accounts.map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}
                 </select>
               </Field>

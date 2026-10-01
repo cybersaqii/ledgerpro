@@ -71,6 +71,12 @@ export const productSchema = z.object({
   minSalePrice: priceStr.default("0"),
   location: z.string().trim().max(60).optional().or(z.literal("")),
   imageUrl: z.string().trim().max(500).optional().or(z.literal("")),
+  // Module 4.1: item type + per-product GL accounts. itemType is optional for
+  // backward compatibility: when absent it is derived from trackStock.
+  itemType: z.enum(["INVENTORY", "NON_INVENTORY", "SERVICE"]).optional(),
+  revenueAccountId: z.string().trim().max(40).optional().or(z.literal("")),
+  cogsAccountId: z.string().trim().max(40).optional().or(z.literal("")),
+  inventoryAccountId: z.string().trim().max(40).optional().or(z.literal("")),
 });
 
 // Bundle components editor: component product + qty per one bundle unit.
@@ -99,6 +105,8 @@ export const docItemSchema = z.object({
   batchId: z.string().trim().max(40).optional().or(z.literal("")),
   batchNo: z.string().trim().max(40).optional().or(z.literal("")),
   expiryDate: z.string().trim().max(10).optional().or(z.literal("")),
+  // Module 4.2: per-line location override (branch id); blank = doc branch.
+  branchId: z.string().trim().max(40).optional().or(z.literal("")),
 });
 
 export const salesDocSchema = z.object({

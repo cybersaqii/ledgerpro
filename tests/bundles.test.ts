@@ -277,7 +277,7 @@ describe("bundle sales posting", () => {
     // explode passes it through as a single direct move (no batch choice)
     const moves = await explodeSalesStockMoves(db, companyId,
       [{ productId: pid, qtyMilli: parseQty("3"), trackStock: true }], "INVOICE");
-    expect(moves).toEqual([{ productId: pid, qtyMilli: -parseQty("3"), batchId: null }]);
+    expect(moves).toEqual([{ productId: pid, qtyMilli: -parseQty("3"), batchId: null, branchId: null }]);
   });
 
   it("nested bundles explode recursively", async () => {

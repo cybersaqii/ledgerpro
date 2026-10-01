@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
-import { Search, TriangleAlert, Boxes, ClipboardList, ArrowRightLeft } from "lucide-react";
+import { Search, TriangleAlert, Boxes, ClipboardList, ArrowRightLeft, History, Truck } from "lucide-react";
 import { PageHeader, EmptyState, ExportCsv } from "@/components/ui";
 import StockTransferDialog from "@/components/stock-transfer-dialog";
 import { csvMoney } from "@/lib/csv";
@@ -30,6 +30,11 @@ type BatchAlert = {
   batchNo: string; expiryDate: string | null; qtyThousandths: string;
 };
 
+type TransferDoc = {
+  id: string; docNo: string; date: string | null; status: string;
+  fromBranchName: string | null; toBranchName: string | null; notes: string | null;
+};
+
 export default function StockPage() {
   const bp = useBusinessProfile();
   const { t } = useLang();
@@ -41,6 +46,29 @@ export default function StockPage() {
   const [expired, setExpired] = useState<BatchAlert[]>([]);
   const [expiring, setExpiring] = useState<BatchAlert[]>([]);
   const [showTransfer, setShowTransfer] = useState(false);
+  const [openDocs, setOpenDocs] = useState<TransferDoc[]>([]);
+  const [docBusy, setDocBusy] = useState<string | null>(null);
+
+  const loadDocs = useCallback(() => {
+    // Module 4.3: open transfer documents (DRAFT + IN_TRANSIT) awaiting action.
+    api<{ data: TransferDoc[] }>("/api/stock/transfer-docs")
+      .then((d) => setOpenDocs(d.data.filter((x) => x.status === "DRAFT" || x.status === "IN_TRANSIT")))
+      .catch(() => setOpenDocs([]));
+  }, []);
+
+  useEffect(() => { loadDocs(); }, [loadDocs]);
+
+  async function docAction(id: string, action: "issue" | "receive" | "cancel") {
+    if (action === "cancel" && !window.confirm(t("m4.transferCancelConfirm"))) return;
+    setDocBusy(id);
+    try {
+      await api(`/api/stock/transfer-docs/${id}`, { method: "PATCH", body: JSON.stringify({ action }) });
+      loadDocs();
+      load();
+    } catch (e) {
+      alert(e instanceof Error ? e.message : t("products.saveError"));
+    } finally { setDocBusy(null); }
+  }
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -72,7 +100,7 @@ export default function StockPage() {
         title={bp.stock}
         icon={<Boxes size={20} />}
         subtitle={<>{t("stockpage.subtitle", { stock: bp.stock.toLowerCase() })}:  <span className="font-extrabold text-primary">{fmtMoney(totalValue)}</span></>}
-        actions={<><Link href="/stock/adjustments" className="btn btn-ghost text-sm"><ClipboardList size={16} /> {t("fix3.adjTitle")}</Link><button type="button" className="btn btn-ghost text-sm" onClick={() => setShowTransfer(true)}><ArrowRightLeft size={16} /> {t("stocktransfer.btn")}</button><ExportCsv filename={lowOnly ? "stock-low" : "stock"} disabled={loading || rows.length === 0} rows={() => [          ["SKU", t("stockpage.csvProduct"), t("stockpage.csvUnit"), t("stockpage.csvCategory"), t("stockpage.csvBranch"), t("stockpage.csvQty"), t("stockpage.csvAvgCost"), t("stockpage.csvValue"), t("stockpage.csvReorder"), t("stockpage.csvLow")],
+        actions={<><Link href="/stock/adjustments" className="btn btn-ghost text-sm"><ClipboardList size={16} /> {t("fix3.adjTitle")}</Link><Link href="/stock/movements" className="btn btn-ghost text-sm"><History size={16} /> {t("m4.movementCard")}</Link><Link href="/stock/transfers" className="btn btn-ghost text-sm"><Truck size={16} /> {t("m4.transfersTitle")}</Link><button type="button" className="btn btn-ghost text-sm" onClick={() => setShowTransfer(true)}><ArrowRightLeft size={16} /> {t("stocktransfer.btn")}</button><ExportCsv filename={lowOnly ? "stock-low" : "stock"} disabled={loading || rows.length === 0} rows={() => [          ["SKU", t("stockpage.csvProduct"), t("stockpage.csvUnit"), t("stockpage.csvCategory"), t("stockpage.csvBranch"), t("stockpage.csvQty"), t("stockpage.csvAvgCost"), t("stockpage.csvValue"), t("stockpage.csvReorder"), t("stockpage.csvLow")],
           ...rows.map((r) => [r.sku, r.name, r.unit, r.category ?? "", r.branchName ?? "", r.qty, csvMoney(r.avgCost), csvMoney(r.value), r.reorderLevel, r.low ? t("stockpage.csvYes") : ""]),
           ["", "", "", "", t("stockpage.csvTotal"), "", "", csvMoney(totalValue), "", ""],
         ]} /></>}
@@ -116,6 +144,54 @@ export default function StockPage() {
                     <td>{b.expiryDate ? fmtExpiry(b.expiryDate) : "—"}</td>
                     <td className="num font-bold">{fmtQty(b.qtyThousandths, b.unit)}</td>
                     <td><span className="badge bg-amber-500/15 text-amber-700 dark:text-amber-300"><TriangleAlert size={11} /> {t("batches.expiringSoon")}</span></td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {openDocs.length > 0 && (
+        <div className="card rise mb-5 overflow-hidden">
+          <div className="flex items-center gap-2 border-b border-border px-5 py-3">
+            <Truck size={17} className="text-primary" />
+            <h2 className="text-sm font-extrabold">{t("m4.openTransfersTitle")}</h2>
+            <span className="badge bg-primary-soft text-primary">{openDocs.length}</span>
+            <Link href="/stock/transfers" className="ms-auto text-xs font-bold text-primary hover:underline">
+              {t("m4.transfersTitle")}
+            </Link>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="tbl">
+              <thead><tr><th>{t("m4.colDocNo")}</th><th>{t("m4.colRoute")}</th><th>{t("m4.colStatus")}</th><th></th></tr></thead>
+              <tbody>
+                {openDocs.map((d) => (
+                  <tr key={d.id}>
+                    <td className="font-bold">{d.docNo}</td>
+                    <td className="text-sm">{d.fromBranchName} → {d.toBranchName}</td>
+                    <td>
+                      <span className={`badge ${d.status === "IN_TRANSIT" ? "bg-amber-500/15 text-amber-700 dark:text-amber-300" : "bg-muted text-muted-foreground"}`}>
+                        {t(`m4.transferStatus${d.status}` as never)}
+                      </span>
+                    </td>
+                    <td className="text-end">
+                      <div className="flex justify-end gap-2">
+                        {d.status === "DRAFT" && (
+                          <button type="button" className="btn btn-primary !px-3 !py-1.5 text-xs" disabled={docBusy === d.id} onClick={() => docAction(d.id, "issue")}>
+                            {t("m4.transferIssue")}
+                          </button>
+                        )}
+                        {d.status === "IN_TRANSIT" && (
+                          <button type="button" className="btn btn-primary !px-3 !py-1.5 text-xs" disabled={docBusy === d.id} onClick={() => docAction(d.id, "receive")}>
+                            {t("m4.transferReceive")}
+                          </button>
+                        )}
+                        <button type="button" className="btn btn-ghost !px-3 !py-1.5 text-xs text-danger" disabled={docBusy === d.id} onClick={() => docAction(d.id, "cancel")}>
+                          {t("common.cancel")}
+                        </button>
+                      </div>
+                    </td>
                   </tr>
                 ))}
               </tbody>

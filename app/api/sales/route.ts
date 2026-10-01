@@ -1,6 +1,6 @@
 import { NextRequest } from "next/server";
 import { eq, and, desc, sql, inArray } from "drizzle-orm";
-import { salesDocs, salesDocItems, parties, products, productBatches } from "@/db/schema";
+import { salesDocs, salesDocItems, parties, products, productBatches, branches } from "@/db/schema";
 import { salesDocSchema } from "@/lib/validators";
 import { computeTotals, type DocItemInput } from "@/lib/totals";
 import { parseMoney } from "@/lib/money";
@@ -204,6 +204,19 @@ export async function POST(req: NextRequest) {
     }
   }
 
+  // Module 4.2: per-line location overrides must be branches of this company.
+  if (isPosted) {
+    const lineBranches = [...new Set(b.items.map((i) => (i.branchId || "").trim()).filter(Boolean))];
+    if (lineBranches.length > 0) {
+      const rows = await db
+        .select({ id: branches.id })
+        .from(branches)
+        .where(and(eq(branches.companyId, companyId), inArray(branches.id, lineBranches)));
+      if (rows.length !== lineBranches.length)
+        return err("A selected line location is invalid.", 422);
+    }
+  }
+
   const lockErr = await periodLockError(db, companyId, date);
   if (lockErr) return err(lockErr, 422, "PERIOD_LOCKED");
 
@@ -236,7 +249,7 @@ export async function POST(req: NextRequest) {
         ...(idemKey ? { idempotencyKey: idemKey } : {}),
       });
       await tx.insert(salesDocItems).values(
-        totals.items.map((i) => ({
+        totals.items.map((i, idx) => ({
           id: crypto.randomUUID(),
           docId,
           productId: i.productId,
@@ -247,6 +260,8 @@ export async function POST(req: NextRequest) {
           taxBps: i.taxBps,
           taxAmount: i.taxAmountPaisa,
           lineTotal: i.lineTotalPaisa,
+          // Module 4.2: per-line location override (NULL = doc branch).
+          branchId: (b.items[idx]?.branchId || "").trim() || null,
         }))
       );
 
@@ -266,6 +281,8 @@ export async function POST(req: NextRequest) {
             ...i,
             trackStock: i.productId ? prodMap.get(i.productId)?.trackStock ?? false : false,
             batchId: (b.items[idx]?.batchId || "").trim() || null,
+            // Module 4.2: per-line location override (NULL = doc branch).
+            branchId: (b.items[idx]?.branchId || "").trim() || null,
           })),
           discountTotal: parseMoney(b.discountTotal || "0"),
           freightTotal: freightPaisa,
