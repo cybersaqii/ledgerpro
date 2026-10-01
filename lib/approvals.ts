@@ -126,6 +126,9 @@ export type StagedPaymentPayload = {
   notes?: string;
   allocations: { docId: string; docKind: "SALES" | "PURCHASE"; amountPaisa: string }[];
   autoAllocate: boolean;
+  /** Module 7.2: WHT deducted at payment/receipt time (replayed on approve). */
+  whtSection?: string;
+  whtBps?: number;
 };
 
 export type StagedJournalPayload = {
@@ -401,6 +404,9 @@ async function finalizePurchaseBill(
     extraCostPaidFrom: payload.extraCostPaidFrom,
     extraCostAccountId: payload.extraCostAccountId,
     whtAmount: doc.whtAmount ?? undefined,
+    // Module 7: replay the staged bill's WHT rate so the register row carries
+    // it (the section is derived from the supplier's WHT category downstream).
+    whtBps: doc.whtBps ?? undefined,
   });
   await tx
     .update(purchaseDocs)
@@ -446,6 +452,8 @@ async function finalizePayment(
     notes: payload.notes || undefined,
     allocations,
     createdById: approverId,
+    // Module 7.2: replay the staged WHT deduction on approve.
+    wht: payload.whtSection ? { section: payload.whtSection, rateBps: payload.whtBps ?? 0 } : undefined,
   });
 }
 

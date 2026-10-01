@@ -7,6 +7,7 @@ import {
   purchaseDocItems,
   stockLevels,
   products,
+  whtDeductions,
 } from "@/db/schema";
 import { SYS, accountMap } from "./setup";
 import { createJournal, applyStock, adjustStockCost } from "./posting";
@@ -216,6 +217,13 @@ export async function voidPurchaseBill(
       updatedAt: new Date(),
     })
     .where(eq(purchaseDocs.id, doc.id));
+
+  // Module 7.2: the voided bill's WHT deduction never happened — mark its
+  // register rows voided so they leave the WHT Deduction Register.
+  await tx
+    .update(whtDeductions)
+    .set({ voidedAt: voidDate })
+    .where(and(eq(whtDeductions.docId, doc.id), eq(whtDeductions.companyId, input.companyId)));
 
   return { voidJournalEntryId: voidEntryId };
 }

@@ -71,6 +71,9 @@ export const productSchema = z.object({
   minSalePrice: priceStr.default("0"),
   location: z.string().trim().max(60).optional().or(z.literal("")),
   imageUrl: z.string().trim().max(500).optional().or(z.literal("")),
+  // Module 7: FBR PCT (Pakistan Customs Tariff) code — optional, printed on
+  // FBR POS payloads when set.
+  pctCode: z.string().trim().max(20).optional().or(z.literal("")),
   // Module 4.1: item type + per-product GL accounts. itemType is optional for
   // backward compatibility: when absent it is derived from trackStock.
   itemType: z.enum(["INVENTORY", "NON_INVENTORY", "SERVICE"]).optional(),
@@ -177,6 +180,9 @@ export const paymentSchema = z.object({
   docNo: z.string().trim().min(1).max(40).optional(),
   /** Module 1: FIFO auto-allocate to the party's oldest open documents (server-computed, oldest first). */
   autoAllocate: z.boolean().default(false),
+  /** Module 7.2: WHT deducted at payment/receipt time (section + rate bps). */
+  whtSection: z.string().trim().max(20).optional().or(z.literal("")),
+  whtBps: z.number().int().min(0).max(10000).optional(),
   allocations: z
     .array(
       z.object({

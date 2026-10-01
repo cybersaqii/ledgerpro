@@ -19,6 +19,7 @@ type AllocRow = {
 type PayDetail = {
   id: string; kind: string; date: string | number; amount: string; method: string;
   reference: string | null; notes: string | null; docNo: string | null;
+  whtAmount?: string | null; whtSection?: string | null;
   partyName: string | null; bankName: string | null; allocations: AllocRow[];
   voidedAt: number | null; voidJournalEntryId: string | null;
 };
@@ -138,6 +139,12 @@ export default function PaymentDetailPage({ params }: { params: Promise<{ id: st
           <div><dt className="text-xs text-muted-foreground">{t("payments.colAccount")}</dt><dd className="font-bold">{detail.bankName ?? "—"}</dd></div>
           <div><dt className="text-xs text-muted-foreground">{t("payments.colMethod")}</dt><dd className="font-bold">{detail.method}</dd></div>
           <div><dt className="text-xs text-muted-foreground">{t("payments.detailReference")}</dt><dd className="font-bold">{detail.reference ?? "—"}</dd></div>
+          {detail.whtAmount && BigInt(detail.whtAmount) > 0n && (
+            <>
+              <div><dt className="text-xs text-muted-foreground">{t("tax.whtSection")}</dt><dd className="font-bold" dir="ltr">{detail.whtSection ?? "—"}</dd></div>
+              <div><dt className="text-xs text-muted-foreground">{t("tax.payWhtDeducted")}</dt><dd className="font-bold text-amber-700 dark:text-amber-300">{fmtMoney(detail.whtAmount)}</dd></div>
+            </>
+          )}
         </dl>
         {detail.notes && <p className="mt-3 text-sm text-muted-foreground"><span className="font-bold text-foreground">{t("payments.detailNotes")}: </span>{detail.notes}</p>}
       </div>

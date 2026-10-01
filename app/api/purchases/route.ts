@@ -10,7 +10,7 @@ import { approvalRequired, stageApprovalRequest, findApprovalRequestByIdemKey } 
 import { clientIp } from "@/lib/rate-limit-db";
 import { createGrn } from "@/lib/grn";
 import { applySupplierAdvance } from "@/lib/supplier-advance";
-import { whtRateBps, whtAmountPaisa } from "@/lib/wht";
+import { whtRateBps, whtAmountPaisa, whtSectionForCategory } from "@/lib/wht";
 import { periodLockError } from "@/lib/period";
 import { nextDocNo } from "@/lib/setup";
 import { json, err } from "@/lib/api";
@@ -428,6 +428,10 @@ export async function POST(req: NextRequest) {
           extraCostAccountId: b.extraCostAccountId || undefined,
           // Module 2.4 (bill WHT) / Module 2.6 (return deduct-from-inventory)
           whtAmount: b.docType === "BILL" ? whtAmount : undefined,
+          // Module 7.2: register section + rate for the WHT Deduction Register.
+          whtBps: b.docType === "BILL" ? whtBps : undefined,
+          whtSection:
+            b.docType === "BILL" && whtAmount > 0n ? whtSectionForCategory(party.whtCategory) : undefined,
           deductFromInventory: b.docType === "RETURN" ? b.deductFromInventory : undefined,
         });
         await tx.update(purchaseDocs).set({ journalEntryId: entryId }).where(eq(purchaseDocs.id, docId));

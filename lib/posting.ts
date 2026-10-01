@@ -1,4 +1,4 @@
-import { eq, and, sql } from "drizzle-orm";
+import { eq, and, inArray, sql } from "drizzle-orm";
 import {
   accounts,
   bankAccounts,
@@ -23,6 +23,9 @@ import { FIX3_SOURCES } from "./stock-adjust";
 import { markStatementLineCreated } from "./statements";
 import { explodeSalesStockMoves } from "./bundles";
 import { addBatchStock, deductBatchStock, restoreBatchStock, restoreLineageBatches, deductLineageBatches, recordBatchUsage } from "./batches";
+import { whtAmountPaisa } from "./wht";
+import { recordWhtDeduction } from "./tax";
+import { queueFbrInvoice, readFbrPosId } from "./fbr";
 
 export type JournalLineInput = {
   accountId: string;
@@ -401,6 +404,38 @@ export async function postSalesDoc(tx: DbTx, input: PostSalesInput): Promise<str
   });
 
   await bumpPartyBalance(tx, input.partyId, input.docType === "INVOICE" ? input.grandTotal : -input.grandTotal);
+
+  // Module 7.1 — enqueue the FBR digital-invoice payload. The sync engine is
+  // DISABLED (HARD RULE): the row is stored at status DISABLED for a future
+  // live engine; nothing here performs any network call.
+  if (input.docType === "INVOICE" || input.docType === "RETURN") {
+    const posId = await readFbrPosId(tx, input.companyId);
+    const prodIds = [...new Set(input.items.map((i) => i.productId).filter((p): p is string => !!p))];
+    const pctById = new Map<string, string | null>();
+    if (prodIds.length > 0) {
+      const prodRows = await tx
+        .select({ id: products.id, pctCode: products.pctCode })
+        .from(products)
+        .where(and(eq(products.companyId, input.companyId), inArray(products.id, prodIds)));
+      for (const r of prodRows) pctById.set(r.id, r.pctCode);
+    }
+    await queueFbrInvoice(tx, {
+      companyId: input.companyId,
+      docType: input.docType === "RETURN" ? "SALES_RETURN" : "SALES_INVOICE",
+      docId: input.docId,
+      docNo: input.docNo,
+      date: input.date,
+      posId,
+      items: input.items.map((i) => ({
+        pctCode: i.productId ? (pctById.get(i.productId) ?? null) : null,
+        description: i.description,
+        quantity: Number(i.qtyMilli / 1000n),
+        saleValuePaisa: i.taxablePaisa,
+        taxChargedPaisa: i.taxAmountPaisa,
+        rateBps: i.taxBps,
+      })),
+    });
+  }
   return entryId;
 }
 
@@ -439,6 +474,11 @@ export type PostPurchaseInput = {
   sourceDocId?: string;
   /** BILL: withholding-tax deducted on this bill (Cr WHT Payable 2100; reduces the AP credit). */
   whtAmount?: bigint;
+  /** BILL: the WHT rate (bps) and register section (e.g. 153-GOODS) for the
+   *  Module 7 WHT Deduction Register. Optional — the register derives the
+   *  section from the supplier's WHT category when absent. */
+  whtBps?: number;
+  whtSection?: string;
   /**
    * BILL converted from a GRN: the GRNI accrual (2002) this bill clears.
    * Replaces the Inventory debit — the stock already came in via the GRN.
@@ -744,6 +784,24 @@ export async function postPurchaseDoc(tx: DbTx, input: PostPurchaseInput): Promi
   // authority, not the supplier), so the party balance moves by the net too.
   const apNet = input.grandTotal - whtAmount;
   await bumpPartyBalance(tx, input.partyId, input.docType === "BILL" ? apNet : -input.grandTotal);
+  // Module 7.2 — every bill-time WHT deduction lands in the WHT Deduction
+  // Register (the journal already carries Cr 2100 via Module 2).
+  if (input.docType === "BILL" && whtAmount > 0n) {
+    await recordWhtDeduction(tx, {
+      companyId: input.companyId,
+      date: input.date,
+      kind: "BILL",
+      docId: input.docId,
+      journalEntryId: entryId,
+      partyId: input.partyId,
+      taxSection: input.whtSection ?? "",
+      rateBps: input.whtBps ?? 0,
+      // Same base the bill routes use: net goods/services value, excl. sales tax.
+      grossPaisa: input.items.reduce((a, i) => a + i.taxablePaisa, 0n),
+      whtPaisa: whtAmount,
+      createdById: input.createdById,
+    });
+  }
   if (totalExtra > 0n && (input.extraCostPaidFrom ?? "CASH") === "SUPPLIER") {
     // extra cost added to the supplier's bill increases what we owe them
     await bumpPartyBalance(tx, input.partyId, totalExtra);
@@ -778,6 +836,13 @@ export type PostPaymentInput = {
   createdById: string;
   /** Double-submit protection: stored on the row; the route checks it first (migration 0031). */
   idempotencyKey?: string;
+  /**
+   * Module 7.2 — WHT deducted at payment/receipt time. `amount` stays the
+   * GROSS being settled; the bank/cash leg moves net (amount − WHT) and the
+   * withheld tax posts Cr 2100 (supplier payment) / Dr 2100 (customer
+   * receipt, a tax credit), party-tagged — the Module 2 pattern, extended.
+   */
+  wht?: { section: string; rateBps: number };
 };
 
 /** Allocate part of a payment to one document: bumps amountPaid, flips
@@ -907,6 +972,44 @@ export async function postPayment(tx: DbTx, input: PostPaymentInput): Promise<{ 
       );
   }
 
+  // Module 7.2 — WHT deducted at payment/receipt time. The amount stays the
+  // GROSS being settled; the bank leg moves net and the withheld tax posts
+  // to 2100 (the Module 2 WHT pattern, extended to payments/receipts).
+  const whtSection = (input.wht?.section ?? "").trim();
+  const whtBps = input.wht?.rateBps ?? 0;
+  if (whtSection || whtBps > 0) {
+    if (!whtSection) throw new UserError("WHT section is required when deducting tax.", 422);
+    if (!Number.isInteger(whtBps) || whtBps < 0 || whtBps > 10000)
+      throw new UserError("WHT rate must be between 0 and 100%.", 422);
+    if (isRefundFlow) throw new UserError("WHT cannot be deducted on a refund.", 422);
+  }
+  const whtAmount = whtBps > 0 ? whtAmountPaisa(input.amount, whtBps) : 0n;
+  if (whtAmount >= input.amount)
+    throw new UserError("WHT cannot exceed the payment amount.", 422);
+  if (whtAmount > 0n && !isReceipt && input.allocations.length > 0) {
+    // A bill that already carries bill-time WHT (Module 2) must not be
+    // deducted again at payment — that would double-count the tax.
+    const billRows = await tx
+      .select({ docNo: purchaseDocs.docNo, whtAmount: purchaseDocs.whtAmount })
+      .from(purchaseDocs)
+      .where(
+        and(
+          eq(purchaseDocs.companyId, input.companyId),
+          inArray(
+            purchaseDocs.id,
+            input.allocations.map((a) => a.docId)
+          )
+        )
+      );
+    const dup = billRows.find((b) => (b.whtAmount ?? 0n) > 0n);
+    if (dup)
+      throw new UserError(
+        `WHT was already deducted on bill ${dup.docNo}; deducting again would double-count the tax.`,
+        422,
+        "WHT_ALREADY_DEDUCTED"
+      );
+  }
+
   // Module 2.5 — vendor payments: the allocated part settles AP, the
   // unallocated remainder becomes an Advance to Suppliers asset (1110)
   // instead of sitting invisibly inside AP:
@@ -927,7 +1030,12 @@ export async function postPayment(tx: DbTx, input: PostPaymentInput): Promise<{ 
     createdById: input.createdById,
     lines: isReceipt
       ? [
-          { accountId: bank.accountId, debit: input.amount, credit: 0n },
+          { accountId: bank.accountId, debit: input.amount - whtAmount, credit: 0n },
+          // Module 7.2 — the customer withheld tax on our invoice: a tax
+          // credit for us (Dr WHT 2100, party-tagged); AR settles at gross.
+          ...(whtAmount > 0n
+            ? [{ accountId: ac[SYS.TAX_PAYABLE], debit: whtAmount, credit: 0n, partyId: input.partyId }]
+            : []),
           { accountId: arApAccount, debit: 0n, credit: input.amount, partyId: input.partyId },
         ]
       : isSupplierPayment
@@ -940,7 +1048,12 @@ export async function postPayment(tx: DbTx, input: PostPaymentInput): Promise<{ 
             ...(advanceAmount > 0n
               ? [{ accountId: ac[SYS.ADVANCE_SUPPLIERS], debit: advanceAmount, credit: 0n }]
               : []),
-            { accountId: bank.accountId, debit: 0n, credit: input.amount },
+            // Module 7.2 — tax we withhold from the supplier is owed to the
+            // tax authority (Cr WHT 2100, party-tagged); cash moves net.
+            ...(whtAmount > 0n
+              ? [{ accountId: ac[SYS.TAX_PAYABLE], debit: 0n, credit: whtAmount, partyId: input.partyId }]
+              : []),
+            { accountId: bank.accountId, debit: 0n, credit: input.amount - whtAmount },
           ]
         : [
             { accountId: arApAccount, debit: input.amount, credit: 0n, partyId: input.partyId },
@@ -963,8 +1076,29 @@ export async function postPayment(tx: DbTx, input: PostPaymentInput): Promise<{ 
     notes: input.notes,
     journalEntryId: entryId,
     createdById: input.createdById,
+    // Module 7.2 — payment/receipt-time WHT (detail lives in wht_deductions).
+    whtAmount,
+    whtSection: whtAmount > 0n ? whtSection : null,
     ...(input.idempotencyKey ? { idempotencyKey: input.idempotencyKey } : {}),
   });
+
+  // Module 7.2 — every payment/receipt-time WHT deduction lands in the
+  // WHT Deduction Register (inside the same posting transaction).
+  if (whtAmount > 0n) {
+    await recordWhtDeduction(tx, {
+      companyId: input.companyId,
+      date: input.date,
+      kind: input.kind,
+      paymentId,
+      journalEntryId: entryId,
+      partyId: input.partyId,
+      taxSection: whtSection,
+      rateBps: whtBps,
+      grossPaisa: input.amount,
+      whtPaisa: whtAmount,
+      createdById: input.createdById,
+    });
+  }
 
   for (const a of input.allocations) {
     await allocatePaymentToDoc(tx, {
@@ -989,9 +1123,11 @@ export async function postPayment(tx: DbTx, input: PostPaymentInput): Promise<{ 
     input.partyId,
     isSupplierPayment ? -allocTotal : isCustomer === isReceipt ? -input.amount : input.amount
   );
+  // Module 7.2: cash actually moves NET of any withheld tax.
+  const cashMoved = input.amount - whtAmount;
   await tx
     .update(bankAccounts)
-    .set({ balance: sql`${bankAccounts.balance} + ${isReceipt ? input.amount : -input.amount}` })
+    .set({ balance: sql`${bankAccounts.balance} + ${isReceipt ? cashMoved : -cashMoved}` })
     .where(eq(bankAccounts.id, bank.id));
 
   return { id: paymentId, docNo };

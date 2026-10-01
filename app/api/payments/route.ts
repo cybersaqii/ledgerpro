@@ -171,6 +171,9 @@ export async function POST(req: NextRequest) {
               amountPaisa: a.amount,
             })),
             autoAllocate: !!b.autoAllocate,
+            // Module 7.2: WHT deducted at payment/receipt time.
+            whtSection: (b.whtSection || "").trim() || undefined,
+            whtBps: b.whtBps,
           },
           requestedById: session.uid,
           requestedByName: session.name,
@@ -203,6 +206,11 @@ export async function POST(req: NextRequest) {
                 amount: parseMoney(a.amount),
               })),
         createdById: session.uid,
+        // Module 7.2: WHT deducted at payment/receipt time (validated +
+        // posted inside postPayment; the register row joins the same txn).
+        wht: (b.whtSection || "").trim()
+          ? { section: (b.whtSection || "").trim(), rateBps: b.whtBps ?? 0 }
+          : undefined,
         ...(idemKey ? { idempotencyKey: idemKey } : {}),
  });
       return { id: pid, docNo, approvalId: null as string | null };

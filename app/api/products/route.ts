@@ -113,6 +113,7 @@ export async function POST(req: NextRequest) {
       minSalePrice: parseMoney(p.minSalePrice || "0"),
       location: p.location?.trim() ? p.location.trim().slice(0, 60) : null,
       imageUrl,
+      pctCode: p.pctCode?.trim() ? p.pctCode.trim().slice(0, 20) : null,
       revenueAccountId: p.revenueAccountId || null,
       cogsAccountId: p.cogsAccountId || null,
       inventoryAccountId: p.inventoryAccountId || null,

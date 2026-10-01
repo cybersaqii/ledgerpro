@@ -10,6 +10,7 @@ import {
   salesDocs,
   expenses,
   sundryReceipts,
+  whtDeductions,
 } from "@/db/schema";
 import { createJournal } from "./posting";
 import { assertPeriodOpen } from "./period";
@@ -178,14 +179,26 @@ export async function voidPayment(
     .update(parties)
     .set({ balance: sql`${parties.balance} - ${partyDelta}`, updatedAt: new Date() })
     .where(eq(parties.id, payment.partyId!));
+  // Module 7.2: cash moved net of withheld tax at posting time.
+  const netCash = payment.amount - (payment.whtAmount ?? 0n);
   await tx
     .update(bankAccounts)
-    .set({ balance: sql`${bankAccounts.balance} + ${isReceipt ? -payment.amount : payment.amount}` })
+    // Module 7.2: postPayment moves cash NET of withheld tax, so the void
+    // must restore the net amount — restoring the gross would overstate
+    // the account by the withheld tax.
+    .set({ balance: sql`${bankAccounts.balance} + ${isReceipt ? -netCash : netCash}` })
     .where(eq(bankAccounts.id, payment.bankAccountId));
 
   await tx.run(
     sql`UPDATE payments SET voided_at = ${voidDate.getTime()}, void_journal_entry_id = ${voidEntryId}, voided_by_id = ${input.userId} WHERE id = ${payment.id}`
   );
+
+  // Module 7.2: the voided payment's WHT deduction never happened — mark its
+  // register rows voided so they leave the WHT Deduction Register.
+  await tx
+    .update(whtDeductions)
+    .set({ voidedAt: voidDate })
+    .where(and(eq(whtDeductions.paymentId, payment.id), eq(whtDeductions.companyId, input.companyId)));
 
   return { voidJournalEntryId: voidEntryId };
 }

@@ -30,7 +30,7 @@ type BundleRow = {
 type ProductPick = { id: string; name: string; sku: string; unit: string };
 
 const emptyForm = {
-  sku: "", name: "", barcode: "", category: "", unit: "PCS",
+  sku: "", name: "", barcode: "", pctCode: "", category: "", unit: "PCS",
   purchasePrice: "", salePrice: "", reorderLevel: "", minSalePrice: "",
   location: "", imageUrl: "",
   // Module 4.1: item type drives stock tracking (INVENTORY ⟺ tracked).
@@ -39,7 +39,7 @@ const emptyForm = {
 };
 
 type ProductDetail = {
-  id: string; sku: string; name: string; barcode: string | null;
+  id: string; sku: string; name: string; barcode: string | null; pctCode: string | null;
   unit: string; category: string | null; purchasePrice: string; salePrice: string;
   trackStock: boolean; reorderLevel: string; minSalePrice: string | null;
   location: string | null; imageUrl: string | null; isBundle: boolean;
@@ -132,7 +132,7 @@ export default function ProductsPage() {
       const d = await api<{ data: ProductDetail }>(`/api/products/${p.id}`);
       const full = d.data;
       setForm({
-        sku: full.sku, name: full.name, barcode: full.barcode ?? "", category: full.category ?? "", unit: full.unit,
+        sku: full.sku, name: full.name, barcode: full.barcode ?? "", pctCode: full.pctCode ?? "", category: full.category ?? "", unit: full.unit,
         purchasePrice: paisaToRupees(full.purchasePrice),
         salePrice: paisaToRupees(full.salePrice),
         itemType: full.itemType ?? (full.trackStock ? "INVENTORY" : "NON_INVENTORY"),
@@ -392,6 +392,11 @@ export default function ProductsPage() {
             <div className="grid gap-4 sm:grid-cols-2">
               <Field label={t("products.skuCode")}><input className="field" required value={form.sku} onChange={set("sku")} placeholder={t("products.skuPlaceholder")} /></Field>
               <Field label={t("products.barcode")}><input className="field" value={form.barcode} onChange={set("barcode")} /></Field>
+            </div>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <Field label={t("products.pctCode")} hint={t("tax.pctHint")}>
+                <input className="field" value={form.pctCode} onChange={set("pctCode")} maxLength={20} dir="ltr" />
+              </Field>
             </div>
             <Field label={t("products.productName", { product: productOne })}><input className="field" required value={form.name} onChange={set("name")} placeholder={t("products.namePlaceholder")} /></Field>
             <div className="grid gap-4 sm:grid-cols-2">

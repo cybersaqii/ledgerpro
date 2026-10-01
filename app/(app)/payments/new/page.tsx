@@ -5,12 +5,13 @@ import { useEffect, useRef, useState, Suspense } from "react";
 import { PageHeader, Field, ErrorNote } from "@/components/ui";
 import { useDismiss } from "@/components/use-dismiss";
 import { ReceiptText } from "lucide-react";
-import { api, fmtMoney, fmtDate, fmtDateInput } from "@/lib/format";
+import { api, fmtMoney, fmtMoneyPlain, fmtDate, fmtDateInput } from "@/lib/format";
 import { parseDecimalToPaisa } from "@/lib/decimal";
+import { WHT_SECTIONS, whtSectionRateBps } from "@/lib/wht";
 import { useBusinessProfile } from "@/components/business-type";
 import { useLang } from "@/components/lang-provider";
 
-type Party = { id: string; name: string };
+type Party = { id: string; name: string; filerStatus?: "FILER" | "NON_FILER" | null; activeTaxPayer?: boolean | null; whtCategory?: string | null; ntn?: string | null };
 type Bank = { id: string; name: string; kind: string };
 type Outstanding = { id: string; docNo: string; docType: string; date: number; grandTotal: string; balance: string };
 
@@ -101,6 +102,47 @@ function PaymentFormInner() {
   const allocTotal = Object.values(alloc).reduce((a, v) => a + Math.round(parseFloat(v || "0") * 100), 0);
   const amountPaisa = Math.round(parseFloat(amount || "0") * 100);
 
+  // Module 7: payment/receipt-time withholding tax. Defaults the section by
+  // party kind (236G/236H for retailers on receipts, 153-* on supplier pays)
+  // and the rate by the section + the party's filer status; user can override.
+  const [whtSection, setWhtSection] = useState("");
+  const [whtRatePct, setWhtRatePct] = useState("");
+  /** Default rate for a section from the selected party's filer/ATL status. */
+  function defaultWhtRatePct(code: string): string {
+    const p = parties.find((x) => x.id === partyId);
+    const bps = whtSectionRateBps(code, {
+      activeTaxPayer: !!p?.activeTaxPayer,
+      filerStatus: p?.filerStatus ?? null,
+    });
+    return (bps / 100).toString();
+  }
+  useEffect(() => {
+    /* eslint-disable react-hooks/set-state-in-effect -- default WHT section/rate when the party changes */
+    if (partyId && !whtSection) {
+      const p = parties.find((x) => x.id === partyId);
+      const guess = isReceipt ? "236H" : (p?.whtCategory === "SERVICES" ? "153-SERVICES" : p?.whtCategory === "CONTRACTS" ? "153-CONTRACTS" : "153-GOODS");
+      if (WHT_SECTIONS.some((s) => s.code === guess)) {
+        setWhtSection(guess);
+        setWhtRatePct(defaultWhtRatePct(guess));
+      }
+    }
+    if (!partyId) { setWhtSection(""); setWhtRatePct(""); }
+    /* eslint-disable-next-line react-hooks/exhaustive-deps */
+  }, [partyId]);
+  function pickWhtSection(code: string) {
+    setWhtSection(code);
+    setWhtRatePct(code ? defaultWhtRatePct(code) : "");
+  }
+  const whtSecLabelKey: Record<string, string> = {
+    "153-GOODS": "sec153Goods", "153-SERVICES": "sec153Services", "153-CONTRACTS": "sec153Contracts",
+    "236G": "sec236G", "236H": "sec236H",
+  };
+  const whtBps = Math.round(parseFloat(whtRatePct || "0") * 100);
+  let whtGrossP = 0n;
+  try { whtGrossP = parseDecimalToPaisa(amount.trim() || "0"); } catch { whtGrossP = 0n; }
+  const whtPaisa = whtSection && whtBps > 0 && whtGrossP > 0n ? (whtGrossP * BigInt(whtBps)) / 10000n : 0n;
+  const whtNetPaisa = whtGrossP - whtPaisa;
+
   function toggleAlloc(id: string, balance: string) {
     setAlloc((a) => {
       const next = { ...a };
@@ -148,6 +190,8 @@ function PaymentFormInner() {
           kind, partyId, bankAccountId: bankId, date, amount,
           idempotencyKey: idemRef.current,
           method, reference: reference || undefined, notes: notes || undefined,
+          whtSection: whtSection || undefined,
+          whtBps: whtSection && whtBps > 0 ? whtBps : undefined,
           allocations: isRefund ? [] : Object.entries(alloc)
             .filter(([, v]) => parseFloat(v || "0") > 0)
             .map(([docId, v]) => ({ docId, docKind: isReceipt ? "SALES" : "PURCHASE", amount: v })),
@@ -242,6 +286,39 @@ function PaymentFormInner() {
             <Field label={t("payform.notes")}><input className="field" value={notes} onChange={(e) => setNotes(e.target.value)} /></Field>
           </div>
         </div>
+
+        {!isRefund && (
+        <div className="card p-5 sm:p-6">
+          <h2 className="text-base font-bold">{t("tax.payWhtTitle")}</h2>
+          <p className="mt-0.5 text-xs text-muted-foreground">
+            {t("tax.payWhtHint", { doc: isReceipt ? t("tax.docReceipt") : t("tax.docPayment") })}
+          </p>
+          <div className="mt-4 grid gap-4 sm:grid-cols-2">
+            <Field label={t("tax.payWhtSection")}>
+              <select className="field" value={whtSection} onChange={(e) => pickWhtSection(e.target.value)}>
+                <option value="">{t("tax.payWhtNoSection")}</option>
+                {WHT_SECTIONS.map((s) => (
+                  <option key={s.code} value={s.code}>{t("tax." + whtSecLabelKey[s.code])}</option>
+                ))}
+              </select>
+            </Field>
+            <Field label={t("tax.payWhtRate")}>
+              <input className="field num" type="number" min="0" max="100" step="0.01"
+                value={whtRatePct} onChange={(e) => setWhtRatePct(e.target.value)}
+                disabled={!whtSection} placeholder="0.00" />
+            </Field>
+          </div>
+          {whtPaisa > 0n && (
+            <div className="mt-3 rounded-xl bg-amber-500/10 px-4 py-3 text-sm font-bold text-amber-800 dark:text-amber-200">
+              {t("tax.payWhtShown", {
+                wht: fmtMoneyPlain(whtPaisa),
+                dir: isReceipt ? t("tax.payWhtIn") : t("tax.payWhtOut"),
+                net: fmtMoneyPlain(whtNetPaisa),
+              })}
+            </div>
+          )}
+        </div>
+        )}
 
         <button className="btn btn-primary w-full !py-3.5 !text-base" disabled={saving}>
           {saving ? t("payform.saving") : isReceipt ? t("payform.saveReceipt") : t("payform.savePayment")}

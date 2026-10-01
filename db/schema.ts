@@ -243,6 +243,9 @@ export const products = sqliteTable(
     openingStockPosted: flag("opening_stock_posted", false), // guard: opening posts exactly once
     location: text("location"), // godown/rack free text, e.g. "Godown A · Rack 3"
     imageUrl: text("image_url"), // external https image URL (validated app-side); null = generated fallback
+    // ── Module 7 (migration 0038): Pakistan Customs Tariff / HS code, used
+    // by the FBR digital-invoice payload builder (lib/fbr.ts).
+    pctCode: text("pct_code"),
     isActive: flag("is_active", true),
     createdAt: createdAt(),
     updatedAt: updatedAt(),
@@ -578,6 +581,10 @@ export const payments = sqliteTable(
     voidJournalEntryId: text("void_journal_entry_id"),
     voidedById: text("voided_by_id"),
     idempotencyKey: text("idempotency_key"), // double-submit protection (migration 0031)
+    // ── Module 7 (migration 0038): WHT deducted at payment/receipt time
+    // (tax_section e.g. 153-GOODS, 236G). Full detail lives in wht_deductions.
+    whtAmount: money("wht_amount"),
+    whtSection: text("wht_section"),
   },
   (t) => [
     index("payments_company_kind_date").on(t.companyId, t.kind, t.date),
@@ -594,6 +601,81 @@ export const paymentAllocations = sqliteTable("payment_allocations", {
   amount: money("amount"),
   createdAt: createdAt(),
 });
+
+// ─── Taxation & Digital Compliance (Module 7, migration 0038) ─────
+// FBR POS configuration — one row per company. The token secret is
+// write-only: APIs return only a masked { tokenSet, tokenLast4 } view.
+// HARD RULE: no live FBR integration exists — the sync engine is disabled.
+export const fbrPosConfig = sqliteTable("fbr_pos_config", {
+  id: id(),
+  companyId: text("company_id").notNull().unique(),
+  posId: text("pos_id"),
+  tokenSecret: text("token_secret"),
+  environment: text("environment").notNull().default("SANDBOX"), // SANDBOX | PRODUCTION
+  storeCode: text("store_code"),
+  cashierId: text("cashier_id"),
+  qrPlacement: text("qr_placement").notNull().default("BOTTOM"), // TOP | BOTTOM
+  isEnabled: flag("is_enabled", false),
+  createdAt: createdAt(),
+  updatedAt: updatedAt(),
+});
+
+// Outbound FBR digital-invoice payloads. Every row stays DISABLED until a
+// future, explicitly user-approved live sync engine is built — see lib/fbr.ts.
+export const fbrSyncQueue = sqliteTable(
+  "fbr_sync_queue",
+  {
+    id: id(),
+    companyId: text("company_id").notNull(),
+    docType: text("doc_type").notNull(), // SALES_INVOICE | SALES_RETURN
+    docId: text("doc_id").notNull(),
+    invoiceNumber: text("invoice_number").notNull(),
+    payloadJson: text("payload_json").notNull(),
+    status: text("status").notNull().default("DISABLED"), // DISABLED | FAILED
+    attempts: integer("attempts").notNull().default(0),
+    error: text("error"),
+    createdAt: createdAt(),
+    updatedAt: updatedAt(),
+  },
+  (t) => [
+    index("fbr_queue_company_status").on(t.companyId, t.status),
+    index("fbr_queue_doc").on(t.docId),
+  ]
+);
+
+// WHT Deduction Register: every withholding event (BILL | PAYMENT | RECEIPT).
+// Deductee name + NTN/CNIC are snapshots taken at deduction time so the
+// register and the printed certificate stay stable if the party is renamed.
+export const whtDeductions = sqliteTable(
+  "wht_deductions",
+  {
+    id: id(),
+    companyId: text("company_id").notNull(),
+    date: ts("date").notNull(),
+    kind: text("kind").notNull(), // BILL | PAYMENT | RECEIPT
+    docId: text("doc_id"),
+    paymentId: text("payment_id"),
+    journalEntryId: text("journal_entry_id"),
+    partyId: text("party_id").notNull(),
+    deducteeName: text("deductee_name").notNull(),
+    ntnCnic: text("ntn_cnic"),
+    taxSection: text("tax_section").notNull(), // e.g. 153-GOODS | 153-SERVICES | 236G | 236H
+    rateBps: integer("rate_bps").notNull().default(0),
+    grossPaisa: money("gross_paisa"),
+    whtPaisa: money("wht_paisa"),
+    cprNo: text("cpr_no"), // CPR / challan number once the tax is deposited
+    depositedAt: ts("deposited_at"),
+    // Module 7: set when the source bill/payment is voided — the deduction
+    // never happened economically, so voided rows leave the register.
+    voidedAt: ts("voided_at"),
+    createdById: text("created_by_id").notNull(),
+    createdAt: createdAt(),
+  },
+  (t) => [
+    index("wht_ded_company_date").on(t.companyId, t.date),
+    index("wht_ded_company_party").on(t.companyId, t.partyId),
+  ]
+);
 
 // ─── Post-dated cheques ────────────────────────────────────────
 // RECEIVED: customer PDC held by us. ISSUED: our PDC held by a supplier.
