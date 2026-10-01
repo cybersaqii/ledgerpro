@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { Scale, TrendingUp, Landmark, BookOpen, ArrowDownToLine, ArrowUpFromLine, Boxes, BarChart3, ScrollText, Crown, Sunrise, Star, Search, FileText, ClipboardList, ClipboardCheck, Wallet, CalendarDays, Percent, Package, ListTree, BookMarked } from "lucide-react";
+import { Scale, TrendingUp, Landmark, BookOpen, ArrowDownToLine, ArrowUpFromLine, Boxes, BarChart3, ScrollText, Crown, Sunrise, Star, Search, FileText, ClipboardList, ClipboardCheck, Wallet, CalendarDays, Percent, Package, ListTree, BookMarked, SlidersHorizontal } from "lucide-react";
 import { PageHeader } from "@/components/ui";
 import { useBusinessProfile } from "@/components/business-type";
 import { useLang } from "@/components/lang-provider";
@@ -42,6 +42,7 @@ export default function ReportsHub() {
   }
 
   const reports: ReportDef[] = [
+    { key: "parametric", href: "/reports/builder", icon: SlidersHorizontal, title: t("reportsindex.builder"), text: t("reportsindex.builderText") },
     { key: "day-close", href: "/reports/day-close", icon: Sunrise, title: t("reportsindex.dayClose"), text: t("reportsindex.dayCloseText") },
     { key: "trial-balance", href: "/reports/trial-balance", icon: Scale, title: t("reportsindex.trialBalance"), text: t("reportsindex.trialBalanceText") },
     { key: "account-ledger", href: "/reports/account-ledger", icon: BookMarked, title: t("reportsindex.accountLedger"), text: t("reportsindex.accountLedgerText") },

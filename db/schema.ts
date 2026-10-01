@@ -795,6 +795,22 @@ export const reportFavorites = sqliteTable(
   (t) => [uniqueIndex("report_fav_unique").on(t.companyId, t.userId, t.reportKey)]
 );
 
+/** Module 16 (migration 0047): per-user saved parametric report presets. */
+export const savedReports = sqliteTable(
+  "saved_reports",
+  {
+    id: id(),
+    companyId: text("company_id").notNull(),
+    userId: text("user_id").notNull(),
+    name: text("name").notNull(),
+    reportKey: text("report_key").notNull(),
+    paramsJson: text("params_json").notNull().default("{}"),
+    createdAt: createdAt(),
+    updatedAt: updatedAt(),
+  },
+  (t) => [index("saved_reports_company_user").on(t.companyId, t.userId, t.updatedAt)]
+);
+
 export const expenses = sqliteTable(
   "expenses",
   {
