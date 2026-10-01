@@ -23,12 +23,16 @@ type PartyDetail = {
   openingBalance: string; openingBalanceDate: string | null;
   paymentTerms: string | null; shippingAddress: string | null; shippingCity: string | null;
   filerStatus: string; creditLimit: string; notes: string | null; category: string | null;
+  displayName: string | null; whtCategory: string; activeTaxPayer: boolean;
+  bankIban: string | null; bankAccountNo: string | null;
 };
 
 const emptyForm = {
   name: "", phone: "", email: "", address: "", city: "", ntn: "", filerStatus: "NA", creditLimit: "", notes: "", category: "",
   customerType: "INDIVIDUAL", currency: "", strn: "", openingBalance: "", openingBalanceDate: "",
   paymentTerms: "", shippingAddress: "", shippingCity: "",
+  // Module 2.1: supplier master completeness
+  displayName: "", whtCategory: "NONE", activeTaxPayer: false, bankIban: "", bankAccountNo: "",
 };
 
 export default function PartiesPage() {
@@ -81,6 +85,12 @@ export default function PartiesPage() {
         openingBalance: "", openingBalanceDate: "", // opening is immutable: add-mode only
         paymentTerms: full.paymentTerms ?? "",
         shippingAddress: full.shippingAddress ?? "", shippingCity: full.shippingCity ?? "",
+        // Module 2.1: supplier master completeness
+        displayName: full.displayName ?? "",
+        whtCategory: full.whtCategory ?? "NONE",
+        activeTaxPayer: !!full.activeTaxPayer,
+        bankIban: full.bankIban ?? "",
+        bankAccountNo: full.bankAccountNo ?? "",
       });
       setModal({ mode: "edit", party: p });
     } catch (e) {
@@ -243,6 +253,44 @@ export default function PartiesPage() {
                 </select>
               </Field>
             </div>
+            {/* Module 2.1: supplier master completeness — WHT category, ATL status, bank details */}
+            {kind === "SUPPLIER" && (
+              <div className="space-y-4 rounded-xl border border-border p-4">
+                <div className="text-sm font-bold">{t("parties.supplierTaxSection")}</div>
+                <Field label={t("parties.displayName")} hint={t("parties.displayNameHint")}>
+                  <input className="field" value={form.displayName} onChange={set("displayName")} placeholder={t("parties.displayNamePlaceholder")} />
+                </Field>
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <Field label={t("parties.whtCategory")} hint={t("parties.whtCategoryHint")}>
+                    <select className="field" value={form.whtCategory} onChange={set("whtCategory")}>
+                      <option value="NONE">{t("parties.whtNone")}</option>
+                      <option value="GOODS">{t("parties.whtGoods")}</option>
+                      <option value="SERVICES">{t("parties.whtServices")}</option>
+                      <option value="CONTRACTS">{t("parties.whtContracts")}</option>
+                    </select>
+                  </Field>
+                  <Field label={t("parties.activeTaxPayer")}>
+                    <label className="flex cursor-pointer items-center gap-2.5 pt-2">
+                      <input
+                        type="checkbox"
+                        className="h-4 w-4 accent-primary"
+                        checked={form.activeTaxPayer}
+                        onChange={(e) => setForm((f) => ({ ...f, activeTaxPayer: e.target.checked }))}
+                      />
+                      <span className="text-sm text-muted-foreground">{t("parties.activeTaxPayerHint")}</span>
+                    </label>
+                  </Field>
+                </div>
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <Field label={t("parties.bankIban")}>
+                    <input className="field" value={form.bankIban} onChange={set("bankIban")} placeholder="PK00XXXX0000000000000000" dir="ltr" />
+                  </Field>
+                  <Field label={t("parties.bankAccountNo")}>
+                    <input className="field" value={form.bankAccountNo} onChange={set("bankAccountNo")} dir="ltr" />
+                  </Field>
+                </div>
+              </div>
+            )}
             <div className="flex justify-end gap-2 pt-2">
               <button type="button" className="btn btn-ghost" onClick={() => setModal(null)}>{t("common.cancel")}</button>
               <button className="btn btn-primary" disabled={saving}>{saving ? t("common.saving") : t("common.save")}</button>

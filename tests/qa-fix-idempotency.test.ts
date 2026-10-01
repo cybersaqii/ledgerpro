@@ -267,6 +267,7 @@ describe("idempotency keys + money-create rate limits", () => {
       docType: "BILL",
       partyId: supplierId,
       date: "2026-09-30",
+      refNo: "IDEM-1", // Module 2: vendor bill reference is compulsory on bills
       items: [{ description: "Idem stock", qty: "2", rate: "50" }],
       idempotencyKey: key,
     };

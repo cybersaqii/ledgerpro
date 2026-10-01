@@ -187,6 +187,12 @@ export const parties = sqliteTable(
     shippingAddress: text("shipping_address"),
     shippingCity: text("shipping_city"),
     idempotencyKey: text("idempotency_key"), // double-submit protection (migration 0032)
+    // ── Module 2 (migration 0033): supplier master completeness ──
+    displayName: text("display_name"), // supplier display/trade name
+    whtCategory: text("wht_category").notNull().default("NONE"), // NONE | GOODS | SERVICES | CONTRACTS
+    activeTaxPayer: flag("active_tax_payer", false), // Active Taxpayer List (ATL) status
+    bankIban: text("bank_iban"),
+    bankAccountNo: text("bank_account_no"),
     createdAt: createdAt(),
     updatedAt: updatedAt(),
   },
@@ -455,6 +461,14 @@ export const purchaseDocs = sqliteTable(
     amountPaid: money("amount_paid"),
     returnedTotal: money("returned_total"), // sum of linked RETURN docs' grand totals
     writtenOffAmount: money("written_off_amount"), // collectible balance removed by write-off (migration 0027)
+    // ── Module 2 (migration 0033) ──
+    whtBps: integer("wht_bps").notNull().default(0), // bill-level WHT deduction rate (basis points)
+    whtAmount: money("wht_amount"), // WHT deducted on this bill (Cr WHT Payable 2100)
+    grniCleared: money("grni_cleared"), // GRNI accrual cleared by a bill converted from a GRN
+    voidedAt: ts("voided_at"), // set when voided via reversing journal
+    voidJournalEntryId: text("void_journal_entry_id"),
+    voidedById: text("voided_by_id"),
+    deductFromInventory: flag("deduct_from_inventory", true), // RETURN docs: false = pure-ledger return
     notes: text("notes"),
     journalEntryId: text("journal_entry_id").unique(),
     sourceDocId: text("source_doc_id"), // order this bill was converted from
@@ -484,6 +498,11 @@ export const purchaseDocItems = sqliteTable("purchase_doc_items", {
   taxAmount: money("tax_amount"),
   lineTotal: money("line_total"),
   extraCost: money("extra_cost"), // landed extra cost (freight/labour) allocated to this line
+  // ── Module 2 (migration 0033): GRN receiving detail ──
+  qtyOrdered: qty("qty_ordered"), // ordered qty (GRN lines)
+  qtyReceived: qty("qty_received"), // accepted qty — posts to stock / GRNI
+  qtyDamaged: qty("qty_damaged"), // damaged units captured, never posted
+  sourceItemId: text("source_item_id"), // GRN line -> purchase order line link
 });
 
 // ─── Sales order fulfillment (Module 1, migration 0032) ──────────

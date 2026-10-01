@@ -161,10 +161,14 @@ export function StatusPill({ status }: { status: string }) {
   const s = status.toUpperCase();
   const cls =
     s === "DRAFT" ? "bg-accent-soft text-accent"
-    : s === "POSTED" || s === "APPROVED" || s === "PAID" ? "bg-primary-soft text-primary"
-    : s === "RETURN" || s === "RETURNED" || s === "REJECTED" || s === "CANCELLED" ? "bg-danger-soft text-danger"
+    : s === "POSTED" || s === "APPROVED" || s === "PAID" || s === "CONVERTED" ? "bg-primary-soft text-primary"
+    : s === "ISSUED" ? "bg-accent-soft text-accent"
+    : s === "PARTIAL" || s === "PARTIALLY_RECEIVED" ? "bg-warning-soft text-warning"
+    : s === "RETURN" || s === "RETURNED" || s === "REJECTED" || s === "CANCELLED" || s === "VOID" ? "bg-danger-soft text-danger"
     : "bg-muted text-muted-foreground";
-  return <span className={`badge ${cls}`}>{s.charAt(0) + s.slice(1).toLowerCase()}</span>;
+  // Module 2 statuses read better with a space: PARTIALLY_RECEIVED -> Partially received
+  const label = s === "PARTIALLY_RECEIVED" ? "Partially received" : s.charAt(0) + s.slice(1).toLowerCase();
+  return <span className={`badge ${cls}`}>{label}</span>;
 }
 
 /** Row of small summary chips shown above list tables (label + value). */

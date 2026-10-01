@@ -45,6 +45,12 @@ export const partySchema = z.object({
   shippingAddress: z.string().trim().max(300).optional().or(z.literal("")),
   shippingCity: z.string().trim().max(60).optional().or(z.literal("")),
   filerStatus: z.enum(["FILER", "NON_FILER", "NA"]).default("NA"),
+  // Module 2.1: supplier master completeness (UI shows these for SUPPLIERs only)
+  displayName: z.string().trim().max(120).optional().or(z.literal("")),
+  whtCategory: z.enum(["NONE", "GOODS", "SERVICES", "CONTRACTS"]).default("NONE"),
+  activeTaxPayer: z.boolean().default(false),
+  bankIban: z.string().trim().max(60).optional().or(z.literal("")),
+  bankAccountNo: z.string().trim().max(60).optional().or(z.literal("")),
   creditLimit: optMoney,
   priceListId: z.string().trim().max(40).optional().or(z.literal("")),
   category: z.string().trim().max(60).optional().or(z.literal("")),
@@ -125,6 +131,21 @@ export const salesDocSchema = z.object({
 export const purchaseDocSchema = salesDocSchema.extend({
   docType: z.enum(["BILL", "ORDER", "GRN", "RETURN"]).default("BILL"),
   refNo: z.string().trim().max(60).optional().or(z.literal("")),
+  // Module 2.4: WHT deducted on a bill — explicit rate (basis points) or the
+  // supplier's WHT-category default when omitted.
+  whtBps: z.number().int().min(0).max(10000).optional(),
+  // Module 2.6: a purchase return can post as a pure-ledger document (no
+  // stock movement). Default on = deducts stock like before.
+  deductFromInventory: z.boolean().default(true),
+  // Module 2.3: GRN receipt lines — received/damaged quantities against
+  // purchase-order lines (sourceItemId).
+  grnLines: z.array(z.object({
+    sourceItemId: z.string().min(1),
+    receivedQty: qtyStr,
+    damagedQty: qtyStr.default("0"),
+  })).max(500).optional(),
+  // Module 2.3: the purchase order this GRN receives against.
+  orderId: z.string().min(1).optional(),
   // Landed extra costs (freight, labour…) distributed into stock cost
   extraCosts: z.array(z.object({
     label: z.string().trim().min(1).max(60),

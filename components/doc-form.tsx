@@ -7,10 +7,11 @@ import { PageHeader, Field, ErrorNote } from "@/components/ui";
 import { api, ApiError, fmtMoney, fmtQty, fmtDateInput, fmtDate } from "@/lib/format";
 import { localizedApiError } from "@/lib/api-errors";
 import { lineMath, docMath, taxBpsOf } from "@/lib/doc-math";
+import { whtRateBps, type WhtCategory, type FilerStatus } from "@/lib/wht";
 import { useBusinessProfile } from "@/components/business-type";
 import { useLang } from "@/components/lang-provider";
 
-type Party = { id: string; name: string; phone: string | null; paymentTerms?: string | null };
+type Party = { id: string; name: string; phone: string | null; paymentTerms?: string | null; whtCategory?: string | null; activeTaxPayer?: boolean | null; filerStatus?: string | null };
 type Product = { id: string; sku: string; name: string; unit: string; salePrice: string; purchasePrice: string; totalQty: string; minSalePrice?: string | null; isBundle?: boolean };
 
 type BatchOpt = { id: string; batchNo: string; expiryDate: string | null; qtyThousandths: string };
@@ -147,6 +148,10 @@ export function DocForm({ mode }: { mode: "SALES" | "PURCHASE" }) {
   const [notes, setNotes] = useState("");
   const [refNo, setRefNo] = useState("");
   const [terms, setTerms] = useState("");
+  /** Module 2.4: WHT rate on purchase bills (percent string; blank = supplier default). */
+  const [whtPct, setWhtPct] = useState("");
+  /** Module 2.6: purchase returns deduct stock by default; off = pure-ledger return. */
+  const [deductFromInventory, setDeductFromInventory] = useState(true);
   const [docType, setDocType] = useState(isSales ? "INVOICE" : "BILL");
   const [lines, setLines] = useState<Line[]>([]);
   const [prodQ, setProdQ] = useState("");
@@ -278,6 +283,15 @@ export function DocForm({ mode }: { mode: "SALES" | "PURCHASE" }) {
   function chooseParty(p: Party) {
     setPartyId(p.id);
     setShowPartyList(false);
+    // Module 2.4: suggest the WHT rate from the supplier's WHT category —
+    // the user can still override it, or clear it for 0%.
+    if (!isSales && docType === "BILL") {
+      const suggested = whtRateBps((p.whtCategory as WhtCategory | null) ?? "NONE", {
+        activeTaxPayer: !!p.activeTaxPayer,
+        filerStatus: (p.filerStatus as FilerStatus | null) ?? "NA",
+      });
+      setWhtPct(suggested > 0 ? String(suggested / 100) : "");
+    }
     // Default the due date from the party's payment terms — but never clobber
     // terms the user already typed.
     if (isSales && p.paymentTerms && TERM_DAYS[p.paymentTerms] !== undefined &&
@@ -487,6 +501,8 @@ export function DocForm({ mode }: { mode: "SALES" | "PURCHASE" }) {
     // after a network blip then replays instead of double-creating.
     const idemKey = opts.idemKey ?? crypto.randomUUID();
     if (!partyId) { setError(t("docform.errSelectParty", { party: isSales ? bp.partyOne.toLowerCase() : t("docs.supplier").toLowerCase() })); return; }
+    // Module 2.4: the vendor's bill reference is compulsory on purchase bills.
+    if (!isSales && docType === "BILL" && !refNo.trim()) { setError(t("docform.errVendorRefRequired")); return; }
     if (lines.length === 0) { setError(t("docform.errNoItems")); return; }
     for (const l of lines) {
       if (!l.description.trim()) { setError(t("docform.errNoDescription")); return; }
@@ -539,6 +555,14 @@ export function DocForm({ mode }: { mode: "SALES" | "PURCHASE" }) {
         })),
       };
       if (!isSales && docType === "BILL") {
+        // Module 2.4: WHT deduction. Blank = the supplier's WHT-category
+        // default (server computes it); "0" = no deduction.
+        const w = whtPct.trim();
+        if (w !== "") {
+          const pct = parseFloat(w);
+          if (!(pct >= 0 && pct <= 100)) { setError(t("docform.errWhtRange")); return; }
+          body.whtBps = Math.round(pct * 100);
+        }
         const costs = extraCosts
           .filter((c) => c.label.trim() && parseFloat(c.amount) > 0)
           .map((c) => ({ label: c.label.trim(), amount: c.amount }));
@@ -548,13 +572,16 @@ export function DocForm({ mode }: { mode: "SALES" | "PURCHASE" }) {
           if (extraPaidFrom === "CASH" && extraAccountId) body.extraCostAccountId = extraAccountId;
         }
       }
+      if (!isSales && docType === "RETURN") {
+        // Module 2.6: off = pure-ledger return (no stock/batch movement).
+        body.deductFromInventory = deductFromInventory;
+      }
       if (isSales && docType === "INVOICE") {
         body.priceOverride = priceOverride;
         body.overrideCreditLimit = creditOverride;
       }
       // Add Receipt / Add Payment: posted together with the doc in one transaction.
-      if ((isSales && docType === "INVOICE") || (!isSales && docType === "BILL")) {
-        const rcptAmt = parseFloat(rcptAmount || "0");
+      if ((isSales && docType === "INVOICE") || (!isSales && docType === "BILL")) {        const rcptAmt = parseFloat(rcptAmount || "0");
         if (rcptAmt > 0) {
           if (!rcptAccountId) { setSaving(false); setError(t("docform.errReceiptAccount")); return; }
           body.receipt = {
@@ -684,7 +711,7 @@ export function DocForm({ mode }: { mode: "SALES" | "PURCHASE" }) {
                     <option value="BILL">{t("docform.optPurchaseBill")}</option>
                     <option value="RETURN">{t("docform.optPurchaseReturn")}</option>
                     <option value="ORDER">{t("docform.optOrder")}</option>
-                    <option value="GRN">{t("docform.optGrn")}</option>
+                    {/* Module 2.3: GRNs are received from an order's Receive action, not from this form */}
                   </>
                 )}
               </select>
@@ -697,11 +724,33 @@ export function DocForm({ mode }: { mode: "SALES" | "PURCHASE" }) {
             <Field label={isSales && docType === "QUOTATION" ? t("docform.validUntil") : t("docform.dueDate")}><input type="date" className="field" value={dueDate} onChange={(e) => { setDueDate(e.target.value); setTermDays(""); }} /></Field>
           </div>
           <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-            <Field label={isSales ? t("docform.refNoSales") : t("docform.refNo")}>
+            <Field label={isSales ? t("docform.refNoSales") : t("docform.refNo")}
+              required={!isSales && docType === "BILL"}
+              hint={!isSales && docType === "BILL" ? t("docform.refNoRequiredHint") : undefined}>
               <input className="field" value={refNo} maxLength={60}
+                required={!isSales && docType === "BILL"}
                 onChange={(e) => setRefNo(e.target.value)}
                 placeholder={isSales ? t("docform.refPlaceholderSales") : t("docform.refPlaceholder")} />
             </Field>
+            {/* Module 2.4: WHT on purchase bills — blank = supplier default */}
+            {!isSales && docType === "BILL" && (
+              <Field label={t("docform.whtRate")} hint={t("docform.whtRateHint")}>
+                <input className="field" type="number" min="0" max="100" step="0.01" dir="ltr"
+                  value={whtPct} onChange={(e) => setWhtPct(e.target.value)}
+                  placeholder={t("docform.whtRatePlaceholder")} />
+              </Field>
+            )}
+            {/* Module 2.6: pure-ledger purchase returns */}
+            {!isSales && docType === "RETURN" && (
+              <Field label={t("docform.deductFromInventory")}>
+                <label className="flex cursor-pointer items-center gap-2.5 pt-2">
+                  <input type="checkbox" className="h-4 w-4 accent-primary"
+                    checked={deductFromInventory}
+                    onChange={(e) => setDeductFromInventory(e.target.checked)} />
+                  <span className="text-sm text-muted-foreground">{t("docform.deductFromInventoryHint")}</span>
+                </label>
+              </Field>
+            )}
             <Field label={t("docform.terms")}>
               <input className="field" value={terms} maxLength={500}
                 onChange={(e) => setTerms(e.target.value)}

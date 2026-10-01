@@ -1,15 +1,18 @@
-import { eq, and, inArray, desc } from "drizzle-orm";
+import { eq, and, inArray, desc, sql } from "drizzle-orm";
 import {
   salesDocs, salesDocItems, purchaseDocs, purchaseDocItems, products,
-  paymentAllocations, setoffAllocations,
+  paymentAllocations, setoffAllocations, parties,
 } from "@/db/schema";
 import { computeTotals, type DocItemInput, type ComputedItem } from "./totals";
-import { postSalesDoc, postPurchaseDoc } from "./posting";
-import { nextDocNo } from "./setup";
+import { postSalesDoc, postPurchaseDoc, createJournal } from "./posting";
+import { SYS, accountMap, nextDocNo } from "./setup";
 import { floorErrorMessage } from "./min-price";
 import { applyCustomerAdvance } from "./advance";
+import { applySupplierAdvance } from "./supplier-advance";
 import { assertPeriodOpen } from "./period";
 import { qtyRateTotal } from "./money";
+import { assertBillableOrder } from "./purchase-orders";
+import { whtRateBps, whtAmountPaisa } from "./wht";
 import type { DbTx } from "./db";
 import { UserError } from "./errors";
 
@@ -363,17 +366,28 @@ export async function createSalesReturn(
   return { docId, docNo };
 }
 
-/** Convert a purchase ORDER into a posted BILL. */
+/** Convert a purchase ORDER into a posted BILL (Module 2.2/2.4).
+ *
+ * The vendor's bill reference is compulsory. WHT is deducted at the explicit
+ * rate when given, otherwise at the supplier's WHT-category default. Any
+ * supplier advance (unallocated payments) is auto-applied to the new bill.
+ */
 export async function convertPurchaseDoc(
   tx: Tx,
-  input: { companyId: string; branchId: string; sourceId: string; userId: string }
+  input: { companyId: string; branchId: string; sourceId: string; userId: string; refNo: string; whtBps?: number }
 ): Promise<ConvertResult> {
-  const [src] = await tx.select().from(purchaseDocs)
-    .where(and(eq(purchaseDocs.id, input.sourceId), eq(purchaseDocs.companyId, input.companyId))).limit(1);
-  if (!src) throw new UserError("Source document not found.");
-  if (src.docType !== "ORDER") throw new UserError("Only purchase orders can be converted.");
-  if (src.status === "CONVERTED") throw new UserError("This document was already converted.");
+  const refNo = input.refNo?.trim();
+  if (!refNo) throw new UserError("The vendor's bill reference is required.", 422, "VENDOR_REF_REQUIRED");
+  const src = await assertBillableOrder(tx, input.companyId, input.sourceId);
   await assertPeriodOpen(tx, input.companyId, src.date);
+
+  const [party] = await tx
+    .select()
+    .from(parties)
+    .where(and(eq(parties.id, src.partyId), eq(parties.companyId, input.companyId)))
+    .limit(1);
+  if (!party || party.kind !== "SUPPLIER" || !party.isActive)
+    throw new UserError("The order's supplier is no longer active.", 422);
 
   const srcItems = await tx.select().from(purchaseDocItems).where(eq(purchaseDocItems.docId, src.id));
   if (srcItems.length === 0) throw new UserError("Source document has no items.");
@@ -390,6 +404,15 @@ export async function convertPurchaseDoc(
   const srcDiscount = src.discountTotal ?? 0n;
   const srcBranchId = src.branchId;
   const totals = computeTotals(items, srcDiscount);
+
+  let whtBps = input.whtBps ?? whtRateBps(party.whtCategory, { activeTaxPayer: !!party.activeTaxPayer, filerStatus: party.filerStatus });
+  if (!Number.isInteger(whtBps) || whtBps < 0 || whtBps > 10000)
+    throw new UserError("WHT rate must be between 0 and 100%.", 422);
+  const whtAmount = whtAmountPaisa(
+    totals.items.reduce((a, i) => a + i.taxablePaisa, 0n),
+    whtBps
+  );
+
   const docNo = await nextDocNo(tx, input.companyId, "BILL");
   const docId = crypto.randomUUID();
   const date = new Date();
@@ -402,12 +425,15 @@ export async function convertPurchaseDoc(
     partyId: src.partyId,
     docType: "BILL",
     docNo,
+    refNo,
     date,
     status: "POSTED",
     subtotal: totals.subtotal,
     discountTotal: srcDiscount,
     taxTotal: totals.taxTotal,
     grandTotal: totals.grandTotal,
+    whtBps,
+    whtAmount,
     notes: `Converted from purchase order ${src.docNo}`,
     sourceDocId: src.id,
     createdById: input.userId,
@@ -438,17 +464,31 @@ export async function convertPurchaseDoc(
     discountTotal: srcDiscount,
     taxTotal: totals.taxTotal,
     grandTotal: totals.grandTotal,
+    whtAmount,
     createdById: input.userId,
   });
   await tx.update(purchaseDocs).set({ journalEntryId: entryId }).where(eq(purchaseDocs.id, docId));
   await tx.update(purchaseDocs).set({ status: "CONVERTED" }).where(eq(purchaseDocs.id, src.id));
-  return { docId, docNo };
+
+  // Module 2.5: auto-apply any supplier advance to the new bill.
+  const advanceApplied = await applySupplierAdvance(tx, {
+    companyId: input.companyId,
+    branchId: srcBranchId,
+    partyId: src.partyId,
+    docId,
+    docNo,
+    grandTotal: totals.grandTotal,
+    alreadyPaid: 0n,
+    date,
+    userId: input.userId,
+  });
+  return { docId, docNo, advanceApplied };
 }
 
 /** Create a purchase RETURN (debit note) from a posted BILL — full or partial. */
 export async function createPurchaseReturn(
   tx: Tx,
-  input: { companyId: string; branchId: string; sourceId: string; userId: string; lines?: { itemId: string; qty: bigint }[]; docId?: string }
+  input: { companyId: string; branchId: string; sourceId: string; userId: string; lines?: { itemId: string; qty: bigint }[]; docId?: string; deductFromInventory?: boolean }
 ): Promise<ConvertResult> {
   const [src] = await tx.select().from(purchaseDocs)
     .where(and(eq(purchaseDocs.id, input.sourceId), eq(purchaseDocs.companyId, input.companyId))).limit(1);
@@ -500,6 +540,9 @@ export async function createPurchaseReturn(
   const date = new Date();
   const tsMap = await trackStockMap(tx, items.map((i) => i.productId));
   const isFull = srcItems.every((si) => BigInt(si.qty) - (returnedById.get(si.id) ?? BigInt(si.qtyReturned ?? 0n)) <= 0n);
+  // Module 2.6: a return can post as a pure-ledger document (no stock
+  // movement). Default on = deducts stock like before.
+  const deductFromInventory = input.deductFromInventory !== false;
 
   await tx.insert(purchaseDocs).values({
     id: docId,
@@ -514,6 +557,7 @@ export async function createPurchaseReturn(
     discountTotal: docDiscount,
     taxTotal: totals.taxTotal,
     grandTotal: totals.grandTotal,
+    deductFromInventory,
     notes: `${isFull ? "Return" : "Partial return"} of bill ${src.docNo}`,
     sourceDocId: src.id,
     createdById: input.userId,
@@ -546,6 +590,7 @@ export async function createPurchaseReturn(
     grandTotal: totals.grandTotal,
     createdById: input.userId,
     sourceDocId: src.id, // deducts from the bill's exact batches (M4)
+    deductFromInventory, // Module 2.6: pure-ledger returns skip stock + batch moves
   });
   await tx.update(purchaseDocs).set({ journalEntryId: entryId }).where(eq(purchaseDocs.id, docId));
   // M3: grow the source's returnedTotal, release over-allocations, fix status.
@@ -555,6 +600,8 @@ export async function createPurchaseReturn(
     side: "PURCHASE",
     returnTotal: totals.grandTotal,
     isFull,
+    branchId: src.branchId,
+    userId: input.userId,
   });
   for (const [id, qtyReturned] of returnedById) {
     await tx.update(purchaseDocItems).set({ qtyReturned }).where(eq(purchaseDocItems.id, id));
@@ -588,7 +635,7 @@ function scaledReturnDiscount(discount: bigint, qty: bigint, retQty: bigint): bi
  */
 async function releaseAllocationsForReturn(
   tx: Tx,
-  input: { companyId: string; docId: string; side: "SALES" | "PURCHASE"; returnTotal: bigint; isFull: boolean }
+  input: { companyId: string; docId: string; side: "SALES" | "PURCHASE"; returnTotal: bigint; isFull: boolean; branchId?: string; userId?: string }
 ): Promise<void> {
   const table = input.side === "SALES" ? salesDocs : purchaseDocs;
   const [doc] = await tx.select().from(table)
@@ -620,6 +667,10 @@ async function releaseAllocationsForReturn(
       ...payRows.map((r) => ({ id: r.id, amount: BigInt(r.amount), createdAt: r.createdAt, kind: "pay" as const })),
       ...soRows.map((r) => ({ id: r.id, amount: BigInt(r.amount), createdAt: r.createdAt, kind: "setoff" as const })),
     ].sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+    // Module 2.5: on the purchase side the payment journal split
+    // Dr AP / Dr Advance at payment time, so money freed from payment
+    // allocations must move back from AP into the Advance asset.
+    let releasedPay = 0n;
     for (const r of all) {
       if (releasable <= 0n) break;
       if (r.amount <= releasable) {
@@ -627,13 +678,35 @@ async function releaseAllocationsForReturn(
         else await tx.delete(setoffAllocations).where(eq(setoffAllocations.id, r.id));
         releasable -= r.amount;
         amountPaid -= r.amount;
+        if (r.kind === "pay") releasedPay += r.amount;
       } else {
         const left = r.amount - releasable;
         if (r.kind === "pay") await tx.update(paymentAllocations).set({ amount: left }).where(eq(paymentAllocations.id, r.id));
         else await tx.update(setoffAllocations).set({ amount: left }).where(eq(setoffAllocations.id, r.id));
         amountPaid -= releasable;
+        if (r.kind === "pay") releasedPay += releasable;
         releasable = 0n;
       }
+    }
+    if (input.side === "PURCHASE" && releasedPay > 0n && input.branchId && input.userId) {
+      const ac = await accountMap(tx, input.companyId);
+      await createJournal(tx, {
+        companyId: input.companyId,
+        branchId: input.branchId,
+        date: new Date(),
+        memo: `Return — payment released to supplier advance`,
+        source: "PAYMENT",
+        sourceId: doc.id,
+        createdById: input.userId,
+        lines: [
+          { accountId: ac[SYS.ADVANCE_SUPPLIERS], debit: releasedPay, credit: 0n },
+          { accountId: ac[SYS.AP], debit: 0n, credit: releasedPay, partyId: doc.partyId },
+        ],
+      });
+      await tx
+        .update(parties)
+        .set({ balance: sql`${parties.balance} + ${releasedPay}`, updatedAt: new Date() })
+        .where(eq(parties.id, doc.partyId));
     }
   }
 

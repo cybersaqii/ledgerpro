@@ -66,6 +66,12 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
       ...(p.shippingAddress !== undefined ? { shippingAddress: p.shippingAddress || null } : {}),
       ...(p.shippingCity !== undefined ? { shippingCity: p.shippingCity || null } : {}),
       ...(p.filerStatus !== undefined ? { filerStatus: p.filerStatus } : {}),
+      // Module 2.1: supplier master completeness
+      ...(p.displayName !== undefined ? { displayName: p.displayName || null } : {}),
+      ...(p.whtCategory !== undefined ? { whtCategory: p.whtCategory } : {}),
+      ...(p.activeTaxPayer !== undefined ? { activeTaxPayer: p.activeTaxPayer } : {}),
+      ...(p.bankIban !== undefined ? { bankIban: p.bankIban || null } : {}),
+      ...(p.bankAccountNo !== undefined ? { bankAccountNo: p.bankAccountNo || null } : {}),
       ...(p.creditLimit !== undefined ? { creditLimit: parseMoney(p.creditLimit || "0") } : {}),
       ...(p.notes !== undefined ? { notes: p.notes || null } : {}),
       updatedAt: new Date(),

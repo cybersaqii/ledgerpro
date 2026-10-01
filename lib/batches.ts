@@ -289,7 +289,11 @@ export async function deductLineageBatches(
   companyId: string,
   sourceDocId: string,
   productId: string,
-  qtyMilli: bigint
+  qtyMilli: bigint,
+  /** When given, each per-batch deduction is recorded as a negative
+   *  doc_batch_usage row for this doc — so a later void can restore the
+   *  exact batches via restoreLineageBatches (Module 2.6). */
+  recordDocId?: string
 ): Promise<bigint> {
   if (qtyMilli <= 0n) return 0n;
   const rows = await tx
@@ -322,6 +326,7 @@ export async function deductLineageBatches(
       .update(productBatches)
       .set({ qtyThousandths: b.qtyThousandths - take })
       .where(eq(productBatches.id, b.id));
+    if (recordDocId) await recordBatchUsage(tx, companyId, recordDocId, productId, b.id, -take);
     deducted += take;
     remaining -= take;
   }

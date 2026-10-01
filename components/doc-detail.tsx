@@ -11,6 +11,7 @@ import { useLang } from "@/components/lang-provider";
 import { useBusinessProfile } from "@/components/business-type";
 import { usePermissions } from "@/components/permissions";
 import { WriteOffModal, recoverWriteOff } from "@/components/write-off-modal";
+import { GrnReceiveDialog } from "@/components/grn-receive-dialog";
 import { tr, type Lang } from "@/lib/i18n";
 
 type Item = {
@@ -756,6 +757,15 @@ function DocActions({ doc, isSales, onChanged }: { doc: Doc; isSales: boolean; o
   const [voidReason, setVoidReason] = useState("");
   // Module 1: pure-ledger credit note (no stock movement) for sales returns.
   const [restoreStock, setRestoreStock] = useState(true);
+  // Module 2.6: pure-ledger purchase return (no stock movement) toggle.
+  const [deductStock, setDeductStock] = useState(true);
+  // Module 2.2/2.3: purchase order actions + GRN receiving dialog.
+  const [showGrn, setShowGrn] = useState(false);
+  // Module 2.4: order/GRN -> bill needs the vendor's bill reference (+ optional WHT).
+  const [showBillConvert, setShowBillConvert] = useState<null | "ORDER" | "GRN">(null);
+  const [billRefNo, setBillRefNo] = useState("");
+  const [billWhtPct, setBillWhtPct] = useState("");
+  const [billConvertError, setBillConvertError] = useState<string | null>(null);
 
   async function sendDocEmail(e: React.FormEvent) {
     e.preventDefault();
@@ -803,9 +813,12 @@ function DocActions({ doc, isSales, onChanged }: { doc: Doc; isSales: boolean; o
     if (lines.length === 0) { setReturnError(t("docdetail.returnQtyError")); return; }
     setBusy(true); setReturnError(null);
     try {
+      const body: Record<string, unknown> = { action: "return", lines, restoreStock };
+      // Module 2.6: purchase returns can post as pure-ledger documents.
+      if (!isSales) body.deductFromInventory = deductStock;
       const d = await api<{ data: { docId: string } }>(
         `${isSales ? "/api/sales" : "/api/purchases"}/${doc.id}/convert`,
-        { method: "POST", body: JSON.stringify({ action: "return", lines, restoreStock }) }
+        { method: "POST", body: JSON.stringify(body) }
       );
       setShowReturn(false);
       router.push(`${isSales ? "/sales" : "/purchases"}/${d.data.docId}`);
@@ -904,9 +917,12 @@ function DocActions({ doc, isSales, onChanged }: { doc: Doc; isSales: boolean; o
     if (busy) return;
     setBusy(true); setError(null);
     try {
-      await api(`/api/sales/${doc.id}/void`, {
+      // Module 2.4: purchase bills/returns void through the convert endpoint
+      // (reversing journal); sales invoices keep their dedicated void route.
+      const url = isSales ? `/api/sales/${doc.id}/void` : `/api/purchases/${doc.id}/convert`;
+      await api(url, {
         method: "POST",
-        body: JSON.stringify({ reason: voidReason.trim() || undefined }),
+        body: JSON.stringify(isSales ? { reason: voidReason.trim() || undefined } : { action: "void", reason: voidReason.trim() || undefined }),
       });
       setShowVoid(false);
       setVoidReason("");
@@ -916,6 +932,67 @@ function DocActions({ doc, isSales, onChanged }: { doc: Doc; isSales: boolean; o
       setError(e instanceof Error ? e.message : t("docdetail.actionError"));
       setBusy(false);
     }
+  }
+
+  // ── Module 2: purchase order lifecycle + GRN + bill/return void ─────────
+  const isPurchaseOrder = !isSales && doc.docType === "ORDER";
+  const isPurchaseGrn = !isSales && doc.docType === "GRN" && doc.status === "POSTED";
+  const canIssueOrder = isPurchaseOrder && doc.status === "DRAFT";
+  const canReceiveOrder = isPurchaseOrder && (doc.status === "ISSUED" || doc.status === "PARTIALLY_RECEIVED");
+  const canBillOrder = isPurchaseOrder && ["DRAFT", "ISSUED", "PARTIALLY_RECEIVED"].includes(doc.status);
+  const canCancelPurchaseOrder = isPurchaseOrder && ["DRAFT", "ISSUED", "PARTIALLY_RECEIVED"].includes(doc.status);
+  const canClosePurchaseOrder = isPurchaseOrder && ["ISSUED", "PARTIALLY_RECEIVED"].includes(doc.status);
+  const canVoidPurchase = !isSales && (doc.docType === "BILL" || doc.docType === "RETURN") &&
+    ["POSTED", "PARTIAL", "PAID"].includes(doc.status);
+
+  async function runPurchaseOrderAction(action: "issue" | "cancel" | "close") {
+    if (busy) return;
+    const confirmKey = action === "issue" ? "docdetail.issueOrderConfirm" : action === "cancel" ? "docdetail.cancelOrderConfirm" : "docdetail.closeOrderConfirm";
+    if (!window.confirm(t(confirmKey, { docNo: doc.docNo }))) return;
+    setBusy(true); setError(null);
+    try {
+      await api(`/api/purchases/${doc.id}/convert`, {
+        method: "POST",
+        body: JSON.stringify({ action }),
+      });
+      onChanged?.();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : t("docdetail.actionError"));
+    } finally { setBusy(false); }
+  }
+
+  function openBillConvert(from: "ORDER" | "GRN") {
+    setBillRefNo("");
+    setBillWhtPct("");
+    setBillConvertError(null);
+    setShowBillConvert(from);
+  }
+
+  async function submitBillConvert() {
+    if (busy || !showBillConvert) return;
+    if (!billRefNo.trim()) { setBillConvertError(t("docform.errVendorRefRequired")); return; }
+    const w = billWhtPct.trim();
+    let whtBps: number | undefined;
+    if (w !== "") {
+      const pct = parseFloat(w);
+      if (!(pct >= 0 && pct <= 100)) { setBillConvertError(t("docform.errWhtRange")); return; }
+      whtBps = Math.round(pct * 100);
+    }
+    setBusy(true); setBillConvertError(null);
+    try {
+      const d = await api<{ data: { docId: string } }>(`/api/purchases/${doc.id}/convert`, {
+        method: "POST",
+        body: JSON.stringify({
+          action: showBillConvert === "GRN" ? "bill" : "convert",
+          refNo: billRefNo.trim(),
+          whtBps,
+        }),
+      });
+      setShowBillConvert(null);
+      router.push(`/purchases/${d.data.docId}`);
+    } catch (e) {
+      setBillConvertError(e instanceof Error ? e.message : t("docdetail.actionError"));
+    } finally { setBusy(false); }
   }
 
   return (
@@ -931,9 +1008,45 @@ function DocActions({ doc, isSales, onChanged }: { doc: Doc; isSales: boolean; o
           <ArrowRightLeft size={13} /> {t("docdetail.convertedFrom", { no: sourceNo })}
         </span>
       )}
-      {canConvert && !isOrder && (
+      {canConvert && !isOrder && (isSales || doc.docType !== "ORDER") && (
         <button className="btn btn-primary text-sm" disabled={busy} onClick={() => run("convert")}>
           <ArrowRightLeft size={15} /> {busy ? t("docdetail.working") : isSales ? t("docdetail.convertToInvoice") : t("docdetail.convertToBill")}
+        </button>
+      )}
+      {/* ── Module 2: purchase order lifecycle ── */}
+      {canIssueOrder && (
+        <button className="btn btn-primary text-sm" disabled={busy} onClick={() => runPurchaseOrderAction("issue")}>
+          <ArrowRightLeft size={15} /> {t("docdetail.issueOrder")}
+        </button>
+      )}
+      {canReceiveOrder && (
+        <button className="btn btn-primary text-sm" disabled={busy} onClick={() => setShowGrn(true)}>
+          <ArrowRightLeft size={15} /> {t("docdetail.receiveGoods")}
+        </button>
+      )}
+      {canBillOrder && (
+        <button className="btn btn-primary text-sm" disabled={busy} onClick={() => openBillConvert("ORDER")}>
+          <ArrowRightLeft size={15} /> {t("docdetail.convertToBill")}
+        </button>
+      )}
+      {isPurchaseGrn && (
+        <button className="btn btn-primary text-sm" disabled={busy} onClick={() => openBillConvert("GRN")}>
+          <ArrowRightLeft size={15} /> {t("docdetail.convertToBill")}
+        </button>
+      )}
+      {canCancelPurchaseOrder && (
+        <button className="btn btn-ghost text-sm text-danger" disabled={busy} onClick={() => runPurchaseOrderAction("cancel")}>
+          <Ban size={15} /> {t("docdetail.cancelOrder")}
+        </button>
+      )}
+      {canClosePurchaseOrder && (
+        <button className="btn btn-ghost text-sm" disabled={busy} onClick={() => runPurchaseOrderAction("close")}>
+          <Ban size={15} /> {t("docdetail.closeOrder")}
+        </button>
+      )}
+      {canVoidPurchase && (
+        <button className="btn btn-ghost text-sm text-danger" disabled={busy} onClick={() => { setVoidReason(""); setError(null); setShowVoid(true); }}>
+          <Ban size={15} /> {t("docdetail.voidBill")}
         </button>
       )}
       {isSales && doc.docType === "QUOTATION" && doc.status !== "CONVERTED" && (
@@ -1001,6 +1114,15 @@ function DocActions({ doc, isSales, onChanged }: { doc: Doc; isSales: boolean; o
                 <span className="text-xs text-muted-foreground">{t("docdetail.restoreStockHint")}</span>
               </label>
             )}
+            {/* Module 2.6: purchase returns can post as pure-ledger documents */}
+            {!isSales && (
+              <label className="mt-3 flex cursor-pointer items-center gap-2 text-sm">
+                <input type="checkbox" className="h-4 w-4 accent-primary" checked={deductStock}
+                  onChange={(e) => setDeductStock(e.target.checked)} disabled={busy} />
+                <span>{t("docdetail.deductFromInventory")}</span>
+                <span className="text-xs text-muted-foreground">{t("docdetail.deductFromInventoryHint")}</span>
+              </label>
+            )}
             <div className="mt-4 flex gap-2">
               <button className="btn btn-ghost flex-1" disabled={busy} onClick={() => setShowReturn(false)}>
                 {t("common.cancel")}
@@ -1063,10 +1185,10 @@ function DocActions({ doc, isSales, onChanged }: { doc: Doc; isSales: boolean; o
       )}
       {showVoid && doc && (
         <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/50 p-0 sm:items-center sm:p-4" onClick={() => !busy && setShowVoid(false)}>
-          <div role="dialog" aria-modal="true" aria-label={t("docdetail.voidInvoice")}
+          <div role="dialog" aria-modal="true" aria-label={isSales ? t("docdetail.voidInvoice") : t("docdetail.voidBill")}
             className="w-full max-w-md rounded-t-2xl bg-card p-5 shadow-xl sm:rounded-2xl" onClick={(e) => e.stopPropagation()}>
-            <h3 className="text-base font-bold text-danger">{t("docdetail.voidInvoiceTitle", { docNo: doc.docNo })}</h3>
-            <p className="mt-1 text-xs text-muted-foreground">{t("docdetail.voidHint")}</p>
+            <h3 className="text-base font-bold text-danger">{t(isSales ? "docdetail.voidInvoiceTitle" : "docdetail.voidBillTitle", { docNo: doc.docNo })}</h3>
+            <p className="mt-1 text-xs text-muted-foreground">{t(isSales ? "docdetail.voidHint" : "docdetail.voidBillHint")}</p>
             <div className="mt-4">
               <label className="mb-1 block text-sm font-semibold">{t("docdetail.voidReason")}</label>
               <input className="field" value={voidReason} onChange={(e) => setVoidReason(e.target.value)}
@@ -1079,6 +1201,50 @@ function DocActions({ doc, isSales, onChanged }: { doc: Doc; isSales: boolean; o
               </button>
               <button className="btn flex-1 bg-danger text-white hover:brightness-95" disabled={busy} onClick={submitVoid}>
                 {busy ? t("docdetail.posting") : t("docdetail.voidConfirm")}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      {/* Module 2.3: receive goods against the purchase order */}
+      {showGrn && doc && (
+        <GrnReceiveDialog
+          orderId={doc.id}
+          partyId={doc.partyId}
+          orderDocNo={doc.docNo}
+          onClose={() => setShowGrn(false)}
+          onDone={(docId) => { setShowGrn(false); router.push(`/purchases/${docId}`); }}
+        />
+      )}
+      {/* Module 2.4: order/GRN -> bill needs the vendor's bill reference */}
+      {showBillConvert && doc && (
+        <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/50 p-0 sm:items-center sm:p-4" onClick={() => !busy && setShowBillConvert(null)}>
+          <div role="dialog" aria-modal="true" aria-label={t("docdetail.convertToBill")}
+            className="w-full max-w-md rounded-t-2xl bg-card p-5 shadow-xl sm:rounded-2xl" onClick={(e) => e.stopPropagation()}>
+            <h3 className="text-base font-bold">{t("docdetail.convertToBillTitle", { docNo: doc.docNo })}</h3>
+            <p className="mt-1 text-xs text-muted-foreground">{t("docdetail.convertToBillHint")}</p>
+            <div className="mt-4 space-y-4">
+              <div>
+                <label className="mb-1 block text-sm font-semibold">{t("docform.refNo")} <span className="text-red-500">*</span></label>
+                <input className="field" value={billRefNo} maxLength={60}
+                  onChange={(e) => setBillRefNo(e.target.value)} disabled={busy}
+                  placeholder={t("docform.refPlaceholder")} dir="ltr" />
+              </div>
+              <div>
+                <label className="mb-1 block text-sm font-semibold">{t("docform.whtRate")}</label>
+                <input className="field" type="number" min="0" max="100" step="0.01" dir="ltr"
+                  value={billWhtPct} onChange={(e) => setBillWhtPct(e.target.value)} disabled={busy}
+                  placeholder={t("docform.whtRatePlaceholder")} />
+                <p className="mt-1 text-xs text-muted-foreground">{t("docform.whtRateHint")}</p>
+              </div>
+            </div>
+            {billConvertError && <p className="mt-3 text-xs font-semibold text-danger">{billConvertError}</p>}
+            <div className="mt-4 flex gap-2">
+              <button className="btn btn-ghost flex-1" disabled={busy} onClick={() => setShowBillConvert(null)}>
+                {t("common.cancel")}
+              </button>
+              <button className="btn btn-primary flex-1" disabled={busy} onClick={submitBillConvert}>
+                {busy ? t("docdetail.posting") : t("docdetail.convertToBill")}
               </button>
             </div>
           </div>

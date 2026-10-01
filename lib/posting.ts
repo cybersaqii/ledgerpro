@@ -20,7 +20,7 @@ import { UserError } from "./errors";
 import { explodeSalesStockMoves } from "./bundles";
 import { addBatchStock, deductBatchStock, restoreBatchStock, restoreLineageBatches, deductLineageBatches, recordBatchUsage } from "./batches";
 
-type JournalLineInput = {
+export type JournalLineInput = {
   accountId: string;
   debit: bigint;
   credit: bigint;
@@ -139,6 +139,34 @@ export async function applyStock(
     }
   }
   return { cogsOut, cogsIn };
+}
+
+/** Cost-only stock adjustment: spreads a value variance (e.g. landed extra
+ *  costs on a bill converted from a GRN) over the on-hand quantity, updating
+ *  the moving-average cost without moving any units. */
+export async function adjustStockCost(
+  tx: DbTx,
+  branchId: string,
+  productId: string,
+  variancePaisa: bigint
+): Promise<void> {
+  if (variancePaisa === 0n) return;
+  const [level] = await tx
+    .select()
+    .from(stockLevels)
+    .where(and(eq(stockLevels.productId, productId), eq(stockLevels.branchId, branchId)))
+    .limit(1);
+  const qty = level?.qty ?? 0n;
+  if (qty <= 0n)
+    throw new UserError("Cannot adjust stock cost: no stock on hand for this product.", 422);
+  const avg = level?.avgCost ?? 0n;
+  const currentValue = (qty * avg + 500n) / 1000n;
+  const newValue = currentValue + variancePaisa;
+  if (newValue < 0n) throw new UserError("Cost adjustment would drive stock value negative.", 422);
+  const newAvg = (newValue * 1000n + qty / 2n) / qty;
+  if (level) {
+    await tx.update(stockLevels).set({ avgCost: newAvg }).where(eq(stockLevels.id, level.id));
+  }
 }
 
 async function bumpPartyBalance(tx: DbTx, partyId: string, delta: bigint): Promise<void> {
@@ -308,6 +336,17 @@ export type PostPurchaseInput = {
   extraCostAccountId?: string;
   /** RETURN docs: the source BILL id, used to deduct from its exact batches. */
   sourceDocId?: string;
+  /** BILL: withholding-tax deducted on this bill (Cr WHT Payable 2100; reduces the AP credit). */
+  whtAmount?: bigint;
+  /**
+   * BILL converted from a GRN: the GRNI accrual (2002) this bill clears.
+   * Replaces the Inventory debit — the stock already came in via the GRN.
+   * The bill's goods value must equal the accrual exactly (rates are locked
+   * to the GRN); only landed extra costs may add to inventory cost.
+   */
+  grnClearing?: { accruedPaisa: bigint };
+  /** RETURN docs: false = pure-ledger return, no stock movement (Module 2.6). */
+  deductFromInventory?: boolean;
 };
 
 /** Per-line landed extra cost allocation (same order as input.items). */
@@ -342,6 +381,18 @@ export async function postPurchaseDoc(tx: DbTx, input: PostPurchaseInput): Promi
   if (totalExtra > 0n && input.docType !== "BILL")
     throw new UserError("Extra costs can only be added to a purchase bill.");
 
+  // Module 2: new posting options.
+  const whtAmount = input.whtAmount ?? 0n;
+  if (whtAmount < 0n) throw new UserError("WHT amount cannot be negative.", 422);
+  if (whtAmount > 0n && input.docType !== "BILL")
+    throw new UserError("WHT can only be deducted on a purchase bill.", 422);
+  const fromGrn = input.docType === "BILL" && !!input.grnClearing;
+  if (input.grnClearing && input.docType !== "BILL")
+    throw new UserError("GRNI clearing only applies to purchase bills.", 422);
+  const deductStock = input.docType === "RETURN" ? (input.deductFromInventory ?? true) : true;
+  if (whtAmount > input.grandTotal)
+    throw new UserError("WHT cannot exceed the bill total.", 422);
+
   let stockNet = 0n;
   let nonStockNet = 0n;
   const stockMoves: StockMove[] = [];
@@ -359,12 +410,21 @@ export async function postPurchaseDoc(tx: DbTx, input: PostPurchaseInput): Promi
   });
   if (totalExtra > 0n && stockNets.length === 0)
     throw new UserError("Extra costs need at least one stock-tracked item.");
+  // GRN-sourced bills carry the GRN's exact goods value: the bill's goods
+  // nets must equal the accrual, otherwise the GRNI would never clear.
+  if (fromGrn && stockNet + nonStockNet !== input.grnClearing!.accruedPaisa)
+    throw new UserError("Bill lines must match the GRN — rates are locked to the received note.", 422);
   const landed = distributeExtraCost(stockNets, totalExtra); // per stock line, same order
   const landedByItem = new Map<number, bigint>();
   stockItemIdx.forEach((idx, j) => landedByItem.set(idx, landed[j] ?? 0n));
 
   for (let idx = 0; idx < input.items.length; idx++) {
     const i = input.items[idx]!;
+    // GRN-sourced bills move no stock — the GRN already received it. Landed
+    // extra costs still lift the unit cost via adjustStockCost below.
+    if (fromGrn) continue;
+    // Pure-ledger returns (Module 2.6): no stock movement at all.
+    if (input.docType === "RETURN" && !deductStock) continue;
     if (i.productId && i.trackStock) {
       const net = i.taxablePaisa + (landedByItem.get(idx) ?? 0n);
       stockMoves.push({
@@ -382,8 +442,12 @@ export async function postPurchaseDoc(tx: DbTx, input: PostPurchaseInput): Promi
   //   record the lineage in doc_batch_usage so returns deduct the same batches.
   // - RETURN: deduct from the source bill's batches via lineage (M4). Without
   //   lineage (pre-migration docs) fall back to an explicitly chosen batch.
+  // GRN-sourced bills and pure-ledger returns (Module 2) never touch batches:
+  // the GRN already created them, and a ledger-only return moves no stock.
   for (const i of input.items) {
     if (!i.productId || !i.trackStock) continue;
+    if (fromGrn) continue;
+    if (input.docType === "RETURN" && !deductStock) continue;
     if (input.docType === "BILL") {
       if (i.batchNo && i.batchNo.trim()) {
         const newBatchId = await addBatchStock(tx, input.companyId, i.productId, i.batchNo, i.expiryDate ?? null, i.qtyMilli);
@@ -392,7 +456,9 @@ export async function postPurchaseDoc(tx: DbTx, input: PostPurchaseInput): Promi
         }
       }
     } else if (input.sourceDocId) {
-      await deductLineageBatches(tx, input.companyId, input.sourceDocId, i.productId, i.qtyMilli);
+      // Record the per-batch deduction against this return's own doc id so a
+      // later void can restore the exact batches (Module 2.6).
+      await deductLineageBatches(tx, input.companyId, input.sourceDocId, i.productId, i.qtyMilli, input.docId);
     } else if (i.batchId) {
       // Direct purchase return against an explicit batch: deduct it and
       // record the lineage (negative = batch deduction), like bills do.
@@ -405,6 +471,16 @@ export async function postPurchaseDoc(tx: DbTx, input: PostPurchaseInput): Promi
   // For purchase returns, inventory leaves at average cost (stockCostOut), not at
   // the return document's rate. Any difference is a price gain/loss vs cost.
   const priceDiff = stockNet - stockCostOut;
+
+  // GRN-sourced bills move no stock, but landed extra costs still lift the
+  // received stock's unit cost (the GRN already holds the quantities).
+  if (fromGrn && totalExtra > 0n) {
+    for (const idx of stockItemIdx) {
+      const i = input.items[idx]!;
+      const share = landedByItem.get(idx) ?? 0n;
+      if (share > 0n && i.productId) await adjustStockCost(tx, input.branchId, i.productId, share);
+    }
+  }
 
   // Extra-cost credit side: cash/bank account, or added to the supplier's payable.
   let extraCredit: JournalLineInput | null = null;
@@ -435,32 +511,61 @@ export async function postPurchaseDoc(tx: DbTx, input: PostPurchaseInput): Promi
   const extraMemo = extraCosts.length > 0
     ? ` (+ ${extraCosts.map((c) => c.label).join(", ")} Rs ${(totalExtra / 100n).toLocaleString()})`
     : "";
-  const lines: JournalLineInput[] =
-    input.docType === "BILL"
-      ? [
-          ...((stockNet + totalExtra) > 0n ? [{ accountId: ac[SYS.INVENTORY], debit: stockNet + totalExtra, credit: 0n }] : []),
-          ...(nonStockNet > 0n ? [{ accountId: ac[SYS.PURCHASES], debit: nonStockNet, credit: 0n }] : []),
-          ...(input.taxTotal > 0n ? [{ accountId: ac[SYS.INPUT_TAX], debit: input.taxTotal, credit: 0n }] : []),
-          { accountId: ac[SYS.AP], debit: 0n, credit: input.grandTotal, partyId: input.partyId },
-          ...(input.discountTotal > 0n ? [{ accountId: ac[SYS.DISCOUNT_RECEIVED], debit: 0n, credit: input.discountTotal }] : []),
-          ...(extraCredit ? [extraCredit] : []),
-        ]
-      : [
-          { accountId: ac[SYS.AP], debit: input.grandTotal, credit: 0n, partyId: input.partyId },
-          ...(stockCostOut > 0n ? [{ accountId: ac[SYS.INVENTORY], debit: 0n, credit: stockCostOut }] : []),
-          ...(nonStockNet > 0n ? [{ accountId: ac[SYS.PURCHASES], debit: 0n, credit: nonStockNet }] : []),
-          ...(input.taxTotal > 0n ? [{ accountId: ac[SYS.INPUT_TAX], debit: 0n, credit: input.taxTotal }] : []),
-          ...(priceDiff !== 0n
-            ? [
-                {
-                  accountId: ac[SYS.DISCOUNT_RECEIVED],
-                  debit: priceDiff < 0n ? -priceDiff : 0n,
-                  credit: priceDiff > 0n ? priceDiff : 0n,
-                },
-              ]
-            : []),
-          ...(input.discountTotal > 0n ? [{ accountId: ac[SYS.DISCOUNT_RECEIVED], debit: input.discountTotal, credit: 0n }] : []),
-        ];
+  // Module 2.4 — bill postings:
+  //   direct:  Dr Inventory-or-Purchases / Dr Input Tax / Cr WHT Payable (2100) / Cr AP
+  //   from GRN: Dr GRNI Accrual (clears the receipt accrual) / Dr Inventory
+  //            (landed extra costs only) / Dr Input Tax / Cr WHT Payable / Cr AP
+  const billLines: JournalLineInput[] = fromGrn
+    ? [
+        { accountId: ac[SYS.GRNI_ACCRUAL], debit: input.grnClearing!.accruedPaisa, credit: 0n, partyId: input.partyId },
+        ...(totalExtra > 0n ? [{ accountId: ac[SYS.INVENTORY], debit: totalExtra, credit: 0n }] : []),
+        ...(input.taxTotal > 0n ? [{ accountId: ac[SYS.INPUT_TAX], debit: input.taxTotal, credit: 0n }] : []),
+        ...(whtAmount > 0n ? [{ accountId: ac[SYS.TAX_PAYABLE], debit: 0n, credit: whtAmount, partyId: input.partyId }] : []),
+        { accountId: ac[SYS.AP], debit: 0n, credit: input.grandTotal - whtAmount, partyId: input.partyId },
+        ...(input.discountTotal > 0n ? [{ accountId: ac[SYS.DISCOUNT_RECEIVED], debit: 0n, credit: input.discountTotal }] : []),
+        ...(extraCredit ? [extraCredit] : []),
+      ]
+    : [
+        ...((stockNet + totalExtra) > 0n ? [{ accountId: ac[SYS.INVENTORY], debit: stockNet + totalExtra, credit: 0n }] : []),
+        ...(nonStockNet > 0n ? [{ accountId: ac[SYS.PURCHASES], debit: nonStockNet, credit: 0n }] : []),
+        ...(input.taxTotal > 0n ? [{ accountId: ac[SYS.INPUT_TAX], debit: input.taxTotal, credit: 0n }] : []),
+        ...(whtAmount > 0n ? [{ accountId: ac[SYS.TAX_PAYABLE], debit: 0n, credit: whtAmount, partyId: input.partyId }] : []),
+        { accountId: ac[SYS.AP], debit: 0n, credit: input.grandTotal - whtAmount, partyId: input.partyId },
+        ...(input.discountTotal > 0n ? [{ accountId: ac[SYS.DISCOUNT_RECEIVED], debit: 0n, credit: input.discountTotal }] : []),
+        ...(extraCredit ? [extraCredit] : []),
+      ];
+
+  // Module 2.6 — purchase returns: with deductFromInventory the inventory
+  // leaves at average cost (existing behaviour); without it the return is a
+  // pure-ledger document and stock lines credit Purchases like non-stock.
+  const returnLines: JournalLineInput[] = deductStock
+    ? [
+        { accountId: ac[SYS.AP], debit: input.grandTotal, credit: 0n, partyId: input.partyId },
+        ...(stockCostOut > 0n ? [{ accountId: ac[SYS.INVENTORY], debit: 0n, credit: stockCostOut }] : []),
+        ...(nonStockNet > 0n ? [{ accountId: ac[SYS.PURCHASES], debit: 0n, credit: nonStockNet }] : []),
+        ...(input.taxTotal > 0n ? [{ accountId: ac[SYS.INPUT_TAX], debit: 0n, credit: input.taxTotal }] : []),
+        ...(priceDiff !== 0n
+          ? [
+              {
+                accountId: ac[SYS.DISCOUNT_RECEIVED],
+                debit: priceDiff < 0n ? -priceDiff : 0n,
+                credit: priceDiff > 0n ? priceDiff : 0n,
+              },
+            ]
+          : []),
+        ...(input.discountTotal > 0n ? [{ accountId: ac[SYS.DISCOUNT_RECEIVED], debit: input.discountTotal, credit: 0n }] : []),
+      ]
+    : [
+        { accountId: ac[SYS.AP], debit: input.grandTotal, credit: 0n, partyId: input.partyId },
+        ...((stockNet + nonStockNet) > 0n
+          ? [{ accountId: ac[SYS.PURCHASES], debit: 0n, credit: stockNet + nonStockNet }]
+          : []),
+        ...(input.taxTotal > 0n ? [{ accountId: ac[SYS.INPUT_TAX], debit: 0n, credit: input.taxTotal }] : []),
+        ...(input.discountTotal > 0n ? [{ accountId: ac[SYS.DISCOUNT_RECEIVED], debit: input.discountTotal, credit: 0n }] : []),
+      ];
+
+  const lines: JournalLineInput[] = input.docType === "BILL" ? billLines : returnLines;
+  assertBalanced(lines);
 
   const entryId = await createJournal(tx, {
     companyId: input.companyId,
@@ -474,7 +579,10 @@ export async function postPurchaseDoc(tx: DbTx, input: PostPurchaseInput): Promi
     lines,
   });
 
-  await bumpPartyBalance(tx, input.partyId, input.docType === "BILL" ? input.grandTotal : -input.grandTotal);
+  // The AP credit is net of WHT (the withheld tax is owed to the tax
+  // authority, not the supplier), so the party balance moves by the net too.
+  const apNet = input.grandTotal - whtAmount;
+  await bumpPartyBalance(tx, input.partyId, input.docType === "BILL" ? apNet : -input.grandTotal);
   if (totalExtra > 0n && (input.extraCostPaidFrom ?? "CASH") === "SUPPLIER") {
     // extra cost added to the supplier's bill increases what we owe them
     await bumpPartyBalance(tx, input.partyId, totalExtra);
@@ -630,6 +738,15 @@ export async function postPayment(tx: DbTx, input: PostPaymentInput): Promise<{ 
       );
   }
 
+  // Module 2.5 — vendor payments: the allocated part settles AP, the
+  // unallocated remainder becomes an Advance to Suppliers asset (1110)
+  // instead of sitting invisibly inside AP:
+  //   Dr AP (allocated, party) / Dr Advance to Suppliers (unallocated) / Cr Bank (total)
+  // Customer receipts keep the Module 1 design (advance stays inside AR as
+  // negative balance); refunds are never allocated and keep plain postings.
+  const isSupplierPayment = !isCustomer && !isReceipt && !isRefundFlow;
+  const advanceAmount = isSupplierPayment ? input.amount - allocTotal : 0n;
+
   const entryId = await createJournal(tx, {
     companyId: input.companyId,
     branchId: input.branchId,
@@ -644,10 +761,22 @@ export async function postPayment(tx: DbTx, input: PostPaymentInput): Promise<{ 
           { accountId: bank.accountId, debit: input.amount, credit: 0n },
           { accountId: arApAccount, debit: 0n, credit: input.amount, partyId: input.partyId },
         ]
-      : [
-          { accountId: arApAccount, debit: input.amount, credit: 0n, partyId: input.partyId },
-          { accountId: bank.accountId, debit: 0n, credit: input.amount },
-        ],
+      : isSupplierPayment
+        ? [
+            // Module 2.5 — vendor payments: allocated part settles AP, the
+            // unallocated remainder becomes an Advance to Suppliers asset.
+            ...(allocTotal > 0n
+              ? [{ accountId: arApAccount, debit: allocTotal, credit: 0n, partyId: input.partyId }]
+              : []),
+            ...(advanceAmount > 0n
+              ? [{ accountId: ac[SYS.ADVANCE_SUPPLIERS], debit: advanceAmount, credit: 0n }]
+              : []),
+            { accountId: bank.accountId, debit: 0n, credit: input.amount },
+          ]
+        : [
+            { accountId: arApAccount, debit: input.amount, credit: 0n, partyId: input.partyId },
+            { accountId: bank.accountId, debit: 0n, credit: input.amount },
+          ],
   });
 
   await tx.insert(payments).values({
@@ -684,7 +813,13 @@ export async function postPayment(tx: DbTx, input: PostPaymentInput): Promise<{ 
   // paying out moves it away — on BOTH sides of the ledger:
   //   RECEIPT from customer → they owe less (−); from supplier → we owe more (+)
   //   PAYMENT to customer (refund) → they owe more (+); to supplier → we owe less (−)
-  await bumpPartyBalance(tx, input.partyId, isCustomer === isReceipt ? -input.amount : input.amount);
+  // Module 2.5: a vendor payment only relieves AP by its ALLOCATED part —
+  // the unallocated remainder is an Advance to Suppliers asset, not AP relief.
+  await bumpPartyBalance(
+    tx,
+    input.partyId,
+    isSupplierPayment ? -allocTotal : isCustomer === isReceipt ? -input.amount : input.amount
+  );
   await tx
     .update(bankAccounts)
     .set({ balance: sql`${bankAccounts.balance} + ${isReceipt ? input.amount : -input.amount}` })

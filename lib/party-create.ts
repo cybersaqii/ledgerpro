@@ -22,6 +22,12 @@ export type PartyCreateFields = {
   shippingAddress?: string | null;
   shippingCity?: string | null;
   filerStatus?: "FILER" | "NON_FILER" | "NA";
+  // ── Module 2.1: supplier master completeness ──
+  displayName?: string | null;
+  whtCategory?: "NONE" | "GOODS" | "SERVICES" | "CONTRACTS";
+  activeTaxPayer?: boolean;
+  bankIban?: string | null;
+  bankAccountNo?: string | null;
   creditLimit?: bigint;
   category?: string | null;
   notes?: string | null;
@@ -81,6 +87,12 @@ export async function insertParty(
     shippingAddress: f.shippingAddress || null,
     shippingCity: f.shippingCity || null,
     filerStatus: f.filerStatus ?? "NA",
+    // Module 2.1: supplier-only fields (harmless for customers; UI hides them).
+    displayName: f.displayName?.trim() || null,
+    whtCategory: f.whtCategory ?? "NONE",
+    activeTaxPayer: f.activeTaxPayer === true,
+    bankIban: f.bankIban?.trim() || null,
+    bankAccountNo: f.bankAccountNo?.trim() || null,
     creditLimit: f.creditLimit ?? 0n,
     category: f.category || null,
     notes: f.notes || null,

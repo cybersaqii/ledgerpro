@@ -190,7 +190,7 @@ describe("convertPurchaseDoc + createPurchaseReturn", () => {
     const orderId = await createOrder();
     const stockBefore = await stockQty();
     const { docId: billId } = await db.transaction((tx) =>
-      convertPurchaseDoc(tx, { companyId, branchId, sourceId: orderId, userId })
+      convertPurchaseDoc(tx, { companyId, branchId, sourceId: orderId, userId, refNo: "VEN-001" })
     );
     const [bill] = await db.select().from(s.purchaseDocs).where(eq(s.purchaseDocs.id, billId)).limit(1);
     expect(bill!.docType).toBe("BILL");
@@ -251,7 +251,7 @@ describe("conversion/return correctness", () => {
       taxAmount: 0n, lineTotal: parseMoney("2000"),
     });
     const { docId } = await db.transaction((tx) =>
-      convertPurchaseDoc(tx, { companyId, branchId, sourceId: id, userId })
+      convertPurchaseDoc(tx, { companyId, branchId, sourceId: id, userId, refNo: "VEN-001" })
     );
     const [bill] = await db.select().from(s.purchaseDocs).where(eq(s.purchaseDocs.id, docId)).limit(1);
     expect(bill!.discountTotal).toBe(parseMoney("200"));
@@ -319,7 +319,7 @@ describe("conversion/return correctness", () => {
       taxAmount: 0n, lineTotal: parseMoney("2000"),
     });
     const { docId: billId } = await db.transaction((tx) =>
-      convertPurchaseDoc(tx, { companyId, branchId, sourceId: orderId, userId })
+      convertPurchaseDoc(tx, { companyId, branchId, sourceId: orderId, userId, refNo: "VEN-001" })
     );
     await db.transaction((tx) => createPurchaseReturn(tx, { companyId, branchId, sourceId: billId, userId }));
     await expect(
@@ -380,7 +380,7 @@ describe("conversion/return correctness", () => {
       taxAmount: 0n, lineTotal: parseMoney("4000"),
     });
     const { docId: billId } = await db.transaction((tx) =>
-      convertPurchaseDoc(tx, { companyId, branchId, sourceId: orderId, userId })
+      convertPurchaseDoc(tx, { companyId, branchId, sourceId: orderId, userId, refNo: "VEN-001" })
     );
     const [billItem] = await db.select().from(s.purchaseDocItems).where(eq(s.purchaseDocItems.docId, billId)).limit(1);
 

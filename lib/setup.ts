@@ -18,7 +18,9 @@ export const SYS = {
   INVENTORY: "1200",
   INPUT_TAX: "1300",
   PDC_RECEIVABLE: "1310",
+  ADVANCE_SUPPLIERS: "1110", // Module 2: Advance to Suppliers (unallocated vendor payments)
   AP: "2001",
+  GRNI_ACCRUAL: "2002", // Module 2: Goods Received Not Invoiced
   TAX_PAYABLE: "2100",
   PDC_PAYABLE: "2110",
   CAPITAL: "3001",
@@ -40,7 +42,9 @@ const SYSTEM_ACCOUNTS: { code: string; name: string; type: string }[] = [
   { code: SYS.INVENTORY, name: "Inventory", type: "ASSET" },
   { code: SYS.INPUT_TAX, name: "Input Sales Tax", type: "ASSET" },
   { code: SYS.PDC_RECEIVABLE, name: "PDC Receivable (Cheques in Hand)", type: "ASSET" },
+  { code: SYS.ADVANCE_SUPPLIERS, name: "Advance to Suppliers", type: "ASSET" },
   { code: SYS.AP, name: "Accounts Payable", type: "LIABILITY" },
+  { code: SYS.GRNI_ACCRUAL, name: "Goods Received Not Invoiced", type: "LIABILITY" },
   { code: SYS.TAX_PAYABLE, name: "Sales Tax Payable", type: "LIABILITY" },
   { code: SYS.PDC_PAYABLE, name: "PDC Payable (Cheques Issued)", type: "LIABILITY" },
   { code: SYS.CAPITAL, name: "Owner's Capital", type: "EQUITY" },

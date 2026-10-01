@@ -129,6 +129,12 @@ export async function POST(req: NextRequest) {
           shippingAddress: p.shippingAddress || null,
           shippingCity: p.shippingCity || null,
           filerStatus: p.filerStatus,
+          // Module 2.1: supplier master completeness
+          displayName: p.displayName || null,
+          whtCategory: p.whtCategory,
+          activeTaxPayer: p.activeTaxPayer,
+          bankIban: p.bankIban || null,
+          bankAccountNo: p.bankAccountNo || null,
           creditLimit: parseMoney(p.creditLimit || "0"),
           category: p.category || null,
           notes: p.notes || null,
