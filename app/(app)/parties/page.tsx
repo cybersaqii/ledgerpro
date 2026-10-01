@@ -2,9 +2,10 @@
 
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
-import { Plus, Search, Pencil, Phone, Users, Eye, ArrowLeftRight } from "lucide-react";
+import { Plus, Search, Pencil, Phone, Users, Eye, ArrowLeftRight, KeyRound } from "lucide-react";
 import { PageHeader, EmptyState, Field, ErrorNote } from "@/components/ui";
 import { Modal } from "@/components/modal";
+import { PortalTokensModal } from "@/components/portal-tokens-modal";
 import { api, fmtMoney } from "@/lib/format";
 import { paisaToRupees } from "@/lib/pos";
 import { useBusinessProfile } from "@/components/business-type";
@@ -40,6 +41,8 @@ export default function PartiesPage() {
   const bp = useBusinessProfile();
   const { t } = useLang();
   const canSetoff = useCan("payments");
+  const canPortal = useCan("portal");
+  const [portalParty, setPortalParty] = useState<{ id: string; name: string } | null>(null);
   const [kind, setKind] = useState<"CUSTOMER" | "SUPPLIER">("CUSTOMER");
   const [q, setQ] = useState("");
   const [category, setCategory] = useState("");
@@ -183,6 +186,9 @@ export default function PartiesPage() {
                         <Eye size={15} />
                       </Link>
                       <button className="btn btn-ghost !p-2" onClick={() => openEdit(p)} aria-label={t("common.edit")}><Pencil size={15} /></button>
+                      {canPortal && (
+                        <button className="btn btn-ghost !p-2" onClick={() => setPortalParty({ id: p.id, name: p.name })} aria-label={t("portal.tokensTitle")} title={t("portal.tokensTitle")}><KeyRound size={15} /></button>
+                      )}
                       </div>
                     </td>
                   </tr>
@@ -302,6 +308,10 @@ export default function PartiesPage() {
             </div>
           </form>
         </Modal>
+      )}
+
+      {portalParty && (
+        <PortalTokensModal partyId={portalParty.id} partyName={portalParty.name} onClose={() => setPortalParty(null)} />
       )}
     </div>
   );

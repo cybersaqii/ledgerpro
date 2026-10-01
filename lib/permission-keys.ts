@@ -30,6 +30,10 @@ export const PERMISSIONS = [
   // Module 9: fixed assets (register, depreciation runs, sale/disposal).
   // Kept out of the staff defaults: asset movements are owner-granted.
   "assets",
+  // Module 11: customer & supplier portals (issue/revoke portal tokens,
+  // approve order requests, reconcile payment intents).
+  // Kept out of the staff defaults: portal links expose party data externally.
+  "portal",
 ] as const;
 
 export type Permission = (typeof PERMISSIONS)[number];
@@ -64,7 +68,7 @@ export const PERMISSION_GROUPS: { key: string; permissions: Permission[] }[] = [
   { key: "daily", permissions: ["sales", "purchases", "pos", "payments", "expenses", "held_bills"] },
   { key: "masters", permissions: ["parties", "products", "stock", "documents"] },
   { key: "insights", permissions: ["reports_basic", "reports_accounting", "audit"] },
-  { key: "admin", permissions: ["settings", "team", "import_export", "backups", "period_lock", "approvals"] },
+  { key: "admin", permissions: ["settings", "team", "import_export", "backups", "period_lock", "approvals", "portal"] },
   // Module 8: payroll & HRM stands alone — salary data is sensitive.
   { key: "hr", permissions: ["payroll"] },
   // Module 9: fixed assets stands alone — asset movements are sensitive.

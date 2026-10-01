@@ -1789,3 +1789,110 @@ export const employeeAdvances = sqliteTable(
   },
   (t) => [index("employee_advances_company_emp").on(t.companyId, t.employeeId, t.status)]
 );
+
+// ─── Module 11: Customer & Supplier Portals (migration 0042) ─────────
+// Magic-link token access: crypto-random bearer tokens (sha256-hashed in
+// storage, plaintext shown once at issue) that open a public /portal/[token]
+// route. No per-party login system by design (see docs/module11-portals.md).
+
+/** One issued portal token. tokenHash is the ONLY stored form of the token. */
+export const portalTokens = sqliteTable(
+  "portal_tokens",
+  {
+    id: id(),
+    companyId: text("company_id").notNull(),
+    partyId: text("party_id").notNull(),
+    tokenHash: text("token_hash").notNull().unique(), // sha256 hex; never the plaintext
+    accessLevel: text("access_level").notNull().default("VIEW_ONLY"), // VIEW_ONLY | ORDER | FULL
+    expiresAt: ts("expires_at"), // NULL = never expires
+    revokedAt: ts("revoked_at"),
+    lastUsedAt: ts("last_used_at"),
+    label: text("label"),
+    createdById: text("created_by_id"),
+    createdAt: createdAt(),
+    updatedAt: updatedAt(),
+  },
+  (t) => [index("portal_tokens_company_party").on(t.companyId, t.partyId)]
+);
+
+/** Portal order request / supplier invoice submission. */
+export const portalOrderRequests = sqliteTable(
+  "portal_order_requests",
+  {
+    id: id(),
+    companyId: text("company_id").notNull(),
+    partyId: text("party_id").notNull(),
+    tokenId: text("token_id"), // portal_tokens.id that created it; NULL = staff-created
+    requestNo: text("request_no").notNull(), // POR-xxxx per company
+    kind: text("kind").notNull(), // SALES_ORDER (customer) | BILL_SUBMISSION (supplier)
+    status: text("status").notNull().default("DRAFT"), // DRAFT | SUBMITTED | APPROVED | REJECTED | CANCELLED
+    // JSON array of {productId, description, qtyMilli, ratePaisa, lineTotalPaisa}
+    // with money/qty as DECIMAL STRINGS (never floats).
+    itemsJson: text("items_json").notNull(),
+    subtotalPaisa: money("subtotal_paisa"),
+    taxPaisa: money("tax_paisa"),
+    grandTotalPaisa: money("grand_total_paisa"),
+    vendorRef: text("vendor_ref"), // supplier's own invoice number (BILL_SUBMISSION)
+    notes: text("notes"),
+    idempotencyKey: text("idempotency_key"),
+    approvedDocId: text("approved_doc_id"), // sales_docs.id | purchase_docs.id on approval
+    reviewedById: text("reviewed_by_id"),
+    reviewedAt: ts("reviewed_at"),
+    rejectionReason: text("rejection_reason"),
+    createdAt: createdAt(),
+    updatedAt: updatedAt(),
+  },
+  (t) => [
+    uniqueIndex("portal_order_requests_company_no").on(t.companyId, t.requestNo),
+    uniqueIndex("portal_order_requests_idem").on(t.companyId, t.idempotencyKey),
+    index("portal_order_requests_company_status").on(t.companyId, t.status),
+    index("portal_order_requests_party").on(t.companyId, t.partyId),
+  ]
+);
+
+/**
+ * Portal "pay now": an INTENT only — no money moves here. An admin reconciles
+ * it through the normal postPayment flow, which stamps reconciledPaymentId.
+ */
+export const portalPaymentIntents = sqliteTable(
+  "portal_payment_intents",
+  {
+    id: id(),
+    companyId: text("company_id").notNull(),
+    partyId: text("party_id").notNull(),
+    tokenId: text("token_id"),
+    side: text("side").notNull(), // SALES (customer receipt) | PURCHASE (supplier payment)
+    docId: text("doc_id").notNull(), // the invoice/bill this intent is against
+    amountPaisa: money("amount_paisa"),
+    method: text("method").notNull(), // BANK_TRANSFER | CASH | CHEQUE | OTHER
+    reference: text("reference"), // bank ref / cheque no. supplied by the party
+    status: text("status").notNull().default("INTENT"), // INTENT | RECONCILED | CANCELLED
+    idempotencyKey: text("idempotency_key"),
+    reconciledPaymentId: text("reconciled_payment_id"),
+    reconciledById: text("reconciled_by_id"),
+    reconciledAt: ts("reconciled_at"),
+    createdAt: createdAt(),
+    updatedAt: updatedAt(),
+  },
+  (t) => [
+    uniqueIndex("portal_payment_intents_idem").on(t.companyId, t.idempotencyKey),
+    index("portal_payment_intents_company_status").on(t.companyId, t.status),
+    index("portal_payment_intents_party").on(t.companyId, t.partyId),
+  ]
+);
+
+/** Every portal touch, for the admin activity feed (Module 11.3). */
+export const portalActivityLog = sqliteTable(
+  "portal_activity_log",
+  {
+    id: id(),
+    companyId: text("company_id").notNull(),
+    tokenId: text("token_id"),
+    partyId: text("party_id"),
+    action: text("action").notNull(), // TOKEN_ISSUED | TOKEN_REVOKED | REQUEST_* | INTENT_* | PORTAL_VIEW
+    detail: text("detail"),
+    ip: text("ip"),
+    createdAt: createdAt(),
+  },
+  (t) => [index("portal_activity_company").on(t.companyId, t.createdAt)]
+);
