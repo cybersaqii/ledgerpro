@@ -1896,3 +1896,97 @@ export const portalActivityLog = sqliteTable(
   },
   (t) => [index("portal_activity_company").on(t.companyId, t.createdAt)]
 );
+
+/** Module 12 (migration 0043): Manufacturing & BOM.
+ *  BOM is single-level per finished product; nested recipes go through the
+ *  existing bundles mechanism (see docs/module12-manufacturing.md). */
+export const bomHeaders = sqliteTable(
+  "bom_headers",
+  {
+    id: id(),
+    companyId: text("company_id").notNull(),
+    productId: text("product_id").notNull(), // finished product
+    version: integer("version").notNull().default(1),
+    isActive: flag("is_active", true),
+    notes: text("notes"),
+    createdById: text("created_by_id"),
+    createdAt: createdAt(),
+    updatedAt: updatedAt(),
+  },
+  (t) => [
+    index("bom_headers_company").on(t.companyId, t.productId),
+    uniqueIndex("bom_headers_company_product_version").on(t.companyId, t.productId, t.version),
+  ]
+);
+
+export const bomLines = sqliteTable(
+  "bom_lines",
+  {
+    id: id(),
+    companyId: text("company_id").notNull(),
+    bomId: text("bom_id").notNull(), // bom_headers.id
+    componentProductId: text("component_product_id").notNull(),
+    /** Component units per ONE finished unit, thousandths (2500 = 2.5). */
+    qtyMilli: qty("qty_milli"),
+    /** Integer percent added on top of qty_milli (5 = +5%), rounded up. */
+    scrapPct: integer("scrap_pct").notNull().default(0),
+    createdAt: createdAt(),
+  },
+  (t) => [index("bom_lines_bom").on(t.companyId, t.bomId)]
+);
+
+/** Work order: DRAFT -> RELEASED -> IN_PROGRESS -> COMPLETED,
+ *  plus CANCELLED (from DRAFT/RELEASED) and VOIDED (from COMPLETED). */
+export const workOrders = sqliteTable(
+  "work_orders",
+  {
+    id: id(),
+    companyId: text("company_id").notNull(),
+    branchId: text("branch_id").notNull(),
+    woNo: text("wo_no").notNull(), // MWO-0001 (WORK_ORDER sequence)
+    productId: text("product_id").notNull(), // finished product
+    qtyMilli: qty("qty_milli"), // planned finished output, thousandths
+    bomId: text("bom_id"), // bom_headers.id used (set at release)
+    status: text("status").notNull().default("DRAFT"),
+    bomVersion: integer("bom_version"),
+    laborPaisa: money("labor_paisa"),
+    overheadPaisa: money("overhead_paisa"),
+    issuedComponentCostPaisa: money("issued_component_cost_paisa"),
+    actualTotalCostPaisa: money("actual_total_cost_paisa"),
+    issueJournalEntryId: text("issue_journal_entry_id"),
+    completionJournalEntryId: text("completion_journal_entry_id"),
+    voidIssueJournalEntryId: text("void_issue_journal_entry_id"),
+    voidCompletionJournalEntryId: text("void_completion_journal_entry_id"),
+    issuedAt: ts("issued_at"),
+    completedAt: ts("completed_at"),
+    cancelledAt: ts("cancelled_at"),
+    voidedAt: ts("voided_at"),
+    notes: text("notes"),
+    idempotencyKey: text("idempotency_key"),
+    createdById: text("created_by_id").notNull(),
+    createdAt: createdAt(),
+    updatedAt: updatedAt(),
+  },
+  (t) => [
+    uniqueIndex("work_orders_idem").on(t.companyId, t.idempotencyKey).where(sql`idempotency_key IS NOT NULL`),
+    uniqueIndex("work_orders_company_no").on(t.companyId, t.woNo),
+    index("work_orders_company_status").on(t.companyId, t.status),
+  ]
+);
+
+/** Immutable BOM snapshot of a work order at release time. unitCostPaisa /
+ *  valuePaisa are captured at issue (moving-average cost, half-up). */
+export const workOrderComponents = sqliteTable(
+  "work_order_components",
+  {
+    id: id(),
+    companyId: text("company_id").notNull(),
+    workOrderId: text("work_order_id").notNull(),
+    componentProductId: text("component_product_id").notNull(),
+    qtyMilli: qty("qty_milli"), // total required incl. scrap
+    unitCostPaisa: money("unit_cost_paisa"),
+    valuePaisa: money("value_paisa"),
+    createdAt: createdAt(),
+  },
+  (t) => [index("work_order_components_wo").on(t.companyId, t.workOrderId)]
+);

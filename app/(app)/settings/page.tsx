@@ -672,6 +672,7 @@ function PermissionEditor({ user, onSaved }: { user: TeamUser; onSaved: () => vo
     admin: t("perms.groupAdmin"),
     hr: t("perms.groupHr"),
     assets: t("perms.groupAssets"),
+    mfg: t("perms.groupMfg"),
   };
 
   return (

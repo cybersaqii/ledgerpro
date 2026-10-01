@@ -53,6 +53,9 @@ export const SYS = {
   LOSS_ON_DISPOSAL: "6030", // Module 9: loss on sale/scrapping of fixed assets
   EXCHANGE_GAIN: "4120", // Module 10: FX gain on settlement of foreign-currency docs
   EXCHANGE_LOSS: "6040", // Module 10: FX loss on settlement of foreign-currency docs
+  WIP: "1250", // Module 12: Work-in-Progress Inventory (asset; components issued, awaiting completion)
+  MFG_LABOR_PAYABLE: "2123", // Module 12: Manufacturing Labor Payable (dedicated — keeps payroll's 2119 reconciliation clean)
+  MFG_OVERHEAD: "6050", // Module 12: Manufacturing Overhead (expense; credited "absorbed" at completion)
 } as const;
 
 const SYSTEM_ACCOUNTS: { code: string; name: string; type: string }[] = [
@@ -95,6 +98,9 @@ const SYSTEM_ACCOUNTS: { code: string; name: string; type: string }[] = [
   { code: SYS.LOSS_ON_DISPOSAL, name: "Loss on Disposal of Fixed Assets", type: "EXPENSE" },
   { code: SYS.EXCHANGE_GAIN, name: "Exchange Gain", type: "INCOME" },
   { code: SYS.EXCHANGE_LOSS, name: "Exchange Loss", type: "EXPENSE" },
+  { code: SYS.WIP, name: "Work-in-Progress Inventory", type: "ASSET" },
+  { code: SYS.MFG_LABOR_PAYABLE, name: "Manufacturing Labor Payable", type: "LIABILITY" },
+  { code: SYS.MFG_OVERHEAD, name: "Manufacturing Overhead", type: "EXPENSE" },
 ];
 
 const DOC_PREFIXES: Record<string, string> = {
@@ -117,6 +123,7 @@ const DOC_PREFIXES: Record<string, string> = {
   SUNDRY_RECEIPT: "SRC-", // Module 3: direct (non-invoiced) receipts
   BANK_ADJUSTMENT: "BADJ-", // Module 3: bank charges / interest adjustments
   STOCK_ADJUSTMENT: "ADJ-",
+  WORK_ORDER: "MWO-", // Module 12: manufacturing work orders (MWO- avoids WRITE_OFF's WO-)
   WRITE_OFF: "WO-",
   CREDIT_NOTE: "CN-",
   DEBIT_NOTE: "DN-",
@@ -361,7 +368,7 @@ export async function sysAccount(tx: Db | DbTx, companyId: string, code: string)
 }
 
 /** Code → id map for all company accounts (throws if a system account is missing). */
-export async function accountMap(tx: DbTx, companyId: string): Promise<Record<string, string>> {
+export async function accountMap(tx: Db | DbTx, companyId: string): Promise<Record<string, string>> {
   const rows = await tx
     .select({ id: accounts.id, code: accounts.code })
     .from(accounts)

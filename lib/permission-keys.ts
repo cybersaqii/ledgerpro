@@ -34,6 +34,9 @@ export const PERMISSIONS = [
   // approve order requests, reconcile payment intents).
   // Kept out of the staff defaults: portal links expose party data externally.
   "portal",
+  // Module 12: manufacturing & BOM (BOMs, work orders, production posting).
+  // Kept out of the staff defaults: production moves stock and posts journals.
+  "manufacturing",
 ] as const;
 
 export type Permission = (typeof PERMISSIONS)[number];
@@ -73,6 +76,8 @@ export const PERMISSION_GROUPS: { key: string; permissions: Permission[] }[] = [
   { key: "hr", permissions: ["payroll"] },
   // Module 9: fixed assets stands alone — asset movements are sensitive.
   { key: "assets", permissions: ["assets"] },
+  // Module 12: manufacturing stands alone — production posts journals.
+  { key: "mfg", permissions: ["manufacturing"] },
 ];
 
 /** Label/description i18n keys for a permission: perms.<key>, perms.<key>Desc. */
