@@ -179,6 +179,8 @@ export const en = {
     salesSubtitle: "Invoices, orders, challans and returns",
     purchasesSubtitle: "Bills, orders, GRNs and returns",
     newPurchase: "New purchase",
+    posShort: "POS",
+    loadError: "Could not load the bills list.",
     typeAll: "All",
     typeInvoices: "Invoices",
     typeBills: "Bills",

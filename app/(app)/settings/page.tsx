@@ -409,7 +409,7 @@ function BackupsCard({ isOwner }: { isOwner: boolean }) {
                       <div className="min-w-0 flex-1">
                         <p className="truncate text-sm font-bold">
                           {fmtDate(b.createdAt)}
-                          <span className={`ml-2 rounded-full px-2 py-0.5 text-[0.7rem] font-extrabold ${b.trigger === "auto" ? "bg-muted text-muted-foreground" : "bg-primary-soft text-primary"}`}>
+                          <span className={`ms-2 rounded-full px-2 py-0.5 text-[0.7rem] font-extrabold ${b.trigger === "auto" ? "bg-muted text-muted-foreground" : "bg-primary-soft text-primary"}`}>
                             {b.trigger === "auto" ? t("settingsbackups.auto") : t("settingsbackups.manual")}
                           </span>
                         </p>
@@ -436,7 +436,7 @@ function BackupsCard({ isOwner }: { isOwner: boolean }) {
                         ) : (
                           <>
                             <p>{t("settingsbackups.verifiedBad")}</p>
-                            <ul className="mt-1 list-disc space-y-0.5 pl-4">
+                            <ul className="mt-1 list-disc space-y-0.5 ps-4">
                               {v.errors.map((e, i) => <li key={i}>{e}</li>)}
                             </ul>
                           </>
@@ -504,7 +504,7 @@ function BackupsCard({ isOwner }: { isOwner: boolean }) {
                 {verifyErrors.length > 0 && (
                   <div className="mt-3 rounded-xl bg-red-500/10 px-3 py-2 text-xs font-semibold text-red-600 dark:text-red-400">
                     <p>{t("settingsbackups.cannotRestore")}</p>
-                    <ul className="mt-1 list-disc space-y-0.5 pl-4">
+                    <ul className="mt-1 list-disc space-y-0.5 ps-4">
                       {verifyErrors.map((e, i) => <li key={i}>{e}</li>)}
                     </ul>
                   </div>

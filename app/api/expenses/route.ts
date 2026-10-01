@@ -55,21 +55,10 @@ export async function GET(req: NextRequest) {
   const toBig = (v: unknown) => { try { return BigInt(String(v ?? "0").split(".")[0] || "0"); } catch { return 0n; } };
   const sumTotal = String(toBig(sums[0]?.a) + toBig(sums[0]?.t));
 
-  // Void markers live outside db/schema.ts (migration 0027) — read raw.
-  const ids = rows.map((r) => r.e.id);
-  let voided = new Map<string, number | null>();
-  if (ids.length > 0) {
-    const vr = ((await db.run(
-      sql`SELECT id, voided_at AS v FROM expenses WHERE id IN ${sql.join(
-        ids.map((x) => sql`${x}`),
-        sql`, `
-      )}`
-    )).rows) as unknown as { id: string; v: number | null }[];
-    voided = new Map(vr.map((x) => [x.id, x.v]));
-  }
-
+  // Void markers are typed in db/schema.ts (migration 0027) — they arrive on
+  // the selected rows already; no raw SQL needed.
   return json({
-    data: rows.map((r) => ({ ...r.e, accountName: r.accountName, bankName: r.bankName, voidedAt: voided.get(r.e.id) ?? null })),
+    data: rows.map((r) => ({ ...r.e, accountName: r.accountName, bankName: r.bankName, voidedAt: r.e.voidedAt ? (r.e.voidedAt as unknown as Date).getTime() : null })),
     total: total[0]?.n ?? 0,
     sumTotal,
     page,

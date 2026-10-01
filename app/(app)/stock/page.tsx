@@ -77,8 +77,8 @@ export default function StockPage() {
 
       <div className="mb-4 flex flex-wrap items-center gap-3">
         <div className="relative min-w-52 flex-1 sm:max-w-xs">
-          <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
-          <input className="field !pl-9" placeholder={t("stockpage.searchProduct")} value={q} onChange={(e) => setQ(e.target.value)} />
+          <Search size={16} className="absolute start-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
+          <input className="field !ps-9" placeholder={t("stockpage.searchProduct")} value={q} onChange={(e) => setQ(e.target.value)} />
         </div>
         <label className="flex cursor-pointer items-center gap-2 rounded-xl border border-border bg-card px-4 py-2.5 text-sm font-semibold">
           <input type="checkbox" checked={lowOnly} onChange={(e) => setLowOnly(e.target.checked)} className="h-4 w-4 accent-[var(--primary)]" />

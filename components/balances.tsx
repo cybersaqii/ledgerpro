@@ -78,7 +78,7 @@ export function BalancesPage({ kind }: { kind: "CUSTOMER" | "SUPPLIER" }) {
                     <td className="text-muted-foreground">{r.city ?? "—"}</td>
                     <td className="num font-extrabold text-accent">{fmtMoney(r.balance)}</td>
                     <td><LimitCell balance={r.balance} limit={r.creditLimit} /></td>
-                    <td className="text-right">
+                    <td className="text-end">
                       <Link href={`/reports/party-ledger?party=${r.id}`} className="text-sm font-bold text-primary hover:underline">{t("balances.ledger")}</Link>
                     </td>
                   </tr>
@@ -185,7 +185,7 @@ function AgingView({ kind }: { kind: "CUSTOMER" | "SUPPLIER" }) {
                       <tr className={hot ? "!bg-danger/[0.07]" : warm ? "!bg-accent/[0.06]" : ""}>
                         <td>
                           <span className="font-bold">{r.name}</span>
-                          {hot && <span className="badge ml-2 !bg-danger-soft !text-danger !text-[10px]">{t("balances.overdueBadge")}</span>}
+                          {hot && <span className="badge ms-2 !bg-danger-soft !text-danger !text-[10px]">{t("balances.overdueBadge")}</span>}
                         </td>
                         <td className="num">{cell(r.notDue)}</td>
                         <td className="num">{cell(r.d30)}</td>
@@ -193,7 +193,7 @@ function AgingView({ kind }: { kind: "CUSTOMER" | "SUPPLIER" }) {
                         <td className="num">{cell(r.d90)}</td>
                         <td className="num">{cell(r.d90plus, true)}</td>
                         <td className="num font-extrabold">{fmtMoney(r.total)}</td>
-                        <td className="text-right">
+                        <td className="text-end">
                           <div className="flex items-center justify-end gap-1">
                             {kind === "CUSTOMER" && waPhone(r.phone) && (
                               <a

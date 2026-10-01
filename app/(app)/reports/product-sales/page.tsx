@@ -116,7 +116,7 @@ export default function ProductSalesPage() {
           <Fragment key={r.productId}>
             <tr>
               <td>
-                <button className="inline-flex items-center gap-1.5 text-left font-semibold text-primary hover:underline" onClick={() => toggleExpand(r.productId)}>
+                <button className="inline-flex items-center gap-1.5 text-start font-semibold text-primary hover:underline" onClick={() => toggleExpand(r.productId)}>
                   {expanded.has(r.productId) ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
                   <span>{r.name}</span>
                 </button>

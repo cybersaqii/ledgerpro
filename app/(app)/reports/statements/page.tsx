@@ -132,7 +132,7 @@ function StatementsInner() {
         <div className="min-w-52 flex-1">
           <Field label={t("statements.party")}>
             <div className="relative" ref={listBoxRef}>
-              <button type="button" onClick={() => setShowList((s) => !s)} className="field text-left">
+              <button type="button" onClick={() => setShowList((s) => !s)} className="field text-start">
                 <span className={selected ? "" : "text-muted-foreground"}>{selected ? selected.name : t("statements.selectParty")}</span>
               </button>
               {showList && (
@@ -143,7 +143,7 @@ function StatementsInner() {
                   <ul className="max-h-56 overflow-y-auto py-1">
                     {parties.map((p) => (
                       <li key={p.id}>
-                        <button type="button" className="flex w-full items-center justify-between px-4 py-2.5 text-left text-sm hover:bg-muted"
+                        <button type="button" className="flex w-full items-center justify-between px-4 py-2.5 text-start text-sm hover:bg-muted"
                           onClick={() => { setPartyId(p.id); setShowList(false); }}>
                           <span>{p.name}</span>
                           <span className="badge bg-muted text-muted-foreground !text-[0.65rem]">{p.kind}</span>

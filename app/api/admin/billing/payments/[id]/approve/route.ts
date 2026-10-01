@@ -20,12 +20,18 @@ export async function POST(_req: NextRequest, { params }: { params: Promise<{ id
     if (!p) return err("Payment not found.", 404);
     if (p.status !== "PENDING") return err(`Already ${p.status.toLowerCase()}.`, 409);
 
-    const expires = await activatePro(db, p.companyId, p.months);
+    // activatePro (PRO extension + referral qualification + email) and the
+    // payment status flip must be atomic: if the status write failed after
+    // activatePro, a retry would extend PRO a second time.
     const now = new Date();
-    await db
-      .update(billingPayments)
-      .set({ status: "APPROVED", reviewedBy: session.email, reviewedAt: now })
-      .where(eq(billingPayments.id, id));
+    const expires = await db.transaction(async (tx) => {
+      const exp = await activatePro(tx, p.companyId, p.months);
+      await tx
+        .update(billingPayments)
+        .set({ status: "APPROVED", reviewedBy: session.email, reviewedAt: now })
+        .where(eq(billingPayments.id, id));
+      return exp;
+    });
 
     const admins = await db
       .select({ name: users.name })

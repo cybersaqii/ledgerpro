@@ -1,5 +1,5 @@
 import { NextRequest } from "next/server";
-import { eq, sql } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 import {
   bankAccounts,
   parties,
@@ -55,16 +55,12 @@ export async function GET(_req: NextRequest, ctx: Ctx) {
       };
     });
 
-    // Void markers live outside db/schema.ts (migration 0027) — read raw.
-    const voidRows = (
-      await db.run(
-        sql`SELECT voided_at AS v, void_journal_entry_id AS j FROM payments WHERE id = ${id}`
-      )
-    ).rows as unknown as { v: number | null; j: string | null }[];
-    const voidedAt = voidRows[0]?.v ?? null;
+    // Void markers are typed in db/schema.ts (migration 0027) — they arrive on
+    // the selected row already; no raw SQL needed.
+    const voidedAt = row.p.voidedAt ? (row.p.voidedAt as unknown as Date).getTime() : null;
 
     return json({
-      data: { ...row.p, partyName: row.partyName, bankName: row.bankName, allocations, voidedAt, voidJournalEntryId: voidRows[0]?.j ?? null },
+      data: { ...row.p, partyName: row.partyName, bankName: row.bankName, allocations, voidedAt, voidJournalEntryId: row.p.voidJournalEntryId ?? null },
     });
   } catch (e) {
     return toApiError(e, { route: "/api/payments/[id]", companyId });

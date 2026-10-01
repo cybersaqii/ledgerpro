@@ -170,10 +170,10 @@ export default function BillingPage() {
                   setCouponError(null);
                 }}
                 aria-pressed={months === p.m}
-                className={`card card-lift relative overflow-hidden p-5 text-left sm:p-6 ${months === p.m ? "card-selected" : ""}`}
+                className={`card card-lift relative overflow-hidden p-5 text-start sm:p-6 ${months === p.m ? "card-selected" : ""}`}
               >
                 {p.tag && (
-                  <span className="absolute right-4 top-4 rounded-full bg-gradient-to-r from-amber-400 to-orange-500 px-2.5 py-1 text-[0.68rem] font-extrabold uppercase tracking-wide text-white shadow-sm">
+                  <span className="absolute end-4 top-4 rounded-full bg-gradient-to-r from-amber-400 to-orange-500 px-2.5 py-1 text-[0.68rem] font-extrabold uppercase tracking-wide text-white shadow-sm">
                     {p.tag}
                   </span>
                 )}
@@ -203,7 +203,7 @@ export default function BillingPage() {
           {/* Pay + submit */}
           <div className="card card-gloss rise rise-4 space-y-4 p-5 sm:p-6">
             <p className="text-base font-extrabold tracking-tight">{t("billing.payTitle")}</p>
-            <ol className="list-decimal space-y-1 pl-5 text-sm text-muted-foreground">
+            <ol className="list-decimal space-y-1 ps-5 text-sm text-muted-foreground">
               <li>{t("billing.payStep1", { amount: fmtMoney(price) })}</li>
               <li>{t("billing.payStep2")}</li>
             </ol>
@@ -264,7 +264,7 @@ export default function BillingPage() {
                     {t("billing.discount")} <strong className="tabular-nums">−{fmtMoney(couponQuote.discountPaisa)}</strong>
                     {" · "}{t("billing.payable")} <strong className="tabular-nums">{fmtMoney(couponQuote.payablePaisa)}</strong>
                   </span>
-                  <button onClick={() => { setCoupon(""); setCouponQuote(null); }} className="ml-auto text-xs font-semibold text-muted-foreground underline underline-offset-2">
+                  <button onClick={() => { setCoupon(""); setCouponQuote(null); }} className="ms-auto text-xs font-semibold text-muted-foreground underline underline-offset-2">
                     {t("billing.removeCoupon")}
                   </button>
                 </div>
@@ -272,7 +272,7 @@ export default function BillingPage() {
             </div>
 
             <ErrorNote message={error} />
-            {done && <p className="text-sm font-semibold text-emerald-600">{t("billing.submitted")}</p>}
+            {done && <p className="text-sm font-semibold text-emerald-600 dark:text-emerald-400">{t("billing.submitted")}</p>}
             <button onClick={submit} disabled={submitting} className="btn btn-accent w-full sm:w-auto">
               {submitting ? t("billing.submitting") : t("billing.submitPay", { amount: fmtMoney(couponQuote ? couponQuote.payablePaisa : price) })}
             </button>
@@ -308,7 +308,9 @@ export default function BillingPage() {
                       : t("billing.referralDone")}
                   </span>
                 </div>
-                <div className="mt-1.5 h-2.5 overflow-hidden rounded-full bg-muted">
+                <div className="mt-1.5 h-2.5 overflow-hidden rounded-full bg-muted" role="progressbar"
+                  aria-valuemin={0} aria-valuemax={5} aria-valuenow={Math.min(5, referral.qualifiedThisMonth)}
+                  aria-label={t("billing.referralProgress")}>
                   <div
                     className="h-full rounded-full bg-gradient-to-r from-emerald-500 to-teal-500 transition-all"
                     style={{ width: `${Math.min(100, (referral.qualifiedThisMonth / 5) * 100)}%` }}

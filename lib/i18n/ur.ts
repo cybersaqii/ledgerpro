@@ -181,6 +181,8 @@ export const ur: DeepPartial<EnDict> = {
     salesSubtitle: "انوائس، آرڈر، چالان اور واپسی",
     purchasesSubtitle: "بل، آرڈر، GRN اور واپسی",
     newPurchase: "نئی خریداری",
+    posShort: "POS",
+    loadError: "بلوں کی فہرست لوڈ نہیں ہو سکی۔",
     typeAll: "تمام",
     typeInvoices: "انوائس",
     typeBills: "بل",

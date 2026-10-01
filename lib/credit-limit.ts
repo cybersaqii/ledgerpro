@@ -63,3 +63,17 @@ export function creditUtilization(balancePaisa: bigint, limitPaisa: bigint): num
   if (balancePaisa <= 0n) return 0;
   return Number(balancePaisa) / Number(limitPaisa);
 }
+
+/**
+ * New udhaar added by a sales invoice posted together with an optional
+ * receipt (and advance auto-deduction) in the same transaction. Only the
+ * unpaid remainder counts as new udhaar: a fully-paid cash invoice adds
+ * none, even for a customer already over their limit.
+ */
+export function newUdhaarForInvoice(opts: {
+  grandTotalPaisa: bigint;
+  advanceAppliedPaisa: bigint;
+  receiptAllocatedPaisa: bigint;
+}): bigint {
+  return opts.grandTotalPaisa - opts.advanceAppliedPaisa - opts.receiptAllocatedPaisa;
+}

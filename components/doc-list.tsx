@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import { Plus, Search, CalendarDays, ShoppingCart, Truck, Zap, FileText } from "lucide-react";
-import { PageHeader, EmptyState, FilterBar, SummaryChips, Pagination, StatusPill } from "@/components/ui";
+import { PageHeader, EmptyState, FilterBar, SummaryChips, Pagination, StatusPill, ErrorNote } from "@/components/ui";
 import { api, fmtMoney, fmtDate, toBig } from "@/lib/format";
 import { paymentStatusOf } from "@/lib/payment-status";
 import { useBusinessProfile } from "@/components/business-type";
@@ -83,11 +83,13 @@ export function DocList({ mode }: { mode: "SALES" | "PURCHASE" }) {
   const [from, setFrom] = useState("");
   const [to, setTo] = useState("");
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   const endpoint = isSales ? "/api/sales" : "/api/purchases";
 
   const load = useCallback(async () => {
     setLoading(true);
+    setLoadError(null);
     try {
       const params = new URLSearchParams({
         q, page: String(page), perPage: String(PER_PAGE),
@@ -101,8 +103,11 @@ export function DocList({ mode }: { mode: "SALES" | "PURCHASE" }) {
       setRows(d.data);
       setTotal(d.total);
       setSum(String(d.sumGrandTotal ?? "0"));
-    } catch { setRows([]); } finally { setLoading(false); }
-  }, [endpoint, q, docType, from, to, page]);
+    } catch (e) {
+      setRows([]);
+      setLoadError(e instanceof Error ? e.message : t("docs.loadError"));
+    } finally { setLoading(false); }
+  }, [endpoint, q, docType, from, to, page, t]);
 
   useEffect(() => {
     const t = setTimeout(load, q ? 300 : 0);
@@ -129,7 +134,7 @@ export function DocList({ mode }: { mode: "SALES" | "PURCHASE" }) {
           <div className="flex gap-2">
             {isSales && canPos && (
               <Link href="/sales/pos" className="btn btn-ghost text-sm">
-                <Zap size={16} /> POS
+                <Zap size={16} /> {t("docs.posShort")}
               </Link>
             )}
             <Link href={isSales ? "/sales/notes" : "/purchases/notes"} className="btn btn-ghost text-sm">
@@ -152,8 +157,8 @@ export function DocList({ mode }: { mode: "SALES" | "PURCHASE" }) {
           ))}
         </div>
         <div className="relative min-w-44 flex-1 sm:max-w-xs">
-          <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
-          <input className="field !pl-9" placeholder={t("docs.searchPlaceholder")} value={q} onChange={(e) => setQ(e.target.value)} />
+          <Search size={16} className="absolute start-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
+          <input className="field !ps-9" placeholder={t("docs.searchPlaceholder")} value={q} onChange={(e) => setQ(e.target.value)} />
         </div>
         <div className="flex items-center gap-2">
           <CalendarDays size={15} className="shrink-0 text-muted-foreground" />
@@ -168,6 +173,8 @@ export function DocList({ mode }: { mode: "SALES" | "PURCHASE" }) {
           </button>
         )}
       </FilterBar>
+
+      {!loading && loadError && <div className="mb-4"><ErrorNote message={loadError} /></div>}
 
       {!loading && (
         <SummaryChips items={[
@@ -202,7 +209,7 @@ export function DocList({ mode }: { mode: "SALES" | "PURCHASE" }) {
                     <td className="num font-extrabold">{fmtMoney(d.grandTotal)}</td>
                     <td className="num font-bold">{fmtMoney(docBalance(d))}</td>
                     <td><PayStatusBadge d={d} t={t} nowMs={nowMs} /></td>
-                    <td className="text-right">
+                    <td className="text-end">
                       {canPay && (d.docType === "INVOICE" || d.docType === "BILL") && docBalance(d) > 0n && d.partyId ? (
                         <Link
                           href={`/payments/new?kind=${isSales ? "RECEIPT" : "PAYMENT"}&partyId=${d.partyId}&allocateDocId=${d.id}&amount=${paisaDecimal(docBalance(d))}`}

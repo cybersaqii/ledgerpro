@@ -54,16 +54,19 @@ export async function POST(req: NextRequest) {
   }
 
   const existing = await db
-    .select({ id: users.id, companyId: users.companyId, name: users.name, role: users.role, tokenVersion: users.tokenVersion })
+    .select({ id: users.id, companyId: users.companyId, name: users.name, role: users.role, tokenVersion: users.tokenVersion, isActive: users.isActive })
     .from(users)
     .where(eq(users.email, emailLc))
     .limit(1);
-  // Enumeration-safe: never reveal whether the email is registered. The OTP
-  // step already proved ownership of the address, so an existing user is
-  // simply signed in to their account (passwordless) instead of getting a
-  // duplicate. An attacker without the OTP learns nothing from the response.
+  // The passwordless sign-in below requires PROOF of address ownership: the
+  // OTP step (verificationToken) or the Google OAuth step (signed cookie)
+  // above must have set emailVerified. Without that check, anyone who knows
+  // an email address could take over its account — no password, no code.
+  // Deactivated users can never sign back in through this path either.
   if (existing[0]) {
     const u = existing[0];
+    if (!emailVerified) return err("This email is already registered. Please log in instead.", 409);
+    if (!u.isActive) return err("This account has been deactivated. Please contact support.", 403);
     // Link Google identity if this signup came through Google.
     if (googleSub) {
       await db.update(users).set({ googleSub }).where(eq(users.id, u.id));

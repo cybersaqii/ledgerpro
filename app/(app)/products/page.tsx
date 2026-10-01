@@ -216,8 +216,8 @@ export default function ProductsPage() {
 
       <div className="mb-4 flex flex-wrap items-center gap-3">
         <div className="relative min-w-52 flex-1 sm:max-w-xs">
-          <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
-          <input className="field !pl-9" placeholder={t("products.searchSku")} value={q} onChange={(e) => setQ(e.target.value)} />
+          <Search size={16} className="absolute start-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
+          <input className="field !ps-9" placeholder={t("products.searchSku")} value={q} onChange={(e) => setQ(e.target.value)} />
         </div>
         <label className="flex cursor-pointer items-center gap-2 rounded-xl border border-border bg-card px-4 py-2.5 text-sm font-semibold">
           <input type="checkbox" checked={lowOnly} onChange={(e) => setLowOnly(e.target.checked)} className="h-4 w-4 accent-[var(--primary)]" />
@@ -249,8 +249,8 @@ export default function ProductsPage() {
                           <ProductImage name={p.name} imageUrl={p.imageUrl} businessType={bp.type} size={36} />
                           <span>
                             <span className="font-bold">{p.name}</span>
-                            {p.isBundle && <span className="badge ml-2 bg-primary-soft text-primary">{t("bundles.badge")}</span>}
-                            {low && <span className="badge ml-2 bg-danger-soft text-danger"><TriangleAlert size={11} /> {t("products.lowBadge")}</span>}
+                            {p.isBundle && <span className="badge ms-2 bg-primary-soft text-primary">{t("bundles.badge")}</span>}
+                            {low && <span className="badge ms-2 bg-danger-soft text-danger"><TriangleAlert size={11} /> {t("products.lowBadge")}</span>}
                             <span className="block text-xs text-muted-foreground">
                               {[p.category, p.location].filter(Boolean).join(" · ")}
                             </span>
@@ -396,11 +396,11 @@ export default function ProductsPage() {
                       <button
                         key={r.id}
                         type="button"
-                        className="block w-full px-3 py-2 text-left text-sm hover:bg-muted"
+                        className="block w-full px-3 py-2 text-start text-sm hover:bg-muted"
                         onClick={() => addComponent(r)}
                       >
                         <span className="font-semibold">{r.name}</span>
-                        <span className="ml-2 text-xs text-muted-foreground">{r.sku} · {r.unit}</span>
+                        <span className="ms-2 text-xs text-muted-foreground">{r.sku} · {r.unit}</span>
                       </button>
                     ))}
                   </div>

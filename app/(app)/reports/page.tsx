@@ -78,12 +78,12 @@ export default function ReportsHub() {
           aria-label={t("reportsindex.favToggle")}
           aria-pressed={starred}
           onClick={(e) => { e.preventDefault(); e.stopPropagation(); toggleFav(r.key); }}
-          className={`absolute right-4 top-4 rounded-full p-1.5 transition ${starred ? "text-amber-500" : "text-muted-foreground/40 hover:text-amber-500"}`}
+          className={`absolute end-4 top-4 rounded-full p-1.5 transition ${starred ? "text-amber-500" : "text-muted-foreground/40 hover:text-amber-500"}`}
         >
           <Star size={17} fill={starred ? "currentColor" : "none"} />
         </button>
         {locked && (
-          <span className="absolute right-4 top-12 inline-flex items-center gap-1 rounded-full bg-gradient-to-r from-amber-100 to-orange-100 px-2.5 py-1 text-xs font-bold text-amber-800 shadow-sm dark:from-amber-900/50 dark:to-orange-900/50 dark:text-amber-200">
+          <span className="absolute end-4 top-12 inline-flex items-center gap-1 rounded-full bg-gradient-to-r from-amber-100 to-orange-100 px-2.5 py-1 text-xs font-bold text-amber-800 shadow-sm dark:from-amber-900/50 dark:to-orange-900/50 dark:text-amber-200">
             <Crown size={12} /> PRO
           </span>
         )}
@@ -100,9 +100,9 @@ export default function ReportsHub() {
     <div>
       <PageHeader title={t("reportsindex.title")} subtitle={t("reportsindex.subtitle")} icon={<BarChart3 size={20} />} />
       <div className="relative mb-5">
-        <Search size={17} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
+        <Search size={17} className="absolute start-3.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
         <input
-          className="field !pl-10"
+          className="field !ps-10"
           placeholder={t("reportsindex.searchPh")}
           value={q}
           onChange={(e) => setQ(e.target.value)}

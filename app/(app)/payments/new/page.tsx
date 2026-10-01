@@ -173,7 +173,7 @@ function PaymentFormInner() {
           <div className="grid gap-4 sm:grid-cols-2">
             <Field label={partyKind === "CUSTOMER" ? bp.partyOne : t("payform.supplier")}>
               <div className="relative" ref={partyBoxRef}>
-                <button type="button" onClick={() => setShowPartyList((s) => !s)} className="field flex items-center justify-between text-left">
+                <button type="button" onClick={() => setShowPartyList((s) => !s)} className="field flex items-center justify-between text-start">
                   <span className={selectedParty ? "" : "text-muted-foreground"}>{selectedParty ? selectedParty.name : t("payform.selectPlaceholder")}</span>
                 </button>
                 {showPartyList && (
@@ -184,7 +184,7 @@ function PaymentFormInner() {
                     <ul className="max-h-56 overflow-y-auto py-1">
                       {parties.map((p) => (
                         <li key={p.id}>
-                          <button type="button" className="block w-full px-4 py-2.5 text-left text-sm hover:bg-muted"
+                          <button type="button" className="block w-full px-4 py-2.5 text-start text-sm hover:bg-muted"
                             onClick={() => { setPartyId(p.id); setShowPartyList(false); }}>{p.name}</button>
                         </li>
                       ))}
@@ -232,7 +232,7 @@ function PaymentFormInner() {
             <p className="mt-0.5 text-sm text-muted-foreground">
               {t("payform.allocateSummary", { count: outstanding.length, allocated: fmtMoney(allocTotal), total: fmtMoney(amountPaisa || 0) })}
             </p>
-            <ul className="mt-4 max-h-[52vh] space-y-2 overflow-y-auto pr-1">
+            <ul className="mt-4 max-h-[52vh] space-y-2 overflow-y-auto pe-1">
               {outstanding.map((o) => (
                 <li key={o.id} className={`flex items-center gap-3 rounded-xl border p-3 ${alloc[o.id] ? "border-primary bg-primary-soft/40" : "border-border"}`}>
                   <input type="checkbox" checked={!!alloc[o.id]} onChange={() => toggleAlloc(o.id, o.balance)}

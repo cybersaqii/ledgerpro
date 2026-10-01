@@ -88,7 +88,7 @@ function RecordPdcFormInner() {
           <div className="grid gap-4 sm:grid-cols-2">
             <Field label={partyKind === "CUSTOMER" ? bp.partyOne : t("pdcform.supplier")}>
               <div className="relative" ref={partyBoxRef}>
-                <button type="button" onClick={() => setShowPartyList((s) => !s)} className="field flex items-center justify-between text-left">
+                <button type="button" onClick={() => setShowPartyList((s) => !s)} className="field flex items-center justify-between text-start">
                   <span className={selectedParty ? "" : "text-muted-foreground"}>
                     {selectedParty ? selectedParty.name : t("pdcform.selectPlaceholder")}
                   </span>
@@ -102,7 +102,7 @@ function RecordPdcFormInner() {
                     <ul className="max-h-56 overflow-y-auto py-1">
                       {parties.map((p) => (
                         <li key={p.id}>
-                          <button type="button" className="block w-full px-4 py-2.5 text-left text-sm hover:bg-muted"
+                          <button type="button" className="block w-full px-4 py-2.5 text-start text-sm hover:bg-muted"
                             onClick={() => { setPartyId(p.id); setShowPartyList(false); }}>{p.name}</button>
                         </li>
                       ))}

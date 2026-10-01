@@ -119,7 +119,13 @@ export async function POST(req: NextRequest) {
     return err("Tendered amount is less than the bill total.", 422);
   const change = tendered > totals.grandTotal ? tendered - totals.grandTotal : 0n;
 
-  const date = parseDateOnly(b.date);
+  // Regex-passing but impossible dates ("2026-13-99") must answer 422, not 500.
+  let date: Date;
+  try {
+    date = parseDateOnly(b.date);
+  } catch (e) {
+    return toApiError(e, { route: "/api/pos/checkout", companyId });
+  }
 
   const lockErr = await periodLockError(db, companyId, date);
   if (lockErr) return err(lockErr, 422);

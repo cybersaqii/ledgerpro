@@ -174,7 +174,7 @@ export function AppShell({ children, initialBusinessType }: { children: ReactNod
         <div className="fixed inset-0 z-50 lg:hidden">
           <div className="absolute inset-0 bg-black/50" onClick={() => setOpen(false)} aria-hidden="true" />
           <aside role="dialog" aria-modal="true" aria-label={t("shell.navMenu")}
-            className="absolute left-0 top-0 flex h-full w-72 flex-col bg-sidebar shadow-2xl">
+            className="absolute start-0 top-0 flex h-full w-72 flex-col bg-sidebar shadow-2xl">
             <div className="flex h-16 items-center justify-between px-5 text-white">
               <Logo />
               <button onClick={() => setOpen(false)} className="grid h-11 w-11 place-items-center rounded-lg p-2 text-sidebar-foreground hover:bg-white/10" aria-label={t("shell.closeMenu")}>
@@ -216,7 +216,7 @@ export function AppShell({ children, initialBusinessType }: { children: ReactNod
               </button>
               )}
               {quickOpen && (
-                <div role="menu" className="modal-pop absolute right-0 z-40 mt-2 w-56 overflow-hidden rounded-2xl border border-border bg-card p-1.5 shadow-xl">
+                <div role="menu" className="modal-pop absolute end-0 z-40 mt-2 w-56 overflow-hidden rounded-2xl border border-border bg-card p-1.5 shadow-xl">
                   {quickCreate.map((q) => (
                     <Link key={q.href + q.label} href={q.href}
                       className="flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-semibold transition hover:bg-muted">
@@ -248,7 +248,7 @@ export function AppShell({ children, initialBusinessType }: { children: ReactNod
                 {billing.trialDaysLeft === 1 ? t("shell.trialOneDay") : t("shell.trialDays", { days: billing.trialDaysLeft })}
               </span>
               <span className="relative inline-flex shrink-0 items-center gap-1 rounded-full bg-amber-950 px-3.5 py-1 text-xs font-extrabold text-amber-100 transition group-hover:gap-2">
-                {t("shell.viewPlans")} <ArrowRight size={13} />
+                {t("shell.viewPlans")} <ArrowRight size={13} className="rtl:rotate-180" />
               </span>
             </Link>
           </div>
@@ -265,7 +265,7 @@ export function AppShell({ children, initialBusinessType }: { children: ReactNod
                 {t("shell.trialEnded")}
               </span>
               <span className="relative inline-flex shrink-0 items-center gap-1 rounded-full bg-white/95 px-3.5 py-1 text-xs font-extrabold text-rose-700 transition group-hover:gap-2">
-                {t("shell.upgradeNow")} <ArrowRight size={13} />
+                {t("shell.upgradeNow")} <ArrowRight size={13} className="rtl:rotate-180" />
               </span>
             </Link>
           </div>

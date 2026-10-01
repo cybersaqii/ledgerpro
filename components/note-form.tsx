@@ -111,7 +111,7 @@ export function NoteForm({ kind }: { kind: "CREDIT" | "DEBIT" }) {
           </Field>
           <Field label={t("fix4.note.amount")}>
             <input
-              className="field text-right"
+              className="field text-end"
               inputMode="decimal"
               placeholder="0.00"
               value={amount}

@@ -14,7 +14,7 @@ import { requirePermission, db, parseDateOnly, defaultBranchId, assertBranch } f
 import { logAudit } from "@/lib/audit";
 import { belowMinPrice, floorErrorMessage } from "@/lib/min-price";
 import { applyCustomerAdvance } from "@/lib/advance";
-import { enforceCreditLimit, CreditLimitError } from "@/lib/credit-limit";
+import { enforceCreditLimit, CreditLimitError, newUdhaarForInvoice } from "@/lib/credit-limit";
 import { userHasPermission } from "@/lib/permissions";
 import type { Permission } from "@/lib/permissions";
 
@@ -141,8 +141,15 @@ export async function POST(req: NextRequest) {
   }
 
   const isPosted = (POSTED_TYPES as readonly string[]).includes(b.docType);
-  const date = parseDateOnly(b.date);
-  const dueDate = b.dueDate ? parseDateOnly(b.dueDate) : null;
+  // Regex-passing but impossible dates ("2026-13-99") must answer 422, not 500.
+  let date: Date;
+  let dueDate: Date | null;
+  try {
+    date = parseDateOnly(b.date);
+    dueDate = b.dueDate ? parseDateOnly(b.dueDate) : null;
+  } catch (e) {
+    return toApiError(e, { route: "/api/sales", companyId });
+  }
 
   // Batch choices are only meaningful on posted docs: the chosen batch must
   // belong to this company and to the line's product.
@@ -242,6 +249,10 @@ export async function POST(req: NextRequest) {
         }
         // Add Receipt: posted in the same transaction, allocated to this invoice.
         // Runs before the credit-limit check so the receipt already lowers udhaar.
+        // receiptAllocated is tracked so the credit-limit check below only
+        // counts the unpaid remainder as new udhaar (a fully-paid invoice
+        // adds no udhaar even for an already over-limit customer).
+        let receiptAllocated = 0n;
         if (b.docType === "INVOICE" && b.receipt) {
           const r = b.receipt;
           const rDate = parseDateOnly(r.date);
@@ -253,6 +264,7 @@ export async function POST(req: NextRequest) {
           if (remaining <= 0n) throw new Error("Invoice is already fully settled; no receipt needed.");
           // Overpayment stays unallocated on the receipt → becomes customer credit.
           const alloc = rAmount > remaining ? remaining : rAmount;
+          receiptAllocated = alloc;
           const rp = await postPayment(tx, {
             companyId,
             branchId,
@@ -270,9 +282,20 @@ export async function POST(req: NextRequest) {
           receiptDocNo = rp.docNo;
         }
         // udhaar control: block posted invoices that cross the credit limit
-        // (checked after posting so payments/advances are already reflected)
+        // (checked after posting so payments/advances are already reflected).
+        // Only the unpaid remainder counts as new udhaar — a receipt recorded
+        // with the invoice reduces it, so a fully-paid cash invoice never
+        // trips the limit even for an already over-limit customer.
         if (b.docType === "INVOICE" && !b.overrideCreditLimit) {
-          await enforceCreditLimit(tx, { companyId, partyId: party.id, newCreditPaisa: totals.grandTotal - advanceApplied });
+          await enforceCreditLimit(tx, {
+            companyId,
+            partyId: party.id,
+            newCreditPaisa: newUdhaarForInvoice({
+              grandTotalPaisa: totals.grandTotal,
+              advanceAppliedPaisa: advanceApplied,
+              receiptAllocatedPaisa: receiptAllocated,
+            }),
+          });
         }
       }
       return { docId, docNo, entryId, advanceApplied, receiptDocNo };

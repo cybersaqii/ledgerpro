@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import { Tag, Plus, Check, X, Trash2, ArrowLeft } from "lucide-react";
 import Link from "next/link";
 import { PageHeader, Field, ErrorNote, EmptyState } from "@/components/ui";
-import { api } from "@/lib/format";
+import { api, fmtMoney } from "@/lib/format";
 import { useLang } from "@/components/lang-provider";
 
 type Coupon = {
@@ -87,12 +87,12 @@ export default function AdminCouponsPage() {
     }
   }
 
-  const fmtValue = (c: Coupon) => c.kind === "PERCENT" ? `${c.value}%` : `Rs ${(c.value / 100).toLocaleString("en-PK")}`;
+  const fmtValue = (c: Coupon) => c.kind === "PERCENT" ? `${c.value}%` : fmtMoney(c.value);
 
   return (
     <div className="space-y-6">
       <Link href="/admin/billing" className="inline-flex items-center gap-1.5 text-sm font-semibold text-muted-foreground hover:text-foreground">
-        <ArrowLeft size={15} /> {t("adminCoupons.adminBilling")}
+        <ArrowLeft size={15} className="rtl:rotate-180" /> {t("adminCoupons.adminBilling")}
       </Link>
       <PageHeader
         title={t("adminCoupons.title")}

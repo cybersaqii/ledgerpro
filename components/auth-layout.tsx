@@ -57,14 +57,14 @@ export function AuthLayout({
     <div className="relative flex min-h-screen items-center justify-center overflow-hidden bg-[#e9f1ee] px-3 py-8 sm:px-6 sm:py-12">
       {/* Page backdrop */}
       <div className="pointer-events-none absolute inset-0" aria-hidden="true">
-        <div className="absolute -top-24 left-[8%] h-96 w-96 rounded-full bg-emerald-200/50 blur-[120px]" />
-        <div className="absolute right-[4%] bottom-0 h-80 w-80 rounded-full bg-teal-200/50 blur-[110px]" />
+        <div className="absolute -top-24 start-[8%] h-96 w-96 rounded-full bg-emerald-200/50 blur-[120px]" />
+        <div className="absolute end-[4%] bottom-0 h-80 w-80 rounded-full bg-teal-200/50 blur-[110px]" />
         <div
           className="absolute inset-0 opacity-[0.35]"
           style={{ backgroundImage: "radial-gradient(circle at 1px 1px, #0f766e 1px, transparent 0)", backgroundSize: "34px 34px", opacity: 0.05 }}
         />
       </div>
-      <div className="absolute top-4 right-4 z-20 sm:top-6 sm:right-6">
+      <div className="absolute top-4 end-4 z-20 sm:top-6 sm:end-6">
         <LangToggle />
       </div>
 
@@ -121,8 +121,8 @@ export function AuthLayout({
         <div className="relative hidden flex-col overflow-hidden bg-[#0a2e25] p-8 md:flex lg:p-10">
           <div className="absolute inset-0 bg-gradient-to-br from-[#0d4434] via-[#0a2e25] to-[#071f19]" aria-hidden="true" />
           <div className="pointer-events-none absolute inset-0" aria-hidden="true">
-            <div className="absolute -top-20 right-0 h-72 w-72 rounded-full bg-emerald-400/15 blur-[100px]" />
-            <div className="absolute bottom-10 -left-16 h-64 w-64 rounded-full bg-teal-300/10 blur-[90px]" />
+            <div className="absolute -top-20 end-0 h-72 w-72 rounded-full bg-emerald-400/15 blur-[100px]" />
+            <div className="absolute bottom-10 -start-16 h-64 w-64 rounded-full bg-teal-300/10 blur-[90px]" />
             <div
               className="absolute inset-0 opacity-[0.06]"
               style={{ backgroundImage: "radial-gradient(circle at 1px 1px, #fff 1px, transparent 0)", backgroundSize: "28px 28px" }}
@@ -131,7 +131,7 @@ export function AuthLayout({
 
           {/* Floating dashboard cards */}
           <div className="relative mb-4 h-64 shrink-0" aria-hidden="true">
-            <div className="floaty absolute top-0 left-0 w-44 rounded-2xl bg-white p-4 shadow-xl shadow-black/25" style={{ animationDelay: "-1.2s" }}>
+            <div className="floaty absolute top-0 start-0 w-44 rounded-2xl bg-white p-4 shadow-xl shadow-black/25" style={{ animationDelay: "-1.2s" }}>
               <p className="text-[0.65rem] font-bold tracking-wider text-slate-400 uppercase">{L("c1t")}</p>
               <div className="mt-2 flex justify-center">
                 <svg viewBox="0 0 76 76" className="h-[4.4rem] w-[4.4rem] -rotate-90" role="img">
@@ -151,7 +151,7 @@ export function AuthLayout({
                 ))}
               </ul>
             </div>
-            <div className="floaty absolute top-8 right-0 w-52 rounded-2xl bg-white p-4 shadow-xl shadow-black/25" style={{ animationDelay: "-3.4s" }}>
+            <div className="floaty absolute top-8 end-0 w-52 rounded-2xl bg-white p-4 shadow-xl shadow-black/25" style={{ animationDelay: "-3.4s" }}>
               <p className="text-[0.65rem] font-bold tracking-wider text-slate-400 uppercase">{L("c2t")}</p>
               <p className="mt-1.5 text-sm font-extrabold text-slate-900">{L("c2d")}</p>
               <div className="mt-2.5 h-2 overflow-hidden rounded-full bg-slate-100">
@@ -159,7 +159,7 @@ export function AuthLayout({
               </div>
               <p className="mt-1.5 text-[0.7rem] font-semibold text-slate-500">{L("c2p")}</p>
             </div>
-            <div className="floaty absolute bottom-0 left-12 w-60 rounded-2xl bg-white p-4 shadow-xl shadow-black/25" style={{ animationDelay: "-5.6s" }}>
+            <div className="floaty absolute bottom-0 start-12 w-60 rounded-2xl bg-white p-4 shadow-xl shadow-black/25" style={{ animationDelay: "-5.6s" }}>
               <p className="text-[0.65rem] font-bold tracking-wider text-slate-400 uppercase">{L("c3t")}</p>
               <ul className="mt-2 space-y-2">
                 {allocations.map((a) => (

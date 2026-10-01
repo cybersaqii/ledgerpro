@@ -154,7 +154,7 @@ export default function PaymentsPage() {
                       <td className="whitespace-nowrap text-muted-foreground">{fmtDate(p.date)}</td>
                       <td className="text-muted-foreground">{p.method}{p.reference ? ` · ${p.reference}` : ""}</td>
                       <td className={`num font-extrabold ${p.kind === "RECEIPT" ? "text-primary" : "text-accent"}`}>{fmtMoney(p.amount)}</td>
-                      <td className="text-right">
+                      <td className="text-end">
                         <button className="btn btn-ghost !px-2.5 !py-1.5 text-xs font-bold text-primary"
                           onClick={() => toggleDetail(p.id)}>
                           {expanded === p.id ? t("payments.hideAllocations") : t("payments.viewAllocations")}

@@ -60,12 +60,12 @@ export function NotesList({ kind }: { kind: NoteKind }) {
         <div className="card overflow-x-auto">
           <table className="w-full min-w-[640px] text-sm">
             <thead>
-              <tr className="border-b border-border text-left text-xs uppercase tracking-wide text-muted-foreground">
+              <tr className="border-b border-border text-start text-xs uppercase tracking-wide text-muted-foreground">
                 <th className="px-4 py-3">{t("fix4.note.colDoc")}</th>
                 <th className="px-4 py-3">{t("fix4.note.colDate")}</th>
                 <th className="px-4 py-3">{t("fix4.note.colParty")}</th>
                 <th className="px-4 py-3">{t("fix4.note.colNote")}</th>
-                <th className="px-4 py-3 text-right">{t("fix4.note.colAmount")}</th>
+                <th className="px-4 py-3 text-end">{t("fix4.note.colAmount")}</th>
               </tr>
             </thead>
             <tbody>
@@ -77,7 +77,7 @@ export function NotesList({ kind }: { kind: NoteKind }) {
                   <td className="px-4 py-2.5 whitespace-nowrap">{fmtDate(r.date)}</td>
                   <td className="px-4 py-2.5">{r.partyName ?? "—"}</td>
                   <td className="px-4 py-2.5 text-muted-foreground">{r.notes || "—"}</td>
-                  <td className="px-4 py-2.5 text-right font-semibold tabular-nums">{fmtMoney(r.amount)}</td>
+                  <td className="px-4 py-2.5 text-end font-semibold tabular-nums">{fmtMoney(r.amount)}</td>
                 </tr>
               ))}
             </tbody>

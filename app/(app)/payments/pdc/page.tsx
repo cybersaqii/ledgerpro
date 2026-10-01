@@ -132,18 +132,18 @@ export default function PdcRegisterPage() {
               <thead><tr>
                 <th>{t("pdc.colChequeNo")}</th><th>{t("pdc.colChequeDate")}</th><th>{t("pdc.colParty")}</th>
                 <th>{t("pdc.colBank")}</th><th className="num">{t("pdc.colAmount")}</th>
-                <th>{t("pdc.colStatus")}</th><th className="text-right">{t("pdc.colActions")}</th>
+                <th>{t("pdc.colStatus")}</th><th className="text-end">{t("pdc.colActions")}</th>
               </tr></thead>
               <tbody>
                 {rows.map((p) => (
                   <tr key={p.id}>
-                    <td className="font-bold whitespace-nowrap">{p.chequeNo}{p.refNo ? <span className="ml-1.5 text-xs font-normal text-muted-foreground">· {p.refNo}</span> : null}</td>
+                    <td className="font-bold whitespace-nowrap">{p.chequeNo}{p.refNo ? <span className="ms-1.5 text-xs font-normal text-muted-foreground">· {p.refNo}</span> : null}</td>
                     <td className="whitespace-nowrap text-muted-foreground">{fmtDate(p.chequeDate)}</td>
                     <td className="max-w-44 truncate font-semibold">{p.partyName ?? "—"}</td>
                     <td className="text-muted-foreground">{p.bankName ?? "—"}</td>
                     <td className="num font-extrabold">{fmtMoney(p.amount)}</td>
                     <td><span className={`badge ${statusBadge[p.status] ?? "bg-muted text-muted-foreground"}`}>{t(`pdc.status${p.status.charAt(0) + p.status.slice(1).toLowerCase()}`)}</span></td>
-                    <td className="text-right">
+                    <td className="text-end">
                       {p.status === "PENDING" && canPay ? (
                         <div className="flex justify-end gap-1.5">
                           <button className="btn btn-ghost !px-2.5 !py-1.5 text-xs" title={t("pdc.actClear")}

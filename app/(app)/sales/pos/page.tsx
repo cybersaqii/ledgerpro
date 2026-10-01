@@ -540,7 +540,7 @@ export default function PosPage() {
         <div className="mt-8 flex w-full flex-col gap-3 sm:flex-row">
           <button autoFocus onClick={newBill} onKeyDown={(e) => { if (e.key === "Enter") newBill(); }}
             className="btn btn-primary flex-1 !py-3.5 text-base">
-            <ReceiptText size={18} /> {t("pos.newBill")} <kbd className="ml-1 rounded bg-white/20 px-1.5 text-xs">Enter</kbd>
+            <ReceiptText size={18} /> {t("pos.newBill")} <kbd className="ms-1 rounded bg-white/20 px-1.5 text-xs">Enter</kbd>
           </button>
           <Link href={`/sales/${done.docId}`} className="btn btn-ghost flex-1 !py-3.5 text-base">{t("pos.viewBill")}</Link>
           <a href={`/sales/${done.docId}?print=1`} target="_blank" rel="noopener" className="btn btn-accent flex-1 !py-3.5 text-base">
@@ -558,7 +558,7 @@ export default function PosPage() {
       <div className="mb-4 flex items-center justify-between gap-3">
         <div className="flex items-center gap-3">
           <Link href="/sales" className="btn btn-ghost !p-2" aria-label={t("pos.backToSales")}>
-            <ArrowLeft size={20} />
+            <ArrowLeft size={20} className="rtl:rotate-180" />
           </Link>
           <div>
             <h1 className="text-xl font-extrabold tracking-tight sm:text-2xl">{t("pos.title")}</h1>
@@ -631,11 +631,11 @@ export default function PosPage() {
         <div className="space-y-4">
           <div className="card p-4 sm:p-5">
             <div className="relative">
-              <ScanLine size={18} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
+              <ScanLine size={18} className="absolute start-3.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
               <input
                 ref={searchRef}
                 autoFocus
-                className="field !py-3.5 !pl-11 !text-base"
+                className="field !py-3.5 !pe-10 !ps-11 !text-base"
                 placeholder={t("pos.searchPh", { product: bp.productOne.toLowerCase() })}
                 value={q}
                 onChange={(e) => {
@@ -648,7 +648,7 @@ export default function PosPage() {
               />
               {q && (
                 <button onClick={() => { setQ(""); setShowResults(false); searchRef.current?.focus(); }}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 rounded-lg p-1 text-muted-foreground hover:bg-muted" aria-label={t("pos.clearSearch")}>
+                  className="absolute end-3 top-1/2 -translate-y-1/2 rounded-lg p-1 text-muted-foreground hover:bg-muted" aria-label={t("pos.clearSearch")}>
                   <X size={18} />
                 </button>
               )}
@@ -659,7 +659,7 @@ export default function PosPage() {
                       <button
                         onClick={() => addProduct(p)}
                         onMouseEnter={() => setHi(i)}
-                        className={`flex w-full items-center gap-3 px-4 py-3 text-left ${i === hi ? "bg-primary/10" : ""}`}
+                        className={`flex w-full items-center gap-3 px-4 py-3 text-start ${i === hi ? "bg-primary/10" : ""}`}
                       >
                         <ProductImage name={p.name} imageUrl={p.imageUrl} businessType={bp.type} size={36} />
                         <span className="min-w-0 flex-1">
@@ -718,7 +718,7 @@ export default function PosPage() {
                       </button>
                     </div>
                     <input
-                      className="field !w-20 !px-2 !py-1.5 text-right text-sm sm:!w-24"
+                      className="field !w-20 !px-2 !py-1.5 text-end text-sm sm:!w-24"
                       inputMode="decimal"
                       value={l.rate}
                       onChange={(e) => patchLine(l.key, { rate: e.target.value.replace(/[^0-9.]/g, "") })}
@@ -726,7 +726,7 @@ export default function PosPage() {
                       title={t("pos.rateTitle")}
                     />
                     <input
-                      className="field !w-16 !px-1.5 !py-1.5 text-right text-sm"
+                      className="field !w-16 !px-1.5 !py-1.5 text-end text-sm"
                       inputMode="decimal"
                       value={l.discount}
                       placeholder="0"
@@ -734,7 +734,7 @@ export default function PosPage() {
                       aria-label={t("pos.lineDiscountFor", { name: l.name })}
                       title={t("pos.lineDiscount")}
                     />
-                    <span className="hidden w-24 shrink-0 text-right text-sm font-extrabold sm:block">
+                    <span className="hidden w-24 shrink-0 text-end text-sm font-extrabold sm:block">
                       {fmtMoney(lineTotalPaisa(l))}
                     </span>
                     <button onClick={() => setLines((ls) => ls.filter((x) => x.key !== l.key))}
@@ -763,7 +763,7 @@ export default function PosPage() {
             </div>
             <div className="mt-3 flex items-center justify-between gap-3">
               <label className="text-sm text-muted-foreground" htmlFor="pos-discount">{t("pos.billDiscount")}</label>
-              <input id="pos-discount" className="field !w-28 !py-1.5 text-right text-sm" inputMode="decimal"
+              <input id="pos-discount" className="field !w-28 !py-1.5 text-end text-sm" inputMode="decimal"
                 placeholder="0.00" value={discount}
                 onChange={(e) => setDiscount(e.target.value.replace(/[^0-9.]/g, ""))} />
             </div>
@@ -799,7 +799,7 @@ export default function PosPage() {
               <div className="rise mt-4 space-y-3">
                 <div className="flex items-center justify-between gap-3">
                   <label className="text-sm font-bold" htmlFor="pos-tendered">{t("pos.cashReceived")}</label>
-                  <input id="pos-tendered" ref={tenderedRef} className="field !w-36 !py-2.5 text-right text-lg font-extrabold"
+                  <input id="pos-tendered" ref={tenderedRef} className="field !w-36 !py-2.5 text-end text-lg font-extrabold"
                     inputMode="decimal" placeholder="0.00" value={tendered}
                     onChange={(e) => setTendered(e.target.value.replace(/[^0-9.]/g, ""))}
                     onKeyDown={(e) => { if (e.key === "Enter") completeSale(); }} />
@@ -810,7 +810,7 @@ export default function PosPage() {
                 </div>
                 <button onClick={() => completeSale()} disabled={saving || lines.length === 0}
                   className="btn btn-primary w-full !py-3.5 text-base disabled:opacity-50">
-                  {saving ? t("pos.saving") : t("pos.completeSale")} <kbd className="ml-1 rounded bg-white/20 px-1.5 text-xs">Enter</kbd>
+                  {saving ? t("pos.saving") : t("pos.completeSale")} <kbd className="ms-1 rounded bg-white/20 px-1.5 text-xs">Enter</kbd>
                 </button>
               </div>
             )}
@@ -848,7 +848,7 @@ export default function PosPage() {
                       ))}
                     </select>
                     <input
-                      className="field !w-28 !py-2.5 text-right text-sm font-bold"
+                      className="field !w-28 !py-2.5 text-end text-sm font-bold"
                       inputMode="decimal"
                       placeholder="0.00"
                       value={td.amount}
@@ -896,7 +896,7 @@ export default function PosPage() {
                         {parties.map((p) => (
                           <li key={p.id}>
                             <button onClick={() => { setKhataId(p.id); setPartyQ(p.name); setPartyOpen(false); }}
-                              className={`flex w-full items-center justify-between px-4 py-2.5 text-left text-sm hover:bg-muted ${p.id === khataId ? "bg-primary/10 font-bold text-primary" : ""}`}>
+                              className={`flex w-full items-center justify-between px-4 py-2.5 text-start text-sm hover:bg-muted ${p.id === khataId ? "bg-primary/10 font-bold text-primary" : ""}`}>
                               <span>{p.name}</span>
                               {p.phone && <span className="text-xs text-muted-foreground">{p.phone}</span>}
                             </button>
@@ -937,7 +937,7 @@ export default function PosPage() {
                       {parties.map((p) => (
                         <li key={p.id}>
                           <button onClick={() => { setKhataId(p.id); setPartyQ(p.name); setPartyOpen(false); }}
-                            className={`flex w-full items-center justify-between px-4 py-2.5 text-left text-sm hover:bg-muted ${p.id === khataId ? "bg-primary/10 font-bold text-primary" : ""}`}>
+                            className={`flex w-full items-center justify-between px-4 py-2.5 text-start text-sm hover:bg-muted ${p.id === khataId ? "bg-primary/10 font-bold text-primary" : ""}`}>
                             <span>{p.name}</span>
                             {p.phone && <span className="text-xs text-muted-foreground">{p.phone}</span>}
                           </button>

@@ -83,7 +83,7 @@ export default function PaymentDetailPage({ params }: { params: Promise<{ id: st
       <PageHeader
         title={t("payments.detailTitle")}
         subtitle={error ?? ""}
-        actions={<Link href="/payments" className="btn btn-ghost text-sm"><ArrowLeft size={15} /> {t("payments.detailBack")}</Link>}
+        actions={<Link href="/payments" className="btn btn-ghost text-sm"><ArrowLeft size={15} className="rtl:rotate-180" /> {t("payments.detailBack")}</Link>}
       />
     );
   }
@@ -91,7 +91,7 @@ export default function PaymentDetailPage({ params }: { params: Promise<{ id: st
     return (
       <div>
         <PageHeader title={t("payments.detailTitle")}
-          actions={<Link href="/payments" className="btn btn-ghost text-sm"><ArrowLeft size={15} /> {t("payments.detailBack")}</Link>} />
+          actions={<Link href="/payments" className="btn btn-ghost text-sm"><ArrowLeft size={15} className="rtl:rotate-180" /> {t("payments.detailBack")}</Link>} />
         <div className="space-y-3"><div className="skeleton h-40 rounded-2xl" /><div className="skeleton h-48 rounded-2xl" /></div>
       </div>
     );
@@ -107,7 +107,7 @@ export default function PaymentDetailPage({ params }: { params: Promise<{ id: st
         subtitle={fmtDate(detail.date)}
         actions={
           <div className="flex gap-2">
-            <Link href="/payments" className="btn btn-ghost text-sm"><ArrowLeft size={15} /> {t("payments.detailBack")}</Link>
+            <Link href="/payments" className="btn btn-ghost text-sm"><ArrowLeft size={15} className="rtl:rotate-180" /> {t("payments.detailBack")}</Link>
             <button className="btn btn-primary text-sm" onClick={() => window.print()}><Printer size={15} /> {t("payments.detailPrint")}</button>
             {canVoid && !detail.voidedAt && (
               <button className="btn text-sm text-danger border-danger/40 hover:bg-danger/10" onClick={() => { setVoidReason(""); setVoidError(null); setVoidModal(true); }}>
@@ -180,7 +180,7 @@ export default function PaymentDetailPage({ params }: { params: Promise<{ id: st
                       {fmtMoney(a.balance)}
                     </td>
                     {canVoid && !detail.voidedAt && (
-                      <td className="text-right">
+                      <td className="text-end">
                         <button
                           className="btn btn-ghost !p-2 text-xs text-muted-foreground hover:text-danger"
                           title={f("fix3.unallocate")}

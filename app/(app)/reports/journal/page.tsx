@@ -67,8 +67,8 @@ export default function JournalPage() {
       />
       <div className="card mb-4 flex flex-wrap items-end gap-3 p-4">
         <div className="relative min-w-0 flex-1 basis-48">
-          <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
-          <input className="field !pl-9" placeholder={t("journal.searchPlaceholder")}
+          <Search size={16} className="absolute start-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
+          <input className="field !ps-9" placeholder={t("journal.searchPlaceholder")}
             value={q} onChange={(e) => setQ(e.target.value)}
             onKeyDown={(e) => { if (e.key === "Enter") applyFilters(); }} />
         </div>
@@ -94,7 +94,7 @@ export default function JournalPage() {
               const totalD = e.lines.reduce((a, l) => a + BigInt(l.debit), 0n);
               return (
                 <li key={e.id}>
-                  <button onClick={() => setOpen(isOpen ? null : e.id)} className="flex w-full items-center gap-3 px-4 py-3.5 text-left transition hover:bg-muted/50 sm:px-5">
+                  <button onClick={() => setOpen(isOpen ? null : e.id)} className="flex w-full items-center gap-3 px-4 py-3.5 text-start transition hover:bg-muted/50 sm:px-5">
                     <ChevronDown size={17} className={`shrink-0 text-muted-foreground transition-transform ${isOpen ? "rotate-180" : ""}`} />
                     <div className="min-w-0 flex-1">
                       <p className="truncate text-sm font-bold">{e.memo}</p>

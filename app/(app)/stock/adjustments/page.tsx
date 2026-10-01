@@ -191,13 +191,13 @@ export default function StockAdjustmentsPage() {
             <div>
               <p className="mb-2 text-sm font-bold">{f("fix3.adjLines")}</p>
               <div className="relative">
-                <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
-                <input className="field !pl-9" placeholder={t("common.searchPlaceholder")} value={query} onChange={(e) => searchProducts(e.target.value)} />
+                <Search size={16} className="absolute start-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
+                <input className="field !ps-9" placeholder={t("common.searchPlaceholder")} value={query} onChange={(e) => searchProducts(e.target.value)} />
               </div>
               {results.length > 0 && (
                 <div className="card mt-1 max-h-40 overflow-auto p-1">
                   {results.map((p) => (
-                    <button type="button" key={p.id} className="flex w-full items-center justify-between rounded-lg px-3 py-2 text-left text-sm hover:bg-muted"
+                    <button type="button" key={p.id} className="flex w-full items-center justify-between rounded-lg px-3 py-2 text-start text-sm hover:bg-muted"
                       onClick={() => addLine(p)}>
                       <span className="font-bold">{p.name}</span>
                       <span className="text-xs text-muted-foreground">{p.sku} · {p.unit}</span>

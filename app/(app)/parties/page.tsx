@@ -117,8 +117,8 @@ export default function PartiesPage() {
           ))}
         </div>
         <div className="relative min-w-52 flex-1 sm:max-w-xs">
-          <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
-          <input className="field !pl-9" placeholder={t("parties.searchName")} value={q} onChange={(e) => setQ(e.target.value)} />
+          <Search size={16} className="absolute start-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
+          <input className="field !ps-9" placeholder={t("parties.searchName")} value={q} onChange={(e) => setQ(e.target.value)} />
         </div>
         <div className="relative min-w-40 sm:max-w-2xs">
           <input className="field" placeholder={t("parties.categoryFilter")} value={category} onChange={(e) => setCategory(e.target.value)} list="party-categories" />

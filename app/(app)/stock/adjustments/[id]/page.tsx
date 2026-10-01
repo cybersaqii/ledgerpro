@@ -38,7 +38,7 @@ export default function AdjustmentDetailPage({ params }: { params: Promise<{ id:
     return (
       <PageHeader title={f("fix3.adjDetail")}
         subtitle={error ?? ""}
-        actions={<Link href="/stock/adjustments" className="btn btn-ghost text-sm"><ArrowLeft size={15} /> {t("common.back")}</Link>} />
+        actions={<Link href="/stock/adjustments" className="btn btn-ghost text-sm"><ArrowLeft size={15} className="rtl:rotate-180" /> {t("common.back")}</Link>} />
     );
   }
 
@@ -56,7 +56,7 @@ export default function AdjustmentDetailPage({ params }: { params: Promise<{ id:
         title={`${f("fix3.adjDetail")} ${adj.docNo}`}
         subtitle={fmtDate(adj.date)}
         icon={<Boxes size={20} />}
-        actions={<Link href="/stock/adjustments" className="btn btn-ghost text-sm"><ArrowLeft size={15} /> {t("common.back")}</Link>}
+        actions={<Link href="/stock/adjustments" className="btn btn-ghost text-sm"><ArrowLeft size={15} className="rtl:rotate-180" /> {t("common.back")}</Link>}
       />
 
       <div className="card rise p-5 sm:p-6">

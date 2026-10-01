@@ -111,10 +111,10 @@ export default function LoginPage() {
         </Field>
         <Field label={t("auth.password")} required>
           <div className="relative">
-            <input className="field pr-11" type={showPw ? "text" : "password"} required autoComplete="current-password"
+            <input className="field pe-11" type={showPw ? "text" : "password"} required autoComplete="current-password"
               placeholder="••••••••" value={password} onChange={(e) => setPassword(e.target.value)} />
             <button type="button" onClick={() => setShowPw((v) => !v)}
-              className="absolute right-2 top-1/2 -translate-y-1/2 rounded-lg p-1.5 text-muted-foreground transition hover:bg-muted hover:text-foreground"
+              className="absolute end-2 top-1/2 -translate-y-1/2 rounded-lg p-1.5 text-muted-foreground transition hover:bg-muted hover:text-foreground"
               aria-label={showPw ? t("auth.hidePw") : t("auth.showPw")}
               title={showPw ? t("auth.hidePw") : t("auth.showPw")}>
               {showPw ? <EyeOff size={18} /> : <Eye size={18} />}

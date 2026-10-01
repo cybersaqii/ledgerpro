@@ -125,8 +125,15 @@ export async function POST(req: NextRequest) {
   }
 
   const isPosted = (POSTED_TYPES as readonly string[]).includes(b.docType);
-  const date = parseDateOnly(b.date);
-  const dueDate = b.dueDate ? parseDateOnly(b.dueDate) : null;
+  // Regex-passing but impossible dates ("2026-13-99") must answer 422, not 500.
+  let date: Date;
+  let dueDate: Date | null;
+  try {
+    date = parseDateOnly(b.date);
+    dueDate = b.dueDate ? parseDateOnly(b.dueDate) : null;
+  } catch (e) {
+    return toApiError(e, { route: "/api/purchases", companyId });
+  }
 
   // Return lines may choose a batch to deduct from: it must belong to this
   // company and to the line's product. Bill lines carry batch_no/expiry_date

@@ -205,7 +205,7 @@ export function DocDetail({ mode, id }: { mode: "SALES" | "PURCHASE" | "NOTE"; i
       ? "80mm"
       : "a4");
 
-  if (error) return <PageHeader title={t("docdetail.notFound")} subtitle={error} actions={<Link href={isSales ? "/sales" : "/purchases"} className="btn btn-ghost text-sm"><ArrowLeft size={15} /> {t("docdetail.printBack")}</Link>} />;
+  if (error) return <PageHeader title={t("docdetail.notFound")} subtitle={error} actions={<Link href={isSales ? "/sales" : "/purchases"} className="btn btn-ghost text-sm"><ArrowLeft size={15} className="rtl:rotate-180" /> {t("docdetail.printBack")}</Link>} />;
   if (!doc) return <div className="card h-64 animate-pulse" />;
 
   // Bad-debt write-off (G7): only sales invoices with something left to collect.
@@ -305,7 +305,7 @@ export function DocDetail({ mode, id }: { mode: "SALES" | "PURCHASE" | "NOTE"; i
           subtitle={`${docTitle} · ${fmtDate(doc.date)}`}
           actions={
             <>
-              <Link href={isSales ? "/sales" : "/purchases"} className="btn btn-ghost text-sm"><ArrowLeft size={15} /> {t("docdetail.printBack")}</Link>
+              <Link href={isSales ? "/sales" : "/purchases"} className="btn btn-ghost text-sm"><ArrowLeft size={15} className="rtl:rotate-180" /> {t("docdetail.printBack")}</Link>
               {doc.partyId && (doc.docType === "INVOICE" || doc.docType === "BILL") && (
                 <Link href={`/payments/new?kind=${isSales ? "RECEIPT" : "PAYMENT"}&partyId=${doc.partyId}`} className="btn btn-ghost text-sm">
                   <Wallet size={15} /> {isSales ? t("header.receivePayment") : t("header.paySupplier")}
@@ -367,7 +367,7 @@ export function DocDetail({ mode, id }: { mode: "SALES" | "PURCHASE" | "NOTE"; i
               <p className="mt-2 text-sm font-bold text-primary">{t("docdetail.deliveryChallan")}</p>
               <p className="text-xs text-muted-foreground">{t("docdetail.againstDoc", { title: docTitle, docNo: doc.docNo })}</p>
             </div>
-            <div className="text-right">
+            <div className="text-end">
               <p className="text-lg font-extrabold">{doc.docNo}</p>
               <p className="mt-1"><StatusPill status={doc.status} /></p>
               <p className="mt-1 text-sm text-muted-foreground">{fmtDate(doc.date)}</p>
@@ -416,7 +416,7 @@ export function DocDetail({ mode, id }: { mode: "SALES" | "PURCHASE" | "NOTE"; i
               <p className="mt-2 text-sm font-bold text-primary">{docTitle}</p>
               <p className="mt-1 text-xs font-bold uppercase tracking-widest text-muted-foreground">{copyLabel}</p>
             </div>
-            <div className="text-right">
+            <div className="text-end">
               <p className="text-lg font-extrabold">{doc.docNo}</p>
               <p className="mt-1"><StatusPill status={doc.status} /></p>
               <p className="mt-1 text-sm text-muted-foreground">{fmtDate(doc.date)}</p>
@@ -492,7 +492,7 @@ export function DocDetail({ mode, id }: { mode: "SALES" | "PURCHASE" | "NOTE"; i
               <div className="flex justify-between"><span className="text-muted-foreground">{t("docdetail.invoiceBalance")}</span><span className="font-bold">{fmtMoney(balanceTotal)}</span></div>
             </div>
           </div>
-          <p className="mt-2 text-right text-xs italic text-muted-foreground">
+          <p className="mt-2 text-end text-xs italic text-muted-foreground">
             {t("fix4.print.amountInWords", { words: amountInWords(BigInt(doc.grandTotal)) })}
           </p>
 
@@ -545,7 +545,7 @@ export function DocDetail({ mode, id }: { mode: "SALES" | "PURCHASE" | "NOTE"; i
               <p className="mt-0.5 break-words"><span className="font-bold">{t("docdetail.customerName")}</span> {doc.partyName ?? "—"}</p>
               {doc.partyPhone && <p className="break-words"><span className="font-bold">{t("docdetail.customerMobile")}:</span> {doc.partyPhone}</p>}
             </div>
-            <div className="shrink-0 text-right">
+            <div className="shrink-0 text-end">
               <p><span className="font-bold">{t("docdetail.invNo")}</span> {doc.docNo}</p>
               <p className="mt-0.5"><span className="font-bold">{t("docdetail.invDate")}</span> {fmtDate(doc.date)}</p>
               {doc.refNo && <p className="mt-0.5 break-words"><span className="font-bold">{isSales ? t("docdetail.refNo") : t("docdetail.supplierBillNo")}</span> {doc.refNo}</p>}
@@ -560,7 +560,7 @@ export function DocDetail({ mode, id }: { mode: "SALES" | "PURCHASE" | "NOTE"; i
             <thead>
               <tr>
                 <th className="whitespace-nowrap border border-black px-1 py-0.5">{t("docdetail.colSrNo")}</th>
-                <th className="border border-black px-1 py-0.5 text-left">{itemColLabel}</th>
+                <th className="border border-black px-1 py-0.5 text-start">{itemColLabel}</th>
                 <th className="whitespace-nowrap border border-black px-1 py-0.5">{t("docdetail.colUnit")}</th>
                 <th className="whitespace-nowrap border border-black px-1 py-0.5">{t("docdetail.colQty")}</th>
                 <th className="whitespace-nowrap border border-black px-1 py-0.5">{t("docdetail.colRate")}</th>
@@ -576,9 +576,9 @@ export function DocDetail({ mode, id }: { mode: "SALES" | "PURCHASE" | "NOTE"; i
                     <ItemSubLines it={it} className="text-[9px] font-normal text-neutral-700" />
                   </td>
                   <td className="whitespace-nowrap border border-black px-1 py-0.5 text-center">{it.unit ?? "—"}</td>
-                  <td className="whitespace-nowrap border border-black px-1 py-0.5 text-right">{fmtQty(it.qty)}</td>
-                  <td className="whitespace-nowrap border border-black px-1 py-0.5 text-right">{fmtMoneyPlain(it.rate)}</td>
-                  <td className="whitespace-nowrap border border-black px-1 py-0.5 text-right font-bold">{fmtMoneyPlain(it.lineTotal)}</td>
+                  <td className="whitespace-nowrap border border-black px-1 py-0.5 text-end">{fmtQty(it.qty)}</td>
+                  <td className="whitespace-nowrap border border-black px-1 py-0.5 text-end">{fmtMoneyPlain(it.rate)}</td>
+                  <td className="whitespace-nowrap border border-black px-1 py-0.5 text-end font-bold">{fmtMoneyPlain(it.lineTotal)}</td>
                 </tr>
               ))}
             </tbody>
@@ -883,7 +883,7 @@ function DocActions({ doc, isSales }: { doc: Doc; isSales: boolean }) {
                       <div className="text-xs text-muted-foreground">{t("docdetail.returnable", { qty: fmtQty(r.toString()) })}</div>
                     </div>
                     <input
-                      className="field w-24 text-right"
+                      className="field w-24 text-end"
                       inputMode="decimal"
                       value={returnQtys[it.id] ?? ""}
                       onChange={(e) => setReturnQtys((q) => ({ ...q, [it.id]: e.target.value }))}

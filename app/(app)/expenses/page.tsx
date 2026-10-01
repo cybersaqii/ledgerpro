@@ -166,12 +166,12 @@ export default function ExpensesPage() {
                   <tr key={x.id} className={x.voidedAt ? "opacity-60" : ""}>
                     <td className="whitespace-nowrap text-muted-foreground">{fmtDate(x.date)}</td>
                     <td><span className="badge bg-muted text-foreground">{x.accountName ?? "—"}</span>
-                      {x.voidedAt && <span className="badge ml-1 bg-danger/15 text-danger">{f("fix3.voided")}</span>}</td>
+                      {x.voidedAt && <span className="badge ms-1 bg-danger/15 text-danger">{f("fix3.voided")}</span>}</td>
                     <td className="text-muted-foreground">{x.bankName ?? "—"}</td>
                     <td className="max-w-52 truncate text-muted-foreground">{x.notes ?? "—"}</td>
                     <td className="num font-extrabold">{fmtMoney(toBig(x.amount) + toBig(x.taxAmount))}</td>
                     {canVoid && (
-                      <td className="text-right">
+                      <td className="text-end">
                         {!x.voidedAt && (
                           <button className="btn btn-ghost !p-2 text-muted-foreground hover:text-danger"
                             title={f("fix3.voidExpense")}

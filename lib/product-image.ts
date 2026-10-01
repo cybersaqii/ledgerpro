@@ -27,7 +27,8 @@ export function validateImageUrl(raw: unknown): string | null {
   if (u.protocol !== "https:") throw new ImageUrlError("Image link must start with https://");
   if (u.username || u.password) throw new ImageUrlError("Image link must not contain credentials.");
   // Block localhost / private-network targets (SSRF hygiene even though we never fetch server-side).
-  const host = u.hostname.toLowerCase();
+  // Trailing dots are stripped first: "localhost." is still localhost.
+  const host = u.hostname.toLowerCase().replace(/\.*$/, "");
   if (
     host === "localhost" ||
     host.endsWith(".localhost") ||

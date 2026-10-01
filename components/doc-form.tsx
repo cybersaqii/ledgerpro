@@ -577,7 +577,7 @@ export function DocForm({ mode }: { mode: "SALES" | "PURCHASE" }) {
             <Field label={isSales ? bp.partyOne : t("docs.supplier")}>
               <div className="relative">
                 <button type="button" onClick={() => setShowPartyList((s) => !s)}
-                  className="field flex items-center justify-between text-left">
+                  className="field flex items-center justify-between text-start">
                   <span className={selectedParty ? "" : "text-muted-foreground"}>
                     {selectedParty ? selectedParty.name : t("docform.selectParty", { party: isSales ? bp.partyOne.toLowerCase() : t("docs.supplier").toLowerCase() })}
                   </span>
@@ -591,7 +591,7 @@ export function DocForm({ mode }: { mode: "SALES" | "PURCHASE" }) {
                     <ul className="max-h-56 overflow-y-auto py-1">
                       <li className="border-b border-border">
                         <button type="button"
-                          className="flex w-full items-center gap-2 px-4 py-2.5 text-left text-sm font-bold text-primary hover:bg-muted"
+                          className="flex w-full items-center gap-2 px-4 py-2.5 text-start text-sm font-bold text-primary hover:bg-muted"
                           onClick={() => setShowQuickAdd((s) => !s)}>
                           <Plus size={15} /> {isSales ? t("parties.addParty", { party: bp.partyOne.toLowerCase() }) : t("docform.addSupplier")}
                         </button>
@@ -615,7 +615,7 @@ export function DocForm({ mode }: { mode: "SALES" | "PURCHASE" }) {
                       {parties.map((p) => (
                         <li key={p.id}>
                           <button type="button"
-                            className={`flex w-full items-center justify-between px-4 py-2.5 text-left text-sm hover:bg-muted ${p.id === partyId ? "font-bold text-primary" : ""}`}
+                            className={`flex w-full items-center justify-between px-4 py-2.5 text-start text-sm hover:bg-muted ${p.id === partyId ? "font-bold text-primary" : ""}`}
                             onClick={() => { setPartyId(p.id); setShowPartyList(false); }}>
                             <span>{p.name}</span>
                             {p.phone && <span className="text-xs text-muted-foreground">{p.phone}</span>}
@@ -689,10 +689,10 @@ export function DocForm({ mode }: { mode: "SALES" | "PURCHASE" }) {
             <h2 className="text-base font-bold">{t("docform.items")}</h2>
             <div className="relative" ref={prodBoxRef}>
               <div className="relative">
-                <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
+                <Search size={16} className="absolute start-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
                 <input
                   ref={searchInputRef}
-                  className="field !pl-9 sm:w-72"
+                  className="field !ps-9 sm:w-72"
                   placeholder={t("docform.searchProduct", { product: bp.productOne.toLowerCase() })}
                   value={prodQ}
                   onChange={(e) => { setProdQ(e.target.value); setShowProdList(true); setActiveIdx(-1); }}
@@ -712,7 +712,7 @@ export function DocForm({ mode }: { mode: "SALES" | "PURCHASE" }) {
                     <li key={p.id} role="option" aria-selected={i === activeIdx}
                       ref={(el) => { if (el) optionRefs.current.set(i, el); else optionRefs.current.delete(i); }}>
                       <button type="button"
-                        className={`flex w-full items-center justify-between px-4 py-2.5 text-left ${i === activeIdx ? "bg-muted" : "hover:bg-muted"}`}
+                        className={`flex w-full items-center justify-between px-4 py-2.5 text-start ${i === activeIdx ? "bg-muted" : "hover:bg-muted"}`}
                         onMouseEnter={() => setActiveIdx(i)}
                         onClick={() => addLine(p, { focusQty: true })}>
                         <span>
@@ -728,7 +728,7 @@ export function DocForm({ mode }: { mode: "SALES" | "PURCHASE" }) {
                       ref={(el) => { if (el) optionRefs.current.set(prodResults.length, el); else optionRefs.current.delete(prodResults.length); }}
                       className="border-t border-border">
                       <button type="button"
-                        className={`flex w-full items-center gap-2 px-4 py-2.5 text-left text-sm ${activeIdx === prodResults.length ? "bg-muted" : "hover:bg-muted"}`}
+                        className={`flex w-full items-center gap-2 px-4 py-2.5 text-start text-sm ${activeIdx === prodResults.length ? "bg-muted" : "hover:bg-muted"}`}
                         onMouseEnter={() => setActiveIdx(prodResults.length)}
                         onClick={() => { addCustomLine(prodQ.trim()); setProdQ(""); setShowProdList(false); setActiveIdx(-1); }}>
                         <Plus size={16} className="shrink-0 text-primary" />
@@ -859,7 +859,7 @@ export function DocForm({ mode }: { mode: "SALES" | "PURCHASE" }) {
                             aria-label={t("docform.colTax")}
                             onChange={(e) => updateLine(l.key, { taxPct: e.target.value })} />
                         </div>
-                        <p className="text-right text-sm font-extrabold">
+                        <p className="text-end text-sm font-extrabold">
                           {fmtMoney(c.total)}
                           {c.tax > 0n && (
                             <span className="block text-[11px] font-normal text-muted-foreground">{t("docform.inclTax", { amt: fmtMoney(c.tax) })}</span>
@@ -996,7 +996,7 @@ export function DocForm({ mode }: { mode: "SALES" | "PURCHASE" }) {
 
       {/* barcode/keyboard add toast */}
       {toast && (
-        <div role="status" className="modal-pop fixed bottom-6 left-1/2 z-50 max-w-[90vw] -translate-x-1/2 rounded-full bg-foreground px-4 py-2 text-center text-sm font-semibold text-background shadow-xl">
+        <div role="status" className="modal-pop fixed bottom-6 start-1/2 z-50 max-w-[90vw] -translate-x-1/2 rounded-full bg-foreground px-4 py-2 text-center text-sm font-semibold text-background shadow-xl">
           {toast}
         </div>
       )}

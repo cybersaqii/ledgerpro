@@ -138,7 +138,7 @@ function SignupForm() {
         {step === 1 ? (
         <form onSubmit={sendCode} className="rise rise-2 space-y-4">
           <ErrorNote message={error} />
-          <Field label={t("auth.businessName")}>
+          <Field label={t("auth.businessName")} required>
             <input className="field" required placeholder={t("auth.businessNamePh")}
               value={form.companyName} onChange={set("companyName")} />
           </Field>
@@ -157,12 +157,12 @@ function SignupForm() {
                 value={form.city} onChange={set("city")} />
             </Field>
           </div>
-          <Field label={t("auth.yourName")}>
+          <Field label={t("auth.yourName")} required>
             <input className="field" required placeholder={t("auth.yourNamePh")}
               value={form.name} onChange={set("name")} />
           </Field>
           <div className="grid gap-4 sm:grid-cols-2">
-            <Field label={t("auth.email")}>
+            <Field label={t("auth.email")} required>
               <input className="field" type="email" required autoComplete="email" placeholder="you@business.com"
                 value={form.email} onChange={set("email")} />
             </Field>
@@ -171,25 +171,25 @@ function SignupForm() {
                 value={form.phone} onChange={set("phone")} />
             </Field>
           </div>
-          <Field label={t("auth.password")} hint={t("auth.pwHint")}>
+          <Field label={t("auth.password")} hint={t("auth.pwHint")} required>
             <div className="relative">
-              <input className="field pr-11" type={showPw ? "text" : "password"} required minLength={8} autoComplete="new-password"
+              <input className="field pe-11" type={showPw ? "text" : "password"} required minLength={8} autoComplete="new-password"
                 placeholder="••••••••" value={form.password} onChange={set("password")} />
               <button type="button" onClick={() => setShowPw((v) => !v)}
-                className="absolute right-2 top-1/2 -translate-y-1/2 rounded-lg p-1.5 text-muted-foreground transition hover:bg-muted hover:text-foreground"
+                className="absolute end-2 top-1/2 -translate-y-1/2 rounded-lg p-1.5 text-muted-foreground transition hover:bg-muted hover:text-foreground"
                 aria-label={showPw ? t("auth.hidePw") : t("auth.showPw")}
                 title={showPw ? t("auth.hidePw") : t("auth.showPw")}>
                 {showPw ? <EyeOff size={18} /> : <Eye size={18} />}
               </button>
             </div>
           </Field>
-          <button className="btn btn-primary w-full !py-3" disabled={busy || sending}>
-            <UserPlus size={17} /> {sending ? t("auth.sendingCode") : t("auth.sendCode")}
-          </button>
           <Field label={t("auth.referralCode")} hint={t("auth.referralHint")}>
             <input className="field font-mono uppercase tracking-widest" placeholder="—"
               value={form.referralCode} onChange={(e) => setForm((f) => ({ ...f, referralCode: e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 16) }))} />
           </Field>
+          <button className="btn btn-primary w-full !py-3" disabled={busy || sending}>
+            <UserPlus size={17} /> {sending ? t("auth.sendingCode") : t("auth.sendCode")}
+          </button>
         </form>
         ) : (
         <form onSubmit={submit} className="rise rise-2 mt-6 space-y-4">
@@ -197,7 +197,7 @@ function SignupForm() {
           <p className="text-sm text-muted-foreground">
             {t("auth.codeSentTo", { email: form.email })}
             <button type="button" onClick={() => setStep(1)}
-              className="ml-2 font-semibold text-primary hover:underline">
+              className="ms-2 font-semibold text-primary hover:underline">
               {t("auth.editDetails")}
             </button>
           </p>

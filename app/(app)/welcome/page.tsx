@@ -9,7 +9,7 @@ import {
 import { api } from "@/lib/format";
 import { useLang } from "@/components/lang-provider";
 import { Field, ErrorNote } from "@/components/ui";
-import { BUSINESS_TYPES } from "@/lib/business-types";
+import { BUSINESS_TYPES, getBusinessProfile, newSaleHref } from "@/lib/business-types";
 
 const ICONS: Record<string, typeof Store> = {
   WHOLESALE: Store,
@@ -23,17 +23,9 @@ const ICONS: Record<string, typeof Store> = {
   OTHER: LayoutGrid,
 };
 
-/** First bill destination per business type (adaptive bill defaults). */
+/** First bill destination per business type — single source of truth in lib/business-types. */
 function firstBillHref(businessType: string): string {
-  switch (businessType) {
-    case "RETAIL":
-    case "RESTAURANT":
-      return "/sales/pos";
-    case "PHARMACY":
-      return "/sales/new";
-    default:
-      return "/sales/new";
-  }
+  return newSaleHref(getBusinessProfile(businessType));
 }
 
 export default function WelcomePage() {
@@ -216,7 +208,7 @@ export default function WelcomePage() {
           </span>
           <h1 className="mt-4 text-2xl font-extrabold tracking-tight">{t("onboarding.step3Title")}</h1>
           <p className="mx-auto mt-2 max-w-md text-sm text-muted-foreground">{t("onboarding.step3Hint")}</p>
-          <div className="mx-auto mt-6 max-w-md rounded-2xl border border-border bg-card p-5 text-left">
+          <div className="mx-auto mt-6 max-w-md rounded-2xl border border-border bg-card p-5 text-start">
             <p className="text-sm font-bold">{t("onboarding.readyList")}</p>
             <ul className="mt-2 space-y-1.5 text-sm text-muted-foreground">
               <li className="flex items-center gap-2"><Check size={14} className="text-emerald-600" /> {t("onboarding.readyType", { type: t(BUSINESS_TYPES.find((b) => b.value === businessType)?.label ?? "biztypes.other") })}</li>
@@ -234,7 +226,7 @@ export default function WelcomePage() {
         <div>
           {step > 0 ? (
             <button type="button" onClick={() => setStep(step - 1)} className="btn btn-ghost" disabled={busy}>
-              <ArrowLeft size={16} /> {t("onboarding.back")}
+              <ArrowLeft size={16} className="rtl:rotate-180" /> {t("onboarding.back")}
             </button>
           ) : (
             <button type="button" onClick={() => finish(true)} className="btn btn-ghost" disabled={busy}>
@@ -243,7 +235,7 @@ export default function WelcomePage() {
           )}
         </div>
         <button type="button" onClick={() => finish(false)} className="btn btn-primary" disabled={busy}>
-          {busy ? "…" : step === 2 ? t("onboarding.createBill") : t("onboarding.continue")} <ArrowRight size={16} />
+          {busy ? "…" : step === 2 ? t("onboarding.createBill") : t("onboarding.continue")} <ArrowRight size={16} className="rtl:rotate-180" />
         </button>
       </div>
     </div>

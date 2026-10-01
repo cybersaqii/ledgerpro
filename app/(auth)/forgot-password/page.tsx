@@ -60,13 +60,13 @@ export default function ForgotPasswordPage() {
       sub={step === 3 ? t("auth.resetDoneHint") : t("auth.forgotSub")}
     >
       <Link href="/login" className="rise mb-5 inline-flex items-center gap-2 text-sm font-semibold text-muted-foreground transition-all hover:gap-3 hover:text-primary">
-        <ArrowLeft size={16} /> {t("auth.backToLogin")}
+        <ArrowLeft size={16} className="rtl:rotate-180" /> {t("auth.backToLogin")}
       </Link>
 
       {step === 1 && (
         <form onSubmit={requestCode} className="rise rise-3 mt-6 space-y-4">
           <ErrorNote message={error} />
-          <Field label={t("auth.email")}>
+          <Field label={t("auth.email")} required>
             <input className="field" type="email" required autoComplete="email" autoFocus
               placeholder="you@business.com" value={email} onChange={(e) => setEmail(e.target.value)} />
           </Field>
@@ -82,21 +82,21 @@ export default function ForgotPasswordPage() {
           <p className="text-sm text-muted-foreground">
             {t("auth.codeSentTo", { email })}
             <button type="button" onClick={() => setStep(1)}
-              className="ml-2 font-semibold text-primary hover:underline">
+              className="ms-2 font-semibold text-primary hover:underline">
               {t("auth.editDetails")}
             </button>
           </p>
-          <Field label={t("auth.enterCode")} hint={t("auth.codeHint")}>
+          <Field label={t("auth.enterCode")} hint={t("auth.codeHint")} required>
             <input className="field tracking-[0.3em] text-center text-lg font-bold" inputMode="numeric"
               maxLength={6} required autoFocus placeholder="······"
               value={code} onChange={(e) => setCode(e.target.value.replace(/\D/g, ""))} />
           </Field>
           <div className="grid gap-4 sm:grid-cols-2">
-            <Field label={t("auth.newPw")}>
+            <Field label={t("auth.newPw")} required>
               <input className="field" type="password" required minLength={8} autoComplete="new-password"
                 placeholder="••••••••" value={pw1} onChange={(e) => setPw1(e.target.value)} />
             </Field>
-            <Field label={t("auth.repeatPw")}>
+            <Field label={t("auth.repeatPw")} required>
               <input className="field" type="password" required minLength={8} autoComplete="new-password"
                 placeholder="••••••••" value={pw2} onChange={(e) => setPw2(e.target.value)} />
             </Field>

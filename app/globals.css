@@ -242,7 +242,7 @@ html[lang="ur"] body {
 /* Table */
 .tbl { width: 100%; border-collapse: separate; border-spacing: 0; font-size: 0.88rem; }
 .tbl th {
-  text-align: left;
+  text-align: start;
   font-weight: 600;
   color: var(--muted-foreground);
   font-size: 0.72rem;
