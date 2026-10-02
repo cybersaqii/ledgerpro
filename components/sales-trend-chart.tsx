@@ -23,14 +23,17 @@ export function SalesTrendChart({ data, tooltipSales }: { data: TrendPoint[]; to
           </linearGradient>
         </defs>
         <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" vertical={false} />
-        <XAxis dataKey="month" tick={{ fontSize: 12, fill: "var(--muted-foreground)" }} axisLine={false} tickLine={false} />
-        <YAxis tick={{ fontSize: 12, fill: "var(--muted-foreground)" }} axisLine={false} tickLine={false} width={44}
-          tickFormatter={(v: number) => (v >= 1000 ? `${Math.round(v / 1000)}k` : `${v}`)} />
+        <XAxis dataKey="month" tick={{ fontSize: 12, fill: "var(--muted-foreground)" }} axisLine={false} tickLine={false} interval={0} />
+        <YAxis tick={{ fontSize: 12, fill: "var(--muted-foreground)" }} axisLine={false} tickLine={false} width={48}
+          tickFormatter={(v: number) =>
+            v >= 1_000_000 ? `${+(v / 1_000_000).toFixed(1)}M`
+            : v >= 1000 ? `${Math.round(v / 1000)}k`
+            : `${v}`} />
         <Tooltip
           contentStyle={{ background: "var(--card)", border: "1px solid var(--border)", borderRadius: 12, fontSize: 13 }}
           formatter={(v) => [fmtMoney(BigInt(Math.round(Number(v))) * 100n), tooltipSales]}
         />
-        <Bar dataKey="total" fill="url(#salesBar)" radius={[8, 8, 2, 2]} />
+        <Bar dataKey="total" fill="url(#salesBar)" radius={[8, 8, 2, 2]} barSize={44} />
       </BarChart>
     </ResponsiveContainer>
   );

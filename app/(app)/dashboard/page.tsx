@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import {
   TrendingUp, ShoppingBag, ReceiptText, ArrowDownToLine, ArrowUpFromLine,
   Landmark, TriangleAlert, FileText, LayoutDashboard, Zap, ArrowRight,
@@ -48,7 +48,7 @@ async function loadSampleDataNow(): Promise<void> {
 export default function DashboardPage() {
   const router = useRouter();
   const bp = useBusinessProfile();
-  const { t } = useLang();
+  const { t, lang } = useLang();
   const canPos = useCan("pos");
   const [data, setData] = useState<DashboardData | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -103,6 +103,27 @@ export default function DashboardPage() {
       .catch(() => {});
   }, [t, router]);
 
+  // Full 6-month window with short month names — the API only returns months
+  // that have sales, so fill the gaps with 0 instead of showing one giant
+  // orphan bar with a cryptic "09" label. (Above the early returns: hooks
+  // must run unconditionally.)
+  const trend = useMemo(() => {
+    if (!data) return [];
+    const byMonth = new Map(
+      data.salesTrend.map((t) => [t.month, Number(BigInt(t.total) / 100n)] as const)
+    );
+    const dtf = new Intl.DateTimeFormat(lang === "ur" ? "ur-PK" : "en-GB", { month: "short" });
+    const now = new Date();
+    const out: Array<{ month: string; total: number }> = [];
+    for (let i = 5; i >= 0; i--) {
+      const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+      const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+      out.push({ month: dtf.format(d), total: byMonth.get(key) ?? 0 });
+    }
+    return out;
+  }, [data, lang]);
+  const trendTotal = trend.reduce((s, p) => s + p.total, 0);
+
   if (error) return (
     <div>
       <PageHeader title={t("dashboard.title")} icon={<LayoutDashboard size={20} />} />
@@ -130,7 +151,6 @@ export default function DashboardPage() {
   }
 
   const k = data.kpis;
-  const trend = data.salesTrend.map((t) => ({ month: t.month.slice(5), total: Number(BigInt(t.total) / 100n) }));
 
   // Interactive metric tiles — each KPI opens its detail list.
   const metricTiles: Array<{
@@ -302,7 +322,7 @@ export default function DashboardPage() {
           <h2 className="text-base font-extrabold tracking-tight">{t("dashboard.trend", { sales: bp.salesNav })}</h2>
           <p className="text-xs text-muted-foreground">{t("dashboard.trendSub")}</p>
           <div className="mt-4 h-64">
-            {trend.length === 0 ? (
+            {trendTotal === 0 ? (
               <EmptyState title={t("dashboard.noSales")} hint={t("dashboard.noSalesHint")} icon={<BarChart3 size={26} />} />
             ) : (
               <SalesTrendChart data={trend} tooltipSales={t("dashboard.salesTooltip")} />

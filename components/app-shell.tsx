@@ -175,6 +175,21 @@ export function AppShell({ children, initialBusinessType }: { children: ReactNod
     });
   }
 
+  // When the route changes, auto-expand the group holding the new page — but
+  // a manual collapse is respected afterwards. (Previously the active group
+  // was forced open on every render, so its header could never fold it.)
+  useEffect(() => {
+    if (activeGroup) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- sync nav expansion to route changes only
+      setCollapsed((s) => {
+        if (!s.has(activeGroup)) return s;
+        const next = new Set(s);
+        next.delete(activeGroup);
+        return next;
+      });
+    }
+  }, [activeGroup]);
+
   function renderNavItem(n: NavItem) {
     const active = isActiveNav(n);
     return (
@@ -235,8 +250,7 @@ export function AppShell({ children, initialBusinessType }: { children: ReactNod
           GROUP_ORDER.map((g) => {
             const items = nav.filter((n) => n.group === g);
             if (items.length === 0) return null;
-            // The group holding the active route is always rendered open.
-            const open = activeGroup === g || !collapsed.has(g);
+            const open = !collapsed.has(g);
             return (
               <div key={g}>
                 <button

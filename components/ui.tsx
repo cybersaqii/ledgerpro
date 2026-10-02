@@ -81,17 +81,17 @@ export function Stat({ label, value, sub, icon, tone = "primary" }: {
   };
   return (
     <div className="card card-lift rise p-5">
-      <div className="flex items-start justify-between gap-3">
-        {/* pe-10 keeps text clear of the .kpi-tile-go arrow on narrow tiles (A1) */}
-        <div className={`min-w-0 ${sub ? "pe-10" : ""}`}>
-          <p className="text-[0.72rem] font-semibold uppercase tracking-wider text-muted-foreground">{label}</p>
-          <p className="mt-1.5 truncate text-[1.45rem] font-extrabold tabular-nums tracking-tight">{value}</p>
-          {sub && <p className="mt-1 text-xs text-muted-foreground">{sub}</p>}
-        </div>
+      <div className="flex items-center gap-3.5">
         {icon && (
-          <span className={`tile ${tones[tone]} h-11 w-11 shrink-0`}>{icon}</span>
+          <span className={`tile ${tones[tone]} h-12 w-12 shrink-0`}>{icon}</span>
         )}
+        {/* pe-8 keeps text clear of the .kpi-tile-go arrow on narrow tiles */}
+        <div className="min-w-0 flex-1 pe-8">
+          <p className="truncate text-[0.72rem] font-semibold uppercase tracking-wider text-muted-foreground">{label}</p>
+          <p className="mt-1 truncate text-[1.45rem] font-extrabold tabular-nums tracking-tight">{value}</p>
+        </div>
       </div>
+      {sub && <p className="mt-2.5 truncate text-xs text-muted-foreground">{sub}</p>}
     </div>
   );
 }

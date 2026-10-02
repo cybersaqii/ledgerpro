@@ -297,14 +297,16 @@ body::before {
 .card-lift { transition: transform 0.2s ease, box-shadow 0.25s ease; }
 .card-lift:hover { transform: translateY(-3px); box-shadow: var(--shadow-pop); }
 
-/* Clickable dashboard KPI tiles — pointer cursor + arrow chip affordance */
+/* Clickable dashboard KPI tiles — pointer cursor + arrow chip affordance.
+   The arrow sits top-right and fades in on hover so it never looks like a
+   stray floating icon in the card's whitespace. */
 .kpi-tile { border-radius: var(--radius); }
 .kpi-tile:focus-visible { outline: 2px solid var(--primary); outline-offset: 3px; }
 .kpi-tile-go {
-  position: absolute; inset-inline-end: 0.9rem; bottom: 0.9rem;
+  position: absolute; inset-inline-end: 0.9rem; top: 0.9rem;
   display: grid; place-items: center; height: 1.9rem; width: 1.9rem;
   border-radius: 9999px; background: var(--primary-soft); color: var(--primary);
-  opacity: 0.45; transform: translateY(0); pointer-events: none;
+  opacity: 0; transform: translateY(2px); pointer-events: none;
   transition: opacity 0.18s ease, transform 0.18s ease;
 }
 .kpi-tile:hover .kpi-tile-go, .kpi-tile:focus-visible .kpi-tile-go {
