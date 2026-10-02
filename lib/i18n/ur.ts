@@ -2617,6 +2617,7 @@ export const ur: DeepPartial<EnDict> = {
     title: "بینک بک",
     subtitle: "رننگ بیلنس کے ساتھ کیش/بینک اکاؤنٹ لیجر",
     account: "اکاؤنٹ",
+    allAccounts: "تمام اکاؤنٹس",
     from: "از",
     to: "تک",
     errLoad: "رپورٹ لوڈ نہیں ہو سکی۔",
@@ -2630,6 +2631,7 @@ export const ur: DeepPartial<EnDict> = {
     colDebit: "ڈیبٹ",
     colCredit: "کریڈٹ",
     colBalance: "بیلنس",
+    colAccount: "اکاؤنٹ",
     noTx: "اس مدت میں کوئی لین دین نہیں۔",
     csvDate: "تاریخ",
     csvDetails: "تفصیل",
@@ -2637,6 +2639,7 @@ export const ur: DeepPartial<EnDict> = {
     csvDebit: "ڈیبٹ (روپے)",
     csvCredit: "کریڈٹ (روپے)",
     csvBalance: "بیلنس (روپے)",
+    csvAccount: "اکاؤنٹ",
     csvOpening: "ابتدائی بیلنس",
     csvClosing: "اختتامی بیلنس"
   },

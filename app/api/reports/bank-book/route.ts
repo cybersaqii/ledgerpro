@@ -1,5 +1,5 @@
 import { NextRequest } from "next/server";
-import { eq, and, sql } from "drizzle-orm";
+import { eq, and, sql, inArray } from "drizzle-orm";
 import { bankAccounts, journalEntries, journalLines, parties } from "@/db/schema";
 import { json, err } from "@/lib/api";
 import { requirePermission, db } from "@/lib/route-helpers";
@@ -7,6 +7,7 @@ import { requirePermission, db } from "@/lib/route-helpers";
 // GET /api/reports/bank-book?accountId=&from=&to=
 // Cash/bank account ledger: opening balance + every journal line touching the
 // account's GL account, with a running balance.
+// accountId=all merges every cash/bank account into one combined ledger.
 export async function GET(req: NextRequest) {
   const gate = await requirePermission("reports_basic");
   if (!gate.ok) return gate.response;
@@ -17,13 +18,42 @@ export async function GET(req: NextRequest) {
   const from = sp.get("from");
   const to = sp.get("to");
 
-  const ba = await db
-    .select()
-    .from(bankAccounts)
-    .where(and(eq(bankAccounts.id, accountId), eq(bankAccounts.companyId, companyId)))
-    .limit(1);
-  if (!ba[0]) return err("Account not found.", 404);
-  const bank = ba[0];
+  const showAll = accountId === "all";
+  let glAccountIds: string[];
+  let accountNameByGl = new Map<string, string>();
+  let account: { id: string; name: string; kind: string; bankName: string | null; accountNo: string | null };
+
+  if (showAll) {
+    const allBanks = await db
+      .select()
+      .from(bankAccounts)
+      .where(and(eq(bankAccounts.companyId, companyId), eq(bankAccounts.isActive, true)));
+    glAccountIds = allBanks.map((b) => b.accountId);
+    accountNameByGl = new Map(allBanks.map((b) => [b.accountId, b.name]));
+    // The page localizes the "All accounts" label via bankbook.allAccounts.
+    account = { id: "all", name: "", kind: "ALL", bankName: null, accountNo: null };
+  } else {
+    const ba = await db
+      .select()
+      .from(bankAccounts)
+      .where(and(eq(bankAccounts.id, accountId), eq(bankAccounts.companyId, companyId)))
+      .limit(1);
+    if (!ba[0]) return err("Account not found.", 404);
+    const bank = ba[0];
+    glAccountIds = [bank.accountId];
+    accountNameByGl = new Map([[bank.accountId, bank.name]]);
+    account = {
+      id: bank.id,
+      name: bank.name,
+      kind: bank.kind,
+      bankName: bank.bankName,
+      accountNo: bank.accountNo,
+    };
+  }
+
+  if (glAccountIds.length === 0) {
+    return json({ account, opening: "0", entries: [], closing: "0", from, to });
+  }
 
   const dateConds = [];
   if (from) {
@@ -49,7 +79,7 @@ export async function GET(req: NextRequest) {
         .where(
           and(
             eq(journalEntries.companyId, companyId),
-            eq(journalLines.accountId, bank.accountId),
+            inArray(journalLines.accountId, glAccountIds),
             sql`${journalEntries.date} < ${t}`
           )
         );
@@ -66,6 +96,7 @@ export async function GET(req: NextRequest) {
       source: journalEntries.source,
       sourceId: journalEntries.sourceId,
       partyName: parties.name,
+      glAccountId: journalLines.accountId,
       debit: journalLines.debit,
       credit: journalLines.credit,
     })
@@ -75,7 +106,7 @@ export async function GET(req: NextRequest) {
     .where(
       and(
         eq(journalEntries.companyId, companyId),
-        eq(journalLines.accountId, bank.accountId),
+        inArray(journalLines.accountId, glAccountIds),
         ...dateConds
       )
     )
@@ -91,6 +122,7 @@ export async function GET(req: NextRequest) {
       source: l.source,
       sourceId: l.sourceId,
       partyName: l.partyName,
+      accountName: accountNameByGl.get(l.glAccountId) ?? null,
       debit: l.debit.toString(),
       credit: l.credit.toString(),
       balance: running.toString(),
@@ -98,14 +130,7 @@ export async function GET(req: NextRequest) {
   });
 
   return json({
-    account: {
-      id: bank.id,
-      name: bank.name,
-      kind: bank.kind,
-      bankName: bank.bankName,
-      accountNo: bank.accountNo,
-      balance: bank.balance.toString(),
-    },
+    account,
     opening: opening.toString(),
     entries,
     closing: running.toString(),

@@ -60,7 +60,7 @@ export function PageHeader({ title, subtitle, actions, icon }: { title: ReactNod
           </span>
         )}
         <div>
-          <h1 className="text-2xl font-extrabold tracking-tight sm:text-[1.7rem]">{title}</h1>
+          <h1 className="font-display text-2xl font-extrabold tracking-tight sm:text-[1.7rem]">{title}</h1>
           {subtitle && <p className="mt-0.5 text-sm text-muted-foreground">{subtitle}</p>}
         </div>
       </div>
@@ -88,7 +88,7 @@ export function Stat({ label, value, sub, icon, tone = "primary" }: {
         {/* pe-8 keeps text clear of the .kpi-tile-go arrow on narrow tiles */}
         <div className="min-w-0 flex-1 pe-8">
           <p className="truncate text-[0.72rem] font-semibold uppercase tracking-wider text-muted-foreground">{label}</p>
-          <p className="mt-1 truncate text-[1.45rem] font-extrabold tabular-nums tracking-tight">{value}</p>
+          <p className="font-display mt-1 truncate text-[1.45rem] font-extrabold tabular-nums tracking-tight">{value}</p>
         </div>
       </div>
       {sub && <p className="mt-2.5 truncate text-xs text-muted-foreground">{sub}</p>}

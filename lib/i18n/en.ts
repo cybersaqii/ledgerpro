@@ -2617,6 +2617,7 @@ export const en = {
     title: "Bank book",
     subtitle: "Cash/bank account ledger with running balance",
     account: "Account",
+    allAccounts: "All accounts",
     from: "From",
     to: "To",
     errLoad: "Could not load the report.",
@@ -2630,6 +2631,7 @@ export const en = {
     colDebit: "Debit",
     colCredit: "Credit",
     colBalance: "Balance",
+    colAccount: "Account",
     noTx: "No transactions in this period.",
     csvDate: "Date",
     csvDetails: "Details",
@@ -2637,6 +2639,7 @@ export const en = {
     csvDebit: "Debit (Rs)",
     csvCredit: "Credit (Rs)",
     csvBalance: "Balance (Rs)",
+    csvAccount: "Account",
     csvOpening: "OPENING BALANCE",
     csvClosing: "CLOSING BALANCE"
   },

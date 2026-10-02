@@ -9,12 +9,13 @@ import { api, fmtMoney, fmtDate, fmtDateInput } from "@/lib/format";
 import { DocRefLink } from "@/components/doc-link";
 
 type Bank = { id: string; name: string; kind: string };
-type Entry = { date: number | string; memo: string; reference: string | null; source: string; sourceId: string | null; partyName: string | null; debit: string; credit: string; balance: string };
+type Entry = { date: number | string; memo: string; reference: string | null; source: string; sourceId: string | null; partyName: string | null; accountName: string | null; debit: string; credit: string; balance: string };
 
 export default function BankBookPage() {
   const { t } = useLang();
   const [banks, setBanks] = useState<Bank[]>([]);
-  const [accountId, setAccountId] = useState("");
+  // "All accounts" is the default view — one combined ledger.
+  const [accountId, setAccountId] = useState("all");
   const [from, setFrom] = useState("");
   const [to, setTo] = useState(fmtDateInput());
   const [entries, setEntries] = useState<Entry[]>([]);
@@ -26,10 +27,7 @@ export default function BankBookPage() {
 
   useEffect(() => {
     api<{ data: Bank[] }>("/api/banks")
-      .then((d) => {
-        setBanks(d.data);
-        if (d.data.length > 0) setAccountId((cur) => cur || d.data[0].id);
-      })
+      .then((d) => setBanks(d.data))
       .catch(() => {});
   }, []);
 
@@ -38,13 +36,13 @@ export default function BankBookPage() {
     setLoading(true);
     setLoadError(null);
     try {
-      const d = await api<{ entries: Entry[]; opening: string; closing: string; account: { name: string } }>(
+      const d = await api<{ entries: Entry[]; opening: string; closing: string; account: { id: string; name: string } }>(
         `/api/reports/bank-book?accountId=${accountId}${from ? `&from=${from}` : ""}${to ? `&to=${to}` : ""}`
       );
       setEntries(d.entries);
       setOpening(d.opening);
       setClosing(d.closing);
-      setAccountName(d.account.name);
+      setAccountName(d.account.id === "all" ? t("bankbook.allAccounts") : d.account.name);
     } catch (err) {
       setEntries([]);
       setLoadError(err instanceof Error ? err.message : t("bankbook.errLoad"));
@@ -54,6 +52,8 @@ export default function BankBookPage() {
   // eslint-disable-next-line react-hooks/set-state-in-effect -- data fetch on filter/mount change
   useEffect(() => { load(); }, [load]);
 
+  const showAll = accountId === "all";
+
   return (
     <div>
       <PageHeader
@@ -62,14 +62,26 @@ export default function BankBookPage() {
         icon={<Landmark size={20} />}
         actions={
           <ExportCsv
-            filename={accountName ? `bank-book-${accountName}` : "bank-book"}
-            disabled={!accountId || loading || entries.length === 0}
-            rows={() => [
-              [t("bankbook.csvDate"), t("bankbook.csvDetails"), t("bankbook.csvRef"), t("bankbook.csvDebit"), t("bankbook.csvCredit"), t("bankbook.csvBalance")],
-              [t("bankbook.csvOpening"), "", "", "", "", csvMoney(opening)],
-              ...entries.map((e) => [fmtDate(e.date), e.partyName ? `${e.memo} — ${e.partyName}` : e.memo, e.reference ?? e.source, csvMoney(e.debit), csvMoney(e.credit), csvMoney(e.balance)]),
-              [t("bankbook.csvClosing"), "", "", "", "", csvMoney(closing)],
-            ]}
+            filename={showAll ? "bank-book-all-accounts" : accountName ? `bank-book-${accountName}` : "bank-book"}
+            disabled={loading || entries.length === 0}
+            rows={() => {
+              const header = [t("bankbook.csvDate"), t("bankbook.csvDetails")];
+              if (showAll) header.push(t("bankbook.csvAccount"));
+              header.push(t("bankbook.csvRef"), t("bankbook.csvDebit"), t("bankbook.csvCredit"), t("bankbook.csvBalance"));
+              const blank = new Array(header.length - 2).fill("");
+              const row = (e: Entry) => {
+                const r: string[] = [fmtDate(e.date), e.partyName ? `${e.memo} — ${e.partyName}` : e.memo];
+                if (showAll) r.push(e.accountName ?? "");
+                r.push(e.reference ?? e.source, csvMoney(e.debit), csvMoney(e.credit), csvMoney(e.balance));
+                return r;
+              };
+              return [
+                header,
+                [t("bankbook.csvOpening"), ...blank, csvMoney(opening)],
+                ...entries.map(row),
+                [t("bankbook.csvClosing"), ...blank, csvMoney(closing)],
+              ];
+            }}
           />
         }
       />
@@ -77,6 +89,7 @@ export default function BankBookPage() {
         <div className="min-w-52 flex-1">
           <Field label={t("bankbook.account")}>
             <select className="field" value={accountId} onChange={(e) => setAccountId(e.target.value)}>
+              <option value="all">{t("bankbook.allAccounts")}</option>
               {banks.map((b) => (
                 <option key={b.id} value={b.id}>{b.name}</option>
               ))}
@@ -106,16 +119,17 @@ export default function BankBookPage() {
           ) : (
             <div className="overflow-x-auto">
               <table className="tbl">
-                <thead><tr><th>{t("bankbook.colDate")}</th><th>{t("bankbook.colDetails")}</th><th>{t("bankbook.colRef")}</th><th className="num">{t("bankbook.colDebit")}</th><th className="num">{t("bankbook.colCredit")}</th><th className="num">{t("bankbook.colBalance")}</th></tr></thead>
+                <thead><tr><th>{t("bankbook.colDate")}</th><th>{t("bankbook.colDetails")}</th>{showAll && <th>{t("bankbook.colAccount")}</th>}<th>{t("bankbook.colRef")}</th><th className="num">{t("bankbook.colDebit")}</th><th className="num">{t("bankbook.colCredit")}</th><th className="num">{t("bankbook.colBalance")}</th></tr></thead>
                 <tbody>
                   <tr className="bg-muted/40">
-                    <td colSpan={5} className="font-bold text-muted-foreground">{t("bankbook.openingBalance")}</td>
+                    <td colSpan={showAll ? 6 : 5} className="font-bold text-muted-foreground">{t("bankbook.openingBalance")}</td>
                     <td className="num font-bold">{fmtMoney(opening)}</td>
                   </tr>
                   {entries.map((e, i) => (
                     <tr key={i}>
                       <td className="whitespace-nowrap text-muted-foreground">{fmtDate(e.date)}</td>
                       <td className="max-w-64 truncate">{e.partyName ? `${e.memo} — ${e.partyName}` : e.memo}</td>
+                      {showAll && <td className="whitespace-nowrap text-muted-foreground">{e.accountName ?? "—"}</td>}
                       <td className="text-muted-foreground"><DocRefLink source={e.source} sourceId={e.sourceId} label={e.reference ?? e.source} className="hover:underline" /></td>
                       <td className="num">{BigInt(e.debit) ? fmtMoney(e.debit) : "—"}</td>
                       <td className="num">{BigInt(e.credit) ? fmtMoney(e.credit) : "—"}</td>
@@ -123,7 +137,7 @@ export default function BankBookPage() {
                     </tr>
                   ))}
                   {entries.length === 0 && (
-                    <tr><td colSpan={6} className="!py-10 text-center text-sm text-muted-foreground">{t("bankbook.noTx")}</td></tr>
+                    <tr><td colSpan={showAll ? 7 : 6} className="!py-10 text-center text-sm text-muted-foreground">{t("bankbook.noTx")}</td></tr>
                   )}
                 </tbody>
               </table>

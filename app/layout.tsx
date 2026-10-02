@@ -6,9 +6,10 @@ import { LangProvider } from "@/components/lang-provider";
 import { brand } from "@/lib/brand";
 
 // Premium type pairing: Plus Jakarta Sans for UI body, Sora for display
-// headlines. Naskh-style Urdu stays simple for beginners.
-const bodySans = Plus_Jakarta_Sans({ variable: "--font-body", subsets: ["latin"], weight: ["400", "600", "800"] });
-const displaySans = Sora({ variable: "--font-display", subsets: ["latin"], weight: ["700", "800"] });
+// headlines. Full weight range so font-medium/bold never fall back to
+// synthetic rendering. Naskh-style Urdu stays simple for beginners.
+const bodySans = Plus_Jakarta_Sans({ variable: "--font-body", subsets: ["latin"], weight: ["400", "500", "600", "700", "800"] });
+const displaySans = Sora({ variable: "--font-display", subsets: ["latin"], weight: ["600", "700", "800"] });
 const geistMono = Geist_Mono({ variable: "--font-geist-mono", subsets: ["latin"] });
 // Clean Naskh-style Urdu font — simple letterforms, easy for beginners
 // (Nastaliq is calligraphic and harder to read).

@@ -100,9 +100,11 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 
-/* Display font for headlines, brand and hero accents */
+/* Display font for headlines, brand and hero accents.
+   --font-urdu sits in the chain so Urdu headlines fall back to the Naskh
+   font instead of a random system Arabic font. */
 .font-display {
-  font-family: var(--font-display), var(--font-body), ui-sans-serif, system-ui, sans-serif;
+  font-family: var(--font-display), var(--font-urdu), var(--font-body), ui-sans-serif, system-ui, sans-serif;
 }
 
 /* Urdu mode: clean Naskh-style font so beginners can read easily */
