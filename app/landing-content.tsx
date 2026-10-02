@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   ArrowRight, BarChart3, Boxes, CheckCircle2, FileText, Landmark,
   ScanBarcode, ShieldCheck, Smartphone, Sparkles, TrendingUp, Users, Wallet,
@@ -10,11 +10,8 @@ import {
 } from "lucide-react";
 import { ThemeToggle, LangToggle } from "@/components/ui";
 import { BrandLockup } from "@/components/brand-logo";
-import { Typewriter, type TwPhrase } from "@/components/typewriter";
 import { brand } from "@/lib/brand";
 import { useLang } from "@/components/lang-provider";
-import { en } from "@/lib/i18n/en";
-import { ur } from "@/lib/i18n/ur";
 
 const features = [
   { icon: FileText, t: "f0t", d: "f0d" },
@@ -77,13 +74,14 @@ export default function LandingContent() {
   const { t } = useLang();
   const b = brand.name;
   const [billing, setBilling] = useState<"m" | "y">("m");
+  const [showStickyCta, setShowStickyCta] = useState(false);
   const L = (k: string, vars?: Record<string, string | number>) => t(`landing.${k}`, vars);
-  const typePhrases: TwPhrase[] = [
-    { text: en.landing.tp0 },
-    { text: ur.landing?.tp0 ?? en.landing.tp0, rtl: true },
-    { text: en.landing.tp1 },
-    { text: ur.landing?.tp1 ?? en.landing.tp1, rtl: true },
-  ];
+  useEffect(() => {
+    const onScroll = () => setShowStickyCta(window.scrollY > 650);
+    onScroll();
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => window.removeEventListener("scroll", onScroll);
+  }, []);
   return (
     <div className="min-h-screen overflow-x-clip bg-background">
       {/* Nav — floating pill, deep ink navy */}
@@ -111,7 +109,7 @@ export default function LandingContent() {
       </header>
 
       {/* Hero — deep ink frame, floating collage */}
-      <section className="relative pt-24 sm:pt-28">
+      <section className="relative pt-20 sm:pt-24">
         <div className="px-3 sm:px-5">
           <div className="relative mx-auto max-w-[1600px] overflow-hidden rounded-[2rem] sm:rounded-[2.5rem]">
             <div className="absolute inset-0 bg-[#101a2c]" />
@@ -120,7 +118,7 @@ export default function LandingContent() {
               <div className="absolute bottom-0 right-[8%] h-80 w-80 rounded-full bg-[#f0b73f]/15 blur-[110px]" />
               <div className="absolute inset-0 opacity-[0.06]" style={{ backgroundImage: "radial-gradient(circle at 1px 1px, #fff 1px, transparent 0)", backgroundSize: "28px 28px" }} />
             </div>
-            <div className="relative grid items-center gap-10 px-6 pb-14 pt-12 sm:px-10 lg:grid-cols-[1.02fr_0.98fr] lg:gap-6 lg:px-14 lg:pb-16 lg:pt-14">
+            <div className="relative grid items-center gap-10 px-6 pb-10 pt-10 sm:px-10 lg:grid-cols-[1.02fr_0.98fr] lg:gap-8 lg:px-12 lg:pb-12 lg:pt-12">
           <div className="text-center lg:text-start">
             <div className="rise inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/10 px-4 py-1.5 text-xs font-semibold text-white shadow-sm backdrop-blur">
               <BadgeCheck size={14} className="text-[#f0b73f]" />
@@ -131,14 +129,6 @@ export default function LandingContent() {
               <span className="text-accent">{L("heroTitleMid")}</span>
               {L("heroTitleB")}
             </h1>
-            <div className="rise rise-1 mt-5 flex min-h-[2.5rem] items-center justify-center gap-2 lg:justify-start" aria-hidden="true">
-              <Sparkles size={18} className="shrink-0 text-[#f0b73f]" />
-              <Typewriter
-                phrases={typePhrases}
-                caretClassName="text-[#f0b73f]"
-                className="font-display bg-gradient-to-r from-[#f0b73f] via-white to-[#f0b73f] bg-clip-text text-lg font-bold text-transparent sm:text-xl"
-              />
-            </div>
             <p className="rise rise-2 mt-5 max-w-xl text-base text-white/85 sm:text-lg lg:mx-0">
               {L("heroSubA")} <span className="font-semibold text-white">{L("heroSubU")}</span> {L("heroSubB", { brand: b })}
             </p>
@@ -157,7 +147,7 @@ export default function LandingContent() {
           </div>
 
           {/* Collage — dashboard centerpiece + floating cards */}
-          <div className="rise rise-2 relative mx-auto w-full max-w-[560px] lg:h-[560px]">
+          <div className="rise rise-2 relative mx-auto w-full max-w-[520px] lg:h-[520px]">
             <div className="pointer-events-none absolute -inset-8 rounded-[2.5rem] bg-[#1e4fa3]/25 blur-3xl" aria-hidden="true" />
             {/* Dashboard — in flow on small screens, centered stage on lg */}
             <div className="relative lg:absolute lg:left-1/2 lg:top-1/2 lg:w-[400px] lg:-translate-x-1/2 lg:-translate-y-1/2">
@@ -286,13 +276,13 @@ export default function LandingContent() {
         </div>
       </section>
 
-      {/* Paper vs LedgerProSolution */}
-      <section className="relative overflow-hidden">
+      {/* Paper vs LedgerProSolution — warm paper tint, thematic */}
+      <section className="relative overflow-hidden bg-[#f7f4ec] dark:bg-white/[0.03]">
         <div className="pointer-events-none absolute inset-0">
           <div className="absolute -left-24 top-10 h-72 w-72 rounded-full bg-primary/10 blur-[110px] dark:bg-primary/20" />
           <div className="absolute -right-24 bottom-10 h-72 w-72 rounded-full bg-[#f0b73f]/15 blur-[110px]" />
         </div>
-        <div className="relative mx-auto max-w-[1400px] px-4 py-12 sm:px-8 sm:py-16 lg:px-12">
+        <div className="relative mx-auto max-w-[1200px] px-4 py-12 sm:px-8 sm:py-16 lg:px-12">
           <div className="text-center">
             <span className="inline-flex items-center gap-1.5 rounded-full bg-accent-soft px-4 py-1.5 text-xs font-bold uppercase tracking-wider text-accent">
               <TriangleAlert size={13} /> {L("paperKicker")}
@@ -300,7 +290,7 @@ export default function LandingContent() {
             <h2 className="font-display mt-4 text-3xl font-extrabold tracking-tight sm:text-4xl">{L("paperTitle")}</h2>
             <p className="mx-auto mt-3 max-w-xl text-muted-foreground">{L("paperSub")}</p>
           </div>
-          <div className="mx-auto mt-10 grid max-w-5xl gap-5 md:grid-cols-2 md:gap-8">
+          <div className="mx-auto mt-8 grid max-w-5xl gap-5 md:grid-cols-2 md:gap-8">
             <div className="rounded-3xl border border-border bg-card/80 p-8 shadow-sm backdrop-blur transition hover:shadow-md sm:p-10">
               <p className="text-sm font-bold uppercase tracking-wider text-muted-foreground">{L("paperColT")}</p>
               <ul className="mt-6 space-y-4">
@@ -336,7 +326,7 @@ export default function LandingContent() {
 
       {/* Stats band */}
       <section className="relative border-y border-border/60 bg-muted/40">
-        <div className="mx-auto grid max-w-[1400px] grid-cols-2 gap-6 px-4 py-10 sm:px-8 sm:py-12 lg:grid-cols-4 lg:px-12">
+        <div className="mx-auto grid max-w-[1200px] grid-cols-2 gap-6 px-4 py-8 sm:px-8 sm:py-10 lg:grid-cols-4 lg:px-12">
           {stats.map((s) => (
             <div key={s.v} className="text-center">
               <p className="font-display text-3xl font-extrabold tracking-tight text-primary sm:text-4xl">{L(s.v)}</p>
@@ -351,15 +341,15 @@ export default function LandingContent() {
         <div className="pointer-events-none absolute inset-0">
           <div className="absolute left-1/2 top-0 h-64 w-[42rem] -translate-x-1/2 rounded-full bg-primary/15 blur-[110px] dark:bg-primary/25" />
         </div>
-        <div className="relative mx-auto max-w-[1400px] px-4 py-16 sm:px-8 sm:py-24 lg:px-12">
-          <div className="text-center">
+        <div className="relative mx-auto max-w-[1200px] px-4 py-12 sm:px-8 sm:py-16 lg:px-12">
+          <div className="max-w-2xl">
             <span className="inline-flex items-center gap-1.5 rounded-full bg-primary/10 px-4 py-1.5 text-xs font-bold uppercase tracking-wider text-primary">
               <Sparkles size={13} /> {L("bizKicker")}
             </span>
             <h2 className="font-display mt-4 text-3xl font-extrabold tracking-tight sm:text-4xl">{L("bizTitle")}</h2>
-            <p className="mx-auto mt-3 max-w-2xl text-muted-foreground">{L("bizSub")}</p>
+            <p className="mt-3 text-muted-foreground">{L("bizSub")}</p>
           </div>
-          <div className="mt-10 grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
+          <div className="mt-8 grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
             {businessTypes.map((bt) => (
               <div key={bt.l} className="card group p-4 transition duration-300 hover:-translate-y-1 hover:border-primary/40 hover:shadow-xl hover:shadow-primary/10 sm:p-6">
                 <span className="grid h-11 w-11 place-items-center rounded-2xl bg-primary/10 text-primary transition group-hover:scale-110 group-hover:bg-primary group-hover:text-white sm:h-12 sm:w-12">
@@ -375,7 +365,7 @@ export default function LandingContent() {
 
       {/* Features */}
       <section id="features" className="relative overflow-hidden">
-        <div className="relative mx-auto max-w-[1400px] px-4 py-16 sm:px-8 sm:py-24 lg:px-12">
+        <div className="relative mx-auto max-w-[1200px] px-4 py-12 sm:px-8 sm:py-16 lg:px-12">
           <div className="text-center">
             <span className="inline-flex items-center gap-1.5 rounded-full bg-primary/10 px-4 py-1.5 text-xs font-bold uppercase tracking-wider text-primary">
               <Boxes size={13} /> {L("featKicker")}
@@ -383,7 +373,7 @@ export default function LandingContent() {
             <h2 className="font-display mt-4 text-3xl font-extrabold tracking-tight sm:text-4xl">{L("featTitle")}</h2>
             <p className="mx-auto mt-3 max-w-2xl text-muted-foreground">{L("featSub", { brand: b })}</p>
           </div>
-          <div className="mt-10 grid gap-4 sm:grid-cols-2 lg:grid-cols-3 lg:gap-5">
+          <div className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-3 lg:gap-5">
             {features.map((f) => (
               <div key={f.t} className="card group p-6 transition duration-300 hover:-translate-y-1 hover:border-primary/40 hover:shadow-xl hover:shadow-primary/10 sm:p-7">
                 <span className="grid h-12 w-12 place-items-center rounded-2xl bg-primary/10 text-primary transition group-hover:scale-110 group-hover:bg-primary group-hover:text-white">
@@ -409,7 +399,7 @@ export default function LandingContent() {
           <div className="absolute -bottom-24 right-1/4 h-72 w-[36rem] rounded-full bg-[#f0b73f]/10 blur-[110px]" />
           <div className="absolute inset-0 opacity-[0.05]" style={{ backgroundImage: "radial-gradient(circle at 1px 1px, #fff 1px, transparent 0)", backgroundSize: "28px 28px" }} />
         </div>
-        <div className="relative mx-auto max-w-[1400px] px-4 py-16 sm:px-8 sm:py-24 lg:px-12">
+        <div className="relative mx-auto max-w-[1200px] px-4 py-12 sm:px-8 sm:py-16 lg:px-12">
           <div className="text-center">
             <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-4 py-1.5 text-xs font-bold uppercase tracking-wider text-white/90">
               <Smartphone size={13} /> {L("stepsKicker")}
@@ -431,8 +421,8 @@ export default function LandingContent() {
       </section>
 
       {/* Trust strip */}
-      <section className="relative overflow-hidden">
-        <div className="relative mx-auto max-w-[1400px] px-4 py-14 sm:px-8 lg:px-12">
+      <section className="relative overflow-hidden bg-muted/40">
+        <div className="relative mx-auto max-w-[1200px] px-4 py-10 sm:px-8 lg:px-12">
           <div className="grid gap-4 sm:grid-cols-3">
             {trust.map((x) => (
               <div key={x.t} className="group flex items-start gap-4 rounded-3xl border border-border bg-card p-6 transition duration-300 hover:-translate-y-1 hover:border-primary/40 hover:shadow-xl hover:shadow-primary/10 sm:p-7">
@@ -449,9 +439,9 @@ export default function LandingContent() {
         </div>
       </section>
 
-      {/* Pricing */}
-      <section id="pricing" className="relative scroll-mt-24 overflow-hidden">
-        <div className="relative mx-auto max-w-[1400px] px-4 py-16 sm:px-8 sm:py-24 lg:px-12">
+      {/* Pricing — soft gold-tinted band so the PRO card glows */}
+      <section id="pricing" className="relative scroll-mt-24 overflow-hidden bg-gradient-to-b from-background via-[#fdf6e3] to-background dark:via-[#f0b73f]/[0.05]">
+        <div className="relative mx-auto max-w-[1200px] px-4 py-12 sm:px-8 sm:py-16 lg:px-12">
           <div className="text-center">
             <span className="inline-flex items-center gap-1.5 rounded-full bg-primary/10 px-4 py-1.5 text-xs font-bold uppercase tracking-wider text-primary">
               <BadgeCheck size={13} /> {L("pricingKicker")}
@@ -524,7 +514,7 @@ export default function LandingContent() {
 
       {/* FAQ */}
       <section id="faq" className="relative overflow-hidden bg-gradient-to-b from-background via-primary-soft/40 to-background dark:via-primary-soft/20">
-        <div className="relative mx-auto grid max-w-[1400px] gap-10 px-4 py-16 sm:px-8 sm:py-24 lg:grid-cols-[1fr_1.5fr] lg:px-12">
+        <div className="relative mx-auto grid max-w-[1200px] gap-10 px-4 py-12 sm:px-8 sm:py-16 lg:grid-cols-[1fr_1.5fr] lg:px-12">
           <div className="lg:sticky lg:top-24 lg:self-start">
             <span className="inline-flex items-center gap-1.5 rounded-full bg-primary/10 px-4 py-1.5 text-xs font-bold uppercase tracking-wider text-primary">
               <CheckCircle2 size={13} /> {L("navFaq")}
@@ -550,8 +540,8 @@ export default function LandingContent() {
       </section>
 
       {/* CTA */}
-      <section className="mx-auto max-w-[1400px] px-4 pb-20 sm:px-8 lg:px-12">
-        <div className="relative overflow-hidden rounded-3xl bg-[#101a2c] p-10 text-center sm:p-14">
+      <section className="mx-auto max-w-[1200px] px-4 pb-14 sm:px-8 lg:px-12">
+        <div className="relative overflow-hidden rounded-3xl bg-[#101a2c] p-8 text-center sm:p-12">
           <div className="pointer-events-none absolute inset-0">
             <div className="absolute -top-20 left-1/3 h-72 w-72 rounded-full bg-[#1e4fa3]/30 blur-[100px]" />
             <div className="absolute -bottom-24 right-1/4 h-64 w-64 rounded-full bg-[#f0b73f]/10 blur-[100px]" />
@@ -569,7 +559,7 @@ export default function LandingContent() {
         <div className="pointer-events-none absolute inset-0">
           <div className="absolute -top-32 left-1/3 h-64 w-[38rem] rounded-full bg-[#1e4fa3]/15 blur-[110px]" />
         </div>
-        <div className="relative mx-auto grid max-w-[1400px] gap-10 px-4 py-14 sm:px-8 md:grid-cols-[1.4fr_1fr_1fr]">
+        <div className="relative mx-auto grid max-w-[1200px] gap-10 px-4 py-10 sm:px-8 md:grid-cols-[1.4fr_1fr_1fr]">
           <div>
             <BrandLockup markSize={40} wordClass="text-lg leading-tight text-white" tagline dark />
             <p className="mt-4 max-w-sm text-sm leading-relaxed text-white/65">{L("footDesc")}</p>
@@ -595,7 +585,7 @@ export default function LandingContent() {
           </div>
         </div>
         <div className="relative border-t border-white/10">
-          <div className="mx-auto flex max-w-[1400px] flex-col items-center justify-between gap-2 px-4 py-5 text-xs text-white/70 sm:flex-row sm:px-8">
+          <div className="mx-auto flex max-w-[1200px] flex-col items-center justify-between gap-2 px-4 py-5 text-xs text-white/70 sm:flex-row sm:px-8">
             <p>© 2026 {b}. {L("footRights")}</p>
             <p className="flex items-center gap-4">
               <Link href="/terms" className="transition hover:text-white">{L("footTerms")}</Link>
@@ -607,6 +597,20 @@ export default function LandingContent() {
           </div>
         </div>
       </footer>
+
+      {/* Sticky mobile CTA — appears after scrolling past the hero */}
+      <div
+        aria-hidden={!showStickyCta}
+        className={`fixed inset-x-3 bottom-3 z-40 transition-all duration-300 md:hidden ${showStickyCta ? "translate-y-0 opacity-100" : "pointer-events-none translate-y-6 opacity-0"}`}
+        style={{ paddingBottom: "env(safe-area-inset-bottom)" }}
+      >
+        <div className="flex items-center justify-between gap-3 rounded-2xl border border-white/15 bg-[#101a2c]/95 py-2.5 pe-2.5 ps-4 shadow-2xl shadow-black/40 backdrop-blur-xl">
+          <p className="min-w-0 flex-1 truncate text-xs font-bold text-white">{L("stickyNote")}</p>
+          <Link href="/signup" className="inline-flex shrink-0 items-center gap-1.5 rounded-xl bg-[#f0b73f] px-4 py-2.5 text-sm font-extrabold text-[#231600] shadow-lg transition active:scale-95">
+            {L("ctaFree")} <ArrowRight size={15} />
+          </Link>
+        </div>
+      </div>
     </div>
   );
 }

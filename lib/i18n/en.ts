@@ -1454,6 +1454,7 @@ export const en = {
     pf6: "Offline sync for the mobile app",
     trialNote: "Every new company gets a 30-day free trial with full PRO access — no credit card needed.",
     ctaFree: "Start free",
+    stickyNote: "Free forever · No credit card",
     ctaPro: "Start 30-day free trial",
     ctaTitle: "Every day on paper is money you can't track.",
     ctaSub: "Join {brand} free — see your real sales, stock, dues and profit today.",
