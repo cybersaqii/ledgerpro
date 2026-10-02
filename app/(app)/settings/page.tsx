@@ -61,15 +61,15 @@ const SECTION_KEYS: Record<(typeof SECTIONS)[number], string> = {
 function SettingsJumpNav() {
   const { t } = useLang();
   return (
-    <nav aria-label={t("settings.navAria")} className="sticky top-16 z-20 -mx-1 mb-6 flex gap-2 overflow-x-auto bg-background/90 px-1 py-2 backdrop-blur-xl">
+    <nav aria-label={t("settings.navAria")} className="sticky top-16 z-20 -mx-1 mb-6 flex gap-2 overflow-x-auto bg-background/90 px-1 py-2 shadow-[var(--shadow-card)] backdrop-blur-xl">
       {SECTIONS.map((id) => (
         <a key={id} href={`#${id}`}
-          className="shrink-0 rounded-full border border-border bg-card px-3.5 py-2 text-xs font-bold text-muted-foreground transition hover:border-primary hover:text-primary">
+          className="inline-flex min-h-11 shrink-0 items-center rounded-full border border-border bg-card px-3.5 text-xs font-bold text-muted-foreground transition hover:border-primary hover:text-primary">
           {t(`settings.${SECTION_KEYS[id]}`)}
         </a>
       ))}
       <a href="/settings/automation"
-        className="shrink-0 rounded-full border border-border bg-card px-3.5 py-2 text-xs font-bold text-muted-foreground transition hover:border-primary hover:text-primary">
+        className="inline-flex min-h-11 shrink-0 items-center rounded-full border border-border bg-card px-3.5 text-xs font-bold text-muted-foreground transition hover:border-primary hover:text-primary">
         {t("rem.navAutomation")}
       </a>
     </nav>
@@ -128,14 +128,14 @@ export default function SettingsPage() {
         icon={<Building2 size={20} />}
       />
       <SettingsJumpNav />
-      <div id="sec-company" className="card card-gloss anchor-scroll mx-auto max-w-2xl p-6 sm:p-8">
+      <div id="sec-company" className="card anchor-scroll mx-auto max-w-2xl p-6 sm:p-8">
         {loading ? (
           <div className="space-y-4">{[1, 2, 3, 4].map((i) => <div key={i} className="skeleton h-12 rounded-xl" />)}</div>
         ) : (
           <form onSubmit={submit} className="space-y-4">
             <ErrorNote message={error} />
             {!canEditCompany && (
-              <div className="rounded-xl bg-amber-500/10 px-4 py-3 text-sm font-semibold text-amber-600 dark:text-amber-400">
+              <div className="rounded-xl bg-warning-soft px-4 py-3 text-sm font-semibold text-warning">
                 {t("settings.staffNote")}
               </div>
             )}
@@ -216,10 +216,10 @@ export default function SettingsPage() {
           </form>
         )}
       </div>
-      <div id="sec-approvals" className="card card-gloss anchor-scroll mt-6 mx-auto max-w-2xl p-6 sm:p-8">
+      <div id="sec-approvals" className="card anchor-scroll mt-6 mx-auto max-w-2xl p-6 sm:p-8">
         {canEditCompany && <ApprovalRulesCard />}
       </div>
-      <div id="sec-currencies" className="card card-gloss anchor-scroll mt-6 mx-auto max-w-2xl p-6 sm:p-8">
+      <div id="sec-currencies" className="card anchor-scroll mt-6 mx-auto max-w-2xl p-6 sm:p-8">
         <div className="flex items-center justify-between gap-3">
           <div>
             <h2 className="text-lg font-extrabold">{t("settingscurrencies.title")}</h2>
@@ -230,7 +230,7 @@ export default function SettingsPage() {
           </Link>
         </div>
       </div>
-      <div id="sec-data" className="card card-gloss anchor-scroll mt-6 mx-auto max-w-2xl p-6 sm:p-8">
+      <div id="sec-data" className="card anchor-scroll mt-6 mx-auto max-w-2xl p-6 sm:p-8">
         <h2 className="text-lg font-extrabold">{t("settings.dataTitle")}</h2>
         <p className="mt-1 text-sm text-muted-foreground">
           {t("settings.dataHint")}
@@ -259,7 +259,7 @@ export default function SettingsPage() {
           </div>
         </div>
       </div>
-      <div id="sec-import" className="card card-gloss anchor-scroll mt-6 mx-auto max-w-2xl p-6 sm:p-8">
+      <div id="sec-import" className="card anchor-scroll mt-6 mx-auto max-w-2xl p-6 sm:p-8">
         <div className="flex items-center justify-between gap-3">
           <div>
             <h2 className="text-lg font-extrabold">{t("settings.importTitle")}</h2>
@@ -271,7 +271,7 @@ export default function SettingsPage() {
         </div>
       </div>
       {/* Module 22: price lists + discount matrix */}
-      <div id="sec-pricing" className="card card-gloss anchor-scroll mt-6 mx-auto max-w-2xl p-6 sm:p-8">
+      <div id="sec-pricing" className="card anchor-scroll mt-6 mx-auto max-w-2xl p-6 sm:p-8">
         <div className="flex items-center justify-between gap-3">
           <div>
             <h2 className="text-lg font-extrabold">{t("pricing.title")}</h2>
@@ -292,7 +292,7 @@ export default function SettingsPage() {
       <YearEndCloseCard />
       <SystemHealthCard isOwner={pageIsOwner} />
       <DangerZoneCard isOwner={pageIsOwner} />
-      <div id="sec-activity" className="card card-gloss anchor-scroll mt-6 mx-auto max-w-2xl p-6 sm:p-8">
+      <div id="sec-activity" className="card anchor-scroll mt-6 mx-auto max-w-2xl p-6 sm:p-8">
         <div className="flex items-center justify-between gap-3">
           <div>
             <h2 className="text-lg font-extrabold">{t("settings.activityTitle")}</h2>
@@ -437,15 +437,15 @@ function BackupsCard({ isOwner }: { isOwner: boolean }) {
   const totalRows = (r: Record<string, number>) => Object.values(r).reduce((a, n) => a + n, 0);
 
   return (
-    <div id="sec-backups" className="card card-gloss anchor-scroll mt-6 mx-auto max-w-2xl p-6 sm:p-8">
+    <div id="sec-backups" className="card anchor-scroll mt-6 mx-auto max-w-2xl p-6 sm:p-8">
       <h2 className="inline-flex items-center gap-2 text-lg font-extrabold"><History size={19} /> {t("settingsbackups.title")}</h2>
       <p className="mt-1 text-sm text-muted-foreground">
         {t("settingsbackups.hint")}
       </p>
       <ErrorNote message={error} />
       {pro === false ? (
-        <div className="mt-4 rounded-2xl border border-amber-500/30 bg-amber-500/5 p-4">
-          <p className="inline-flex items-center gap-2 text-sm font-bold text-amber-700 dark:text-amber-300">
+        <div className="mt-4 rounded-2xl border border-warning/30 bg-warning-soft p-4">
+          <p className="inline-flex items-center gap-2 text-sm font-bold text-warning">
             <Crown size={15} /> {t("settingsbackups.proTitle")}
           </p>
           <p className="mt-1 text-sm text-muted-foreground">
@@ -501,7 +501,7 @@ function BackupsCard({ isOwner }: { isOwner: boolean }) {
                       </button>
                     </div>
                     {v && (
-                      <div className={`mt-2 rounded-xl px-3 py-2 text-xs font-semibold ${v.ok ? "bg-emerald-500/10 text-emerald-700 dark:text-emerald-300" : "bg-red-500/10 text-red-600 dark:text-red-400"}`}>
+                      <div className={`mt-2 rounded-xl px-3 py-2 text-xs font-semibold ${v.ok ? "bg-success-soft text-success" : "bg-danger-soft text-danger"}`}>
                         {v.ok ? (
                           <>{t("settingsbackups.verifiedOk", { records: totalRows(v.rowCounts), sections: Object.keys(v.rowCounts).length })}</>
                         ) : (
@@ -573,7 +573,7 @@ function BackupsCard({ isOwner }: { isOwner: boolean }) {
               <>
                 <ErrorNote message={uploadError} />
                 {verifyErrors.length > 0 && (
-                  <div className="mt-3 rounded-xl bg-red-500/10 px-3 py-2 text-xs font-semibold text-red-600 dark:text-red-400">
+                  <div className="mt-3 rounded-xl bg-danger-soft px-3 py-2 text-xs font-semibold text-danger">
                     <p>{t("settingsbackups.cannotRestore")}</p>
                     <ul className="mt-1 list-disc space-y-0.5 ps-4">
                       {verifyErrors.map((e, i) => <li key={i}>{e}</li>)}
@@ -610,9 +610,9 @@ function BackupsCard({ isOwner }: { isOwner: boolean }) {
                     </div>
                   </dl>
                 </div>
-                <div className="mt-3 flex gap-2 rounded-2xl border border-red-500/30 bg-red-500/5 p-4">
-                  <TriangleAlert size={17} className="mt-0.5 shrink-0 text-red-600 dark:text-red-400" />
-                  <p className="text-sm font-semibold text-red-700 dark:text-red-300">
+                <div className="mt-3 flex gap-2 rounded-2xl border border-danger/30 bg-danger-soft p-4">
+                  <TriangleAlert size={17} className="mt-0.5 shrink-0 text-danger" />
+                  <p className="text-sm font-semibold text-danger">
                     {t("settingsbackups.replaceWarning")}
                   </p>
                 </div>
@@ -632,7 +632,7 @@ function BackupsCard({ isOwner }: { isOwner: boolean }) {
                   />
                 </Field>
                 <div className="mt-4 flex flex-wrap gap-2">
-                  <button type="submit" className="btn bg-red-600 text-sm text-white hover:bg-red-700">
+                  <button type="submit" className="btn bg-danger text-sm text-white hover:bg-danger/90">
                     {t("settingsbackups.restoreBtn")}
                   </button>
                   <button type="button" onClick={closeUpload} className="btn btn-ghost text-sm">{t("settingsbackups.cancel")}</button>
@@ -652,9 +652,9 @@ function BackupsCard({ isOwner }: { isOwner: boolean }) {
 
             {phase === "done" && (
               <>
-                <div className="mt-3 flex gap-2 rounded-2xl border border-emerald-500/30 bg-emerald-500/5 p-4">
-                  <CircleCheck size={17} className="mt-0.5 shrink-0 text-emerald-600 dark:text-emerald-400" />
-                  <p className="text-sm font-semibold text-emerald-700 dark:text-emerald-300">
+                <div className="mt-3 flex gap-2 rounded-2xl border border-success/30 bg-success-soft p-4">
+                  <CircleCheck size={17} className="mt-0.5 shrink-0 text-success" />
+                  <p className="text-sm font-semibold text-success">
                     {t("settingsbackups.restoreDone")}
                   </p>
                 </div>
@@ -732,7 +732,7 @@ function PermissionEditor({ user, onSaved }: { user: TeamUser; onSaved: () => vo
           </div>
         ))}
       </div>
-      {error && <p className="mt-3 text-xs font-semibold text-red-500">{error}</p>}
+      {error && <p className="mt-3 text-xs font-semibold text-danger">{error}</p>}
       {saved && <p className="mt-3 text-xs font-bold text-primary">{t("settingsteam.permsSaved")}</p>}
       <div className="mt-3 flex justify-end">
         <button className="btn btn-primary !px-4 !py-2 text-xs" disabled={busy} onClick={save}>
@@ -772,7 +772,7 @@ function BranchesCard() {
 
   const TYPES = ["WAREHOUSE", "SHOP", "VAN", "OTHER"];
   return (
-    <div id="sec-branches" className="card card-gloss anchor-scroll mt-6 mx-auto max-w-2xl p-6 sm:p-8">
+    <div id="sec-branches" className="card anchor-scroll mt-6 mx-auto max-w-2xl p-6 sm:p-8">
       <h2 className="inline-flex items-center gap-2 text-lg font-extrabold"><Store size={19} /> {t("m4.branchesTitle")}</h2>
       <p className="mt-1 text-sm text-muted-foreground">{t("m4.branchesHint")}</p>
       {loading ? (
@@ -878,7 +878,7 @@ function TeamCard() {
   }
 
   return (
-    <div id="sec-team" className="card card-gloss anchor-scroll mt-6 mx-auto max-w-2xl p-6 sm:p-8">
+    <div id="sec-team" className="card anchor-scroll mt-6 mx-auto max-w-2xl p-6 sm:p-8">
       <div className="flex items-center justify-between gap-3">
         <div>
           <h2 className="inline-flex items-center gap-2 text-lg font-extrabold"><Users size={19} /> {t("settingsteam.title")}</h2>
@@ -892,7 +892,7 @@ function TeamCard() {
       </div>
       <ErrorNote message={forbidden ? null : error} />
       {!forbidden && !isOwner && myRole && (
-        <p className="mt-3 rounded-xl bg-amber-500/10 px-4 py-2.5 text-xs font-semibold text-amber-600 dark:text-amber-400">
+        <p className="mt-3 rounded-xl bg-warning-soft px-4 py-2.5 text-xs font-semibold text-warning">
           {t("settingsteam.managerNote")}
         </p>
       )}
@@ -985,7 +985,7 @@ function TeamCard() {
                     <button className="btn btn-primary !px-3 !py-2 text-xs" disabled={resetBusy}>
                       {resetBusy ? t("settingsteam.resetting") : t("settingsteam.setPassword")}
                     </button>
-                    {resetError && <p className="w-full text-xs font-semibold text-red-500">{resetError}</p>}
+                    {resetError && <p className="w-full text-xs font-semibold text-danger">{resetError}</p>}
                   </form>
                 )}
                 {permsFor === u.id && isOwner && u.role !== "OWNER" && (
@@ -1026,7 +1026,7 @@ function SecurityCard() {
   }
 
   return (
-    <div id="sec-security" className="card card-gloss anchor-scroll mt-6 mx-auto max-w-2xl p-6 sm:p-8">
+    <div id="sec-security" className="card anchor-scroll mt-6 mx-auto max-w-2xl p-6 sm:p-8">
       <h2 className="inline-flex items-center gap-2 text-lg font-extrabold"><KeyRound size={19} /> {t("settingssecurity.title")}</h2>
       <p className="mt-1 text-sm text-muted-foreground">{t("settingssecurity.hint")}</p>
 
@@ -1117,7 +1117,7 @@ function SessionsCard() {
   }
 
   return (
-    <div id="sec-sessions" className="card card-gloss anchor-scroll mt-6 mx-auto max-w-2xl p-6 sm:p-8">
+    <div id="sec-sessions" className="card anchor-scroll mt-6 mx-auto max-w-2xl p-6 sm:p-8">
       <h2 className="inline-flex items-center gap-2 text-lg font-extrabold"><MonitorSmartphone size={19} /> {t("settingssessions.title")}</h2>
       <p className="mt-1 text-sm text-muted-foreground">
         {t("settingssessions.hint")}
@@ -1141,7 +1141,7 @@ function SessionsCard() {
                     {fmtDate(ev.createdAt)}{ev.ip ? ` · ${ev.ip}` : ""}
                   </p>
                 </div>
-                <CircleCheck size={16} className="shrink-0 text-emerald-500" />
+                <CircleCheck size={16} className="shrink-0 text-success" />
               </li>
             ))}
           </ul>
@@ -1184,7 +1184,7 @@ function SessionsCard() {
                         type="button"
                         onClick={() => revokeDevice(d.id)}
                         disabled={revoking === d.id}
-                        className="btn btn-ghost shrink-0 text-sm text-rose-600 dark:text-rose-400"
+                        className="btn btn-ghost shrink-0 text-sm text-danger"
                       >
                         {t("settingssyncdevices.revoke")}
                       </button>
@@ -1196,7 +1196,7 @@ function SessionsCard() {
           )}
         </div>
       </div>
-      <button onClick={logoutEverywhere} disabled={busy || loading} className="btn btn-ghost mt-4 text-sm text-rose-600 dark:text-rose-400">
+      <button onClick={logoutEverywhere} disabled={busy || loading} className="btn btn-ghost mt-4 text-sm text-danger">
         <LogOut size={15} /> {busy ? t("settingssessions.loggingOut") : t("settingssessions.logoutAll")}
       </button>
     </div>
@@ -1236,7 +1236,7 @@ function PeriodLockCard() {
   }
 
   return (
-    <div id="sec-lock" className="card card-gloss anchor-scroll mt-6 mx-auto max-w-2xl p-6 sm:p-8">
+    <div id="sec-lock" className="card anchor-scroll mt-6 mx-auto max-w-2xl p-6 sm:p-8">
       <h2 className="inline-flex items-center gap-2 text-lg font-extrabold"><Lock size={19} /> {t("settingslock.title")}</h2>
       <p className="mt-1 text-sm text-muted-foreground">
         {t("settingslock.hint")}
@@ -1256,7 +1256,7 @@ function PeriodLockCard() {
           <ErrorNote message={error} />
           {done && <p className="rounded-xl bg-primary-soft px-4 py-2.5 text-sm font-semibold text-primary">{done}</p>}
           {lockedUntil ? (
-            <p className="rounded-xl bg-amber-500/10 px-4 py-3 text-sm font-semibold text-amber-600 dark:text-amber-400">
+            <p className="rounded-xl bg-warning-soft px-4 py-3 text-sm font-semibold text-warning">
               {t("settingslock.lockedUpTo", { date: lockedUntil })}
             </p>
           ) : (
@@ -1340,7 +1340,7 @@ function YearEndCloseCard() {
 
   if (!visible) return null;
   return (
-    <div className="card card-gloss anchor-scroll mt-6 mx-auto max-w-2xl p-6 sm:p-8">
+    <div className="card anchor-scroll mt-6 mx-auto max-w-2xl p-6 sm:p-8">
       <h2 className="inline-flex items-center gap-2 text-lg font-extrabold"><CalendarCheck size={19} /> {t("closeyear.title")}</h2>
       <p className="mt-1 text-sm text-muted-foreground">{t("closeyear.hint")}</p>
       {loading ? (
@@ -1412,7 +1412,7 @@ function SystemHealthCard({ isOwner }: { isOwner: boolean }) {
   if (!isOwner) return null;
 
   return (
-    <div id="sec-health" className="card card-gloss anchor-scroll mt-6 mx-auto max-w-2xl p-6 sm:p-8">
+    <div id="sec-health" className="card anchor-scroll mt-6 mx-auto max-w-2xl p-6 sm:p-8">
       <h2 className="inline-flex items-center gap-2 text-lg font-extrabold"><Activity size={19} /> {t("settingshealth.title")}</h2>
       <p className="mt-1 text-sm text-muted-foreground">
         {t("settingshealth.hint")}
@@ -1425,7 +1425,7 @@ function SystemHealthCard({ isOwner }: { isOwner: boolean }) {
         <ul className="mt-4 divide-y divide-border rounded-2xl border border-border">
           {rows.map((r) => (
             <li key={r.id} className="px-4 py-3">
-              <p className="font-mono text-xs font-bold text-red-500">{r.route}</p>
+              <p className="font-mono text-xs font-bold text-danger">{r.route}</p>
               <p className="mt-0.5 truncate text-sm">{r.message}</p>
               <p className="mt-0.5 text-xs text-muted-foreground">{fmtErrorTime(r.createdAt)}</p>
             </li>
@@ -1484,20 +1484,20 @@ function DangerZoneCard({ isOwner }: { isOwner: boolean }) {
   }
 
   return (
-    <div id="sec-danger" className="card anchor-scroll mx-auto mt-6 max-w-2xl border-red-500/30 p-6 sm:p-8">
-      <h2 className="inline-flex items-center gap-2 text-lg font-extrabold text-red-600 dark:text-red-400">
+    <div id="sec-danger" className="card anchor-scroll mx-auto mt-6 max-w-2xl border-danger/30 p-6 sm:p-8">
+      <h2 className="inline-flex items-center gap-2 text-lg font-extrabold text-danger">
         <TriangleAlert size={19} /> {t("settingsdanger.title")}
       </h2>
       <p className="mt-1 text-sm text-muted-foreground">
         {t("settingsdanger.hint")}
       </p>
       {!confirming ? (
-        <button className="btn mt-4 border-red-500/40 text-sm text-red-600 hover:bg-red-500/10 dark:text-red-400"
+        <button className="btn mt-4 border-danger/40 text-sm text-danger hover:bg-danger-soft"
           onClick={() => { setConfirming(true); setError(null); }}>
           {t("settingsdanger.deleteBtn")}
         </button>
       ) : (
-        <form onSubmit={destroy} className="mt-4 space-y-3 rounded-2xl border border-red-500/30 bg-red-500/5 p-4">
+        <form onSubmit={destroy} className="mt-4 space-y-3 rounded-2xl border border-danger/30 bg-danger-soft p-4">
           <ErrorNote message={error} />
           <p className="text-sm font-semibold">
             {t("settingsdanger.confirmType")}{" "}
@@ -1513,7 +1513,7 @@ function DangerZoneCard({ isOwner }: { isOwner: boolean }) {
           </Field>
           <div className="flex flex-wrap gap-2 pt-1">
             <button type="submit" disabled={busy}
-              className="btn bg-red-600 text-sm text-white hover:bg-red-700 disabled:opacity-60">
+              className="btn bg-danger text-sm text-white hover:bg-danger/90 disabled:opacity-60">
               {busy ? t("settingsdanger.deleting") : t("settingsdanger.deleteAll")}
             </button>
             <button type="button" className="btn btn-ghost text-sm"
@@ -1639,7 +1639,7 @@ function AccessSecurityCard() {
   if (!canManage && !canViewBackups) return null;
 
   return (
-    <div id="sec-access" className="card card-gloss anchor-scroll mt-6 mx-auto max-w-2xl p-6 sm:p-8">
+    <div id="sec-access" className="card anchor-scroll mt-6 mx-auto max-w-2xl p-6 sm:p-8">
       <h2 className="inline-flex items-center gap-2 text-lg font-extrabold"><Globe size={19} /> {t("settingsaccess.title")}</h2>
       <p className="mt-1 text-sm text-muted-foreground">{t("settingsaccess.hint")}</p>
       <ErrorNote message={error} />

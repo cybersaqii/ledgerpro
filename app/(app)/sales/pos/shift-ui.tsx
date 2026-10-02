@@ -82,7 +82,7 @@ function SummaryRow({ label, value, bold, tone }: { label: string; value: string
   return (
     <div className="flex items-center justify-between py-1.5">
       <span className="text-sm text-muted-foreground">{label}</span>
-      <span className={`tabular-nums ${bold ? "text-base font-extrabold" : "text-sm font-bold"} ${tone === "danger" ? "text-red-500" : tone === "success" ? "text-emerald-500" : ""}`}>
+      <span className={`tabular-nums ${bold ? "text-base font-extrabold" : "text-sm font-bold"} ${tone === "danger" ? "text-danger" : tone === "success" ? "text-success" : ""}`}>
         {value}
       </span>
     </div>
@@ -238,7 +238,7 @@ function CashMoveDialog({ session, kind, onClose, onDone }: {
         </Field>
         <div className="flex gap-2 pt-1">
           <button className="btn btn-ghost flex-1" onClick={onClose}>{t("pos.cancel")}</button>
-          <button className={`btn flex-1 text-white ${kind === "IN" ? "bg-emerald-600 hover:bg-emerald-700" : "bg-amber-600 hover:bg-amber-700"}`}
+          <button className={`btn flex-1 ${kind === "IN" ? "bg-success-soft text-success border border-success/30 hover:bg-success/15" : "bg-warning-soft text-warning border border-warning/30 hover:bg-warning/15"}`}
             disabled={busy} onClick={submit}>
             {busy ? t("pos.saving") : kind === "IN" ? t("pos.shift.add") : t("pos.shift.takeOut")}
           </button>
@@ -328,9 +328,9 @@ function CloseShiftDialog({ session, terminals, companyName, onClose, onClosed }
           value={counted} onChange={(e) => setCounted(toRs(e.target.value))} />
       </Field>
       {variance !== null && (
-        <div className={`mt-2 flex items-center justify-between rounded-xl px-4 py-3 ${variance === 0n ? "bg-emerald-500/15" : "bg-amber-500/15"}`}>
+        <div className={`mt-2 flex items-center justify-between rounded-xl px-4 py-3 ${variance === 0n ? "bg-success-soft" : "bg-warning-soft"}`}>
           <span className="text-sm font-bold">{t("pos.shift.variance")}</span>
-          <span className={`text-xl font-extrabold ${variance === 0n ? "text-emerald-600" : variance < 0n ? "text-red-500" : "text-amber-600"}`}>
+          <span className={`text-xl font-extrabold ${variance === 0n ? "text-success" : variance < 0n ? "text-danger" : "text-warning"}`}>
             {variance === 0n ? t("pos.shift.exact")
               : `${variance < 0n ? t("pos.shift.short") : t("pos.shift.over")} ${fmtMoney(variance < 0n ? -variance : variance)}`}
           </span>
@@ -429,7 +429,7 @@ function TerminalManager({ terminals, banks, onClose, onChanged }: {
             <div className="flex shrink-0 gap-1">
               <button className="btn btn-ghost !px-3 !py-1.5 text-xs" onClick={() => startEdit(x)}>{t("pos.shift.editTerminal")}</button>
               {x.isActive && (
-                <button className="btn btn-ghost !px-3 !py-1.5 text-xs text-red-500" onClick={() => deactivate(x)}>{t("pos.shift.deactivate")}</button>
+                <button className="btn btn-ghost !px-3 !py-1.5 text-xs text-danger" onClick={() => deactivate(x)}>{t("pos.shift.deactivate")}</button>
               )}
             </div>
           </li>
@@ -521,7 +521,7 @@ export function ShiftBar({ session, onSession, banks }: {
       <div className="card mb-4 flex flex-wrap items-center gap-2 p-3">
         {session ? (
           <>
-            <span className="inline-flex items-center gap-2 rounded-full bg-emerald-500/15 px-3 py-1.5 text-xs font-extrabold text-emerald-600">
+            <span className="inline-flex items-center gap-2 rounded-full bg-success-soft px-3 py-1.5 text-xs font-extrabold text-success">
               <Clock3 size={14} />
               {session.terminalName} · {t("pos.shift.openedAt", { time: new Date(session.openedAt).toLocaleTimeString("en-PK", { hour: "numeric", minute: "2-digit" }) })}
             </span>

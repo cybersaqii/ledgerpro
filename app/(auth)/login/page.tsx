@@ -158,15 +158,15 @@ export default function LoginPage() {
 
       {googleOn && (
         <>
-          <div className="mt-6 flex items-center gap-3 text-xs text-slate-400">
-            <span className="h-px flex-1 bg-slate-200" />
+          <div className="mt-6 flex items-center gap-3 text-xs text-muted-foreground">
+            <span className="h-px flex-1 bg-border" />
             <span>{t("authlayout.orContinue")}</span>
-            <span className="h-px flex-1 bg-slate-200" />
+            <span className="h-px flex-1 bg-border" />
           </div>
           <button
             type="button"
             onClick={googleSignIn}
-            className="mt-4 flex w-full items-center justify-center gap-2.5 rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm font-semibold text-slate-700 shadow-sm transition hover:bg-slate-50"
+            className="mt-4 flex w-full items-center justify-center gap-2.5 rounded-xl border border-border bg-white px-4 py-3 text-sm font-semibold text-[#1f2937] shadow-sm transition hover:bg-[#f8fafc]"
           >
             <GoogleGlyph />
             {t("auth.googleBtn")}

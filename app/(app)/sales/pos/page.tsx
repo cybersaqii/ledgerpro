@@ -625,13 +625,13 @@ export default function PosPage() {
   if (stage === "done" && done) {
     return (
       <div className="mx-auto flex min-h-[70vh] max-w-lg flex-col items-center justify-center px-4 text-center">
-        <span className="grid h-20 w-20 place-items-center rounded-full bg-emerald-500/15 text-emerald-600 dark:text-emerald-400">
+        <span className="grid h-20 w-20 place-items-center rounded-full bg-success-soft text-success">
           <CheckCircle2 size={40} />
         </span>
         <h1 className="mt-5 text-2xl font-extrabold">{t("pos.doneTitle")}</h1>
         <p className="mt-2 text-4xl font-extrabold tracking-tight text-primary">{fmtMoney(done.grand)}</p>
         {done.method === "cash" && done.change > 0 && (
-          <p className="mt-2 rounded-xl bg-amber-500/15 px-4 py-2 text-lg font-bold text-amber-700 dark:text-amber-300">
+          <p className="mt-2 rounded-xl bg-warning-soft px-4 py-2 text-lg font-bold text-warning">
             {t("pos.doneChange", { amount: fmtMoney(done.change) })}
           </p>
         )}
@@ -639,12 +639,12 @@ export default function PosPage() {
           <p className="mt-2 text-sm text-muted-foreground">{t("pos.doneKhata", { party: bp.partyOne.toLowerCase() })}</p>
         )}
         {done.method === "split" && (done.khataAmount ?? 0) > 0 && (
-          <p className="mt-2 rounded-xl bg-amber-500/15 px-4 py-2 text-sm font-bold text-amber-700 dark:text-amber-300">
+          <p className="mt-2 rounded-xl bg-warning-soft px-4 py-2 text-sm font-bold text-warning">
             {t("pos.doneSplit", { paid: fmtMoney(done.grand - done.khataAmount!), khata: fmtMoney(done.khataAmount!) })}
           </p>
         )}
         {done.advanceApplied > 0 && (
-          <p className="mt-2 rounded-xl bg-emerald-500/15 px-4 py-2 text-sm font-bold text-emerald-700 dark:text-emerald-300">
+          <p className="mt-2 rounded-xl bg-success-soft px-4 py-2 text-sm font-bold text-success">
             {t("pos.doneAdvance", { amount: fmtMoney(done.advanceApplied) })}
           </p>
         )}
@@ -718,7 +718,7 @@ export default function PosPage() {
               {parkedLocal.map((p) => {
                 const tt = cartTotals(p.lines, p.discount);
                 return (
-                  <li key={p.id} className="flex items-center justify-between gap-3 rounded-xl bg-amber-500/10 px-4 py-3">
+                  <li key={p.id} className="flex items-center justify-between gap-3 rounded-xl bg-warning-soft px-4 py-3">
                     <div className="min-w-0">
                       <p className="text-sm font-bold">{t("pos.parkedItems", { n: tt.itemCount })} · {fmtMoney(tt.grand)}</p>
                       <p className="text-xs text-muted-foreground">
@@ -853,7 +853,7 @@ export default function PosPage() {
                       {fmtMoney(lineTotalPaisa(l))}
                     </span>
                     <button onClick={() => setLines((ls) => ls.filter((x) => x.key !== l.key))}
-                      className="grid h-11 w-11 shrink-0 place-items-center rounded-lg text-muted-foreground transition hover:bg-red-500/10 hover:text-red-500" aria-label={t("pos.removeFromCart", { name: l.name })}>
+                      className="grid h-11 w-11 shrink-0 place-items-center rounded-lg text-muted-foreground transition hover:bg-danger-soft hover:text-danger" aria-label={t("pos.removeFromCart", { name: l.name })}>
                       <Trash2 size={16} />
                     </button>
                     </div>
@@ -866,7 +866,7 @@ export default function PosPage() {
 
         {/* right: totals + payment */}
         <div className="space-y-4">
-          <div className="card card-gloss card-edge p-5">
+          <div className="card p-5">
             <div className="flex items-center justify-between text-sm">
               <span className="text-muted-foreground">{t("pos.subtotal", { count: totals.itemCount })}</span>
               <span className="font-bold tabular-nums">{fmtMoney(totals.subtotal)}</span>
@@ -892,14 +892,14 @@ export default function PosPage() {
             </div>
           </div>
 
-          <div className="card card-gloss p-4 sm:p-5">
+          <div className="card p-4 sm:p-5">
             <p className="mb-3 text-xs font-extrabold uppercase tracking-wider text-muted-foreground">{t("pos.payment")}</p>
             <div className="grid grid-cols-4 gap-2">
               {([
-                { s: "cash" as Stage, label: t("pos.payCash"), icon: Banknote, cls: "tile-emerald" },
-                { s: "bank" as Stage, label: t("pos.payCard"), icon: CreditCard, cls: "tile-sky" },
-                { s: "split" as Stage, label: t("pos.paySplit"), icon: SplitSquareHorizontal, cls: "tile-violet" },
-                { s: "khata" as Stage, label: t("pos.payKhata"), icon: Users, cls: "tile-amber" },
+                { s: "cash" as Stage, label: t("pos.payCash"), icon: Banknote, cls: "tile-success" },
+                { s: "bank" as Stage, label: t("pos.payCard"), icon: CreditCard, cls: "tile-primary" },
+                { s: "split" as Stage, label: t("pos.paySplit"), icon: SplitSquareHorizontal, cls: "tile-primary" },
+                { s: "khata" as Stage, label: t("pos.payKhata"), icon: Users, cls: "tile-accent" },
               ]).map((m) => (
                 <button
                   key={m.s}
@@ -923,7 +923,7 @@ export default function PosPage() {
                     onChange={(e) => setTendered(e.target.value.replace(/[^0-9.]/g, ""))}
                     onKeyDown={(e) => { if (e.key === "Enter") completeSale(); }} />
                 </div>
-                <div className={`flex items-center justify-between rounded-xl px-4 py-3 ${change > 0 ? "bg-amber-500/15" : "bg-muted"}`}>
+                <div className={`flex items-center justify-between rounded-xl px-4 py-3 ${change > 0 ? "bg-warning-soft" : "bg-muted"}`}>
                   <span className="text-sm font-bold">{t("pos.changeReturn")}</span>
                   <span className="text-xl font-extrabold">{fmtMoney(change)}</span>
                 </div>
@@ -976,7 +976,7 @@ export default function PosPage() {
                     />
                     <button
                       onClick={() => setTenders((ts) => ts.filter((x) => x.key !== td.key))}
-                      className="grid h-11 w-11 shrink-0 place-items-center rounded-xl text-muted-foreground transition hover:bg-red-500/10 hover:text-red-500"
+                      className="grid h-11 w-11 shrink-0 place-items-center rounded-xl text-muted-foreground transition hover:bg-danger-soft hover:text-danger"
                       aria-label={t("pos.removeTender")}
                     >
                       <Trash2 size={16} />
@@ -993,16 +993,16 @@ export default function PosPage() {
                 >
                   <Plus size={15} /> {t("pos.addTender")}
                 </button>
-                <div className={`flex items-center justify-between rounded-xl px-4 py-3 ${splitRemaining === 0 ? "bg-emerald-500/15" : "bg-muted"}`}>
+                <div className={`flex items-center justify-between rounded-xl px-4 py-3 ${splitRemaining === 0 ? "bg-success-soft" : "bg-muted"}`}>
                   <span className="text-sm font-bold">{t("pos.remaining")}</span>
                   <span className="text-xl font-extrabold">{fmtMoney(splitRemaining)}</span>
                 </div>
-                <label className="flex cursor-pointer items-center gap-2.5 rounded-xl bg-amber-500/10 px-4 py-3">
+                <label className="flex cursor-pointer items-center gap-2.5 rounded-xl bg-warning-soft px-4 py-3">
                   <input
                     type="checkbox"
                     checked={splitKhata}
                     onChange={(e) => setSplitKhata(e.target.checked)}
-                    className="h-4 w-4 accent-amber-500"
+                    className="h-4 w-4 accent-warning"
                   />
                   <span className="text-sm font-bold">{t("pos.remainderKhata")}</span>
                 </label>
@@ -1027,7 +1027,7 @@ export default function PosPage() {
                       </ul>
                     )}
                     {khataId && partyQ && (
-                      <p className="text-xs font-bold text-amber-700 dark:text-amber-300">
+                      <p className="text-xs font-bold text-warning">
                         {t("pos.khataWillGo", { amount: fmtMoney(splitRemaining), name: partyQ })}
                       </p>
                     )}

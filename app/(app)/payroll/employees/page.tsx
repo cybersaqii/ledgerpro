@@ -173,7 +173,7 @@ export default function EmployeesPage() {
                     <div className="min-w-0 flex-1">
                       <div className="flex items-center gap-2">
                         <span className="truncate text-sm font-bold">{e.fullName}</span>
-                        {!e.isActive && <span className="rounded-full bg-muted px-2 py-0.5 text-[11px] text-muted-foreground">{t("payroll.inactive")}</span>}
+                        {!e.isActive && <span className="rounded-full bg-muted px-2 py-0.5 text-xs text-muted-foreground">{t("payroll.inactive")}</span>}
                       </div>
                       <div className="mt-0.5 text-xs text-muted-foreground">
                         {e.code} · {empTypeLabel(e.employmentType)} · {fmtMoney(e.baseSalaryPaisa)}
@@ -252,7 +252,7 @@ export default function EmployeesPage() {
                     </Field>
                   ))}
                 </div>
-                <p className="mt-1 text-[11px] text-muted-foreground">{t("payroll.salaryHint")}</p>
+                <p className="mt-1 text-xs text-muted-foreground">{t("payroll.salaryHint")}</p>
               </div>
             )}
             <div className="mt-4 flex justify-end gap-2">

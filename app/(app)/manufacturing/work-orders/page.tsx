@@ -7,6 +7,7 @@ import { PageHeader, EmptyState, ErrorNote, Field } from "@/components/ui";
 import { useLang } from "@/components/lang-provider";
 import { usePermissions } from "@/components/permissions";
 import { api, fmtQty, fmtMoney } from "@/lib/format";
+import { StatusBadge } from "./status-badge";
 
 type WoRow = {
   id: string; woNo: string; status: string; qtyMilli: string; bomVersion: number | null;
@@ -15,23 +16,6 @@ type WoRow = {
 };
 type Product = { id: string; name: string; sku: string; unit: string; trackStock: boolean };
 type Branch = { id: string; name: string; isDefault: boolean };
-
-const STATUS_COLORS: Record<string, string> = {
-  DRAFT: "bg-muted text-muted-foreground",
-  RELEASED: "bg-sky-500/10 text-sky-600 dark:text-sky-400",
-  IN_PROGRESS: "bg-amber-500/10 text-amber-600 dark:text-amber-400",
-  COMPLETED: "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400",
-  CANCELLED: "bg-muted text-muted-foreground",
-  VOIDED: "bg-red-500/10 text-red-600 dark:text-red-400",
-};
-
-export function StatusBadge({ status, t }: { status: string; t: (k: string) => string }) {
-  return (
-    <span className={`rounded-full px-2.5 py-1 text-xs font-bold ${STATUS_COLORS[status] ?? STATUS_COLORS.DRAFT}`}>
-      {t(`mfg.st${status.charAt(0)}${status.slice(1).toLowerCase().replace(/_([a-z])/g, (_, c: string) => c.toUpperCase())}`)}
-    </span>
-  );
-}
 
 const STATUSES = ["DRAFT", "RELEASED", "IN_PROGRESS", "COMPLETED", "CANCELLED", "VOIDED"];
 

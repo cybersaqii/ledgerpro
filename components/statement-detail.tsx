@@ -254,7 +254,7 @@ export function StatementDetail({
                             </span>
                             {canPost && (
                               <button
-                                className="btn btn-ghost !p-1.5 text-muted-foreground hover:text-danger"
+                                className="btn btn-ghost !min-h-11 !min-w-11 !p-2 text-muted-foreground hover:text-danger"
                                 title={m("unmatchBtn")}
                                 onClick={() => unmatch(l.id)}
                               >

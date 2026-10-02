@@ -142,7 +142,7 @@ export default function PaymentDetailPage({ params }: { params: Promise<{ id: st
           {detail.whtAmount && BigInt(detail.whtAmount) > 0n && (
             <>
               <div><dt className="text-xs text-muted-foreground">{t("tax.whtSection")}</dt><dd className="font-bold" dir="ltr">{detail.whtSection ?? "—"}</dd></div>
-              <div><dt className="text-xs text-muted-foreground">{t("tax.payWhtDeducted")}</dt><dd className="font-bold text-amber-700 dark:text-amber-300">{fmtMoney(detail.whtAmount)}</dd></div>
+              <div><dt className="text-xs text-muted-foreground">{t("tax.payWhtDeducted")}</dt><dd className="font-bold text-warning">{fmtMoney(detail.whtAmount)}</dd></div>
             </>
           )}
         </dl>

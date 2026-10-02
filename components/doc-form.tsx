@@ -1008,7 +1008,7 @@ export function DocForm({ mode }: { mode: "SALES" | "PURCHASE" }) {
       <form onSubmit={submit} className="space-y-5">
         <ErrorNote message={error} />
 
-        <div className="card card-gloss rise p-5 sm:p-6">
+        <div className="card rise p-5 sm:p-6">
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
             <Field label={isSales ? bp.partyOne : t("docs.supplier")}>
               <div className="relative">
@@ -1174,7 +1174,7 @@ export function DocForm({ mode }: { mode: "SALES" | "PURCHASE" }) {
           </div>
         </div>
 
-        <div className="card card-gloss rise p-5 sm:p-6">
+        <div className="card rise p-5 sm:p-6">
           <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
             <h2 className="text-base font-bold">{t("docform.items")}</h2>
             <div className="relative" ref={prodBoxRef}>
@@ -1297,7 +1297,7 @@ export function DocForm({ mode }: { mode: "SALES" | "PURCHASE" }) {
                             )}
                           </td>
                           <td>
-                            <button type="button" onClick={() => removeLine(l.key)} className="rounded-lg p-1.5 text-danger hover:bg-danger-soft" aria-label={t("docform.removeItem")}>
+                            <button type="button" onClick={() => removeLine(l.key)} className="grid h-11 w-11 shrink-0 place-items-center rounded-xl text-danger hover:bg-danger-soft" aria-label={t("docform.removeItem")}>
                               <Trash2 size={16} />
                             </button>
                           </td>
@@ -1317,7 +1317,7 @@ export function DocForm({ mode }: { mode: "SALES" | "PURCHASE" }) {
                     <div key={l.key} className={`rounded-2xl border border-border bg-muted/40 p-3 ${flashKey === l.key ? "row-flash" : ""}`}>
                       <div className="flex items-start justify-between gap-2">
                         <p className="text-xs font-bold text-muted-foreground">{t("docform.itemCard", { n: idx + 1 })}</p>
-                        <button type="button" onClick={() => removeLine(l.key)} className="rounded-lg p-1.5 text-danger hover:bg-danger-soft" aria-label={t("docform.removeItem")}>
+                        <button type="button" onClick={() => removeLine(l.key)} className="grid h-11 w-11 shrink-0 place-items-center rounded-xl text-danger hover:bg-danger-soft" aria-label={t("docform.removeItem")}>
                           <Trash2 size={16} />
                         </button>
                       </div>
@@ -1382,7 +1382,7 @@ export function DocForm({ mode }: { mode: "SALES" | "PURCHASE" }) {
         </div>
 
         {!isSales && docType === "BILL" && (
-          <div className="card card-gloss rise p-5 sm:p-6">
+          <div className="card rise p-5 sm:p-6">
             <div className="flex items-center justify-between">
               <div>
                 <h3 className="font-extrabold">{t("docform.extraTitle")}</h3>
@@ -1401,7 +1401,7 @@ export function DocForm({ mode }: { mode: "SALES" | "PURCHASE" }) {
                     <input className="field num !w-32" type="number" min="0" step="0.01" placeholder={t("docform.extraAmountPh")}
                       value={c.amount} onChange={(e) => updateExtraCost(c.key, { amount: e.target.value })} />
                     <button type="button" onClick={() => removeExtraCost(c.key)}
-                      className="rounded-lg p-1.5 text-danger hover:bg-danger-soft" aria-label={t("docform.removeExtra")}>
+                      className="grid h-11 w-11 shrink-0 place-items-center rounded-xl text-danger hover:bg-danger-soft" aria-label={t("docform.removeExtra")}>
                       <Trash2 size={16} />
                     </button>
                   </div>
@@ -1429,7 +1429,7 @@ export function DocForm({ mode }: { mode: "SALES" | "PURCHASE" }) {
         )}
 
         {((isSales && docType === "INVOICE") || (!isSales && docType === "BILL")) && (
-          <div className="card card-gloss rise p-5 sm:p-6">
+          <div className="card rise p-5 sm:p-6">
             <div>
               <h3 className="font-extrabold">{isSales ? t("docform.addReceipt") : t("docform.addPaymentTitle")}</h3>
               <p className="text-xs text-muted-foreground">{t("docform.addReceiptHint")}</p>
@@ -1465,12 +1465,12 @@ export function DocForm({ mode }: { mode: "SALES" | "PURCHASE" }) {
         )}
 
         <div className="grid gap-5 lg:grid-cols-2">
-          <div className="card card-gloss rise rise-1 h-fit p-5 sm:p-6">
+          <div className="card rise rise-1 h-fit p-5 sm:p-6">
             <Field label={t("docform.notes")}>
               <textarea className="field min-h-20" value={notes} onChange={(e) => setNotes(e.target.value)} placeholder={t("docform.notesPlaceholder")} />
             </Field>
           </div>
-          <div className="card card-gloss p-5 sm:p-6">
+          <div className="card p-5 sm:p-6">
             <div className="space-y-2.5 text-sm">
               <div className="flex justify-between"><span className="text-muted-foreground">{t("docform.subtotal")}</span><span className="font-bold">{fmtFx(subtotal)}</span></div>
               {itemDiscTotal > 0n && (
@@ -1506,7 +1506,7 @@ export function DocForm({ mode }: { mode: "SALES" | "PURCHASE" }) {
                 </div>
               )}
               {isForeign && fxRateScaled == null && (
-                <p className="text-xs font-semibold text-amber-600 dark:text-amber-400">{t("docform.errNoFxRate", { code: currencyCode })}</p>
+                <p className="text-xs font-semibold text-warning">{t("docform.errNoFxRate", { code: currencyCode })}</p>
               )}
             </div>
             <div className="mt-5 flex gap-2">

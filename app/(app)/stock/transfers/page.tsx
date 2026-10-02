@@ -146,7 +146,7 @@ export default function StockTransfersPage() {
                     <td className="text-sm">{fmtDate(d.date)}</td>
                     <td className="text-sm">{d.fromBranchName} → {d.toBranchName}</td>
                     <td>
-                      <span className={`badge ${d.status === "IN_TRANSIT" ? "bg-amber-500/15 text-amber-700 dark:text-amber-300" : d.status === "RECEIVED" ? "bg-primary-soft text-primary" : d.status === "CANCELLED" ? "bg-danger-soft text-danger" : "bg-muted text-muted-foreground"}`}>
+                      <span className={`badge ${d.status === "IN_TRANSIT" ? "bg-warning-soft text-warning" : d.status === "RECEIVED" ? "bg-primary-soft text-primary" : d.status === "CANCELLED" ? "bg-danger-soft text-danger" : "bg-muted text-muted-foreground"}`}>
                         {t(`m4.transferStatus${d.status}` as never)}
                       </span>
                     </td>

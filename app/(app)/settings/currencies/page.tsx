@@ -155,12 +155,12 @@ export default function CurrenciesPage() {
 
       {error && <div className="mt-4"><ErrorNote message={error} /></div>}
       {notice && (
-        <div className="mt-4 rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-4 py-3 text-sm font-semibold text-emerald-700 dark:text-emerald-300">
+        <div className="mt-4 rounded-xl border border-success/30 bg-success-soft px-4 py-3 text-sm font-semibold text-success">
           {notice}
         </div>
       )}
 
-      <div className="card card-gloss mt-6 p-5 sm:p-6">
+      <div className="card mt-6 p-5 sm:p-6">
         <div className="flex items-center justify-between gap-3">
           <h2 className="text-base font-extrabold">{t("settingscurrencies.listTitle")}</h2>
           <button onClick={load} className="btn btn-ghost text-xs" disabled={loading}>
@@ -206,7 +206,7 @@ export default function CurrenciesPage() {
                           </span>
                         </span>
                       ) : (
-                        <span className="text-xs font-semibold text-amber-600 dark:text-amber-400">
+                        <span className="text-xs font-semibold text-warning">
                           {t("settingscurrencies.noRate")}
                         </span>
                       )}
@@ -222,7 +222,7 @@ export default function CurrenciesPage() {
 
       {canManage && (
         <>
-          <div className="card card-gloss mt-6 p-5 sm:p-6">
+          <div className="card mt-6 p-5 sm:p-6">
             <h2 className="text-base font-extrabold">{t("settingscurrencies.addTitle")}</h2>
             <p className="mt-1 text-sm text-muted-foreground">{t("settingscurrencies.addHint")}</p>
             <form onSubmit={addCurrency} className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
@@ -258,7 +258,7 @@ export default function CurrenciesPage() {
             </form>
           </div>
 
-          <div className="card card-gloss mt-6 p-5 sm:p-6">
+          <div className="card mt-6 p-5 sm:p-6">
             <h2 className="text-base font-extrabold">{t("settingscurrencies.rateTitle")}</h2>
             <p className="mt-1 text-sm text-muted-foreground">{t("settingscurrencies.rateHint")}</p>
             <form onSubmit={saveRate} className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-4">
@@ -292,7 +292,7 @@ export default function CurrenciesPage() {
         </>
       )}
 
-      <div className="card card-gloss mt-6 p-5 sm:p-6">
+      <div className="card mt-6 p-5 sm:p-6">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <h2 className="text-base font-extrabold">{t("settingscurrencies.historyTitle")}</h2>
           <label className="flex items-center gap-2 text-xs font-bold">

@@ -3,17 +3,19 @@
 import { useState } from "react";
 import { Package } from "lucide-react";
 
-/** Fallback tile palette per business type — professional, muted, dense. */
+/** Fallback tile palette per business type — token-derived gradients
+ * (.tile-* aliases in globals.css), so dark mode and the Ink & Gold
+ * identity apply automatically. */
 const TILE: Record<string, string> = {
-  WHOLESALE: "from-slate-600 to-slate-800",
-  RETAIL: "from-emerald-600 to-emerald-800",
-  DISTRIBUTION: "from-sky-600 to-sky-800",
-  PHARMACY: "from-teal-600 to-teal-800",
-  CLINIC: "from-cyan-600 to-cyan-800",
-  RESTAURANT: "from-amber-600 to-amber-800",
-  SERVICES: "from-indigo-600 to-indigo-800",
-  MANUFACTURING: "from-orange-600 to-orange-800",
-  OTHER: "from-stone-500 to-stone-700",
+  WHOLESALE: "tile-neutral",
+  RETAIL: "tile-success",
+  DISTRIBUTION: "tile-primary",
+  PHARMACY: "tile-primary",
+  CLINIC: "tile-accent",
+  RESTAURANT: "tile-accent",
+  SERVICES: "tile-primary",
+  MANUFACTURING: "tile-danger",
+  OTHER: "tile-neutral",
 };
 
 function initials(name: string): string {
@@ -64,7 +66,7 @@ export function ProductImage({
     <span
       aria-hidden
       style={style}
-      className={`flex shrink-0 items-center justify-center rounded-lg bg-gradient-to-br ${grad} text-white ring-1 ring-black/10 ${className}`}
+      className={`tile ${grad} shrink-0 ring-1 ring-black/10 ${className}`}
     >
       {name && initials(name) !== "?" ? (
         <span className="font-extrabold tracking-tight" style={{ fontSize: size * 0.38 }}>

@@ -47,7 +47,7 @@ export default function BomDetailPage() {
         title={`${t("mfg.bomFor")} ${data.finished?.name ?? ""}`}
         subtitle={`${t("mfg.version")} ${data.header.version} · ${data.finished?.sku ?? ""}`}
         actions={
-          <span className={`rounded-full px-2.5 py-1 text-xs font-bold ${data.header.isActive ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400" : "bg-muted text-muted-foreground"}`}>
+          <span className={`rounded-full px-2.5 py-1 text-xs font-bold ${data.header.isActive ? "bg-success-soft text-success" : "bg-muted text-muted-foreground"}`}>
             {data.header.isActive ? t("mfg.active") : t("mfg.inactive")}
           </span>
         }

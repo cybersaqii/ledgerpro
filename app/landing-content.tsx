@@ -82,13 +82,13 @@ export default function LandingContent() {
   ];
   return (
     <div className="min-h-screen overflow-x-clip bg-background">
-      {/* Nav — floating pill */}
+      {/* Nav — floating pill, deep ink navy */}
       <header className="fixed inset-x-0 top-3 z-40 px-3 sm:top-4 sm:px-6">
-        <div className="mx-auto flex h-14 max-w-[1600px] items-center justify-between gap-2 rounded-full border border-white/15 bg-[#071f19]/80 py-1.5 pl-4 pr-1.5 shadow-2xl shadow-black/30 backdrop-blur-xl sm:h-16 sm:pl-5 sm:pr-2">
+        <div className="mx-auto flex h-14 max-w-[1600px] items-center justify-between gap-2 rounded-full border border-white/15 bg-[#101a2c]/85 py-1.5 pe-1.5 ps-4 shadow-2xl shadow-black/30 backdrop-blur-xl sm:h-16 sm:pe-2 sm:ps-5">
           <Link href="/" className="flex min-w-0 items-center gap-2.5" aria-label={b}>
             <BrandLockup markSize={34} wordClass="font-display text-[1.02rem] leading-none text-white hidden min-[420px]:block" tagline dark />
           </Link>
-          <nav className="hidden items-center gap-7 text-sm font-semibold text-emerald-50/85 lg:flex">
+          <nav className="hidden items-center gap-7 text-sm font-semibold text-white/80 lg:flex">
             <a href="#features" className="transition hover:text-white">{L("navFeatures")}</a>
             <a href="#businesses" className="transition hover:text-white">{L("navBusinesses")}</a>
             <a href="#how" className="transition hover:text-white">{L("navHow")}</a>
@@ -98,65 +98,65 @@ export default function LandingContent() {
             <LangToggle />
             <ThemeToggle />
             <Link href="/login" className="hidden rounded-full px-4 py-2 text-sm font-bold text-white transition hover:bg-white/10 md:inline-flex">{L("navLogin")}</Link>
-            <Link href="/signup" className="inline-flex shrink-0 items-center gap-1.5 rounded-full bg-white px-4 py-2 text-[0.8rem] font-extrabold text-[#0a2e25] transition hover:bg-emerald-50 sm:px-5 sm:text-sm">
+            <Link href="/signup" className="inline-flex shrink-0 items-center gap-1.5 rounded-full bg-white px-4 py-2 text-[0.8rem] font-extrabold text-[#101a2c] transition hover:bg-slate-100 sm:px-5 sm:text-sm">
               {L("navStart")} <ArrowRight size={15} />
             </Link>
           </div>
         </div>
       </header>
 
-      {/* Hero — rounded emerald frame, floating collage */}
+      {/* Hero — deep ink frame, floating collage */}
       <section className="relative pt-24 sm:pt-28">
         <div className="px-3 sm:px-5">
           <div className="relative mx-auto max-w-[1600px] overflow-hidden rounded-[2rem] sm:rounded-[2.5rem]">
-            <div className="absolute inset-0 bg-gradient-to-br from-[#052b21] via-[#0a4634] to-[#062b22]" />
+            <div className="absolute inset-0 bg-[#101a2c]" />
             <div className="pointer-events-none absolute inset-0">
-              <div className="absolute -top-24 left-[12%] h-[380px] w-[560px] rounded-full bg-emerald-400/25 blur-[130px]" />
-              <div className="absolute bottom-0 right-[8%] h-80 w-80 rounded-full bg-teal-300/20 blur-[110px]" />
-              <div className="absolute inset-0 opacity-[0.07]" style={{ backgroundImage: "radial-gradient(circle at 1px 1px, #fff 1px, transparent 0)", backgroundSize: "28px 28px" }} />
+              <div className="absolute -top-24 left-[12%] h-[380px] w-[560px] rounded-full bg-[#1e4fa3]/40 blur-[130px]" />
+              <div className="absolute bottom-0 right-[8%] h-80 w-80 rounded-full bg-[#f0b73f]/15 blur-[110px]" />
+              <div className="absolute inset-0 opacity-[0.06]" style={{ backgroundImage: "radial-gradient(circle at 1px 1px, #fff 1px, transparent 0)", backgroundSize: "28px 28px" }} />
             </div>
-            <div className="relative grid items-center gap-14 px-6 pb-16 pt-12 sm:px-10 lg:grid-cols-[1.02fr_0.98fr] lg:gap-6 lg:px-14 lg:pb-16 lg:pt-14">
-          <div className="text-center lg:text-left">
-            <div className="rise inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/10 px-4 py-1.5 text-xs font-semibold text-emerald-50 shadow-sm backdrop-blur">
-              <BadgeCheck size={14} className="text-amber-300" />
+            <div className="relative grid items-center gap-10 px-6 pb-14 pt-12 sm:px-10 lg:grid-cols-[1.02fr_0.98fr] lg:gap-6 lg:px-14 lg:pb-16 lg:pt-14">
+          <div className="text-center lg:text-start">
+            <div className="rise inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/10 px-4 py-1.5 text-xs font-semibold text-white shadow-sm backdrop-blur">
+              <BadgeCheck size={14} className="text-[#f0b73f]" />
               {L("heroBadge")}
             </div>
             <h1 className="rise rise-1 font-display mt-6 text-4xl font-extrabold leading-[1.06] tracking-tight text-white sm:text-6xl lg:text-[3.6rem]">
               {L("heroTitleA")}{" "}
-              <span className="bg-gradient-to-r from-amber-300 to-emerald-300 bg-clip-text text-transparent">{L("heroTitleMid")}</span>
+              <span className="text-accent">{L("heroTitleMid")}</span>
               {L("heroTitleB")}
             </h1>
             <div className="rise rise-1 mt-5 flex min-h-[2.5rem] items-center justify-center gap-2 lg:justify-start" aria-hidden="true">
-              <Sparkles size={18} className="shrink-0 text-amber-300" />
+              <Sparkles size={18} className="shrink-0 text-[#f0b73f]" />
               <Typewriter
                 phrases={typePhrases}
-                caretClassName="text-amber-200"
-                className="font-display bg-gradient-to-r from-amber-200 via-emerald-100 to-amber-200 bg-clip-text text-lg font-bold text-transparent sm:text-xl"
+                caretClassName="text-[#f0b73f]"
+                className="font-display bg-gradient-to-r from-[#f0b73f] via-white to-[#f0b73f] bg-clip-text text-lg font-bold text-transparent sm:text-xl"
               />
             </div>
-            <p className="rise rise-2 mt-5 max-w-xl text-base text-emerald-50/80 sm:text-lg lg:mx-0">
+            <p className="rise rise-2 mt-5 max-w-xl text-base text-white/85 sm:text-lg lg:mx-0">
               {L("heroSubA")} <span className="font-semibold text-white">{L("heroSubU")}</span> {L("heroSubB", { brand: b })}
             </p>
             <div className="rise rise-3 mt-8 flex flex-wrap items-center justify-center gap-4 lg:justify-start">
-              <Link href="/signup" className="group inline-flex items-center gap-2 rounded-full bg-white px-7 py-3.5 text-base font-extrabold text-[#0a2e25] shadow-xl shadow-black/25 transition hover:bg-emerald-50">
-                {L("heroCtaStart")} <ArrowRight size={18} className="transition-transform group-hover:translate-x-0.5" />
+              <Link href="/signup" className="group inline-flex items-center gap-2 rounded-full bg-white px-7 py-3.5 text-base font-extrabold text-[#101a2c] shadow-xl shadow-black/25 transition hover:bg-slate-100">
+                {L("heroCtaStart")} <ArrowRight size={18} className="transition-transform group-hover:translate-x-0.5 rtl:group-hover:-translate-x-0.5" />
               </Link>
-              <a href="#how" className="group inline-flex items-center gap-3 rounded-full border border-white/20 bg-white/10 py-2 pl-2 pr-5 text-sm font-bold text-white backdrop-blur transition hover:bg-white/20">
-                <span className="grid h-10 w-10 place-items-center rounded-full bg-white text-[#0a2e25]">
-                  <Play size={15} className="ml-0.5 fill-current" />
+              <a href="#how" className="group inline-flex items-center gap-3 rounded-full border border-white/20 bg-white/10 py-2 pe-5 ps-2 text-sm font-bold text-white backdrop-blur transition hover:bg-white/20">
+                <span className="grid h-10 w-10 place-items-center rounded-full bg-white text-[#101a2c]">
+                  <Play size={15} className="ms-0.5 fill-current" />
                 </span>
                 {L("watchDemo")}
               </a>
             </div>
-            <p className="rise rise-4 mt-4 text-xs text-emerald-100/60">{L("heroMicro")}</p>
+            <p className="rise rise-4 mt-4 text-xs text-white/70">{L("heroMicro")}</p>
           </div>
 
-          {/* Collage — dashboard centerpiece + floating cards in fixed zones (no collisions) */}
+          {/* Collage — dashboard centerpiece + floating cards */}
           <div className="rise rise-2 relative mx-auto w-full max-w-[560px] lg:h-[560px]">
-            <div className="pointer-events-none absolute -inset-8 rounded-[2.5rem] bg-emerald-400/15 blur-3xl" aria-hidden="true" />
+            <div className="pointer-events-none absolute -inset-8 rounded-[2.5rem] bg-[#1e4fa3]/25 blur-3xl" aria-hidden="true" />
             {/* Dashboard — in flow on small screens, centered stage on lg */}
             <div className="relative lg:absolute lg:left-1/2 lg:top-1/2 lg:w-[400px] lg:-translate-x-1/2 lg:-translate-y-1/2">
-              <div className="floaty card card-gloss p-5 text-left shadow-2xl sm:p-7">
+              <div className="floaty card card-gloss p-5 text-start shadow-2xl sm:p-7">
                 <div className="flex items-center justify-between">
                   <div>
                     <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">{L("mockToday")}</p>
@@ -183,32 +183,66 @@ export default function LandingContent() {
                 </div>
               </div>
             </div>
-            {/* P&L sparkline card — top-left zone, solid for readability */}
-            <div className="floaty absolute left-0 top-0 z-10 hidden w-44 rounded-2xl bg-white p-4 text-left shadow-2xl shadow-black/25 lg:block" style={{ animationDelay: "-2s" }} aria-hidden="true">
+            {/* Mobile floaters — compact grid so nothing is hidden below lg */}
+            <div className="mt-6 grid grid-cols-2 gap-3 lg:hidden" aria-hidden="true">
+              <div className="floaty rounded-2xl bg-white p-4 text-start shadow-xl shadow-black/20">
+                <p className="text-[0.68rem] font-bold uppercase tracking-wider text-slate-400">{L("fcPlT")}</p>
+                <p className="font-display mt-1 text-xl font-extrabold tracking-tight text-slate-900">Rs 1,84,500</p>
+                <svg viewBox="0 0 120 36" className="mt-2 h-8 w-full" aria-hidden="true">
+                  <polyline points="0,28 15,24 30,26 45,18 60,21 75,13 90,16 105,8 120,10" fill="none" stroke="#1e4fa3" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
+                </svg>
+              </div>
+              <div className="floaty rounded-2xl bg-white p-4 text-start shadow-xl shadow-black/20" style={{ animationDelay: "-3s" }}>
+                <div className="flex items-center justify-between">
+                  <p className="text-xs font-bold text-slate-900">{L("fcInvT")}</p>
+                  <span className="rounded-md bg-primary-soft px-2 py-0.5 text-[0.65rem] font-bold text-primary">INV-0104</span>
+                </div>
+                <p className="mt-2.5 text-lg font-extrabold text-slate-900">Rs 25,000</p>
+                <div className="mt-2.5 rounded-full bg-primary py-2 text-center text-xs font-extrabold text-primary-foreground">{L("fcInvB")}</div>
+              </div>
+              <div className="floaty flex items-center gap-2.5 rounded-2xl bg-white p-3 text-start shadow-xl shadow-black/20" style={{ animationDelay: "-1.5s" }}>
+                <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-gradient-to-br from-[#f0b73f] to-[#b45309] text-[0.7rem] font-extrabold text-[#231600]">AT</span>
+                <span>
+                  <span className="block text-[0.72rem] font-extrabold text-slate-900">Rs 10,000</span>
+                  <span className="block text-[0.65rem] font-medium text-slate-500">{L("fcRecT")} · {L("fcRecD", { name: L("fcRecN0") })}</span>
+                </span>
+              </div>
+              <div className="floaty flex items-center gap-2.5 rounded-2xl bg-white p-3 text-start shadow-xl shadow-black/20" style={{ animationDelay: "-5s" }}>
+                <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-[#fbeed7] text-[#b45309]">
+                  <TriangleAlert size={18} />
+                </span>
+                <span>
+                  <span className="block text-[0.72rem] font-bold text-slate-900">{L("mockAlertTitle")}</span>
+                  <span className="block text-[0.65rem] text-slate-500">{L("mockAlertSub")}</span>
+                </span>
+              </div>
+            </div>
+            {/* P&L sparkline card — top-left zone, solid for readability (lg) */}
+            <div className="floaty absolute left-0 top-0 z-10 hidden w-44 rounded-2xl bg-white p-4 text-start shadow-2xl shadow-black/25 lg:block" style={{ animationDelay: "-2s" }} aria-hidden="true">
               <p className="text-[0.68rem] font-bold uppercase tracking-wider text-slate-400">{L("fcPlT")}</p>
               <p className="font-display mt-1 text-[1.4rem] font-extrabold tracking-tight text-slate-900">Rs 1,84,500</p>
               <svg viewBox="0 0 120 36" className="mt-2 h-9 w-full" aria-hidden="true">
-                <polyline points="0,28 15,24 30,26 45,18 60,21 75,13 90,16 105,8 120,10" fill="none" stroke="#10b981" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
+                <polyline points="0,28 15,24 30,26 45,18 60,21 75,13 90,16 105,8 120,10" fill="none" stroke="#1e4fa3" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
               </svg>
-              <p className="mt-1 text-[0.7rem] font-bold text-emerald-600">{L("fcPlD")}</p>
+              <p className="mt-1 text-[0.7rem] font-bold text-[#1e4fa3]">{L("fcPlD")}</p>
             </div>
-            {/* New invoice card — top-right zone */}
-            <div className="floaty absolute right-0 top-8 z-10 hidden w-48 rounded-2xl bg-white p-4 text-left shadow-2xl shadow-black/25 lg:block" style={{ animationDelay: "-4.2s" }} aria-hidden="true">
+            {/* New invoice card — top-right zone (lg) */}
+            <div className="floaty absolute right-0 top-8 z-10 hidden w-48 rounded-2xl bg-white p-4 text-start shadow-2xl shadow-black/25 lg:block" style={{ animationDelay: "-4.2s" }} aria-hidden="true">
               <div className="flex items-center justify-between">
                 <p className="text-xs font-bold text-slate-900">{L("fcInvT")}</p>
-                <span className="rounded-md bg-emerald-50 px-2 py-0.5 text-[0.65rem] font-bold text-emerald-700">INV-0104</span>
+                <span className="rounded-md bg-primary-soft px-2 py-0.5 text-[0.65rem] font-bold text-primary">INV-0104</span>
               </div>
               <div className="mt-3 flex items-center justify-between rounded-xl bg-slate-100 px-3 py-2.5">
                 <span className="text-sm font-extrabold text-slate-900">Rs 25,000</span>
-                <span className="h-4 w-px animate-pulse bg-emerald-500" />
+                <span className="h-4 w-px animate-pulse bg-primary" />
               </div>
-              <div className="mt-3 rounded-full bg-emerald-600 py-2 text-center text-xs font-extrabold text-white">{L("fcInvB")}</div>
+              <div className="mt-3 rounded-full bg-primary py-2 text-center text-xs font-extrabold text-primary-foreground">{L("fcInvB")}</div>
             </div>
-            {/* Payment received toasts — bottom-right zone */}
+            {/* Payment received toasts — bottom-right zone (lg) */}
             <div className="absolute bottom-16 right-0 z-10 hidden flex-col gap-2.5 lg:flex" aria-hidden="true">
               {[{ n: "fcRecN0", init: "AT", d: "-1.2s" }, { n: "fcRecN1", init: "SK", d: "-3.4s" }].map((r) => (
-                <div key={r.n} className="floaty flex items-center gap-2.5 rounded-2xl bg-white py-2.5 pl-2.5 pr-4 text-left shadow-2xl shadow-black/25" style={{ animationDelay: r.d }}>
-                  <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-gradient-to-br from-amber-300 to-emerald-400 text-[0.7rem] font-extrabold text-[#0a2e25]">{r.init}</span>
+                <div key={r.n} className="floaty flex items-center gap-2.5 rounded-2xl bg-white py-2.5 pe-4 ps-2.5 text-start shadow-2xl shadow-black/25" style={{ animationDelay: r.d }}>
+                  <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-gradient-to-br from-[#f0b73f] to-[#b45309] text-[0.7rem] font-extrabold text-[#231600]">{r.init}</span>
                   <span>
                     <span className="block text-[0.72rem] font-extrabold text-slate-900">Rs 10,000</span>
                     <span className="block text-[0.65rem] font-medium text-slate-500">{L("fcRecT")} · {L("fcRecD", { name: L(r.n) })}</span>
@@ -216,9 +250,9 @@ export default function LandingContent() {
                 </div>
               ))}
             </div>
-            {/* Low stock card — bottom-left zone */}
-            <div className="floaty absolute bottom-0 left-2 z-10 hidden items-center gap-3 rounded-2xl bg-white p-3 pr-5 text-left shadow-2xl shadow-black/25 lg:flex" style={{ animationDelay: "-5.6s" }} aria-hidden="true">
-              <span className="grid h-10 w-10 place-items-center rounded-full bg-amber-100 text-amber-600">
+            {/* Low stock card — bottom-left zone (lg) */}
+            <div className="floaty absolute bottom-0 left-2 z-10 hidden items-center gap-3 rounded-2xl bg-white p-3 pe-5 text-start shadow-2xl shadow-black/25 lg:flex" style={{ animationDelay: "-5.6s" }} aria-hidden="true">
+              <span className="grid h-10 w-10 place-items-center rounded-full bg-[#fbeed7] text-[#b45309]">
                 <TriangleAlert size={20} />
               </span>
               <span>
@@ -230,14 +264,14 @@ export default function LandingContent() {
             </div>
           </div>
         </div>
-        {/* Business-type marquee — solid band, crisp text */}
-        <div className="relative z-10 mt-4 border-y border-white/10 bg-[#082a21]">
+        {/* Business-type marquee — solid ink band, crisp text */}
+        <div className="relative z-10 mt-4 border-y border-white/10 bg-[#0a1120]">
           <div className="overflow-hidden py-5 [mask-image:linear-gradient(to_right,transparent,black_8%,black_92%,transparent)]">
             <div className="animate-marquee flex w-max items-center gap-12 pr-12">
               {[...businessTypes, ...businessTypes].map((bt, i) => (
                 <span key={i} className="flex items-center gap-2.5 text-sm font-bold tracking-wide text-white">
                   <span className="grid h-8 w-8 place-items-center rounded-lg bg-white/10">
-                    <bt.icon size={15} className="text-emerald-300" />
+                    <bt.icon size={15} className="text-[#f0b73f]" />
                   </span>
                   {L(bt.l)}
                 </span>
@@ -250,15 +284,15 @@ export default function LandingContent() {
       {/* Paper vs LedgerProSolution */}
       <section className="relative overflow-hidden">
         <div className="pointer-events-none absolute inset-0">
-          <div className="absolute -left-24 top-10 h-72 w-72 rounded-full bg-emerald-200/40 blur-[110px] dark:bg-emerald-400/10" />
-          <div className="absolute -right-24 bottom-10 h-72 w-72 rounded-full bg-amber-100/60 blur-[110px] dark:bg-amber-400/10" />
+          <div className="absolute -left-24 top-10 h-72 w-72 rounded-full bg-primary/10 blur-[110px] dark:bg-primary/20" />
+          <div className="absolute -right-24 bottom-10 h-72 w-72 rounded-full bg-[#f0b73f]/15 blur-[110px]" />
         </div>
         <div className="relative mx-auto max-w-[1400px] px-4 py-12 sm:px-8 sm:py-16 lg:px-12">
           <div className="text-center">
-            <span className="inline-flex items-center gap-1.5 rounded-full bg-amber-500/10 px-4 py-1.5 text-xs font-bold uppercase tracking-wider text-amber-700 dark:text-amber-300">
+            <span className="inline-flex items-center gap-1.5 rounded-full bg-accent-soft px-4 py-1.5 text-xs font-bold uppercase tracking-wider text-accent">
               <TriangleAlert size={13} /> {L("paperKicker")}
             </span>
-            <h2 className="mt-4 text-3xl font-extrabold tracking-tight sm:text-4xl">{L("paperTitle")}</h2>
+            <h2 className="font-display mt-4 text-3xl font-extrabold tracking-tight sm:text-4xl">{L("paperTitle")}</h2>
             <p className="mx-auto mt-3 max-w-xl text-muted-foreground">{L("paperSub")}</p>
           </div>
           <div className="mx-auto mt-10 grid max-w-5xl gap-5 md:grid-cols-2 md:gap-8">
@@ -267,19 +301,19 @@ export default function LandingContent() {
               <ul className="mt-6 space-y-4">
                 {paperBad.map((k) => (
                   <li key={k} className="flex items-start gap-2.5 text-sm text-muted-foreground">
-                    <XCircle size={17} className="mt-0.5 shrink-0 text-red-400" /> {L(k)}
+                    <XCircle size={17} className="mt-0.5 shrink-0 text-danger" /> {L(k)}
                   </li>
                 ))}
               </ul>
             </div>
-            <div className="rounded-3xl bg-gradient-to-br from-emerald-500 via-teal-500 to-emerald-600 p-[2px] shadow-xl shadow-emerald-500/20 transition hover:shadow-2xl hover:shadow-emerald-500/30">
-              <div className="relative h-full rounded-[calc(1.5rem-2px)] bg-card p-8 sm:p-10">
-                <span className="absolute -top-3.5 left-8 rounded-full bg-gradient-to-r from-emerald-600 to-teal-600 px-3.5 py-1 text-[0.68rem] font-extrabold uppercase tracking-wider text-white shadow-md">{L("recommended")}</span>
-                <p className="bg-gradient-to-r from-emerald-600 to-teal-600 bg-clip-text text-sm font-extrabold uppercase tracking-wider text-transparent">{b}</p>
+            <div className="rounded-3xl border-2 border-primary bg-card p-8 shadow-xl shadow-primary/15 transition hover:shadow-2xl sm:p-10">
+              <div className="relative h-full">
+                <span className="absolute -top-3.5 start-8 rounded-full bg-accent px-3.5 py-1 text-[0.68rem] font-extrabold uppercase tracking-wider text-accent-foreground shadow-md">{L("recommended")}</span>
+                <p className="text-sm font-extrabold uppercase tracking-wider text-primary">{b}</p>
                 <ul className="mt-6 space-y-4">
                   {paperGood.map((k) => (
                     <li key={k} className="flex items-start gap-2.5 text-sm font-medium">
-                      <CheckCircle2 size={17} className="mt-0.5 shrink-0 text-emerald-600" /> {L(k)}
+                      <CheckCircle2 size={17} className="mt-0.5 shrink-0 text-primary" /> {L(k)}
                     </li>
                   ))}
                 </ul>
@@ -287,8 +321,8 @@ export default function LandingContent() {
             </div>
           </div>
           <div className="mt-10 text-center">
-            <Link href="/signup" className="btn btn-primary !px-8 !py-3.5 !text-base shadow-lg shadow-primary/30">
-              {L("paperCta")} <ArrowRight size={18} />
+            <Link href="/signup" className="btn btn-primary group !px-8 !py-3.5 !text-base shadow-lg shadow-primary/30">
+              {L("paperCta")} <ArrowRight size={18} className="transition-transform group-hover:translate-x-0.5 rtl:group-hover:-translate-x-0.5" />
             </Link>
             <p className="mt-3 text-xs text-muted-foreground">{L("paperNote")}</p>
           </div>
@@ -300,7 +334,7 @@ export default function LandingContent() {
         <div className="mx-auto grid max-w-[1400px] grid-cols-2 gap-6 px-4 py-10 sm:px-8 sm:py-12 lg:grid-cols-4 lg:px-12">
           {stats.map((s) => (
             <div key={s.v} className="text-center">
-              <p className="bg-gradient-to-r from-emerald-600 to-teal-600 bg-clip-text text-3xl font-extrabold tracking-tight text-transparent sm:text-4xl">{L(s.v)}</p>
+              <p className="font-display text-3xl font-extrabold tracking-tight text-primary sm:text-4xl">{L(s.v)}</p>
               <p className="mt-1.5 text-xs font-semibold uppercase tracking-wider text-muted-foreground sm:text-sm sm:normal-case sm:tracking-normal">{L(s.l)}</p>
             </div>
           ))}
@@ -308,16 +342,16 @@ export default function LandingContent() {
       </section>
 
       {/* Businesses */}
-      <section id="businesses" className="relative overflow-hidden border-b border-border/40 bg-gradient-to-b from-emerald-50/70 via-emerald-50/30 to-background dark:from-emerald-950/25 dark:via-emerald-950/10 dark:to-background">
+      <section id="businesses" className="relative overflow-hidden border-b border-border/40 bg-gradient-to-b from-primary-soft/50 via-primary-soft/20 to-background dark:from-primary-soft/30 dark:via-primary-soft/10 dark:to-background">
         <div className="pointer-events-none absolute inset-0">
-          <div className="absolute left-1/2 top-0 h-64 w-[42rem] -translate-x-1/2 rounded-full bg-emerald-200/40 blur-[110px] dark:bg-emerald-400/10" />
+          <div className="absolute left-1/2 top-0 h-64 w-[42rem] -translate-x-1/2 rounded-full bg-primary/15 blur-[110px] dark:bg-primary/25" />
         </div>
         <div className="relative mx-auto max-w-[1400px] px-4 py-16 sm:px-8 sm:py-24 lg:px-12">
           <div className="text-center">
             <span className="inline-flex items-center gap-1.5 rounded-full bg-primary/10 px-4 py-1.5 text-xs font-bold uppercase tracking-wider text-primary">
               <Sparkles size={13} /> {L("bizKicker")}
             </span>
-            <h2 className="mt-4 text-3xl font-extrabold tracking-tight sm:text-4xl">{L("bizTitle")}</h2>
+            <h2 className="font-display mt-4 text-3xl font-extrabold tracking-tight sm:text-4xl">{L("bizTitle")}</h2>
             <p className="mx-auto mt-3 max-w-2xl text-muted-foreground">{L("bizSub")}</p>
           </div>
           <div className="mt-10 grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
@@ -341,7 +375,7 @@ export default function LandingContent() {
             <span className="inline-flex items-center gap-1.5 rounded-full bg-primary/10 px-4 py-1.5 text-xs font-bold uppercase tracking-wider text-primary">
               <Boxes size={13} /> {L("featKicker")}
             </span>
-            <h2 className="mt-4 text-3xl font-extrabold tracking-tight sm:text-4xl">{L("featTitle")}</h2>
+            <h2 className="font-display mt-4 text-3xl font-extrabold tracking-tight sm:text-4xl">{L("featTitle")}</h2>
             <p className="mx-auto mt-3 max-w-2xl text-muted-foreground">{L("featSub", { brand: b })}</p>
           </div>
           <div className="mt-10 grid gap-4 sm:grid-cols-2 lg:grid-cols-3 lg:gap-5">
@@ -356,35 +390,35 @@ export default function LandingContent() {
             ))}
           </div>
           <div className="mt-10 text-center">
-            <Link href="/signup" className="btn btn-primary !px-8 !py-3.5 !text-base shadow-lg shadow-primary/30">
-              {L("featCta")} <ArrowRight size={18} />
+            <Link href="/signup" className="btn btn-primary group !px-8 !py-3.5 !text-base shadow-lg shadow-primary/30">
+              {L("featCta")} <ArrowRight size={18} className="transition-transform group-hover:translate-x-0.5 rtl:group-hover:-translate-x-0.5" />
             </Link>
           </div>
         </div>
       </section>
 
       {/* Steps */}
-      <section id="how" className="relative overflow-hidden bg-[#0a2e25]">
+      <section id="how" className="relative overflow-hidden bg-[#101a2c]">
         <div className="pointer-events-none absolute inset-0">
-          <div className="absolute -top-24 left-1/4 h-72 w-[36rem] rounded-full bg-emerald-400/15 blur-[110px]" />
-          <div className="absolute -bottom-24 right-1/4 h-72 w-[36rem] rounded-full bg-teal-300/10 blur-[110px]" />
+          <div className="absolute -top-24 left-1/4 h-72 w-[36rem] rounded-full bg-[#1e4fa3]/25 blur-[110px]" />
+          <div className="absolute -bottom-24 right-1/4 h-72 w-[36rem] rounded-full bg-[#f0b73f]/10 blur-[110px]" />
           <div className="absolute inset-0 opacity-[0.05]" style={{ backgroundImage: "radial-gradient(circle at 1px 1px, #fff 1px, transparent 0)", backgroundSize: "28px 28px" }} />
         </div>
         <div className="relative mx-auto max-w-[1400px] px-4 py-16 sm:px-8 sm:py-24 lg:px-12">
           <div className="text-center">
-            <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-4 py-1.5 text-xs font-bold uppercase tracking-wider text-emerald-100">
+            <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-4 py-1.5 text-xs font-bold uppercase tracking-wider text-white/90">
               <Smartphone size={13} /> {L("stepsKicker")}
             </span>
-            <h2 className="mt-4 text-3xl font-extrabold tracking-tight text-white sm:text-4xl">{L("stepsTitle")}</h2>
-            <p className="mx-auto mt-3 max-w-xl text-emerald-100/70">{L("stepsSub")}</p>
+            <h2 className="font-display mt-4 text-3xl font-extrabold tracking-tight text-white sm:text-4xl">{L("stepsTitle")}</h2>
+            <p className="mx-auto mt-3 max-w-xl text-white/75">{L("stepsSub")}</p>
           </div>
           <div className="relative mx-auto mt-12 grid max-w-5xl gap-5 md:grid-cols-3">
             <div className="pointer-events-none absolute left-[16%] right-[16%] top-10 hidden border-t-2 border-dashed border-white/15 md:block" aria-hidden />
             {steps.map((s) => (
               <div key={s.n} className="relative rounded-3xl border border-white/10 bg-white/[0.06] p-7 text-center backdrop-blur transition hover:bg-white/[0.09] sm:p-8">
-                <span className="relative mx-auto grid h-14 w-14 place-items-center rounded-2xl bg-amber-400 text-xl font-extrabold text-emerald-950 shadow-lg shadow-black/25">{s.n}</span>
+                <span className="relative mx-auto grid h-14 w-14 place-items-center rounded-2xl bg-[#f0b73f] text-xl font-extrabold text-[#231600] shadow-lg shadow-black/25">{s.n}</span>
                 <h3 className="mt-5 text-base font-bold text-white sm:text-lg">{L(s.t)}</h3>
-                <p className="mt-1.5 text-sm leading-relaxed text-emerald-100/70">{L(s.d)}</p>
+                <p className="mt-1.5 text-sm leading-relaxed text-white/75">{L(s.d)}</p>
               </div>
             ))}
           </div>
@@ -411,13 +445,13 @@ export default function LandingContent() {
       </section>
 
       {/* FAQ */}
-      <section id="faq" className="relative overflow-hidden bg-gradient-to-b from-background via-emerald-50/40 to-background dark:via-emerald-950/10">
+      <section id="faq" className="relative overflow-hidden bg-gradient-to-b from-background via-primary-soft/40 to-background dark:via-primary-soft/20">
         <div className="relative mx-auto grid max-w-[1400px] gap-10 px-4 py-16 sm:px-8 sm:py-24 lg:grid-cols-[1fr_1.5fr] lg:px-12">
           <div className="lg:sticky lg:top-24 lg:self-start">
             <span className="inline-flex items-center gap-1.5 rounded-full bg-primary/10 px-4 py-1.5 text-xs font-bold uppercase tracking-wider text-primary">
               <CheckCircle2 size={13} /> {L("navFaq")}
             </span>
-            <h2 className="mt-4 text-3xl font-extrabold tracking-tight sm:text-4xl">{L("faqTitleA")}<br />{L("faqTitleB")}</h2>
+            <h2 className="font-display mt-4 text-3xl font-extrabold tracking-tight sm:text-4xl">{L("faqTitleA")}<br />{L("faqTitleB")}</h2>
             <p className="mt-3 max-w-sm text-muted-foreground">{L("faqSub", { brand: b })}</p>
             <Link href="/signup" className="btn btn-primary mt-6 !px-6 !py-3 text-sm shadow-lg shadow-primary/25">
               {L("faqCta")} <ArrowRight size={16} />
@@ -428,7 +462,7 @@ export default function LandingContent() {
               <details key={f.q} className="card group px-6 py-5 transition hover:border-primary/40">
                 <summary className="flex cursor-pointer items-center justify-between gap-4 font-bold [&::-webkit-details-marker]:hidden">
                   {L(f.q, { brand: b })}
-                  <span className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-gradient-to-br from-emerald-500 to-teal-600 text-xl leading-none text-white shadow transition group-open:rotate-45">+</span>
+                  <span className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-primary text-xl leading-none text-primary-foreground shadow transition group-open:rotate-45">+</span>
                 </summary>
                 <p className="mt-3 text-sm leading-relaxed text-muted-foreground">{L(f.a, { brand: b })}</p>
               </details>
@@ -439,57 +473,57 @@ export default function LandingContent() {
 
       {/* CTA */}
       <section className="mx-auto max-w-[1400px] px-4 pb-20 sm:px-8 lg:px-12">
-        <div className="relative overflow-hidden rounded-3xl p-10 text-center sm:p-14">
-          <div className="absolute inset-0 bg-gradient-to-br from-[#0a2e25] via-[#0d4a3a] to-[#0d7a5f]" />
+        <div className="relative overflow-hidden rounded-3xl bg-[#101a2c] p-10 text-center sm:p-14">
           <div className="pointer-events-none absolute inset-0">
-            <div className="absolute -top-20 left-1/3 h-72 w-72 rounded-full bg-emerald-400/20 blur-[100px]" />
+            <div className="absolute -top-20 left-1/3 h-72 w-72 rounded-full bg-[#1e4fa3]/30 blur-[100px]" />
+            <div className="absolute -bottom-24 right-1/4 h-64 w-64 rounded-full bg-[#f0b73f]/10 blur-[100px]" />
           </div>
-          <h2 className="relative text-3xl font-extrabold tracking-tight text-white sm:text-4xl">{L("ctaTitle")}</h2>
-          <p className="relative mx-auto mt-3 max-w-lg text-emerald-50/80">{L("ctaSub", { brand: b })}</p>
-          <Link href="/signup" className="btn relative mt-7 !border-0 !bg-white !px-8 !py-3.5 !text-base !text-[#0a2e25] shadow-xl hover:!bg-emerald-50">
+          <h2 className="font-display relative text-3xl font-extrabold tracking-tight text-white sm:text-4xl">{L("ctaTitle")}</h2>
+          <p className="relative mx-auto mt-3 max-w-lg text-white/80">{L("ctaSub", { brand: b })}</p>
+          <Link href="/signup" className="btn relative mt-7 !border-0 !bg-white !px-8 !py-3.5 !text-base !text-[#101a2c] shadow-xl hover:!bg-slate-100">
             {L("ctaBtn")} <ArrowRight size={18} />
           </Link>
-          <p className="relative mt-4 text-xs text-emerald-100/60">{L("ctaMicro")}</p>
+          <p className="relative mt-4 text-xs text-white/70">{L("ctaMicro")}</p>
         </div>
       </section>
 
-      <footer className="relative overflow-hidden bg-[#0a2e25] text-emerald-50">
+      <footer className="relative overflow-hidden bg-[#0a1120] text-white">
         <div className="pointer-events-none absolute inset-0">
-          <div className="absolute -top-32 left-1/3 h-64 w-[38rem] rounded-full bg-emerald-400/10 blur-[110px]" />
+          <div className="absolute -top-32 left-1/3 h-64 w-[38rem] rounded-full bg-[#1e4fa3]/15 blur-[110px]" />
         </div>
         <div className="relative mx-auto grid max-w-[1400px] gap-10 px-4 py-14 sm:px-8 md:grid-cols-[1.4fr_1fr_1fr]">
           <div>
             <BrandLockup markSize={40} wordClass="text-lg leading-tight text-white" tagline dark />
-            <p className="mt-4 max-w-sm text-sm leading-relaxed text-emerald-100/60">{L("footDesc")}</p>
-            <Link href="/signup" className="btn mt-5 !border-0 !bg-white !px-6 !py-2.5 !text-sm !text-[#0a2e25] shadow-lg hover:!bg-emerald-50">
+            <p className="mt-4 max-w-sm text-sm leading-relaxed text-white/65">{L("footDesc")}</p>
+            <Link href="/signup" className="btn mt-5 !border-0 !bg-white !px-6 !py-2.5 !text-sm !text-[#101a2c] shadow-lg hover:!bg-slate-100">
               {L("footStart")} <ArrowRight size={16} />
             </Link>
           </div>
           <div>
-            <p className="text-xs font-extrabold uppercase tracking-wider text-emerald-200/60">{L("footProduct")}</p>
+            <p className="text-xs font-extrabold uppercase tracking-wider text-white/50">{L("footProduct")}</p>
             <ul className="mt-4 space-y-2.5 text-sm">
               {footLinks.map(([lk, h]) => (
-                <li key={h}><Link href={h} className="text-emerald-100/75 transition hover:text-white">{L(lk)}</Link></li>
+                <li key={h}><Link href={h} className="text-white/75 transition hover:text-white">{L(lk)}</Link></li>
               ))}
             </ul>
           </div>
           <div>
-            <p className="text-xs font-extrabold uppercase tracking-wider text-emerald-200/60">{L("footMadeFor")}</p>
+            <p className="text-xs font-extrabold uppercase tracking-wider text-white/50">{L("footMadeFor")}</p>
             <ul className="mt-4 space-y-2.5 text-sm">
               {madeFor.map((mk) => (
-                <li key={mk} className="text-emerald-100/75">{L(mk)}</li>
+                <li key={mk} className="text-white/75">{L(mk)}</li>
               ))}
             </ul>
           </div>
         </div>
         <div className="relative border-t border-white/10">
-          <div className="mx-auto flex max-w-[1400px] flex-col items-center justify-between gap-2 px-4 py-5 text-xs text-emerald-100/50 sm:flex-row sm:px-8">
+          <div className="mx-auto flex max-w-[1400px] flex-col items-center justify-between gap-2 px-4 py-5 text-xs text-white/70 sm:flex-row sm:px-8">
             <p>© 2026 {b}. {L("footRights")}</p>
             <p className="flex items-center gap-4">
-              <Link href="/terms" className="transition hover:text-emerald-100">{L("footTerms")}</Link>
-              <Link href="/privacy" className="transition hover:text-emerald-100">{L("footPrivacy")}</Link>
-              <Link href="/support" className="transition hover:text-emerald-100">{L("footSupport")}</Link>
-              <Link href="/changelog" className="transition hover:text-emerald-100">{L("footChangelog")}</Link>
+              <Link href="/terms" className="transition hover:text-white">{L("footTerms")}</Link>
+              <Link href="/privacy" className="transition hover:text-white">{L("footPrivacy")}</Link>
+              <Link href="/support" className="transition hover:text-white">{L("footSupport")}</Link>
+              <Link href="/changelog" className="transition hover:text-white">{L("footChangelog")}</Link>
               <span className="hidden sm:inline">{L("footTagline")}</span>
             </p>
           </div>

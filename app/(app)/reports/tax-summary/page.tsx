@@ -73,11 +73,11 @@ export default function TaxSummaryPage() {
         </div>
       ) : (
         <>
-          <div className={`card mb-4 border-2 p-5 text-center ${net >= 0n ? "border-danger/40 bg-danger-soft" : "border-emerald-500/40 bg-emerald-500/10"}`}>
+          <div className={`card mb-4 border-2 p-5 text-center ${net >= 0n ? "border-danger/40 bg-danger-soft" : "border-success/40 bg-success-soft"}`}>
             <p className="text-xs font-extrabold uppercase tracking-wider text-muted-foreground">
               {net >= 0n ? t("taxsummary.netPayable") : t("taxsummary.netRefundable")}
             </p>
-            <p className={`mt-1 text-4xl font-extrabold tabular-nums ${net >= 0n ? "text-danger" : "text-emerald-600 dark:text-emerald-400"}`}>
+            <p className={`mt-1 text-4xl font-extrabold tabular-nums ${net >= 0n ? "text-danger" : "text-success"}`}>
               {fmtMoney(net >= 0n ? netPayable : ((-net).toString()))}
             </p>
           </div>

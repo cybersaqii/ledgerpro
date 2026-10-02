@@ -5,7 +5,7 @@ import { brand } from "@/lib/brand";
 /**
  * LedgerProSolution brand mark — an original open-ledger motif: two ledger
  * pages, the right page's ruling lines rising into a growth check.
- * Emerald gradient tile, white linework, mobile-first sizes.
+ * Ink & Gold gradient tile (deep navy → primary blue), white linework.
  */
 export function BrandMark({ size = 36, className = "" }: { size?: number; className?: string }) {
   return (
@@ -19,13 +19,13 @@ export function BrandMark({ size = 36, className = "" }: { size?: number; classN
     >
       <defs>
         <linearGradient id="lps-g" x1="0" y1="0" x2="1" y2="1">
-          <stop offset="0" stopColor="#34d399" />
-          <stop offset="0.55" stopColor="#10b981" />
-          <stop offset="1" stopColor="#047857" />
+          <stop offset="0" stopColor="#2b63c4" />
+          <stop offset="0.55" stopColor="#1e4fa3" />
+          <stop offset="1" stopColor="#101a2c" />
         </linearGradient>
       </defs>
       <rect x="3" y="3" width="58" height="58" rx="16" fill="url(#lps-g)" />
-      <rect x="3" y="3" width="58" height="58" rx="16" fill="none" stroke="#065f46" strokeOpacity="0.35" strokeWidth="1.5" />
+      <rect x="3" y="3" width="58" height="58" rx="16" fill="none" stroke="#0a1428" strokeOpacity="0.35" strokeWidth="1.5" />
       {/* open ledger pages */}
       <path
         d="M32 21c-5.5-3.6-11-4.6-16.5-4.2v25c5.5-.4 11 .6 16.5 4.2"
@@ -60,7 +60,7 @@ export function BrandMark({ size = 36, className = "" }: { size?: number; classN
 
 /**
  * Wordmark — "LedgerPro" in the surrounding text color, "Solution" in the
- * primary (emerald) accent. Same spacing/typography everywhere.
+ * primary (sapphire blue) accent. Same spacing/typography everywhere.
  */
 export function BrandWordmark({ className = "" }: { className?: string }) {
   return (
@@ -91,7 +91,7 @@ export function BrandLockup({
       <span className="min-w-0">
         <BrandWordmark className={`block ${wordClass} ${dark ? "text-white" : ""}`} />
         {tagline && (
-          <span className={`mt-0.5 block text-[0.68rem] font-medium ${dark ? "text-emerald-100/70" : "text-muted-foreground"}`}>
+          <span className={`mt-0.5 block text-[0.68rem] font-medium ${dark ? "text-white/70" : "text-muted-foreground"}`}>
             {brand.tagline}
           </span>
         )}

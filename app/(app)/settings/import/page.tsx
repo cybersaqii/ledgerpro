@@ -199,7 +199,7 @@ export default function ImportWizardPage() {
       )}
 
       {step === "upload" && (
-        <div className="card card-gloss mx-auto max-w-2xl p-6 sm:p-8">
+        <div className="card mx-auto max-w-2xl p-6 sm:p-8">
           <div className="flex items-center justify-between gap-3">
             <h2 className="text-lg font-extrabold">{t(`imp.kind${kind === "opening_stock" ? "OpeningStock" : kind[0].toUpperCase() + kind.slice(1)}`)}</h2>
             <a href={`/api/import?kind=${kind}`} className="btn btn-ghost text-sm" download>
@@ -223,7 +223,7 @@ export default function ImportWizardPage() {
       )}
 
       {step === "map" && (
-        <div className="card card-gloss mx-auto max-w-2xl p-6 sm:p-8">
+        <div className="card mx-auto max-w-2xl p-6 sm:p-8">
           <h2 className="text-lg font-extrabold">{t("imp.mapTitle")}</h2>
           <p className="mt-1 text-sm text-muted-foreground">{t("imp.mapHint", { file: file?.name ?? "" })}</p>
           <div className="mt-4 space-y-3">
@@ -254,7 +254,7 @@ export default function ImportWizardPage() {
       )}
 
       {step === "validate" && result && (
-        <div className="card card-gloss mx-auto max-w-3xl p-6 sm:p-8">
+        <div className="card mx-auto max-w-3xl p-6 sm:p-8">
           <h2 className="text-lg font-extrabold">{t("imp.valTitle")}</h2>
           <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
             <Stat label={t("imp.totalRows")} value={result.totalRows} />
@@ -308,7 +308,7 @@ export default function ImportWizardPage() {
       )}
 
       {step === "done" && done && (
-        <div className="card card-gloss mx-auto max-w-2xl p-6 text-center sm:p-8">
+        <div className="card mx-auto max-w-2xl p-6 text-center sm:p-8">
           <CheckCircle2 size={40} className="mx-auto text-primary" />
           <h2 className="mt-3 text-lg font-extrabold">{t("imp.doneTitle")}</h2>
           <p className="mt-1 text-sm text-muted-foreground">

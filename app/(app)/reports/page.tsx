@@ -11,7 +11,19 @@ import { api } from "@/lib/format";
 
 const PRO_HREFS = new Set(["/reports/profit-loss", "/reports/balance-sheet", "/reports/journal", "/reports/tax-summary", "/reports/account-ledger", "/settings/chart-of-accounts"]);
 
-type ReportDef = { key: string; href: string; icon: typeof Scale; title: string; text: string };
+type ReportDef = { key: string; href: string; icon: typeof Scale; title: string; text: string; bucket: string };
+
+/** Buckets in display order — titles reuse the existing reportengine category
+ *  strings so no new user-facing copy is introduced. */
+const BUCKETS = [
+  "catAccounting",
+  "catSales",
+  "catPurchases",
+  "catParties",
+  "catInventory",
+  "catCashBank",
+  "catTaxPayroll",
+] as const;
 
 export default function ReportsHub() {
   const bp = useBusinessProfile();
@@ -42,25 +54,25 @@ export default function ReportsHub() {
   }
 
   const reports: ReportDef[] = [
-    { key: "parametric", href: "/reports/builder", icon: SlidersHorizontal, title: t("reportsindex.builder"), text: t("reportsindex.builderText") },
-    { key: "day-close", href: "/reports/day-close", icon: Sunrise, title: t("reportsindex.dayClose"), text: t("reportsindex.dayCloseText") },
-    { key: "trial-balance", href: "/reports/trial-balance", icon: Scale, title: t("reportsindex.trialBalance"), text: t("reportsindex.trialBalanceText") },
-    { key: "account-ledger", href: "/reports/account-ledger", icon: BookMarked, title: t("reportsindex.accountLedger"), text: t("reportsindex.accountLedgerText") },
-    { key: "chart-of-accounts", href: "/settings/chart-of-accounts", icon: ListTree, title: t("reportsindex.chartOfAccounts"), text: t("reportsindex.chartOfAccountsText") },
-    { key: "profit-loss", href: "/reports/profit-loss", icon: TrendingUp, title: t("reportsindex.profitLoss"), text: t("reportsindex.profitLossText", { sales: bp.salesNav }) },
-    { key: "balance-sheet", href: "/reports/balance-sheet", icon: Landmark, title: t("reportsindex.balanceSheet"), text: t("reportsindex.balanceSheetText") },
-    { key: "party-ledger", href: "/reports/party-ledger", icon: BookOpen, title: t("reportsindex.partyLedgerTitle", { party: bp.partyOne }), text: t("reportsindex.partyLedgerText", { party: bp.partyOne.toLowerCase() }) },
-    { key: "receivables", href: "/reports/receivables", icon: ArrowDownToLine, title: bp.receivables, text: t("reportsindex.receivablesText") },
-    { key: "payables", href: "/reports/payables", icon: ArrowUpFromLine, title: t("reportsindex.payables"), text: t("reportsindex.payablesText") },
-    { key: "journal", href: "/reports/journal", icon: ScrollText, title: t("reportsindex.journal"), text: t("reportsindex.journalText") },
-    { key: "stock", href: "/stock", icon: Boxes, title: t("reportsindex.stockTitle", { stock: bp.stock }), text: t("reportsindex.stockText", { product: bp.productOne.toLowerCase() }) },
-    { key: "statements", href: "/reports/statements", icon: FileText, title: t("reportsindex.statements", { party: bp.partyOne }), text: t("reportsindex.statementsText", { party: bp.partyOne.toLowerCase() }) },
-    { key: "sale-summary", href: "/reports/sale-summary", icon: ClipboardList, title: t("reportsindex.saleSummary"), text: t("reportsindex.saleSummaryText", { parties: bp.partyMany.toLowerCase() }) },
-    { key: "purchase-summary", href: "/reports/purchase-summary", icon: ClipboardCheck, title: t("reportsindex.purchaseSummary"), text: t("reportsindex.purchaseSummaryText") },
-    { key: "product-sales", href: "/reports/product-sales", icon: Package, title: t("fix4.psr.title"), text: t("fix4.psr.galleryText") },
-    { key: "bank-book", href: "/reports/bank-book", icon: Wallet, title: t("reportsindex.bankBook"), text: t("reportsindex.bankBookText") },
-    { key: "day-book", href: "/reports/day-book", icon: CalendarDays, title: t("reportsindex.dayBook"), text: t("reportsindex.dayBookText") },
-    { key: "tax-summary", href: "/reports/tax-summary", icon: Percent, title: t("reportsindex.taxSummary"), text: t("reportsindex.taxSummaryText") },
+    { key: "parametric", bucket: "catAccounting", href: "/reports/builder", icon: SlidersHorizontal, title: t("reportsindex.builder"), text: t("reportsindex.builderText") },
+    { key: "day-close", bucket: "catAccounting", href: "/reports/day-close", icon: Sunrise, title: t("reportsindex.dayClose"), text: t("reportsindex.dayCloseText") },
+    { key: "trial-balance", bucket: "catAccounting", href: "/reports/trial-balance", icon: Scale, title: t("reportsindex.trialBalance"), text: t("reportsindex.trialBalanceText") },
+    { key: "account-ledger", bucket: "catAccounting", href: "/reports/account-ledger", icon: BookMarked, title: t("reportsindex.accountLedger"), text: t("reportsindex.accountLedgerText") },
+    { key: "chart-of-accounts", bucket: "catAccounting", href: "/settings/chart-of-accounts", icon: ListTree, title: t("reportsindex.chartOfAccounts"), text: t("reportsindex.chartOfAccountsText") },
+    { key: "profit-loss", bucket: "catAccounting", href: "/reports/profit-loss", icon: TrendingUp, title: t("reportsindex.profitLoss"), text: t("reportsindex.profitLossText", { sales: bp.salesNav }) },
+    { key: "balance-sheet", bucket: "catAccounting", href: "/reports/balance-sheet", icon: Landmark, title: t("reportsindex.balanceSheet"), text: t("reportsindex.balanceSheetText") },
+    { key: "party-ledger", bucket: "catParties", href: "/reports/party-ledger", icon: BookOpen, title: t("reportsindex.partyLedgerTitle", { party: bp.partyOne }), text: t("reportsindex.partyLedgerText", { party: bp.partyOne.toLowerCase() }) },
+    { key: "receivables", bucket: "catParties", href: "/reports/receivables", icon: ArrowDownToLine, title: bp.receivables, text: t("reportsindex.receivablesText") },
+    { key: "payables", bucket: "catParties", href: "/reports/payables", icon: ArrowUpFromLine, title: t("reportsindex.payables"), text: t("reportsindex.payablesText") },
+    { key: "journal", bucket: "catAccounting", href: "/reports/journal", icon: ScrollText, title: t("reportsindex.journal"), text: t("reportsindex.journalText") },
+    { key: "stock", bucket: "catInventory", href: "/stock", icon: Boxes, title: t("reportsindex.stockTitle", { stock: bp.stock }), text: t("reportsindex.stockText", { product: bp.productOne.toLowerCase() }) },
+    { key: "statements", bucket: "catParties", href: "/reports/statements", icon: FileText, title: t("reportsindex.statements", { party: bp.partyOne }), text: t("reportsindex.statementsText", { party: bp.partyOne.toLowerCase() }) },
+    { key: "sale-summary", bucket: "catSales", href: "/reports/sale-summary", icon: ClipboardList, title: t("reportsindex.saleSummary"), text: t("reportsindex.saleSummaryText", { parties: bp.partyMany.toLowerCase() }) },
+    { key: "purchase-summary", bucket: "catPurchases", href: "/reports/purchase-summary", icon: ClipboardCheck, title: t("reportsindex.purchaseSummary"), text: t("reportsindex.purchaseSummaryText") },
+    { key: "product-sales", bucket: "catSales", href: "/reports/product-sales", icon: Package, title: t("fix4.psr.title"), text: t("fix4.psr.galleryText") },
+    { key: "bank-book", bucket: "catCashBank", href: "/reports/bank-book", icon: Wallet, title: t("reportsindex.bankBook"), text: t("reportsindex.bankBookText") },
+    { key: "day-book", bucket: "catAccounting", href: "/reports/day-book", icon: CalendarDays, title: t("reportsindex.dayBook"), text: t("reportsindex.dayBookText") },
+    { key: "tax-summary", bucket: "catTaxPayroll", href: "/reports/tax-summary", icon: Percent, title: t("reportsindex.taxSummary"), text: t("reportsindex.taxSummaryText") },
   ];
 
   const visible = reports.filter((r) => canAccounting || !PRO_HREFS.has(r.href));
@@ -75,18 +87,18 @@ export default function ReportsHub() {
     const locked = isFree && PRO_HREFS.has(r.href);
     const starred = favorites.includes(r.key);
     return (
-      <Link key={r.href} href={r.href} className={`card card-gloss card-lift rise rise-${(i % 4) + 1} group relative p-6`}>
+      <Link key={r.href} href={r.href} className={`card card-lift rise rise-${(i % 4) + 1} group relative p-6`}>
         <button
           type="button"
           aria-label={t("reportsindex.favToggle")}
           aria-pressed={starred}
           onClick={(e) => { e.preventDefault(); e.stopPropagation(); toggleFav(r.key); }}
-          className={`absolute end-4 top-4 rounded-full p-1.5 transition ${starred ? "text-amber-500" : "text-muted-foreground/40 hover:text-amber-500"}`}
+          className={`absolute end-4 top-4 grid h-11 w-11 place-items-center rounded-full transition ${starred ? "text-accent" : "text-muted-foreground/40 hover:text-accent"}`}
         >
           <Star size={17} fill={starred ? "currentColor" : "none"} />
         </button>
         {locked && (
-          <span className="absolute end-4 top-12 inline-flex items-center gap-1 rounded-full bg-gradient-to-r from-amber-100 to-orange-100 px-2.5 py-1 text-xs font-bold text-amber-800 shadow-sm dark:from-amber-900/50 dark:to-orange-900/50 dark:text-amber-200">
+          <span className="absolute end-4 top-14 inline-flex items-center gap-1 rounded-full border border-accent/30 bg-accent-soft px-2.5 py-1 text-xs font-bold text-accent">
             <Crown size={12} /> PRO
           </span>
         )}
@@ -115,16 +127,27 @@ export default function ReportsHub() {
       {favList.length > 0 && (
         <div className="mb-8">
           <h2 className="mb-3 flex items-center gap-2 text-sm font-extrabold uppercase tracking-wider text-muted-foreground">
-            <Star size={14} className="text-amber-500" fill="currentColor" /> {t("reportsindex.favorites")}
+            <Star size={14} className="text-accent" fill="currentColor" /> {t("reportsindex.favorites")}
           </h2>
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {favList.map((r, i) => card(r, i))}
           </div>
         </div>
       )}
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        {rest.map((r, i) => card(r, i))}
-      </div>
+      {BUCKETS.map((b) => {
+        const items = rest.filter((r) => r.bucket === b);
+        if (items.length === 0) return null;
+        return (
+          <div key={b} className="mb-8">
+            <h2 className="mb-3 text-sm font-extrabold uppercase tracking-wider text-muted-foreground">
+              {t(`reportengine.${b}`)}
+            </h2>
+            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+              {items.map((r, i) => card(r, i))}
+            </div>
+          </div>
+        );
+      })}
       {searched.length === 0 && (
         <p className="card mt-2 px-6 py-10 text-center text-sm text-muted-foreground">{t("reportsindex.noMatch")}</p>
       )}

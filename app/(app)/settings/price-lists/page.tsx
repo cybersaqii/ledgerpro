@@ -298,7 +298,7 @@ export default function PriceListsPage() {
           <button type="button" className="btn btn-ghost mb-4 text-sm" onClick={() => { setOpenList(null); loadLists(); }}>
             ← {openList.name}
           </button>
-          <div className="card card-gloss p-5 sm:p-6">
+          <div className="card p-5 sm:p-6">
             <div className="flex flex-wrap items-center justify-between gap-3">
               <h2 className="text-base font-extrabold">{t("pricing.ratesTitle", { name: openList.name })}</h2>
               <button type="button" className="btn btn-primary text-sm" disabled={savingRates || items.length === 0} onClick={saveRates}>
@@ -398,7 +398,7 @@ export default function PriceListsPage() {
       )}
 
       {tab === "matrix" && (
-        <div className="card card-gloss p-5 sm:p-6">
+        <div className="card p-5 sm:p-6">
           <h2 className="text-base font-extrabold">{t("pricing.matrixTitle")}</h2>
           <p className="mt-1 text-sm text-muted-foreground">{t("pricing.matrixHint")}</p>
 

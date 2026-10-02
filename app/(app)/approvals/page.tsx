@@ -26,12 +26,12 @@ type ApprovalItem = {
 function StatusBadge({ status, t }: { status: string; t: (k: string) => string }) {
   const color =
     status === "APPROVED"
-      ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"
+      ? "bg-success-soft text-success"
       : status === "REJECTED"
-        ? "bg-red-500/10 text-red-600 dark:text-red-400"
+        ? "bg-danger-soft text-danger"
         : status === "CANCELLED"
           ? "bg-muted text-muted-foreground"
-          : "bg-amber-500/10 text-amber-600 dark:text-amber-400";
+          : "bg-warning-soft text-warning";
   return (
     <span className={`rounded-full px-2.5 py-1 text-xs font-bold ${color}`}>
       {t(`approvals.status.${status}`)}
@@ -116,7 +116,7 @@ export default function ApprovalsPage() {
           {(["PENDING", "DECIDED"] as const).map((f) => (
             <button
               key={f}
-              className={`btn btn-sm ${filter === f ? "btn-primary" : ""}`}
+              className={`btn !py-2 text-sm ${filter === f ? "btn-primary" : "btn-ghost"}`}
               onClick={() => setFilter(f)}
             >
               {t(`approvals.filter.${f}`)}
@@ -165,7 +165,7 @@ export default function ApprovalsPage() {
                   {pending && (
                     <div className="mt-3 flex flex-wrap gap-2 border-t border-border pt-3">
                       <button
-                        className="btn btn-primary btn-sm"
+                        className="btn btn-primary !py-2 text-sm"
                         disabled={busyId === it.id}
                         onClick={() => {
                           if (window.confirm(t("approvals.approveConfirm"))) act(it.id, "approve");
@@ -173,11 +173,11 @@ export default function ApprovalsPage() {
                       >
                         <Check size={16} /> {busyId === it.id ? t("common.saving") : t("approvals.approve")}
                       </button>
-                      <button className="btn btn-sm" disabled={busyId === it.id} onClick={() => setRejectId(it.id)}>
+                      <button className="btn btn-ghost !py-2 text-sm" disabled={busyId === it.id} onClick={() => setRejectId(it.id)}>
                         <X size={16} /> {t("approvals.reject")}
                       </button>
                       <button
-                        className="btn btn-ghost btn-sm text-destructive"
+                        className="btn btn-ghost !py-2 text-sm text-danger"
                         disabled={busyId === it.id}
                         onClick={() => {
                           if (window.confirm(t("approvals.cancelConfirm"))) act(it.id, "cancel");
@@ -200,13 +200,13 @@ export default function ApprovalsPage() {
                       />
                       <div className="mt-2 flex gap-2">
                         <button
-                          className="btn btn-primary btn-sm"
+                          className="btn btn-primary !py-2 text-sm"
                           disabled={busyId === it.id || !comment.trim()}
                           onClick={() => act(it.id, "reject", comment)}
                         >
                           {t("approvals.reject")}
                         </button>
-                        <button className="btn btn-sm" onClick={() => { setRejectId(null); setComment(""); }}>
+                        <button className="btn btn-ghost !py-2 text-sm" onClick={() => { setRejectId(null); setComment(""); }}>
                           {t("common.cancel")}
                         </button>
                       </div>

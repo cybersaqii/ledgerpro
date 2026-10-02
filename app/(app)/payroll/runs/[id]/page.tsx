@@ -104,7 +104,7 @@ export default function RunDetailPage() {
               <>
                 <a className="btn btn-ghost !py-2 text-sm" href={`/api/payroll/runs/${id}/advice`}><Download size={15} />{t("payroll.bankAdvice")}</a>
                 <button className="btn btn-primary !py-2 text-sm" disabled={busy} onClick={() => setDisburseOpen(true)}><Landmark size={15} />{t("payroll.disburse")}</button>
-                <button className="btn btn-ghost !py-2 text-sm !text-rose-600" disabled={busy} onClick={() => act("/void", t("payroll.confirmVoid"))}>{t("payroll.voidRun")}</button>
+                <button className="btn btn-ghost !py-2 text-sm !text-danger" disabled={busy} onClick={() => act("/void", t("payroll.confirmVoid"))}>{t("payroll.voidRun")}</button>
               </>
             )}
             {run.status === "PAID" && (

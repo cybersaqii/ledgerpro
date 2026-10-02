@@ -15,10 +15,16 @@ import { useBusinessProfile } from "@/components/business-type";
 import { newSaleHref } from "@/lib/business-types";
 import { useLang } from "@/components/lang-provider";
 import { useCan } from "@/components/permissions";
+import dynamic from "next/dynamic";
 import { metricTileTarget, type MetricTileKey } from "@/lib/dashboard-tiles";
-import {
-  ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, CartesianGrid,
-} from "recharts";
+// recharts (~372KB) loads after first paint so the KPI tiles render first.
+const SalesTrendChart = dynamic(
+  () => import("@/components/sales-trend-chart").then((m) => m.SalesTrendChart),
+  {
+    ssr: false,
+    loading: () => <div className="h-full w-full animate-pulse rounded-xl bg-muted/60" aria-hidden="true" />,
+  },
+);
 
 type DashboardData = {
   kpis: {
@@ -100,7 +106,7 @@ export default function DashboardPage() {
   if (error) return (
     <div>
       <PageHeader title={t("dashboard.title")} icon={<LayoutDashboard size={20} />} />
-      <div className="card card-gloss mx-auto flex max-w-lg flex-col items-center gap-3 p-8 text-center">
+      <div className="card mx-auto flex max-w-lg flex-col items-center gap-3 p-8 text-center">
         <span className="tile tile-danger h-14 w-14">
           <TriangleAlert size={26} />
         </span>
@@ -132,13 +138,13 @@ export default function DashboardPage() {
     icon: ReactNode; tone: "primary" | "accent" | "danger" | "neutral"; target: string;
   }> = [
     { key: "salesToday", label: t("dashboard.salesToday", { sales: bp.salesNav }), value: fmtMoney(k.salesToday), icon: <TrendingUp size={20} />, tone: "primary", target: bp.salesNav },
-    { key: "salesMonth", label: t("dashboard.salesThisMonth", { sales: bp.salesNav }), value: fmtMoney(k.salesMonth), icon: <ShoppingBag size={20} />, tone: "primary", target: bp.salesNav },
     { key: "receivables", label: bp.receivables, value: fmtMoney(k.receivables), sub: t("dashboard.fromParties", { parties: bp.partyMany.toLowerCase() }), icon: <ArrowDownToLine size={20} />, tone: "accent", target: bp.receivables },
     { key: "payables", label: t("dashboard.toPay"), value: fmtMoney(k.payables), sub: t("dashboard.toSuppliers"), icon: <ArrowUpFromLine size={20} />, tone: "danger", target: t("balances.payables") },
+    { key: "lowStock", label: t("dashboard.lowStock"), value: String(k.lowStock), sub: t("dashboard.needsReorder"), icon: <TriangleAlert size={20} />, tone: k.lowStock > 0 ? "danger" : "neutral", target: t("dashboard.lowStock") },
+    { key: "salesMonth", label: t("dashboard.salesThisMonth", { sales: bp.salesNav }), value: fmtMoney(k.salesMonth), icon: <ShoppingBag size={20} />, tone: "primary", target: bp.salesNav },
+    { key: "profitLoss", label: t("dashboard.profitLoss"), value: fmtMoney(k.profitMonth), sub: t("dashboard.profitSub"), icon: <FileText size={20} />, tone: "primary", target: t("dashboard.profitLoss") },
     { key: "cashBank", label: t("dashboard.cashBank"), value: fmtMoney(k.cashAndBank), icon: <Landmark size={20} />, tone: "neutral", target: t("nav.payments") },
     { key: "expensesMonth", label: t("dashboard.expensesMonth"), value: fmtMoney(k.expensesMonth), icon: <ReceiptText size={20} />, tone: "neutral", target: t("nav.expenses") },
-    { key: "lowStock", label: t("dashboard.lowStock"), value: String(k.lowStock), sub: t("dashboard.needsReorder"), icon: <TriangleAlert size={20} />, tone: k.lowStock > 0 ? "danger" : "neutral", target: t("dashboard.lowStock") },
-    { key: "profitLoss", label: t("dashboard.profitLoss"), value: fmtMoney(k.profitMonth), sub: t("dashboard.profitSub"), icon: <FileText size={20} />, tone: "primary", target: t("dashboard.profitLoss") },
   ];
 
   // Adaptive widgets: batch-expiry alert replaces the generic low-stock tile
@@ -161,7 +167,7 @@ export default function DashboardPage() {
 
       {/* First-run onboarding checklist */}
       {steps && steps.length > 0 && (
-        <div className="card card-gloss rise mb-5 p-4 sm:p-5">
+        <div className="card rise mb-5 p-4 sm:p-5">
           <div className="flex items-start justify-between gap-3">
             <div className="flex items-center gap-3">
               <span className="tile tile-primary h-10 w-10 shrink-0">
@@ -178,7 +184,7 @@ export default function DashboardPage() {
               type="button"
               aria-label={t("dashboard.dismiss")}
               onClick={() => { setSteps(null); try { localStorage.setItem("lp-onboarding-dismissed", "1"); } catch {} }}
-              className="grid h-9 w-9 shrink-0 place-items-center rounded-lg text-muted-foreground transition hover:bg-muted"
+              className="grid h-11 w-11 shrink-0 place-items-center rounded-lg text-muted-foreground transition hover:bg-muted"
             >
               <X size={16} />
             </button>
@@ -217,14 +223,14 @@ export default function DashboardPage() {
                   className={`flex items-center gap-3 rounded-xl px-3 py-2.5 transition hover:bg-muted/70 ${s.done ? "opacity-60" : ""}`}
                 >
                   {s.done
-                    ? <CircleCheck size={19} className="shrink-0 text-emerald-500" />
+                    ? <CircleCheck size={19} className="shrink-0 text-primary" />
                     : <Circle size={19} className="shrink-0 text-muted-foreground" />}
                   <span className="min-w-0 flex-1">
                     <span className={`block truncate text-sm font-bold ${s.done ? "line-through" : ""}`}>{s.label}</span>
                     <span className="block truncate text-xs text-muted-foreground">{s.hint}</span>
                   </span>
                   {s.locked && (
-                    <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-amber-500/15 px-2.5 py-1 text-[0.7rem] font-extrabold text-amber-700 dark:text-amber-300">
+                    <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-accent-soft px-2.5 py-1 text-xs font-extrabold text-accent">
                       <Crown size={12} /> PRO
                     </span>
                   )}
@@ -235,7 +241,7 @@ export default function DashboardPage() {
             ))}
           </ul>
           {sampleError && (
-            <p className="mt-2 rounded-xl bg-red-500/10 px-3 py-2 text-xs font-semibold text-red-600 dark:text-red-400">
+            <p className="mt-2 rounded-xl bg-danger-soft px-3 py-2 text-xs font-semibold text-danger">
               {sampleError}
             </p>
           )}
@@ -245,7 +251,7 @@ export default function DashboardPage() {
       {/* POS banner for counter businesses */}
       {canPos && bp.features.pos && (
         <Link href="/sales/pos"
-          className="card card-lift card-edge group mb-5 flex items-center justify-between gap-4 p-4 sm:p-5">
+          className="card card-lift group mb-5 flex items-center justify-between gap-4 p-4 sm:p-5">
           <span className="flex min-w-0 items-center gap-4">
             <span className="tile tile-emerald h-12 w-12 shrink-0 transition group-hover:scale-110">
               <Zap size={22} />
@@ -261,20 +267,8 @@ export default function DashboardPage() {
         </Link>
       )}
 
-      {/* Quick actions — horizontal swipe strip on phones, grid on larger screens */}
-      <div className="mb-5 flex snap-x snap-mandatory gap-2.5 overflow-x-auto pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden sm:grid sm:grid-cols-4 sm:overflow-visible lg:grid-cols-8">
-        {quickActions.map((q) => (
-          <Link key={q.href} href={q.href}
-            className="card card-lift group flex w-[78px] shrink-0 snap-start flex-col items-center gap-1.5 py-3.5 sm:w-auto">
-            <span className={`tile ${q.cls} h-10 w-10 transition group-hover:scale-110`}>
-              <q.icon size={19} />
-            </span>
-            <span className="flex min-h-[2.2em] items-center px-0.5 text-center text-[0.7rem] font-bold leading-tight">{q.label}</span>
-          </Link>
-        ))}
-      </div>
-
-      <div className="stagger-rise grid grid-cols-2 gap-3 sm:gap-4 xl:grid-cols-4">
+      {/* Beginner KPIs first — today's sales, money in/out, low stock */}
+      <div className="stagger-rise mb-5 grid grid-cols-2 gap-3 sm:gap-4 xl:grid-cols-4">
         {tiles.map((tile) => (
           <Link
             key={tile.key}
@@ -290,38 +284,33 @@ export default function DashboardPage() {
         ))}
       </div>
 
+      {/* Quick actions — horizontal swipe strip on phones, grid on larger screens */}
+      <div className="mb-5 flex snap-x snap-mandatory gap-2.5 overflow-x-auto pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden sm:grid sm:grid-cols-4 sm:overflow-visible lg:grid-cols-8">
+        {quickActions.map((q) => (
+          <Link key={q.href} href={q.href}
+            className="card card-lift group flex w-[78px] shrink-0 snap-start flex-col items-center gap-1.5 py-3.5 sm:w-auto">
+            <span className={`tile ${q.cls} h-10 w-10 transition group-hover:scale-110`}>
+              <q.icon size={19} />
+            </span>
+            <span className="flex min-h-[2.2em] items-center px-0.5 text-center text-xs font-bold leading-tight">{q.label}</span>
+          </Link>
+        ))}
+      </div>
+
       <div className="mt-6 grid gap-4 xl:grid-cols-5">
-        <div className="card card-gloss card-edge rise p-5 sm:p-6 xl:col-span-3">
+        <div className="card rise p-5 sm:p-6 xl:col-span-3">
           <h2 className="text-base font-extrabold tracking-tight">{t("dashboard.trend", { sales: bp.salesNav })}</h2>
           <p className="text-xs text-muted-foreground">{t("dashboard.trendSub")}</p>
           <div className="mt-4 h-64">
             {trend.length === 0 ? (
               <EmptyState title={t("dashboard.noSales")} hint={t("dashboard.noSalesHint")} icon={<BarChart3 size={26} />} />
             ) : (
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={trend} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
-                  <defs>
-                    <linearGradient id="salesBar" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="0%" stopColor="var(--primary)" stopOpacity={1} />
-                      <stop offset="100%" stopColor="var(--primary)" stopOpacity={0.55} />
-                    </linearGradient>
-                  </defs>
-                  <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" vertical={false} />
-                  <XAxis dataKey="month" tick={{ fontSize: 12, fill: "var(--muted-foreground)" }} axisLine={false} tickLine={false} />
-                  <YAxis tick={{ fontSize: 12, fill: "var(--muted-foreground)" }} axisLine={false} tickLine={false} width={44}
-                    tickFormatter={(v: number) => (v >= 1000 ? `${Math.round(v / 1000)}k` : `${v}`)} />
-                  <Tooltip
-                    contentStyle={{ background: "var(--card)", border: "1px solid var(--border)", borderRadius: 12, fontSize: 13 }}
-                    formatter={(v) => [fmtMoney(BigInt(Math.round(Number(v))) * 100n), t("dashboard.salesTooltip")]}
-                  />
-                  <Bar dataKey="total" fill="url(#salesBar)" radius={[8, 8, 2, 2]} />
-                </BarChart>
-              </ResponsiveContainer>
+              <SalesTrendChart data={trend} tooltipSales={t("dashboard.salesTooltip")} />
             )}
           </div>
         </div>
 
-        <div className="card card-gloss rise rise-1 p-5 sm:p-6 xl:col-span-2">
+        <div className="card rise rise-1 p-5 sm:p-6 xl:col-span-2">
           <div className="flex items-center justify-between">
             <h2 className="text-base font-extrabold tracking-tight">{t("dashboard.recent", { sales: bp.salesNav.toLowerCase() })}</h2>
             <Link href="/sales" className="text-sm font-bold text-primary hover:underline">{t("common.viewAll")}</Link>

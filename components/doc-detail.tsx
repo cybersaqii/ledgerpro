@@ -47,7 +47,7 @@ type Company = {
 type Template = {
   primaryColor: string; terms: string; signatureUrl: string; qrEnabled: boolean; showLogo: boolean;
 };
-const TEMPLATE_DEFAULTS: Template = { primaryColor: "#0f766e", terms: "", signatureUrl: "", qrEnabled: false, showLogo: true };
+const TEMPLATE_DEFAULTS: Template = { primaryColor: "#1e4fa3", terms: "", signatureUrl: "", qrEnabled: false, showLogo: true };
 
 type PrintFormat = "a4" | "80mm" | "challan";
 type CopyKind = "ORIGINAL" | "DUPLICATE" | "OFFICE_COPY";
@@ -717,7 +717,7 @@ export function DocDetail({ mode, id }: { mode: "SALES" | "PURCHASE" | "NOTE"; i
                   <td className="whitespace-nowrap border border-black px-1 py-0.5 text-center">{i + 1}</td>
                   <td className="border border-black px-1 py-0.5 [overflow-wrap:anywhere]">
                     {it.description}
-                    <ItemSubLines it={it} className="text-[9px] font-normal text-neutral-700" />
+                    <ItemSubLines it={it} className="text-[9px] font-normal text-muted-foreground" />
                   </td>
                   <td className="whitespace-nowrap border border-black px-1 py-0.5 text-center">{it.lineUnit ?? it.unit ?? "—"}</td>
                   <td className="whitespace-nowrap border border-black px-1 py-0.5 text-end">{it.lineUnit && it.lineUnitQty ? fmtQty(it.lineUnitQty) : fmtQty(it.qty)}</td>
@@ -790,7 +790,7 @@ export function DocDetail({ mode, id }: { mode: "SALES" | "PURCHASE" | "NOTE"; i
           {renderTemplateFooter("text-[11px]")}
 
           <p className="mt-3 text-center text-[11px]">{t("docdetail.thankYou")}</p>
-          <p className="mt-1 text-center text-[10px] text-neutral-500">{t("docdetail.poweredBy", { brand: brand.name })}</p>
+          <p className="mt-1 text-center text-[10px] text-muted-foreground">{t("docdetail.poweredBy", { brand: brand.name })}</p>
         </div>
       )}
 
@@ -1418,7 +1418,7 @@ function DocActions({ doc, isSales, onChanged }: { doc: Doc; isSales: boolean; o
             <p className="mt-1 text-xs text-muted-foreground">{t("docdetail.convertToBillHint")}</p>
             <div className="mt-4 space-y-4">
               <div>
-                <label className="mb-1 block text-sm font-semibold">{t("docform.refNo")} <span className="text-red-500">*</span></label>
+                <label className="mb-1 block text-sm font-semibold">{t("docform.refNo")} <span className="text-danger">*</span></label>
                 <input className="field" value={billRefNo} maxLength={60}
                   onChange={(e) => setBillRefNo(e.target.value)} disabled={busy}
                   placeholder={t("docform.refPlaceholder")} dir="ltr" />

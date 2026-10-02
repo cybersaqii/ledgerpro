@@ -260,7 +260,7 @@ function AgingView({ kind }: { kind: "CUSTOMER" | "SUPPLIER" }) {
                           <div className="flex items-center justify-end gap-1">
                             {kind === "CUSTOMER" && waPhone(r.phone) && (
                               <a
-                                className="btn btn-ghost !px-2 !py-1 text-xs !text-[#1da851]"
+                                className="btn btn-ghost !px-2 !py-1 text-xs !text-success"
                                 target="_blank"
                                 rel="noreferrer"
                                 title={t("balances.remindTitle")}

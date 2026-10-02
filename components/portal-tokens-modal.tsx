@@ -99,15 +99,15 @@ export function PortalTokensModal({ partyId, partyName, onClose }: {
         <ErrorNote message={error} />
 
         {onceToken && (
-          <div className="mt-4 rounded-xl border-2 border-amber-400 bg-amber-50 p-4 dark:bg-amber-950/30">
-            <p className="text-sm font-extrabold text-amber-800 dark:text-amber-200">{t("portal.issuedOnceTitle")}</p>
+          <div className="mt-4 rounded-xl border-2 border-accent/40 bg-accent-soft p-4">
+            <p className="text-sm font-extrabold text-accent">{t("portal.issuedOnceTitle")}</p>
             <div className="mt-2 flex items-center gap-2">
               <code className="field flex-1 overflow-x-auto font-mono text-xs" dir="ltr">{onceToken}</code>
               <button className="btn btn-primary text-sm" onClick={copy}>
                 {copied ? <Check size={15} /> : <Copy size={15} />} {copied ? t("portal.copied") : t("portal.copy")}
               </button>
             </div>
-            <p className="mt-2 text-xs text-amber-700 dark:text-amber-300">{t("portal.issuedOnceHint")}</p>
+            <p className="mt-2 text-xs text-accent">{t("portal.issuedOnceHint")}</p>
           </div>
         )}
 
@@ -125,7 +125,7 @@ export function PortalTokensModal({ partyId, partyName, onClose }: {
                   <div className="min-w-0 flex-1">
                     <div className="flex flex-wrap items-center gap-2">
                       <span className="text-sm font-extrabold">{t(`portal.${tk.accessLevel === "ORDER" ? "orderAccess" : tk.accessLevel === "FULL" ? "fullAccess" : "viewOnly"}`)}</span>
-                      <span className={`rounded-full px-2 py-0.5 text-xs font-bold ${tk.revokedAt ? "bg-red-500/10 text-red-600 dark:text-red-400" : expired ? "bg-amber-500/10 text-amber-600 dark:text-amber-400" : "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"}`}>
+                      <span className={`rounded-full px-2 py-0.5 text-xs font-bold ${tk.revokedAt ? "bg-danger/10 text-danger" : expired ? "bg-warning/10 text-warning" : "bg-success/10 text-success"}`}>
                         {tk.revokedAt ? t("portal.statusRevoked") : expired ? t("portal.statusExpired") : t("portal.statusActive")}
                       </span>
                     </div>
@@ -136,7 +136,7 @@ export function PortalTokensModal({ partyId, partyName, onClose }: {
                     </div>
                   </div>
                   {!dead && (
-                    <button className="btn btn-ghost !p-2 text-red-600" title={t("portal.revoke")} aria-label={t("portal.revoke")} onClick={() => revoke(tk.id)}>
+                    <button className="btn btn-ghost !min-h-11 !min-w-11 !p-2 text-danger" title={t("portal.revoke")} aria-label={t("portal.revoke")} onClick={() => revoke(tk.id)}>
                       <Ban size={15} />
                     </button>
                   )}

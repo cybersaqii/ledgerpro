@@ -196,7 +196,7 @@ export default function AutomationPage() {
       )}
 
       {/* ── Reminder rules ── */}
-      <section className="card card-gloss p-6">
+      <section className="card p-6">
         <div className="mb-1 flex items-center justify-between gap-3">
           <h2 className="text-base font-extrabold">{t("rem.rulesTitle")}</h2>
           <button onClick={openAdd} className="btn-secondary inline-flex items-center gap-2 text-sm">
@@ -269,7 +269,7 @@ export default function AutomationPage() {
       )}
 
       {/* ── Reminder log ── */}
-      <section className="card card-gloss p-6">
+      <section className="card p-6">
         <h2 className="mb-1 flex items-center gap-2 text-base font-extrabold"><History size={17} /> {t("rem.logTitle")}</h2>
         <p className="mb-4 text-sm text-muted-foreground">{t("rem.logHint")}</p>
         {log.length === 0 ? (
@@ -305,7 +305,7 @@ export default function AutomationPage() {
       </section>
 
       {/* ── WhatsApp outbox ── */}
-      <section className="card card-gloss p-6">
+      <section className="card p-6">
         <h2 className="mb-1 flex items-center gap-2 text-base font-extrabold"><MessageCircle size={17} /> {t("rem.waTitle")}</h2>
         <p className="mb-4 text-sm text-muted-foreground">{t("rem.waHint")}</p>
         {wa.length === 0 ? (
@@ -348,7 +348,7 @@ export default function AutomationPage() {
       </section>
 
       {/* ── Low stock ── */}
-      <section className="card card-gloss p-6">
+      <section className="card p-6">
         <h2 className="mb-1 flex items-center gap-2 text-base font-extrabold"><PackageSearch size={17} /> {t("rem.stockTitle")}</h2>
         <p className="mb-4 text-sm text-muted-foreground">{t("rem.stockHint")}</p>
         <button onClick={runStock} disabled={stockRunning} className="btn-primary inline-flex items-center gap-2">
@@ -357,7 +357,7 @@ export default function AutomationPage() {
       </section>
 
       {/* ── Cron setup ── */}
-      <section className="card card-gloss p-6">
+      <section className="card p-6">
         <h2 className="mb-1 flex items-center gap-2 text-base font-extrabold"><Cog size={17} /> {t("rem.cronTitle")}</h2>
         <p className="text-sm text-muted-foreground">{t("rem.cronHint")}</p>
       </section>

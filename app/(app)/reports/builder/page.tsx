@@ -267,7 +267,7 @@ export default function ReportBuilder() {
               <Download size={15} /> {t("reportengine.downloadCsv")}
             </button>
           </div>
-          {errMsg && <p className="mt-2 text-sm text-red-600 dark:text-red-400">{errMsg}</p>}
+          {errMsg && <p className="mt-2 text-sm text-danger">{errMsg}</p>}
         </div>
       )}
 
@@ -362,7 +362,7 @@ export default function ReportBuilder() {
                       <button
                         type="button"
                         aria-label={t("reportengine.deletePreset")}
-                        className="rounded p-1 text-muted-foreground hover:text-red-600"
+                        className="rounded p-1 text-muted-foreground hover:text-danger"
                         onClick={(e) => { e.preventDefault(); deleteSaved(s.id); }}
                       >
                         <Trash2 size={14} />

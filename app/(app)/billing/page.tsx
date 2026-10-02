@@ -121,7 +121,7 @@ export default function BillingPage() {
       <PageHeader title={t("billing.title")} subtitle={t("billing.subtitle")} icon={<Crown size={22} />} />
 
       {/* Current status */}
-      <div className="card card-gloss card-edge rise rise-1 p-5 sm:p-6">
+      <div className="card rise rise-1 p-5 sm:p-6">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="flex items-center gap-4">
             <span className="tile tile-primary h-14 w-14"><Crown size={24} /></span>
@@ -131,17 +131,17 @@ export default function BillingPage() {
             </div>
           </div>
           {status.level === "TRIAL" && (
-            <span className="inline-flex items-center gap-1.5 rounded-full bg-gradient-to-r from-amber-100 to-orange-100 px-3.5 py-1.5 text-sm font-bold text-amber-800 shadow-sm dark:from-amber-900/50 dark:to-orange-900/50 dark:text-amber-200">
+            <span className="inline-flex items-center gap-1.5 rounded-full border border-warning/30 bg-warning-soft px-3.5 py-1.5 text-sm font-bold text-warning">
               <Clock size={15} /> {t("billing.daysLeftOther", { count: status.trialDaysLeft })}
             </span>
           )}
           {status.level === "PRO" && status.proExpiresAt && (
-            <span className="inline-flex items-center gap-1.5 rounded-full bg-gradient-to-r from-emerald-100 to-teal-100 px-3.5 py-1.5 text-sm font-bold text-emerald-800 shadow-sm dark:from-emerald-900/50 dark:to-teal-900/50 dark:text-emerald-200">
+            <span className="inline-flex items-center gap-1.5 rounded-full border border-success/30 bg-success-soft px-3.5 py-1.5 text-sm font-bold text-success">
               <BadgeCheck size={15} /> {t("billing.activeUntil", { date: status.proExpiresAt.slice(0, 10) })}
             </span>
           )}
           {status.level === "FREE" && (
-            <span className="inline-flex items-center gap-1.5 rounded-full bg-gradient-to-r from-rose-100 to-pink-100 px-3.5 py-1.5 text-sm font-bold text-rose-800 shadow-sm dark:from-rose-900/50 dark:to-pink-900/50 dark:text-rose-200">
+            <span className="inline-flex items-center gap-1.5 rounded-full border border-danger/30 bg-danger-soft px-3.5 py-1.5 text-sm font-bold text-danger">
               <Crown size={15} /> {t("billing.trialEnded")}
             </span>
           )}
@@ -173,7 +173,7 @@ export default function BillingPage() {
                 className={`card card-lift relative overflow-hidden p-5 text-start sm:p-6 ${months === p.m ? "card-selected" : ""}`}
               >
                 {p.tag && (
-                  <span className="absolute end-4 top-4 rounded-full bg-gradient-to-r from-amber-400 to-orange-500 px-2.5 py-1 text-[0.68rem] font-extrabold uppercase tracking-wide text-white shadow-sm">
+                  <span className="absolute end-4 top-4 rounded-full bg-accent px-2.5 py-1 text-[0.68rem] font-extrabold uppercase tracking-wide text-accent-foreground shadow-sm">
                     {p.tag}
                   </span>
                 )}
@@ -188,7 +188,7 @@ export default function BillingPage() {
           </div>
 
           {/* What's in PRO */}
-          <div className="card card-gloss rise rise-3 p-5 sm:p-6">
+          <div className="card rise rise-3 p-5 sm:p-6">
             <p className="text-base font-extrabold tracking-tight">{t("billing.proTitle")}</p>
             <ul className="mt-3 grid gap-2.5 text-sm sm:grid-cols-2">
               {PRO_POINTS.map((pt) => (
@@ -201,7 +201,7 @@ export default function BillingPage() {
           </div>
 
           {/* Pay + submit */}
-          <div className="card card-gloss rise rise-4 space-y-4 p-5 sm:p-6">
+          <div className="card rise rise-4 space-y-4 p-5 sm:p-6">
             <p className="text-base font-extrabold tracking-tight">{t("billing.payTitle")}</p>
             <ol className="list-decimal space-y-1 ps-5 text-sm text-muted-foreground">
               <li>{t("billing.payStep1", { amount: fmtMoney(price) })}</li>
@@ -214,7 +214,7 @@ export default function BillingPage() {
             ]).filter((r) => r.value && r.value !== "—").map((r) => (
               <div key={r.key} className="card-lift flex items-center justify-between gap-3 rounded-xl border border-border bg-muted/50 px-3.5 py-2.5 text-sm">
                 <span><strong>{r.label}:</strong> {r.value}</span>
-                <button onClick={() => copy(r.value, r.key)} className="btn btn-ghost !min-h-0 !px-2.5 !py-1.5 text-xs" aria-label={t("billing.copyLabel", { label: r.label })}>
+                <button onClick={() => copy(r.value, r.key)} className="btn btn-ghost !min-h-11 !min-w-11 !px-2.5 !py-1.5 text-xs" aria-label={t("billing.copyLabel", { label: r.label })}>
                   {copied === r.key ? <Check size={14} /> : <Copy size={14} />}
                 </button>
               </div>
@@ -255,11 +255,11 @@ export default function BillingPage() {
                   </button>
                 </div>
               </Field>
-              {couponError && <p className="mt-1.5 text-sm font-medium text-rose-600">{couponError}</p>}
+              {couponError && <p className="mt-1.5 text-sm font-medium text-danger">{couponError}</p>}
               {couponQuote && (
-                <div className="mt-2 flex flex-wrap items-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50 px-3.5 py-2.5 text-sm dark:border-emerald-900/50 dark:bg-emerald-950/40">
-                  <BadgeCheck size={16} className="text-emerald-600" />
-                  <span className="font-semibold text-emerald-800 dark:text-emerald-200">{couponQuote.description}</span>
+                <div className="mt-2 flex flex-wrap items-center gap-2 rounded-xl border border-success/30 bg-success-soft px-3.5 py-2.5 text-sm">
+                  <BadgeCheck size={16} className="text-success" />
+                  <span className="font-semibold text-success">{couponQuote.description}</span>
                   <span className="text-muted-foreground">
                     {t("billing.discount")} <strong className="tabular-nums">−{fmtMoney(couponQuote.discountPaisa)}</strong>
                     {" · "}{t("billing.payable")} <strong className="tabular-nums">{fmtMoney(couponQuote.payablePaisa)}</strong>
@@ -272,7 +272,7 @@ export default function BillingPage() {
             </div>
 
             <ErrorNote message={error} />
-            {done && <p className="text-sm font-semibold text-emerald-600 dark:text-emerald-400">{t("billing.submitted")}</p>}
+            {done && <p className="text-sm font-semibold text-success">{t("billing.submitted")}</p>}
             <button onClick={submit} disabled={submitting} className="btn btn-accent w-full sm:w-auto">
               {submitting ? t("billing.submitting") : t("billing.submitPay", { amount: fmtMoney(couponQuote ? couponQuote.payablePaisa : price) })}
             </button>
@@ -280,7 +280,7 @@ export default function BillingPage() {
 
           {/* Referrals — invite businesses, earn free PRO */}
           {referral && (
-            <div className="card card-gloss rise space-y-4 p-5 sm:p-6">
+            <div className="card rise space-y-4 p-5 sm:p-6">
               <div className="flex items-center gap-3">
                 <span className="tile tile-primary h-11 w-11"><Users size={20} /></span>
                 <div>
@@ -312,20 +312,20 @@ export default function BillingPage() {
                   aria-valuemin={0} aria-valuemax={5} aria-valuenow={Math.min(5, referral.qualifiedThisMonth)}
                   aria-label={t("billing.referralProgress")}>
                   <div
-                    className="h-full rounded-full bg-gradient-to-r from-emerald-500 to-teal-500 transition-all"
+                    className="h-full rounded-full bg-primary transition-all"
                     style={{ width: `${Math.min(100, (referral.qualifiedThisMonth / 5) * 100)}%` }}
                   />
                 </div>
               </div>
               <p className="flex items-start gap-2 text-sm text-muted-foreground">
-                <Gift size={15} className="mt-0.5 shrink-0 text-amber-500" />
+                <Gift size={15} className="mt-0.5 shrink-0 text-accent" />
                 {t("billing.referralRule")}
               </p>
               {referral.rewards.length > 0 && (
                 <ul className="space-y-1.5 text-sm">
                   {referral.rewards.map((r) => (
                     <li key={r.month} className="flex items-center gap-2 text-muted-foreground">
-                      <BadgeCheck size={14} className="text-emerald-600" />
+                      <BadgeCheck size={14} className="text-success" />
                       {r.month} — {t("billing.rewardEarned", { months: r.monthsGranted })}
                     </li>
                   ))}
@@ -338,7 +338,7 @@ export default function BillingPage() {
 
       {/* History */}
       {status.isOwner && (
-        <div className="card card-gloss rise p-5 sm:p-6">
+        <div className="card rise p-5 sm:p-6">
           <p className="text-base font-extrabold tracking-tight">{t("billing.history")}</p>
           {payments.length === 0 ? (
             <div className="mt-2"><EmptyState title={t("billing.noPayments")} hint={t("billing.noPaymentsHint")} /></div>
@@ -348,13 +348,13 @@ export default function BillingPage() {
                 <div key={p.id} className="card-lift flex flex-wrap items-center justify-between gap-2 rounded-xl border border-border px-3.5 py-2.5 text-sm">
                   <span>
                     <strong>{p.months === 12 ? t("billing.yearly") : t("billing.monthly")}</strong> · {fmtMoney(p.amountPaisa - (p.discountPaisa || 0))}{p.discountPaisa ? (
-                      <span className="text-muted-foreground"> <s>{fmtMoney(p.amountPaisa)}</s> <span className="font-bold text-emerald-600 dark:text-emerald-400">−{fmtMoney(p.discountPaisa)}{p.couponCode ? ` (${p.couponCode})` : ""}</span></span>
+                      <span className="text-muted-foreground"> <s>{fmtMoney(p.amountPaisa)}</s> <span className="font-bold text-success">−{fmtMoney(p.discountPaisa)}{p.couponCode ? ` (${p.couponCode})` : ""}</span></span>
                     ) : null} · {p.method} · <span className="text-muted-foreground">{t("billing.refLabel")} {p.reference}</span>
                     <span className="block text-xs text-muted-foreground">{p.createdAt.slice(0, 10)}{p.note ? ` — ${p.note}` : ""}</span>
                   </span>
-                  {p.status === "PENDING" && <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-2.5 py-1 text-xs font-bold text-amber-800 dark:bg-amber-900/40 dark:text-amber-200"><Hourglass size={12} /> {t("billing.pending")}</span>}
-                  {p.status === "APPROVED" && <span className="inline-flex items-center gap-1 rounded-full bg-emerald-100 px-2.5 py-1 text-xs font-bold text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-200"><BadgeCheck size={12} /> {t("billing.approved")}</span>}
-                  {p.status === "REJECTED" && <span className="inline-flex items-center gap-1 rounded-full bg-rose-100 px-2.5 py-1 text-xs font-bold text-rose-800 dark:bg-rose-900/40 dark:text-rose-200"><XCircle size={12} /> {t("billing.rejected")}</span>}
+                  {p.status === "PENDING" && <span className="inline-flex items-center gap-1 rounded-full bg-warning-soft px-2.5 py-1 text-xs font-bold text-warning"><Hourglass size={12} /> {t("billing.pending")}</span>}
+                  {p.status === "APPROVED" && <span className="inline-flex items-center gap-1 rounded-full bg-success-soft px-2.5 py-1 text-xs font-bold text-success"><BadgeCheck size={12} /> {t("billing.approved")}</span>}
+                  {p.status === "REJECTED" && <span className="inline-flex items-center gap-1 rounded-full bg-danger-soft px-2.5 py-1 text-xs font-bold text-danger"><XCircle size={12} /> {t("billing.rejected")}</span>}
                 </div>
               ))}
             </div>

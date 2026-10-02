@@ -58,26 +58,26 @@ export function NotesList({ kind }: { kind: NoteKind }) {
         />
       ) : (
         <div className="card overflow-x-auto">
-          <table className="w-full min-w-[640px] text-sm">
+          <table className="tbl min-w-[640px]">
             <thead>
-              <tr className="border-b border-border text-start text-xs uppercase tracking-wide text-muted-foreground">
-                <th className="px-4 py-3">{t("fix4.note.colDoc")}</th>
-                <th className="px-4 py-3">{t("fix4.note.colDate")}</th>
-                <th className="px-4 py-3">{t("fix4.note.colParty")}</th>
-                <th className="px-4 py-3">{t("fix4.note.colNote")}</th>
-                <th className="px-4 py-3 text-end">{t("fix4.note.colAmount")}</th>
+              <tr>
+                <th>{t("fix4.note.colDoc")}</th>
+                <th>{t("fix4.note.colDate")}</th>
+                <th>{t("fix4.note.colParty")}</th>
+                <th>{t("fix4.note.colNote")}</th>
+                <th className="num">{t("fix4.note.colAmount")}</th>
               </tr>
             </thead>
             <tbody>
               {rows.map((r) => (
-                <tr key={r.id} className="border-b border-border/60 last:border-0 hover:bg-muted/40">
-                  <td className="px-4 py-2.5">
+                <tr key={r.id}>
+                  <td>
                     <Link href={`${base}/${r.id}`} className="font-bold text-primary hover:underline">{r.docNo}</Link>
                   </td>
-                  <td className="px-4 py-2.5 whitespace-nowrap">{fmtDate(r.date)}</td>
-                  <td className="px-4 py-2.5">{r.partyName ?? "—"}</td>
-                  <td className="px-4 py-2.5 text-muted-foreground">{r.notes || "—"}</td>
-                  <td className="px-4 py-2.5 text-end font-semibold tabular-nums">{fmtMoney(r.amount)}</td>
+                  <td className="whitespace-nowrap">{fmtDate(r.date)}</td>
+                  <td>{r.partyName ?? "—"}</td>
+                  <td className="text-muted-foreground">{r.notes || "—"}</td>
+                  <td className="num font-semibold tabular-nums">{fmtMoney(r.amount)}</td>
                 </tr>
               ))}
             </tbody>

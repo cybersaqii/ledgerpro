@@ -46,6 +46,7 @@ export function getTranslatedProfile(businessType: string | null | undefined, la
  */
 export function useBusinessProfile(): BusinessProfile {
   const base = useContext(BusinessTypeContext);
-  const { lang } = useLang();
-  return useMemo(() => getTranslatedProfile(base.type, lang), [base, lang]);
+  const { lang, urDict } = useLang();
+  // urDict in deps: re-translate once the on-demand Urdu chunk arrives.
+  return useMemo(() => getTranslatedProfile(base.type, lang), [base, lang, urDict]);
 }

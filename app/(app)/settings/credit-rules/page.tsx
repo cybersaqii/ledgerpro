@@ -186,7 +186,7 @@ export default function CreditRulesPage() {
                     <td className="text-end">
                       {waPhone(c.phone) && (
                         <a
-                          className="btn btn-ghost !px-2 !py-1 text-xs !text-[#1da851]"
+                          className="btn btn-ghost !px-2 !py-1 text-xs !text-success"
                           target="_blank"
                           rel="noreferrer"
                           title={t("creditrules.remindTitle")}

@@ -107,7 +107,7 @@ export default function AdminCouponsPage() {
       </div>
 
       {showForm && (
-        <div className="card card-gloss space-y-4 p-5 sm:p-6">
+        <div className="card space-y-4 p-5 sm:p-6">
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             <Field label={t("adminCoupons.code")} hint={t("adminCoupons.codeHint")}>
               <input className="field font-mono uppercase tracking-widest" value={code}
@@ -139,7 +139,7 @@ export default function AdminCouponsPage() {
         </div>
       )}
 
-      <div className="card card-gloss p-5 sm:p-6">
+      <div className="card p-5 sm:p-6">
         {loading ? (
           <p className="text-sm text-muted-foreground">{t("adminCoupons.loading")}</p>
         ) : coupons.length === 0 ? (
@@ -161,13 +161,13 @@ export default function AdminCouponsPage() {
                   </div>
                 </div>
                 <div className="flex items-center gap-2">
-                  <span className={`rounded-full px-2.5 py-1 text-xs font-bold ${c.active ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-200" : "bg-muted text-muted-foreground"}`}>
+                  <span className={`rounded-full px-2.5 py-1 text-xs font-bold ${c.active ? "bg-success-soft text-success" : "bg-muted text-muted-foreground"}`}>
                     {c.active ? t("adminCoupons.active") : t("adminCoupons.paused")}
                   </span>
-                  <button onClick={() => toggle(c)} className="btn btn-ghost !min-h-0 !px-2.5 !py-1.5 text-xs" aria-label={c.active ? t("adminCoupons.pause") : t("adminCoupons.activate")}>
+                  <button onClick={() => toggle(c)} className="btn btn-ghost !min-h-11 !min-w-11 !px-2.5 !py-1.5 text-xs" aria-label={c.active ? t("adminCoupons.pause") : t("adminCoupons.activate")}>
                     {c.active ? <X size={14} /> : <Check size={14} />}
                   </button>
-                  <button onClick={() => remove(c)} className="btn btn-ghost !min-h-0 !px-2.5 !py-1.5 text-xs text-rose-600" aria-label={t("adminCoupons.delete")}>
+                  <button onClick={() => remove(c)} className="btn btn-ghost !min-h-11 !min-w-11 !px-2.5 !py-1.5 text-xs text-danger" aria-label={t("adminCoupons.delete")}>
                     <Trash2 size={14} />
                   </button>
                 </div>

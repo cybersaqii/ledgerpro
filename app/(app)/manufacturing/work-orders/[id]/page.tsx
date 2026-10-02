@@ -6,7 +6,7 @@ import { PageHeader, ErrorNote, Field } from "@/components/ui";
 import { useLang } from "@/components/lang-provider";
 import { usePermissions } from "@/components/permissions";
 import { api, fmtQty, fmtMoney, fmtDateTime } from "@/lib/format";
-import { StatusBadge } from "../page";
+import { StatusBadge } from "../status-badge";
 
 type WoComponent = {
   id: string; componentProductId: string; qtyMilli: string; unitCostPaisa: string;
@@ -166,7 +166,7 @@ export default function WorkOrderDetailPage() {
           <button className="btn btn-primary !px-4 !py-2 text-sm" disabled={!!busy} onClick={() => setConfirm("complete")}>{t("mfg.complete")}</button>
         )}
         {st === "COMPLETED" && (
-          <button className="btn !px-4 !py-2 text-sm !text-red-500" disabled={!!busy} onClick={() => setConfirm("void")}>{t("mfg.void")}</button>
+          <button className="btn !px-4 !py-2 text-sm !text-danger" disabled={!!busy} onClick={() => setConfirm("void")}>{t("mfg.void")}</button>
         )}
       </div>
 
@@ -190,7 +190,7 @@ export default function WorkOrderDetailPage() {
             <div className="mt-4 flex justify-end gap-2">
               <button className="btn !px-4 !py-2 text-sm" onClick={() => setConfirm(null)}>{t("common.cancel")}</button>
               <button
-                className={`btn !px-4 !py-2 text-sm ${confirm === "void" ? "!bg-red-500 !text-white" : "btn-primary"}`}
+                className={`btn !px-4 !py-2 text-sm ${confirm === "void" ? "!bg-danger !text-white" : "btn-primary"}`}
                 disabled={!!busy}
                 onClick={() => run(confirm)}
               >

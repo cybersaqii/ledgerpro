@@ -117,7 +117,7 @@ export default function WelcomePage() {
           <div key={i} className="flex flex-1 items-center gap-2">
             <div
               className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-sm font-extrabold ${
-                i < step ? "bg-primary text-white" : i === step ? "bg-primary/15 text-primary ring-2 ring-primary" : "bg-muted text-muted-foreground"
+                i < step ? "bg-primary text-primary-foreground" : i === step ? "bg-primary/15 text-primary ring-2 ring-primary" : "bg-muted text-muted-foreground"
               }`}
             >
               {i < step ? <Check size={16} /> : i + 1}
@@ -146,7 +146,7 @@ export default function WelcomePage() {
                     active ? "border-primary bg-primary/5" : "border-border hover:border-primary/40"
                   }`}
                 >
-                  <span className={`flex h-10 w-10 items-center justify-center rounded-xl ${active ? "bg-primary text-white" : "bg-muted text-muted-foreground"}`}>
+                  <span className={`flex h-10 w-10 items-center justify-center rounded-xl ${active ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground"}`}>
                     <Icon size={20} />
                   </span>
                   <span className="text-sm font-bold">{t(b.label)}</span>
@@ -190,7 +190,7 @@ export default function WelcomePage() {
                     key={k}
                     type="button"
                     onClick={() => setPartyKind(k)}
-                    className={`rounded-full px-4 py-1.5 text-sm font-bold ${partyKind === k ? "bg-primary text-white" : "bg-muted text-muted-foreground"}`}
+                    className={`rounded-full px-4 py-1.5 text-sm font-bold ${partyKind === k ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground"}`}
                   >
                     {t(`onboarding.kind${k === "CUSTOMER" ? "Customer" : "Supplier"}`)}
                   </button>
@@ -211,11 +211,11 @@ export default function WelcomePage() {
           <div className="mx-auto mt-6 max-w-md rounded-2xl border border-border bg-card p-5 text-start">
             <p className="text-sm font-bold">{t("onboarding.readyList")}</p>
             <ul className="mt-2 space-y-1.5 text-sm text-muted-foreground">
-              <li className="flex items-center gap-2"><Check size={14} className="text-emerald-600" /> {t("onboarding.readyType", { type: t(BUSINESS_TYPES.find((b) => b.value === businessType)?.label ?? "biztypes.other") })}</li>
+              <li className="flex items-center gap-2"><Check size={14} className="text-primary" /> {t("onboarding.readyType", { type: t(BUSINESS_TYPES.find((b) => b.value === businessType)?.label ?? "biztypes.other") })}</li>
               {(prodName.trim() || partyName.trim()) && (
-                <li className="flex items-center gap-2"><Check size={14} className="text-emerald-600" /> {t("onboarding.readyData")}</li>
+                <li className="flex items-center gap-2"><Check size={14} className="text-primary" /> {t("onboarding.readyData")}</li>
               )}
-              <li className="flex items-center gap-2"><Check size={14} className="text-emerald-600" /> {t("onboarding.readyBill", { where: businessType === "RETAIL" || businessType === "RESTAURANT" ? t("onboarding.posMode") : t("onboarding.billMode") })}</li>
+              <li className="flex items-center gap-2"><Check size={14} className="text-primary" /> {t("onboarding.readyBill", { where: businessType === "RETAIL" || businessType === "RESTAURANT" ? t("onboarding.posMode") : t("onboarding.billMode") })}</li>
             </ul>
           </div>
         </div>

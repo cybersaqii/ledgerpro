@@ -72,7 +72,7 @@ export default function DepreciationRunDetailPage() {
                 onClick={() => act("/post", t("assets.confirmPost"))}>{t("assets.post")}</button>
             )}
             {run.status === "POSTED" && (
-              <button className="btn btn-ghost !py-2 text-sm !text-rose-600" disabled={busy}
+              <button className="btn btn-ghost !py-2 text-sm !text-danger" disabled={busy}
                 onClick={() => act("/void", t("assets.confirmVoid"))}>{t("assets.voidRun")}</button>
             )}
           </div>

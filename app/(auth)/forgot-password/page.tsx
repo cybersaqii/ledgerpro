@@ -113,7 +113,7 @@ export default function ForgotPasswordPage() {
 
       {step === 3 && (
         <div className="rise rise-3 mt-6 text-center">
-          <span className="mx-auto grid h-14 w-14 place-items-center rounded-full bg-emerald-100 text-emerald-700">
+          <span className="mx-auto grid h-14 w-14 place-items-center rounded-full bg-success-soft text-success">
             <KeyRound size={26} />
           </span>
           <p className="mt-4 text-sm text-muted-foreground">{t("auth.resetDoneHint")}</p>

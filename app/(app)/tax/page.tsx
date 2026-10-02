@@ -117,13 +117,13 @@ function FbrTab() {
   return (
     <div className="space-y-5">
       {/* Honest status banner — live sync does not exist. */}
-      <div className="card flex items-start gap-3 border-amber-500/40 bg-amber-500/10 p-4 sm:p-5">
-        <TriangleAlert className="mt-0.5 h-5 w-5 shrink-0 text-amber-600 dark:text-amber-400" />
+      <div className="card flex items-start gap-3 border-warning/40 bg-warning-soft p-4 sm:p-5">
+        <TriangleAlert className="mt-0.5 h-5 w-5 shrink-0 text-warning" />
         <div>
-          <p className="text-sm font-extrabold text-amber-800 dark:text-amber-200">
+          <p className="text-sm font-extrabold text-warning">
             {t("tax.fbrStatus")}: {t("tax.fbrNotConnected")}
           </p>
-          <p className="mt-1 text-xs leading-relaxed text-amber-700 dark:text-amber-300/90">
+          <p className="mt-1 text-xs leading-relaxed text-warning/85">
             {t("tax.fbrNotConnectedHint")}
           </p>
         </div>
@@ -175,7 +175,7 @@ function FbrTab() {
                   {saving ? t("tax.saving") : t("tax.saveConfig")}
                 </button>
               )}
-              {saved && <p className="text-center text-xs font-bold text-emerald-600">{t("tax.saved")}</p>}
+              {saved && <p className="text-center text-xs font-bold text-success">{t("tax.saved")}</p>}
             </form>
           )}
         </div>
@@ -211,7 +211,7 @@ function FbrTab() {
                     <button type="button" onClick={() => copyQr(q.id, q.qrData)}
                       className="grid h-8 w-8 shrink-0 place-items-center rounded-lg border border-border text-muted-foreground transition hover:text-foreground"
                       title={t("tax.copyQr")} aria-label={t("tax.copyQr")}>
-                      {copied === q.id ? <Check className="h-4 w-4 text-emerald-600" /> : <Copy className="h-4 w-4" />}
+                      {copied === q.id ? <Check className="h-4 w-4 text-success" /> : <Copy className="h-4 w-4" />}
                     </button>
                   </div>
                 </li>

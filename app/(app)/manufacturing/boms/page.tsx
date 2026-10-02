@@ -160,7 +160,7 @@ export default function BomsPage() {
                   </td>
                   <td className="px-4 py-3">v{b.version}</td>
                   <td className="px-4 py-3">
-                    <span className={`rounded-full px-2.5 py-1 text-xs font-bold ${b.isActive ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400" : "bg-muted text-muted-foreground"}`}>
+                    <span className={`rounded-full px-2.5 py-1 text-xs font-bold ${b.isActive ? "bg-success-soft text-success" : "bg-muted text-muted-foreground"}`}>
                       {b.isActive ? t("mfg.active") : t("mfg.inactive")}
                     </span>
                   </td>
@@ -232,7 +232,7 @@ export default function BomsPage() {
                       </Field>
                     </div>
                     <button
-                      className="mb-1 shrink-0 rounded-lg p-2 text-muted-foreground hover:bg-muted hover:text-red-500"
+                      className="mb-1 shrink-0 rounded-lg p-2 text-muted-foreground hover:bg-muted hover:text-danger"
                       onClick={() => removeLine(i)}
                       aria-label={t("mfg.remove")}
                     >

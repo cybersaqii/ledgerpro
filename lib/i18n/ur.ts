@@ -5,6 +5,9 @@ type DeepPartial<T> = {
   [K in keyof T]?: T[K] extends object ? DeepPartial<T[K]> : string;
 };
 
+/** Type of the Urdu dictionary (imported as a type only — never bundled statically). */
+export type UrDict = DeepPartial<EnDict>;
+
 export const ur: DeepPartial<EnDict> = {
   common: {
     save: "محفوظ کریں",
@@ -102,7 +105,15 @@ export const ur: DeepPartial<EnDict> = {
     manufacturing: "مینوفیکچرنگ",
     projects: "پروجیکٹس",
     recurring: "مکرر بل",
-    creditRules: "کریڈٹ کنٹرول"
+    creditRules: "کریڈٹ کنٹرول",
+    groupMain: "اہم",
+    groupSales: "فروخت",
+    groupPurchases: "خریداری",
+    groupMoney: "رقم",
+    groupPeopleStock: "گاہک اور اسٹاک",
+    groupAccounts: "کھاتے",
+    groupSetup: "سیٹ اپ",
+    searchMenu: "مینیو تلاش کریں…",
   },
   header: {
     openMenu: "مینیو کھولیں",

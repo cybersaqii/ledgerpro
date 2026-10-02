@@ -125,7 +125,7 @@ export default function AssetDetailPage() {
                 <button className="btn btn-ghost !py-2 text-sm" onClick={() => { setDialog("dispose"); setDialogErr(null); }}>{t("assets.dispose")}</button>
                 <button className="btn btn-ghost !py-2 text-sm" onClick={() => { setDialog("transfer"); setDialogErr(null); }}><ArrowRightLeft size={15} />{t("assets.transfer")}</button>
                 {BigInt(asset.accumDepPaisa) === 0n && (
-                  <button className="btn btn-ghost !py-2 text-sm !text-rose-600" disabled={busy} onClick={doDelete}>{t("common.delete")}</button>
+                  <button className="btn btn-ghost !py-2 text-sm !text-danger" disabled={busy} onClick={doDelete}>{t("common.delete")}</button>
                 )}
               </>
             )}
@@ -159,7 +159,7 @@ export default function AssetDetailPage() {
               {asset.status === "SOLD" && (
                 <>
                   <div className="flex justify-between gap-3"><dt className="text-muted-foreground">{t("assets.salePrice")}</dt><dd className="font-semibold">{fmtMoney(asset.salePricePaisa)}</dd></div>
-                  <div className="flex justify-between gap-3"><dt className="text-muted-foreground">{t("assets.gainLoss")}</dt><dd className={`font-semibold ${gainLoss >= 0n ? "text-emerald-600" : "text-rose-600"}`}>{gainLoss >= 0n ? t("assets.gain") : t("assets.loss")}: {fmtMoney(gainLoss < 0n ? -gainLoss : gainLoss)}</dd></div>
+                  <div className="flex justify-between gap-3"><dt className="text-muted-foreground">{t("assets.gainLoss")}</dt><dd className={`font-semibold ${gainLoss >= 0n ? "text-primary" : "text-danger"}`}>{gainLoss >= 0n ? t("assets.gain") : t("assets.loss")}: {fmtMoney(gainLoss < 0n ? -gainLoss : gainLoss)}</dd></div>
                 </>
               )}
               <div className="flex justify-between gap-3"><dt className="text-muted-foreground">{t("assets.journal")}</dt><dd className="font-mono text-xs">{asset.disposalJournalEntryId?.slice(0, 8) ?? "—"}</dd></div>

@@ -69,24 +69,24 @@ export default function PayslipPage() {
         />
       </div>
 
-      <div id="payslip-print" className="mx-auto max-w-2xl rounded-2xl border border-border bg-white p-6 text-slate-900 dark:bg-card dark:text-card-foreground print:rounded-none print:border-0">
+      <div id="payslip-print" className="mx-auto max-w-2xl rounded-2xl border border-border bg-card p-6 text-card-foreground print:rounded-none print:border-0">
         <div className="text-center">
           <div className="text-lg font-extrabold">{company?.tradeName || company?.name}</div>
           {[company?.address, company?.city, company?.phone].filter(Boolean).join(" · ") && (
-            <div className="mt-1 text-xs text-slate-500">{[company?.address, company?.city, company?.phone].filter(Boolean).join(" · ")}</div>
+            <div className="mt-1 text-xs text-muted-foreground">{[company?.address, company?.city, company?.phone].filter(Boolean).join(" · ")}</div>
           )}
-          <div className="mt-2 inline-block rounded-full bg-slate-100 px-3 py-1 text-xs font-bold dark:bg-muted">
+          <div className="mt-2 inline-block rounded-full bg-muted px-3 py-1 text-xs font-bold">
             {t("payroll.payslip")} — {t("payroll.payPeriod")}: {period}
           </div>
         </div>
 
         <div className="mt-4 grid grid-cols-2 gap-x-6 gap-y-1 text-sm">
-          <div><span className="text-slate-500">{t("payroll.fullName")}: </span><b>{slip.employeeName}</b></div>
-          <div><span className="text-slate-500">{t("payroll.code")}: </span><b className="font-mono">{slip.employeeCode}</b></div>
-          {employee?.designation && <div><span className="text-slate-500">{t("payroll.designation")}: </span>{employee.designation}</div>}
-          {employee?.department && <div><span className="text-slate-500">{t("payroll.department")}: </span>{employee.department}</div>}
-          {employee?.cnic && <div><span className="text-slate-500">{t("payroll.cnic")}: </span>{employee.cnic}</div>}
-          <div><span className="text-slate-500">{t("payroll.payableDays")}: </span>{slip.payableDays}/{slip.workDays}</div>
+          <div><span className="text-muted-foreground">{t("payroll.fullName")}: </span><b>{slip.employeeName}</b></div>
+          <div><span className="text-muted-foreground">{t("payroll.code")}: </span><b className="font-mono">{slip.employeeCode}</b></div>
+          {employee?.designation && <div><span className="text-muted-foreground">{t("payroll.designation")}: </span>{employee.designation}</div>}
+          {employee?.department && <div><span className="text-muted-foreground">{t("payroll.department")}: </span>{employee.department}</div>}
+          {employee?.cnic && <div><span className="text-muted-foreground">{t("payroll.cnic")}: </span>{employee.cnic}</div>}
+          <div><span className="text-muted-foreground">{t("payroll.payableDays")}: </span>{slip.payableDays}/{slip.workDays}</div>
         </div>
 
         <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2">
@@ -103,15 +103,15 @@ export default function PayslipPage() {
               <div key={k} className="flex justify-between py-1 text-sm"><span>{k}</span><span className="font-mono">{fmtMoney(v)}</span></div>
             ))}
             {BigInt(slip.eobiEmployerPaisa) + BigInt(slip.pfEmployerPaisa) > 0n && (
-              <div className="flex justify-between py-1 text-xs text-slate-500"><span>{t("payroll.employerShare")} ({t("payroll.eobi")}/{t("payroll.pf")})</span><span className="font-mono">{fmtMoney(BigInt(slip.eobiEmployerPaisa) + BigInt(slip.pfEmployerPaisa))}</span></div>
+              <div className="flex justify-between py-1 text-xs text-muted-foreground"><span>{t("payroll.employerShare")} ({t("payroll.eobi")}/{t("payroll.pf")})</span><span className="font-mono">{fmtMoney(BigInt(slip.eobiEmployerPaisa) + BigInt(slip.pfEmployerPaisa))}</span></div>
             )}
             <div className="flex justify-between border-t pt-1 text-sm font-bold"><span>{t("payroll.net")}</span><span className="font-mono">{fmtMoney(slip.netPaisa)}</span></div>
           </div>
         </div>
 
-        <div className="mt-6 flex items-end justify-between text-xs text-slate-500">
+        <div className="mt-6 flex items-end justify-between text-xs text-muted-foreground">
           <div>{t("payroll.docNo")}: {run.docNo ?? "—"}</div>
-          <div className="text-center"><div className="h-10 border-b border-slate-300" /><div className="mt-1">{t("payroll.employees")}</div></div>
+          <div className="text-center"><div className="h-10 border-b border-border" /><div className="mt-1">{t("payroll.employees")}</div></div>
         </div>
       </div>
     </div>

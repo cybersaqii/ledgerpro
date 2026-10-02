@@ -80,7 +80,7 @@ export function Stat({ label, value, sub, icon, tone = "primary" }: {
     neutral: "tile-neutral",
   };
   return (
-    <div className="card card-gloss card-edge card-lift rise p-5">
+    <div className="card card-lift rise p-5">
       <div className="flex items-start justify-between gap-3">
         {/* pe-10 keeps text clear of the .kpi-tile-go arrow on narrow tiles (A1) */}
         <div className={`min-w-0 ${sub ? "pe-10" : ""}`}>
@@ -98,7 +98,7 @@ export function Stat({ label, value, sub, icon, tone = "primary" }: {
 
 export function EmptyState({ title, hint, action, icon }: { title: string; hint?: string; action?: ReactNode; icon?: ReactNode }) {
   return (
-    <div className="card card-gloss rise flex flex-col items-center px-6 py-14 text-center">
+    <div className="card rise flex flex-col items-center px-6 py-14 text-center">
       <div className="tile tile-neutral h-14 w-14">
         {icon ?? <BookOpenCheck size={26} />}
       </div>
@@ -122,7 +122,7 @@ export function Field({ label, children, hint, error, required }: { label: strin
   return (
     <label className="block">
       <span className="mb-1.5 block text-[0.8rem] font-semibold text-foreground/90">
-        {label}{required && <span className="text-red-500"> *</span>}
+        {label}{required && <span className="text-danger"> *</span>}
       </span>
       {children}
       {error ? (

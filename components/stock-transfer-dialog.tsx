@@ -85,7 +85,7 @@ export default function StockTransferDialog({ onClose, onSaved }: {
           <h3 className="flex items-center gap-2 text-base font-bold">
             <ArrowRightLeft size={17} className="text-primary" /> {t("stocktransfer.title")}
           </h3>
-          <button className="btn btn-ghost !p-2" onClick={onClose} aria-label={t("common.close")}>
+          <button className="btn btn-ghost !min-w-11 !p-2" onClick={onClose} aria-label={t("common.close")}>
             <X size={16} />
           </button>
         </div>
@@ -97,7 +97,7 @@ export default function StockTransferDialog({ onClose, onSaved }: {
             {product ? (
               <div className="flex items-center justify-between rounded-xl border border-border bg-muted px-3 py-2.5 text-sm">
                 <span className="font-semibold">{product.name} <span className="text-xs text-muted-foreground">{product.sku} · {product.unit}</span></span>
-                <button type="button" className="btn btn-ghost !p-1.5" onClick={() => { setProduct(null); setQuery(""); }} aria-label={t("common.close")}>
+                <button type="button" className="btn btn-ghost !min-h-11 !min-w-11 !p-2" onClick={() => { setProduct(null); setQuery(""); }} aria-label={t("common.close")}>
                   <X size={14} />
                 </button>
               </div>

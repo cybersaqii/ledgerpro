@@ -15,7 +15,7 @@ type Template = {
   showLogo: boolean;
 };
 
-const DEFAULTS: Template = { primaryColor: "#0f766e", terms: "", signatureUrl: "", qrEnabled: false, showLogo: true };
+const DEFAULTS: Template = { primaryColor: "#1e4fa3", terms: "", signatureUrl: "", qrEnabled: false, showLogo: true };
 
 /** Module 6.5 — invoice template designer: branding defaults used by the
  * document print views (accent colour, terms block, signature image, QR code). */
@@ -61,14 +61,14 @@ export default function TemplatePage() {
         subtitle={t("template.subtitle")}
         icon={<Palette size={20} />}
       />
-      <div className="card card-gloss mx-auto max-w-2xl p-6 sm:p-8">
+      <div className="card mx-auto max-w-2xl p-6 sm:p-8">
         {loading ? (
           <div className="space-y-4">{[1, 2, 3].map((i) => <div key={i} className="skeleton h-12 rounded-xl" />)}</div>
         ) : (
           <form onSubmit={submit} className="space-y-4">
             <ErrorNote message={error} />
             {!canEdit && (
-              <div className="rounded-xl bg-amber-500/10 px-4 py-3 text-sm font-semibold text-amber-600 dark:text-amber-400">
+              <div className="rounded-xl bg-warning-soft px-4 py-3 text-sm font-semibold text-warning">
                 {t("settings.staffNote")}
               </div>
             )}

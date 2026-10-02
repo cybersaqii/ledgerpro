@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { brand } from "@/lib/brand";
 import LandingContent from "./landing-content";
+import StructuredData from "./structured-data";
 
 export const metadata: Metadata = {
   title: "Free Accounting Software for Every Business",
@@ -15,5 +16,10 @@ export const metadata: Metadata = {
 };
 
 export default function LandingPage() {
-  return <LandingContent />;
+  return (
+    <>
+      <StructuredData />
+      <LandingContent />
+    </>
+  );
 }

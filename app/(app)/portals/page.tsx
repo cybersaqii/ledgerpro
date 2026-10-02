@@ -33,11 +33,11 @@ type BankAccount = { id: string; name: string; kind: string };
 function StatusBadge({ status, t }: { status: string; t: (k: string, v?: Record<string, string | number>) => string }) {
   const color =
     status === "APPROVED" || status === "RECONCILED"
-      ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"
+      ? "bg-success-soft text-success"
       : status === "REJECTED" || status === "CANCELLED"
-        ? "bg-red-500/10 text-red-600 dark:text-red-400"
+        ? "bg-danger-soft text-danger"
         : status === "SUBMITTED" || status === "INTENT"
-          ? "bg-amber-500/10 text-amber-600 dark:text-amber-400"
+          ? "bg-warning-soft text-warning"
           : "bg-muted text-muted-foreground";
   return (
     <span className={`rounded-full px-2.5 py-1 text-xs font-bold ${color}`}>
@@ -256,7 +256,7 @@ export default function PortalsPage() {
                       </div>
                     )}
                     {r.status === "REJECTED" && r.rejectionReason && (
-                      <div className="mt-2 text-sm text-red-600 dark:text-red-400">{t("portal.rejectionReason")}: {r.rejectionReason}</div>
+                      <div className="mt-2 text-sm text-danger">{t("portal.rejectionReason")}: {r.rejectionReason}</div>
                     )}
                   </div>
                 ))}

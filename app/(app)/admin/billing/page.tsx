@@ -189,7 +189,7 @@ export default function AdminBillingPage() {
                     <p className="font-bold">{p.companyName}</p>
                     <p className="text-sm text-muted-foreground">
                       {p.months === 12 ? t("billing.yearly") : t("billing.monthly")} · <strong className="text-foreground">{fmtMoney(p.amountPaisa - (p.discountPaisa || 0))}</strong>{p.discountPaisa ? (
-                        <span> <s>{fmtMoney(p.amountPaisa)}</s> <span className="font-bold text-emerald-600 dark:text-emerald-400">−{fmtMoney(p.discountPaisa)}{p.couponCode ? ` (${p.couponCode})` : ""}</span></span>
+                        <span> <s>{fmtMoney(p.amountPaisa)}</s> <span className="font-bold text-success">−{fmtMoney(p.discountPaisa)}{p.couponCode ? ` (${p.couponCode})` : ""}</span></span>
                       ) : null} · {p.method} · {t("adminbilling.ref")} <strong className="text-foreground">{p.reference}</strong>
                     </p>
                     <p className="text-xs text-muted-foreground">{p.createdAt.slice(0, 10)}{p.reviewedBy ? ` · ${t("adminbilling.reviewedBy", { name: p.reviewedBy })}` : ""}{p.note ? ` · ${p.note}` : ""}</p>
@@ -211,7 +211,7 @@ export default function AdminBillingPage() {
                       onChange={(e) => setRejectNote((r) => ({ ...r, [p.id]: e.target.value }))}
                       maxLength={300}
                     />
-                    <button onClick={() => reject(p.id)} disabled={busy === p.id} className="btn btn-ghost !py-2 text-sm text-rose-600">
+                    <button onClick={() => reject(p.id)} disabled={busy === p.id} className="btn btn-ghost !py-2 text-sm text-danger">
                       <X size={15} /> {t("adminbilling.reject")}
                     </button>
                   </div>
@@ -264,7 +264,7 @@ export default function AdminBillingPage() {
             </Field>
           ))}
         </div>
-        {saved && <p className="text-sm font-semibold text-emerald-600">{t("adminbilling.saved")}</p>}
+        {saved && <p className="text-sm font-semibold text-success">{t("adminbilling.saved")}</p>}
         <button onClick={saveSettings} disabled={saving} className="btn btn-primary">
           {saving ? t("adminbilling.saving") : t("adminbilling.saveSettings")}
         </button>

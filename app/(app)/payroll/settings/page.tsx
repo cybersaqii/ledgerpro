@@ -102,7 +102,7 @@ export default function PayrollSettingsPage() {
     <div className="space-y-4">
       <PageHeader title={t("payroll.settings")} icon={<Settings2 size={20} />} />
       <ErrorNote message={error} />
-      {saved && <div className="rounded-xl bg-emerald-500/10 px-4 py-2 text-sm text-emerald-700 dark:text-emerald-300">{t("payroll.settingsSaved")}</div>}
+      {saved && <div className="rounded-xl bg-success-soft px-4 py-2 text-sm text-success">{t("payroll.settingsSaved")}</div>}
 
       <div className="rounded-2xl border border-border bg-card p-4">
         <h2 className="text-sm font-bold">{t("payroll.eobiSettings")}</h2>

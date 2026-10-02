@@ -143,7 +143,7 @@ export default function StockPage() {
                     <td>{b.batchNo}</td>
                     <td>{b.expiryDate ? fmtExpiry(b.expiryDate) : "—"}</td>
                     <td className="num font-bold">{fmtQty(b.qtyThousandths, b.unit)}</td>
-                    <td><span className="badge bg-amber-500/15 text-amber-700 dark:text-amber-300"><TriangleAlert size={11} /> {t("batches.expiringSoon")}</span></td>
+                    <td><span className="badge bg-warning-soft text-warning"><TriangleAlert size={11} /> {t("batches.expiringSoon")}</span></td>
                   </tr>
                 ))}
               </tbody>
@@ -171,7 +171,7 @@ export default function StockPage() {
                     <td className="font-bold">{d.docNo}</td>
                     <td className="text-sm">{d.fromBranchName} → {d.toBranchName}</td>
                     <td>
-                      <span className={`badge ${d.status === "IN_TRANSIT" ? "bg-amber-500/15 text-amber-700 dark:text-amber-300" : "bg-muted text-muted-foreground"}`}>
+                      <span className={`badge ${d.status === "IN_TRANSIT" ? "bg-warning-soft text-warning" : "bg-muted text-muted-foreground"}`}>
                         {t(`m4.transferStatus${d.status}` as never)}
                       </span>
                     </td>

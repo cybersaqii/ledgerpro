@@ -86,7 +86,7 @@ export default function DayClosePage() {
       ) : (
         <>
           {/* Net cash hero */}
-          <div className={`card card-gloss rise rise-1 mb-4 overflow-hidden p-6 ${net >= 0n ? "" : ""}`}>
+          <div className="card rise rise-1 mb-4 overflow-hidden p-6">
             <div className="flex flex-wrap items-center justify-between gap-4">
               <div>
                 <p className="text-xs font-extrabold uppercase tracking-widest text-muted-foreground">{t("dayclose.netCashDay")}</p>
@@ -153,7 +153,7 @@ export default function DayClosePage() {
 
 function DetailCard({ icon, title, count, total, href, linkText, t }: { icon: React.ReactNode; title: string; count: number; total: string; href: string; linkText: string; t: (key: string, vars?: Record<string, string | number>) => string }) {
   return (
-    <div className="card card-gloss card-lift rise rise-2 p-5">
+    <div className="card card-lift rise rise-2 p-5">
       <div className="flex items-center justify-between">
         <span className="tile tile-primary h-10 w-10">{icon}</span>
         <span className="text-xs font-bold text-muted-foreground">{count} {count === 1 ? t("dayclose.entryOne") : t("dayclose.entryMany")}</span>

@@ -18,7 +18,7 @@ interface NotifItem {
 }
 
 const KIND_TONE: Record<string, string> = {
-  REMINDER: "text-amber-600 dark:text-amber-400",
+  REMINDER: "text-warning",
   LOW_STOCK: "text-danger",
   SYSTEM: "text-primary",
 };
@@ -58,7 +58,7 @@ export default function NotificationsPage() {
         title={t("header.notifications")}
         icon={<Bell size={20} />}
         actions={
-          <button onClick={markAll} className="btn-secondary inline-flex items-center gap-2">
+          <button onClick={markAll} className="btn btn-ghost !py-2 text-sm">
             <CheckCheck size={15} /> {t("header.markAllRead")}
           </button>
         }
@@ -69,7 +69,7 @@ export default function NotificationsPage() {
       ) : items.length === 0 ? (
         <EmptyState title={t("header.noNotifications")} icon={<Bell size={28} />} />
       ) : (
-        <div className="card card-gloss divide-y divide-border overflow-hidden">
+        <div className="card divide-y divide-border overflow-hidden">
           {items.map((n) => (
             <div key={n.id} className={`px-5 py-4 ${n.isRead ? "" : "bg-primary/5"}`}>
               <div className="flex items-start gap-3">

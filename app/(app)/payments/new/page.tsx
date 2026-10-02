@@ -318,7 +318,7 @@ function PaymentFormInner() {
             </Field>
           </div>
           {whtPaisa > 0n && (
-            <div className="mt-3 rounded-xl bg-amber-500/10 px-4 py-3 text-sm font-bold text-amber-800 dark:text-amber-200">
+            <div className="mt-3 rounded-xl bg-warning-soft px-4 py-3 text-sm font-bold text-warning">
               {t("tax.payWhtShown", {
                 wht: fmtMoneyPlain(whtPaisa),
                 dir: isReceipt ? t("tax.payWhtIn") : t("tax.payWhtOut"),

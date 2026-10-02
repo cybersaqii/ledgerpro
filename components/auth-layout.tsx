@@ -8,27 +8,26 @@ import { Typewriter, type TwPhrase } from "./typewriter";
 import { brand } from "@/lib/brand";
 import { useLang } from "./lang-provider";
 import { en } from "@/lib/i18n/en";
-import { ur } from "@/lib/i18n/ur";
 import type { ReactNode } from "react";
 
 const DONUT_C = 2 * Math.PI * 30;
 
 const legend = [
-  { color: "#10b981", key: "c1l0" },
-  { color: "#f59e0b", key: "c1l1" },
+  { color: "#1e4fa3", key: "c1l0" },
+  { color: "#b45309", key: "c1l1" },
   { color: "#cbd5e1", key: "c1l2" },
 ];
 
 const allocations = [
-  { color: "#10b981", key: "c3i0", value: "Rs 5,20,000" },
-  { color: "#38bdf8", key: "c3i1", value: "Rs 3,10,000" },
-  { color: "#f59e0b", key: "c3i2", value: "Rs 1,45,000" },
+  { color: "#1e4fa3", key: "c3i0", value: "Rs 5,20,000" },
+  { color: "#6ea8fe", key: "c3i1", value: "Rs 3,10,000" },
+  { color: "#b45309", key: "c3i2", value: "Rs 1,45,000" },
 ];
 
 /**
- * Split-card auth shell: a light floating card with the form on the left and a
- * deep-emerald showcase panel on the right (floating mini dashboard cards,
- * typewriter headline). Original LedgerPro content and emerald brand only.
+ * Split-card auth shell: a floating card with the form on the left and a
+ * deep-navy showcase panel on the right (floating mini dashboard cards,
+ * typewriter headline). Ink & Gold brand.
  */
 export function AuthLayout({
   children,
@@ -42,26 +41,28 @@ export function AuthLayout({
   /** Force the Sign In / Sign Up tab switcher on or off (default: on for /login and /signup). */
   tabs?: boolean;
 }) {
-  const { t } = useLang();
+  const { t, urDict } = useLang();
   const pathname = usePathname();
   const L = (k: string, vars?: Record<string, string | number>) => t(`authlayout.${k}`, vars);
   const showTabs = tabs ?? (pathname === "/login" || pathname === "/signup");
+  // Urdu phrases resolve once the on-demand Urdu chunk arrives; English shows meanwhile.
+  const urPhrases = urDict?.authlayout;
   const phrases: TwPhrase[] = [
     { text: en.authlayout.tp0 },
-    { text: ur.authlayout?.tp0 ?? en.authlayout.tp0, rtl: true },
+    { text: urPhrases?.tp0 ?? en.authlayout.tp0, rtl: true },
     { text: en.authlayout.tp1 },
-    { text: ur.authlayout?.tp1 ?? en.authlayout.tp1, rtl: true },
+    { text: urPhrases?.tp1 ?? en.authlayout.tp1, rtl: true },
   ];
 
   return (
-    <div className="relative flex min-h-screen items-center justify-center overflow-hidden bg-[#e9f1ee] px-3 py-8 sm:px-6 sm:py-12">
+    <div className="relative flex min-h-screen items-center justify-center overflow-hidden bg-background px-3 py-8 sm:px-6 sm:py-12">
       {/* Page backdrop */}
       <div className="pointer-events-none absolute inset-0" aria-hidden="true">
-        <div className="absolute -top-24 start-[8%] h-96 w-96 rounded-full bg-emerald-200/50 blur-[120px]" />
-        <div className="absolute end-[4%] bottom-0 h-80 w-80 rounded-full bg-teal-200/50 blur-[110px]" />
+        <div className="absolute -top-24 start-[8%] h-96 w-96 rounded-full bg-primary/20 blur-[120px]" />
+        <div className="absolute end-[4%] bottom-0 h-80 w-80 rounded-full bg-accent/20 blur-[110px]" />
         <div
           className="absolute inset-0 opacity-[0.35]"
-          style={{ backgroundImage: "radial-gradient(circle at 1px 1px, #0f766e 1px, transparent 0)", backgroundSize: "34px 34px", opacity: 0.05 }}
+          style={{ backgroundImage: "radial-gradient(circle at 1px 1px, #1e4fa3 1px, transparent 0)", backgroundSize: "34px 34px", opacity: 0.05 }}
         />
       </div>
       <div className="absolute top-4 end-4 z-20 sm:top-6 sm:end-6">
@@ -69,7 +70,7 @@ export function AuthLayout({
       </div>
 
       {/* Card */}
-      <div className="relative z-10 grid min-h-[80vh] w-full max-w-6xl overflow-hidden rounded-[1.75rem] bg-white shadow-2xl shadow-emerald-950/15 md:grid-cols-[1fr_1.05fr]">
+      <div className="auth-card relative z-10 grid min-h-[80vh] w-full max-w-6xl md:grid-cols-[1fr_1.05fr]">
         {/* Left — form side */}
         <div className="flex flex-col p-6 sm:p-10 lg:px-12">
           <Link href="/" aria-label={brand.name} className="self-start">
@@ -78,20 +79,20 @@ export function AuthLayout({
 
           <div className="flex flex-1 flex-col justify-center py-6">
           {heading ? (
-            <h1 className="font-display mt-8 text-[1.65rem] font-extrabold tracking-tight text-slate-900">{heading}</h1>
+            <h1 className="font-display mt-8 text-[1.65rem] font-extrabold tracking-tight text-foreground">{heading}</h1>
           ) : null}
-          {sub ? <p className="mt-2 text-sm leading-relaxed text-slate-500">{sub}</p> : null}
+          {sub ? <p className="mt-2 text-sm leading-relaxed text-muted-foreground">{sub}</p> : null}
 
           {showTabs && (
-            <div className="mt-6 grid grid-cols-2 rounded-xl bg-slate-100 p-1 text-sm font-bold" role="tablist" aria-label={L("tabIn")}>
+            <div className="mt-6 grid grid-cols-2 rounded-xl bg-muted p-1 text-sm font-bold" role="tablist" aria-label={L("tabIn")}>
               <Link
                 href="/login"
                 role="tab"
                 aria-selected={pathname === "/login"}
                 className={`rounded-lg py-2.5 text-center transition ${
                   pathname === "/login"
-                    ? "bg-white text-slate-900 shadow-sm"
-                    : "text-slate-500 hover:text-slate-800"
+                    ? "bg-card text-foreground shadow-sm"
+                    : "text-muted-foreground hover:text-foreground"
                 }`}
               >
                 {L("tabIn")}
@@ -102,8 +103,8 @@ export function AuthLayout({
                 aria-selected={pathname === "/signup"}
                 className={`rounded-lg py-2.5 text-center transition ${
                   pathname === "/signup"
-                    ? "bg-white text-slate-900 shadow-sm"
-                    : "text-slate-500 hover:text-slate-800"
+                    ? "bg-card text-foreground shadow-sm"
+                    : "text-muted-foreground hover:text-foreground"
                 }`}
               >
                 {L("tabUp")}
@@ -114,30 +115,30 @@ export function AuthLayout({
           <div className="mt-6">{children}</div>
           </div>
 
-          <p className="text-center text-xs text-slate-400">{L("footer", { brand: brand.name })}</p>
+          <p className="text-center text-xs text-muted-foreground">{L("footer", { brand: brand.name })}</p>
         </div>
 
-        {/* Right — showcase side */}
-        <div className="relative hidden flex-col overflow-hidden bg-[#0a2e25] p-8 md:flex lg:p-10">
-          <div className="absolute inset-0 bg-gradient-to-br from-[#0d4434] via-[#0a2e25] to-[#071f19]" aria-hidden="true" />
+        {/* Right — showcase side (fixed deep-navy surface, intentional in both themes) */}
+        <div className="relative hidden flex-col overflow-hidden bg-[#0a1120] p-8 md:flex lg:p-10">
+          <div className="absolute inset-0 bg-gradient-to-br from-[#16294d] via-[#0a1120] to-[#060b16]" aria-hidden="true" />
           <div className="pointer-events-none absolute inset-0" aria-hidden="true">
-            <div className="absolute -top-20 end-0 h-72 w-72 rounded-full bg-emerald-400/15 blur-[100px]" />
-            <div className="absolute bottom-10 -start-16 h-64 w-64 rounded-full bg-teal-300/10 blur-[90px]" />
+            <div className="absolute -top-20 end-0 h-72 w-72 rounded-full bg-[#1e4fa3]/25 blur-[100px]" />
+            <div className="absolute bottom-10 -start-16 h-64 w-64 rounded-full bg-[#f0b73f]/10 blur-[90px]" />
             <div
               className="absolute inset-0 opacity-[0.06]"
               style={{ backgroundImage: "radial-gradient(circle at 1px 1px, #fff 1px, transparent 0)", backgroundSize: "28px 28px" }}
             />
           </div>
 
-          {/* Floating dashboard cards */}
+          {/* Floating dashboard cards (deliberately white brand surfaces) */}
           <div className="relative mb-4 h-64 shrink-0" aria-hidden="true">
             <div className="floaty absolute top-0 start-0 w-44 rounded-2xl bg-white p-4 shadow-xl shadow-black/25" style={{ animationDelay: "-1.2s" }}>
               <p className="text-[0.65rem] font-bold tracking-wider text-slate-400 uppercase">{L("c1t")}</p>
               <div className="mt-2 flex justify-center">
                 <svg viewBox="0 0 76 76" className="h-[4.4rem] w-[4.4rem] -rotate-90" role="img">
                   <circle cx="38" cy="38" r="30" fill="none" stroke="#edf2f4" strokeWidth="11" />
-                  <circle cx="38" cy="38" r="30" fill="none" stroke="#10b981" strokeWidth="11" strokeLinecap="round" strokeDasharray={`${DONUT_C * 0.55} ${DONUT_C}`} />
-                  <circle cx="38" cy="38" r="30" fill="none" stroke="#f59e0b" strokeWidth="11" strokeDasharray={`${DONUT_C * 0.3} ${DONUT_C}`} strokeDashoffset={-(DONUT_C * 0.55)} />
+                  <circle cx="38" cy="38" r="30" fill="none" stroke="#1e4fa3" strokeWidth="11" strokeLinecap="round" strokeDasharray={`${DONUT_C * 0.55} ${DONUT_C}`} />
+                  <circle cx="38" cy="38" r="30" fill="none" stroke="#b45309" strokeWidth="11" strokeDasharray={`${DONUT_C * 0.3} ${DONUT_C}`} strokeDashoffset={-(DONUT_C * 0.55)} />
                   <circle cx="38" cy="38" r="30" fill="none" stroke="#cbd5e1" strokeWidth="11" strokeDasharray={`${DONUT_C * 0.15} ${DONUT_C}`} strokeDashoffset={-(DONUT_C * 0.85)} />
                 </svg>
               </div>
@@ -155,7 +156,7 @@ export function AuthLayout({
               <p className="text-[0.65rem] font-bold tracking-wider text-slate-400 uppercase">{L("c2t")}</p>
               <p className="mt-1.5 text-sm font-extrabold text-slate-900">{L("c2d")}</p>
               <div className="mt-2.5 h-2 overflow-hidden rounded-full bg-slate-100">
-                <div className="h-full w-[72%] rounded-full bg-gradient-to-r from-emerald-500 to-teal-400" />
+                <div className="h-full w-[72%] rounded-full bg-gradient-to-r from-[#1e4fa3] to-[#b45309]" />
               </div>
               <p className="mt-1.5 text-[0.7rem] font-semibold text-slate-500">{L("c2p")}</p>
             </div>
@@ -177,15 +178,15 @@ export function AuthLayout({
 
           {/* Brand + headline */}
           <div className="relative flex flex-1 flex-col items-center justify-center px-2 text-center">
-            <BrandMark size={52} className="drop-shadow-[0_10px_30px_rgba(16,185,129,0.45)]" />
+            <BrandMark size={52} className="drop-shadow-[0_10px_30px_rgba(30,79,163,0.5)]" />
             <div className="mt-5 min-h-[3.2rem]">
               <Typewriter
                 phrases={phrases}
-                caretClassName="text-emerald-300"
-                className="font-display bg-gradient-to-r from-emerald-100 via-white to-emerald-100 bg-clip-text text-[1.45rem] leading-snug font-extrabold tracking-tight text-transparent"
+                caretClassName="text-[#f0b73f]"
+                className="font-display bg-gradient-to-r from-[#f0b73f] via-white to-[#f0b73f] bg-clip-text text-[1.45rem] leading-snug font-extrabold tracking-tight text-transparent"
               />
             </div>
-            <p className="mt-3 max-w-sm text-[0.83rem] leading-relaxed text-emerald-100/70">{L("scSub")}</p>
+            <p className="mt-3 max-w-sm text-[0.83rem] leading-relaxed text-white/70">{L("scSub")}</p>
           </div>
 
           {/* Carousel dots (decorative) */}

@@ -107,7 +107,7 @@ export function ApprovalRulesCard() {
               </div>
               <div className="flex items-center gap-1">
                 <button
-                  className="btn btn-ghost btn-sm"
+                  className="btn btn-ghost"
                   disabled={saving}
                   onClick={() => saveRule(r.docType, r.threshold, !r.isActive)}
                   title={r.isActive ? t("approvals.pause") : t("approvals.resume")}
@@ -115,7 +115,7 @@ export function ApprovalRulesCard() {
                   {r.isActive ? <Pause size={16} /> : <Play size={16} />}
                 </button>
                 <button
-                  className="btn btn-ghost btn-sm text-destructive"
+                  className="btn btn-ghost text-danger"
                   onClick={() => remove(r.docType)}
                   title={t("common.delete")}
                 >
@@ -148,7 +148,7 @@ export function ApprovalRulesCard() {
             />
           </label>
           <div className="flex items-end">
-            <button className="btn btn-primary btn-sm" disabled={saving}>
+            <button className="btn btn-primary" disabled={saving}>
               <Plus size={16} /> {saving ? t("common.saving") : t("common.add")}
             </button>
           </div>
