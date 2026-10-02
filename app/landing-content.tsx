@@ -63,8 +63,8 @@ const trust = [
   { t: "tr2t", d: "tr2d", icon: ShieldCheck },
 ];
 
-const paperBad = ["pp0", "pp1", "pp2", "pp3"];
-const paperGood = ["lp0", "lp1", "lp2", "lp3"];
+const paperBad = ["pp0", "pp1", "pp2", "pp3", "pp4", "pp5"];
+const paperGood = ["lp0", "lp1", "lp2", "lp3", "lp4", "lp5"];
 const madeFor = ["mf0", "mf1", "mf2", "mf3", "mf4", "mf5"];
 const freeFeatures = ["ff0", "ff1", "ff2", "ff3", "ff4", "ff5"];
 const proFeatures = ["pf0", "pf1", "pf2", "pf3", "pf4", "pf5", "pf6"];
@@ -291,7 +291,7 @@ export default function LandingContent() {
             <p className="mx-auto mt-3 max-w-xl text-muted-foreground">{L("paperSub")}</p>
           </div>
           <div className="mx-auto mt-8 grid max-w-5xl gap-5 md:grid-cols-2 md:gap-8">
-            <div className="rounded-3xl border border-border bg-card/80 p-8 shadow-sm backdrop-blur transition hover:shadow-md sm:p-10">
+            <div className="rounded-3xl border border-border bg-card/80 p-6 shadow-sm backdrop-blur transition hover:shadow-md sm:p-8">
               <p className="text-sm font-bold uppercase tracking-wider text-muted-foreground">{L("paperColT")}</p>
               <ul className="mt-6 space-y-4">
                 {paperBad.map((k) => (
@@ -301,9 +301,9 @@ export default function LandingContent() {
                 ))}
               </ul>
             </div>
-            <div className="rounded-3xl border-2 border-primary bg-card p-8 shadow-xl shadow-primary/15 transition hover:shadow-2xl sm:p-10">
-              <div className="relative h-full">
-                <span className="absolute -top-3.5 start-8 rounded-full bg-accent px-3.5 py-1 text-[0.68rem] font-extrabold uppercase tracking-wider text-accent-foreground shadow-md">{L("recommended")}</span>
+            <div className="rounded-3xl border-2 border-primary bg-card p-6 shadow-xl shadow-primary/15 transition hover:shadow-2xl sm:p-8">
+              <div className="relative h-full pt-5">
+                <span className="absolute -top-3.5 left-1/2 -translate-x-1/2 whitespace-nowrap rounded-full bg-accent px-3.5 py-1 text-[0.68rem] font-extrabold uppercase tracking-wider text-accent-foreground shadow-md">{L("recommended")}</span>
                 <p className="text-sm font-extrabold uppercase tracking-wider text-primary">{b}</p>
                 <ul className="mt-6 space-y-4">
                   {paperGood.map((k) => (

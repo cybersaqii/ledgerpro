@@ -60,12 +60,13 @@ export function BrandMark({ size = 36, className = "" }: { size?: number; classN
 
 /**
  * Wordmark — "LedgerPro" in the surrounding text color, "Solution" in the
- * primary (sapphire blue) accent. Same spacing/typography everywhere.
+ * primary (sapphire blue) accent on light surfaces, warm gold on dark
+ * surfaces (blue-on-navy has no contrast). Same spacing/typography everywhere.
  */
-export function BrandWordmark({ className = "" }: { className?: string }) {
+export function BrandWordmark({ className = "", dark = false }: { className?: string; dark?: boolean }) {
   return (
     <span className={`font-extrabold tracking-tight ${className}`}>
-      LedgerPro<span className="text-primary">Solution</span>
+      LedgerPro<span className={dark ? "text-[#f0b73f]" : "text-primary"}>Solution</span>
     </span>
   );
 }
@@ -89,7 +90,7 @@ export function BrandLockup({
     <span className="flex min-w-0 items-center gap-2.5">
       <BrandMark size={markSize} className="shrink-0 drop-shadow-sm" />
       <span className="min-w-0">
-        <BrandWordmark className={`block ${wordClass} ${dark ? "text-white" : ""}`} />
+        <BrandWordmark dark={dark} className={`block ${wordClass} ${dark ? "text-white" : ""}`} />
         {tagline && (
           <span className={`mt-0.5 block text-[0.68rem] font-medium ${dark ? "text-white/70" : "text-muted-foreground"}`}>
             {brand.tagline}
