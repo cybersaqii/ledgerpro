@@ -7,8 +7,8 @@ import { BrandLockup } from "@/components/brand-logo";
 import { downloadCsv } from "@/lib/csv";
 import { useLang } from "./lang-provider";
 
-export function Logo({ compact = false }: { compact?: boolean }) {
-  return <BrandLockup markSize={40} wordClass="text-[1.05rem] leading-tight" tagline={!compact} />;
+export function Logo() {
+  return <BrandLockup markSize={40} wordClass="text-[1.05rem] leading-tight" />;
 }
 
 export function ThemeToggle() {

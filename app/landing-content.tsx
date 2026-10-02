@@ -90,7 +90,7 @@ export default function LandingContent() {
       <header className="fixed inset-x-0 top-3 z-40 px-3 sm:top-4 sm:px-6">
         <div className="mx-auto flex h-14 max-w-[1600px] items-center justify-between gap-2 rounded-full border border-white/15 bg-[#101a2c]/85 py-1.5 pe-1.5 ps-4 shadow-2xl shadow-black/30 backdrop-blur-xl sm:h-16 sm:pe-2 sm:ps-5">
           <Link href="/" className="flex min-w-0 items-center gap-2.5" aria-label={b}>
-            <BrandLockup markSize={34} wordClass="font-display text-[1.02rem] leading-none text-white hidden min-[420px]:block" tagline dark />
+            <BrandLockup markSize={38} wordClass="font-display text-[1.02rem] leading-none text-white hidden min-[420px]:block" dark />
           </Link>
           <nav className="hidden items-center gap-7 text-sm font-semibold text-white/80 lg:flex">
             <a href="#features" className="transition hover:text-white">{L("navFeatures")}</a>

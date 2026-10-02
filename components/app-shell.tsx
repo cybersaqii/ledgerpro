@@ -282,7 +282,7 @@ export function AppShell({ children, initialBusinessType }: { children: ReactNod
           <aside role="dialog" aria-modal="true" aria-label={t("shell.navMenu")}
             className="absolute start-0 top-0 flex h-full w-72 flex-col border-e border-border bg-sidebar shadow-2xl">
             <div className="flex h-16 items-center justify-between border-b border-border px-5">
-              <Logo compact />
+              <Logo />
               <button onClick={() => setOpen(false)} className="grid h-11 w-11 place-items-center rounded-xl text-sidebar-foreground hover:bg-sidebar-active hover:text-foreground" aria-label={t("shell.closeMenu")}>
                 <X size={20} />
               </button>
@@ -299,7 +299,7 @@ export function AppShell({ children, initialBusinessType }: { children: ReactNod
             <button onClick={() => setOpen(true)} className="grid h-11 w-11 place-items-center rounded-xl border border-border bg-card transition hover:-translate-y-0.5 hover:shadow-md lg:hidden" aria-label={t("header.openMenu")}>
               <Menu size={19} />
             </button>
-            <div className="lg:hidden"><Logo compact /></div>
+            <div className="lg:hidden"><Logo /></div>
             <div className="hidden min-w-0 sm:block">
               {user ? (
                 <>
