@@ -29,7 +29,11 @@ export default function StructuredData() {
     url: SITE,
     applicationCategory: "BusinessApplication",
     operatingSystem: "Web",
-    offers: { "@type": "Offer", price: "0", priceCurrency: "PKR" },
+    offers: [
+      { "@type": "Offer", name: "Free", price: "0", priceCurrency: "PKR" },
+      { "@type": "Offer", name: "PRO Monthly", price: "1500", priceCurrency: "PKR" },
+      { "@type": "Offer", name: "PRO Yearly", price: "15000", priceCurrency: "PKR" },
+    ],
   };
   const faqPage = {
     "@context": "https://schema.org",
