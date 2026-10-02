@@ -6,7 +6,8 @@ import SupportContent from "./content";
 
 export const metadata: Metadata = {
   title: "Support",
-  description: `Get help with ${brand.name} — contact details and a support request form.`,
+  description: `Get help with ${brand.name} — find our contact details and send a support request through the form. We reply by email, so keep an eye on your inbox (and spam folder) after submitting.`,
+  alternates: { canonical: "/support" },
 };
 
 // Contact details come from the database so the platform admin can change

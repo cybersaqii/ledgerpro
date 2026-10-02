@@ -6,6 +6,7 @@ import PrivacyContent from "./content";
 export const metadata: Metadata = {
   title: "Privacy Policy",
   description: `${brand.name} Privacy Policy — what we collect, how we use it, and your rights to your data.`,
+  alternates: { canonical: "/privacy" },
 };
 
 export default function PrivacyPage() {

@@ -10,9 +10,9 @@ import {
   getTemplate,
   updateRecurringTemplate,
   deleteTemplate,
+  serializeTemplate,
   type TemplateItem,
 } from "@/lib/recurring";
-import { serializeTemplate } from "../route";
 import { parties } from "@/db/schema";
 import { eq, and } from "drizzle-orm";
 

@@ -32,7 +32,7 @@ export default function GlobalError({ reset }: { error: Error & { digest?: strin
   const c = COPY[lang];
   return (
     <html lang={lang} dir={lang === "ur" ? "rtl" : "ltr"}>
-      <body style={{ margin: 0, fontFamily: "system-ui, sans-serif", background: "#0a2e25", color: "#ecfdf5" }}>
+      <body style={{ margin: 0, fontFamily: "system-ui, sans-serif", background: "#0a1120", color: "#e9eef7" }}>
         <div
           style={{
             minHeight: "100vh",
@@ -49,8 +49,8 @@ export default function GlobalError({ reset }: { error: Error & { digest?: strin
                 height: 72,
                 margin: "0 auto",
                 borderRadius: 20,
-                background: "rgba(245,158,11,.18)",
-                color: "#f59e0b",
+                background: "rgba(240,183,63,.16)",
+                color: "#f0b73f",
                 display: "grid",
                 placeItems: "center",
                 fontSize: 36,
@@ -60,7 +60,7 @@ export default function GlobalError({ reset }: { error: Error & { digest?: strin
               !
             </div>
             <h1 style={{ margin: "20px 0 0", fontSize: 28 }}>{c.title}</h1>
-            <p style={{ color: "rgba(236,253,245,.7)", lineHeight: 1.6 }}>{c.body}</p>
+            <p style={{ color: "rgba(233,238,247,.7)", lineHeight: 1.6 }}>{c.body}</p>
             <button
               onClick={reset}
               style={{
@@ -68,7 +68,7 @@ export default function GlobalError({ reset }: { error: Error & { digest?: strin
                 padding: "12px 28px",
                 borderRadius: 12,
                 border: 0,
-                background: "#10b981",
+                background: "#1e4fa3",
                 color: "#fff",
                 fontSize: 16,
                 fontWeight: 700,

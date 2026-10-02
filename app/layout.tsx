@@ -7,12 +7,13 @@ import { brand } from "@/lib/brand";
 
 // Premium type pairing: Plus Jakarta Sans for UI body, Sora for display
 // headlines. Naskh-style Urdu stays simple for beginners.
-const bodySans = Plus_Jakarta_Sans({ variable: "--font-body", subsets: ["latin"], weight: ["400", "500", "600", "700", "800"] });
-const displaySans = Sora({ variable: "--font-display", subsets: ["latin"], weight: ["600", "700", "800"] });
+const bodySans = Plus_Jakarta_Sans({ variable: "--font-body", subsets: ["latin"], weight: ["400", "600", "800"] });
+const displaySans = Sora({ variable: "--font-display", subsets: ["latin"], weight: ["700", "800"] });
 const geistMono = Geist_Mono({ variable: "--font-geist-mono", subsets: ["latin"] });
 // Clean Naskh-style Urdu font — simple letterforms, easy for beginners
 // (Nastaliq is calligraphic and harder to read).
-const urduSans = Noto_Sans_Arabic({ variable: "--font-urdu", subsets: ["arabic"], weight: ["400", "500", "600", "700"] });
+// NOTE: only 400/700 ship; full conditional Arabic loading is a future optimization.
+const urduSans = Noto_Sans_Arabic({ variable: "--font-urdu", subsets: ["arabic"], weight: ["400", "700"] });
 
 const siteUrl = "https://ledgerprosolution.com";
 
@@ -28,20 +29,30 @@ export const metadata: Metadata = {
   robots: { index: true, follow: true },
   openGraph: {
     type: "website",
-    url: siteUrl,
+    // NOTE: no hardcoded `url` here — each page emits its own og:url
+    // (metadataBase resolves relative values like the landing page's "/").
     siteName: brand.name,
     title: `${brand.name} — ${brand.tagline}`,
     description: brand.description,
+    images: [
+      {
+        url: "/opengraph-image",
+        width: 1200,
+        height: 630,
+        alt: `${brand.name} — ${brand.tagline}`,
+      },
+    ],
   },
   twitter: {
-    card: "summary",
+    card: "summary_large_image",
     title: `${brand.name} — ${brand.tagline}`,
     description: brand.description,
+    images: ["/opengraph-image"],
   },
 };
 
 export const viewport: Viewport = {
-  themeColor: "#059669",
+  themeColor: "#1e4fa3",
   width: "device-width",
   initialScale: 1,
 };

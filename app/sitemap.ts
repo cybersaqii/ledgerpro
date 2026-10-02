@@ -1,6 +1,9 @@
 import type { MetadataRoute } from "next";
 
-const base = "https://ledgerpro-pw5c.vercel.app";
+const base = "https://ledgerprosolution.com";
+
+// FIXED lastmod — a sitemap must not churn lastModified on every build.
+const lastModified = new Date("2026-10-02");
 
 export default function sitemap(): MetadataRoute.Sitemap {
   // NOTE: /login and /signup are intentionally noindex (see app/(auth) layouts)
@@ -14,7 +17,7 @@ export default function sitemap(): MetadataRoute.Sitemap {
   ];
   return pages.map((p) => ({
     url: `${base}${p.path}`,
-    lastModified: new Date(),
+    lastModified,
     changeFrequency: "weekly",
     priority: p.priority,
   }));

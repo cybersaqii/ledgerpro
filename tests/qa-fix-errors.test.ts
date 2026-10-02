@@ -1,5 +1,8 @@
 import { describe, it, expect } from "vitest";
-import { tr } from "@/lib/i18n";
+import { tr, setUrDict } from "@/lib/i18n";
+import { ur } from "@/lib/i18n/ur";
+// The Urdu dictionary loads on demand in the app; tests inject it to stay synchronous.
+setUrDict(ur);
 import { err } from "@/lib/api";
 import { UserError, toApiError } from "@/lib/errors";
 import { ApiError } from "@/lib/format";

@@ -6,6 +6,7 @@ import TermsContent from "./content";
 export const metadata: Metadata = {
   title: "Terms of Service",
   description: `${brand.name} Terms of Service — your account, your data, fair use and liability.`,
+  alternates: { canonical: "/terms" },
 };
 
 export default function TermsPage() {

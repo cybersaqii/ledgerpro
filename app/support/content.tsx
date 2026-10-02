@@ -15,7 +15,7 @@ export default function SupportContent({ email, phone, hours }: { email: string;
   ];
   return (
     <div className="min-h-screen bg-background">
-      <header className="border-b border-white/10 bg-[#0a2e25]">
+      <header className="border-b border-white/10 bg-[#0a1120]">
         <div className="mx-auto flex h-16 max-w-4xl items-center justify-between px-4 sm:px-8">
           <Link href="/" className="flex items-center gap-2.5">
             <span className="grid h-9 w-9 place-items-center rounded-xl bg-white/15">
@@ -23,7 +23,7 @@ export default function SupportContent({ email, phone, hours }: { email: string;
             </span>
             <span className="text-[1.05rem] font-extrabold tracking-tight text-white">{brand.name}</span>
           </Link>
-          <Link href="/login" className="text-sm font-bold text-emerald-100/80 transition hover:text-white">{t("pub.login")}</Link>
+          <Link href="/login" className="text-sm font-bold text-white/75 transition hover:text-white">{t("pub.login")}</Link>
         </div>
       </header>
 

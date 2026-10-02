@@ -568,3 +568,48 @@ async function advanceCursor(
     })
     .where(eq(recurringTemplates.id, templateId));
 }
+
+/**
+ * Serialize a recurring template row for API responses.
+ * Pure formatter — lives here (not in route.ts) so both the collection and
+ * [id] routes can share it; route files may only export HTTP handlers.
+ */
+export function serializeTemplate(
+  t: {
+    id: string;
+    branchId: string;
+    partyId: string;
+    name: string;
+    frequency: string;
+    startDate: Date;
+    endDate: Date | null;
+    nextRunDate: Date;
+    status: string;
+    terms: string | null;
+    notes: string | null;
+    itemsJson: string;
+    skipNext: boolean;
+    lastRunAt: Date | null;
+    createdAt: Date;
+  },
+  partyName: string
+) {
+  return {
+    id: t.id,
+    branchId: t.branchId,
+    partyId: t.partyId,
+    partyName,
+    name: t.name,
+    frequency: t.frequency,
+    startDate: t.startDate.toISOString(),
+    endDate: t.endDate?.toISOString() ?? null,
+    nextRunDate: t.nextRunDate.toISOString(),
+    status: t.status,
+    terms: t.terms,
+    notes: t.notes,
+    items: JSON.parse(t.itemsJson) as TemplateItem[],
+    skipNext: t.skipNext,
+    lastRunAt: t.lastRunAt?.toISOString() ?? null,
+    createdAt: t.createdAt.toISOString(),
+  };
+}

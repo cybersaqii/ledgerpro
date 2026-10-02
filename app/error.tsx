@@ -9,7 +9,7 @@ export default function Error({ reset }: { error: Error & { digest?: string }; r
   return (
     <div className="grid min-h-screen place-items-center bg-background px-4">
       <div className="rise w-full max-w-md text-center">
-        <span className="mx-auto grid h-20 w-20 place-items-center rounded-[1.75rem] bg-amber-500/15 text-amber-500">
+        <span className="mx-auto grid h-20 w-20 place-items-center rounded-[1.75rem] bg-accent-soft text-accent">
           <TriangleAlert size={38} />
         </span>
         <h1 className="mt-6 text-3xl font-extrabold tracking-tight">{t("errorpage.title")}</h1>

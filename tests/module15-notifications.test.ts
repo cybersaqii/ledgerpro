@@ -321,10 +321,14 @@ describe("low-stock engine", () => {
   });
 
   it("creates notifications once per product per day (dedupe)", async () => {
-    const first = await runLowStockCheck(db, companyId, { asOf: AS_OF });
+    // NOTE: asOf must be "today" (not the fixed AS_OF): the dedupe window is
+    // derived from asOf, but inserted rows stamp createdAt with real now. A
+    // fixed past asOf makes this test fail on any later calendar day.
+    const today = new Date();
+    const first = await runLowStockCheck(db, companyId, { asOf: today });
     expect(first.low).toBe(1);
     expect(first.notified).toBe(1);
-    const second = await runLowStockCheck(db, companyId, { asOf: AS_OF });
+    const second = await runLowStockCheck(db, companyId, { asOf: today });
     expect(second.notified).toBe(0);
     expect(second.deduped).toBe(1);
     const notifs = await db.select().from(s.notifications).where(and(
