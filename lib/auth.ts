@@ -1,6 +1,7 @@
 import bcrypt from "bcryptjs";
 import { SignJWT, jwtVerify } from "jose";
 import { cookies } from "next/headers";
+import { redirect } from "next/navigation";
 import { eq } from "drizzle-orm";
 import { db } from "./db";
 import { users } from "@/db/schema";
@@ -95,6 +96,25 @@ export async function destroySession(): Promise<void> {
 /** Verify JWT signature only (for proxy.ts / edge — no DB access). */
 export async function verifySessionToken(token: string): Promise<boolean> {
   return verifyTokenEdge(token);
+}
+
+/**
+ * Use in the (app) layout instead of getSession() + redirect("/login").
+ *
+ * The edge proxy (proxy.ts) judges a session by the JWT *signature* alone,
+ * while getSession() also enforces DB state (tokenVersion, isActive,
+ * company match, idle timeout). A cookie can therefore be cryptographically
+ * valid yet dead server-side — e.g. the idle timeout expiring after the
+ * browser was closed. Redirecting such a request straight to /login would
+ * make the proxy bounce /login → /dashboard → /login forever
+ * (ERR_TOO_MANY_REDIRECTS), because the stale cookie is still there.
+ * Routing through /api/auth/expired clears the cookie first (cookie
+ * mutation is only allowed in Route Handlers, not in layouts), restoring
+ * agreement so /login renders the form.
+ */
+export async function requireSession(session: Session | null): Promise<Session> {
+  if (session) return session;
+  redirect("/api/auth/expired");
 }
 
 // ─── Email verification tokens ────────────────────────────────
