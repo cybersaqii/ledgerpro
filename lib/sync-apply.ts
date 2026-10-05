@@ -61,7 +61,7 @@ import {
   postPurchaseDoc,
   postSalesDoc,
 } from "@/lib/posting";
-import { nextDocNo, SYS, sysAccount } from "@/lib/setup";
+import { nextDocNo } from "@/lib/setup";
 import { periodLockError } from "@/lib/period";
 import { CreditLimitError, enforceCreditLimit } from "@/lib/credit-limit";
 import { belowMinPrice, floorErrorMessage } from "@/lib/min-price";

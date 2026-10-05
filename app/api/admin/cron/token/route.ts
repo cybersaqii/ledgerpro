@@ -1,5 +1,5 @@
 import { db } from "@/lib/route-helpers";
-import { json, err } from "@/lib/api";
+import { json } from "@/lib/api";
 import { toApiError } from "@/lib/errors";
 import { requirePlatformAdmin } from "@/lib/billing-guards";
 import { rotateCronToken, hasCronToken } from "@/lib/backup";

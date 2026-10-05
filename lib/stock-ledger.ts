@@ -6,7 +6,9 @@ import type { DbTx } from "./db";
 
 /** Module 4.5 — stock movement types recorded in the movement ledger.
  *  Module 21 adds DISPATCH / DISPATCH_REVERSAL: a challan dispatch deducts
- *  stock as a movement WITHOUT any journal (revenue posts later at invoice). */
+ *  stock as a movement WITHOUT any journal (revenue posts later at invoice).
+ *  Module 13 (manufacturing) adds MFG_ISSUE / MFG_RECEIPT: component issue
+ *  and finished-goods receipt on work orders. */
 export const MOVEMENT_TYPES = [
   "INVOICE",
   "BILL",
@@ -18,6 +20,8 @@ export const MOVEMENT_TYPES = [
   "RETURN",
   "DISPATCH",
   "DISPATCH_REVERSAL",
+  "MFG_ISSUE",
+  "MFG_RECEIPT",
 ] as const;
 export type MovementType = (typeof MOVEMENT_TYPES)[number];
 

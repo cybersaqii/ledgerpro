@@ -20,7 +20,7 @@ import { periodLockError } from "@/lib/period";
 import { nextDocNo } from "@/lib/setup";
 import { json, err } from "@/lib/api";
 import { toApiError } from "@/lib/errors";
-import { requirePermission, db, parseDateOnly, defaultBranchId, assertBranch } from "@/lib/route-helpers";
+import { requirePermission, requireCompany, db, parseDateOnly, defaultBranchId, assertBranch } from "@/lib/route-helpers";
 import { logAudit } from "@/lib/audit";
 import { belowMinPrice, floorErrorMessage } from "@/lib/min-price";
 import { applyCustomerAdvance } from "@/lib/advance";
@@ -97,6 +97,10 @@ export async function GET(req: NextRequest) {
 
 // POST /api/sales — create invoice/return (posts immediately) or draft doc
 export async function POST(req: NextRequest) {
+  // Auth before validation: an unauthenticated caller gets 401 even with a
+  // malformed body (consistent with /api/payments and the other money POSTs).
+  const authGate = await requireCompany();
+  if (!authGate.ok) return authGate.response;
   const body = await req.json().catch(() => null);
   const parsed = salesDocSchema.safeParse(body);
   if (!parsed.success) return err("Please check the form and try again.", 422, "VALIDATION_ERROR");

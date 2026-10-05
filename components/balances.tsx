@@ -38,6 +38,7 @@ export function BalancesPage({ kind }: { kind: "CUSTOMER" | "SUPPLIER" }) {
       .catch(() => {})
       .finally(() => setLoading(false));
   };
+  /* eslint-disable react-hooks/set-state-in-effect -- intentional: fetch balances on kind change */
   useEffect(load, [kind]);
 
   /** Module 23: manual hold / release with an audit-logged reason. */
@@ -205,6 +206,7 @@ function AgingView({ kind }: { kind: "CUSTOMER" | "SUPPLIER" }) {
       .then((c) => { if (c?.data?.name) setBusinessName(c.data.name); })
       .catch(() => {});
   }, [kind]);
+  /* eslint-enable react-hooks/set-state-in-effect */
 
   const cell = (v: string, danger = false) =>
     BigInt(v) ? <span className={danger ? "font-extrabold text-danger" : "font-semibold"}>{fmtMoney(v)}</span> : <span className="text-muted-foreground/50">—</span>;

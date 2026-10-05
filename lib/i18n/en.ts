@@ -1137,7 +1137,12 @@ export const en = {
     editDetails: "Edit details",
     noAccount: "No account found for this email.",
     verifyFirst: "Please verify your email with the code first.",
-    googlePrefill: "Signed in with Google — just set a password to finish creating your account."
+    googlePrefill: "Signed in with Google — just set a password to finish creating your account.",
+    consentPrefix: "I agree to the",
+    consentAnd: "and",
+    termsLink: "Terms of Service",
+    privacyLink: "Privacy Policy",
+    consentRequired: "Please accept the Terms of Service and Privacy Policy to continue."
   },
   pub: {
     login: "Log in",
@@ -1308,7 +1313,7 @@ export const en = {
     heroCtaStart: "Start free today",
     heroCtaLogin: "Log in",
     heroMicro: "Set up in 2 minutes · Free to start · No credit card needed",
-    watchDemo: "Watch demo",
+    watchDemo: "See how it works",
     fcPlT: "Profit & Loss",
     fcPlD: "+22% this month",
     fcInvT: "New invoice",
@@ -1480,6 +1485,8 @@ export const en = {
     mf3: "Clinics",
     mf4: "Restaurants",
     mf5: "Services",
+    mf6: "Distribution",
+    mf7: "Manufacturing",
     footRights: "All rights reserved.",
     footTerms: "Terms",
     footPrivacy: "Privacy",

@@ -86,6 +86,7 @@ const baseBody = (email: string) => ({
   email,
   password: "SomeStrongPass123!",
   businessType: "RETAIL",
+  termsConsent: true,
 });
 
 beforeAll(async () => {
@@ -170,5 +171,16 @@ describe("B2-1 — signup with an already-registered email", () => {
       .where(eq(s.users.email, email));
     expect(rows).toHaveLength(1);
     expect(rows[0].emailVerifiedAt).not.toBeNull();
+  });
+
+  it("rejects signup without Terms & Privacy consent (422, no session)", async () => {
+    const email = "no-consent@ledgerpro.test";
+    const token = await signEmailVerificationToken(email);
+    const { termsConsent: _dropped, ...noConsent } = baseBody(email);
+    const r = await signup({ ...noConsent, verificationToken: token });
+    expect(r.status).toBe(422);
+    expect(r.sessionMinted).toBe(false);
+    const rows = await seed.select({ id: s.users.id }).from(s.users).where(eq(s.users.email, email));
+    expect(rows).toHaveLength(0);
   });
 });

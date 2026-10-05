@@ -40,6 +40,32 @@ export async function reportError(
 }
 
 /**
+ * Walk an Error's `cause` chain (Drizzle wraps the raw SQLite error as
+ * `cause`, so without this the logged message is just "Failed query: …"
+ * with no root cause — see the 2026-09-28 PAY-0004 insert failure whose
+ * real reason was never captured).
+ */
+export function errorCauseChain(e: unknown): string {
+  const parts: string[] = [];
+  const seen = new Set<unknown>();
+  let cur: unknown = e;
+  while (cur instanceof Error && !seen.has(cur)) {
+    seen.add(cur);
+    const c = (cur as { cause?: unknown }).cause;
+    if (c instanceof Error) {
+      parts.push(c.message);
+      cur = c;
+    } else if (c !== undefined && c !== null) {
+      parts.push(String(c));
+      break;
+    } else {
+      break;
+    }
+  }
+  return parts.join(" | ");
+}
+
+/**
  * Convert a caught exception into an API response.
  * - UserError: the message is shown as-is with its status (default 422).
  * - Anything else: logged server-side, client gets a generic 500.
@@ -51,10 +77,13 @@ export async function toApiError(
 ) {
   if (e instanceof UserError) return err(e.message, e.status, e.code);
   const message = e instanceof Error ? e.message : "Unknown error";
+  const cause = errorCauseChain(e);
   await reportError(
     {
       route: ctx.route,
-      message,
+      // Include the cause chain so the real DB/driver error is captured,
+      // not just Drizzle's "Failed query: …" wrapper.
+      message: cause ? `${message} [cause: ${cause}]` : message,
       stack: e instanceof Error ? e.stack : undefined,
       companyId: ctx.companyId ?? null,
     },

@@ -1,7 +1,7 @@
 import { NextRequest } from "next/server";
 import { eq, and, desc, sql } from "drizzle-orm";
 import { z } from "zod";
-import { stockAdjustments, stockAdjustmentLines } from "@/db/schema";
+import { stockAdjustments } from "@/db/schema";
 import { ADJUSTMENT_REASONS } from "@/lib/stock-adjust";
 import { postStockAdjustment } from "@/lib/stock-adjust";
 import { parseQty } from "@/lib/qty";

@@ -7,7 +7,7 @@ import {
 } from "@/db/schema";
 import { SYS, accountMap } from "./setup";
 import { createJournal } from "./posting";
-import { UserError } from "./errors";
+import {} from "./errors";
 import type { DbTx } from "./db";
 
 /**

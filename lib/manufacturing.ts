@@ -31,6 +31,7 @@ import {
 import type { Db, DbTx } from "./db";
 import { SYS, accountMap, nextDocNo } from "./setup";
 import { createJournal, applyStock } from "./posting";
+import { recordStockDetails } from "./stock-ledger";
 import { assertPeriodOpen } from "./period";
 import { findByIdempotencyKey, isIdempotencyConflict } from "./idempotency";
 import { UserError } from "./errors";
@@ -451,6 +452,8 @@ export async function issueWorkOrder(
       avgCostPaisa: 0n, // applyStock reads the live moving average
     }))
   );
+  // Movement ledger: component issue is part of the stock audit trail.
+  await recordStockDetails(tx, args.companyId, issueDate, "MFG_ISSUE", wo.id, wo.woNo, details);
   const ac = await accountMap(tx, args.companyId);
   let cost = 0n;
   const now = new Date();
@@ -531,9 +534,11 @@ export async function completeWorkOrder(
 
   // Receive finished goods at actual unit cost (half-up per-unit paisa).
   const unitCost = (total * 1000n + wo.qtyMilli / 2n) / wo.qtyMilli;
-  await applyStock(tx, wo.branchId, [
+  const { details: receiptDetails } = await applyStock(tx, wo.branchId, [
     { productId: wo.productId, qtyMilli: wo.qtyMilli, avgCostPaisa: 0n, unitCostPaisa: unitCost },
   ]);
+  // Movement ledger: finished-goods receipt is part of the stock audit trail.
+  await recordStockDetails(tx, args.companyId, completionDate, "MFG_RECEIPT", wo.id, wo.woNo, receiptDetails);
 
   const lines: { accountId: string; debit: bigint; credit: bigint; memo?: string }[] = [];
   if (args.laborPaisa > 0n) {
@@ -632,7 +637,7 @@ export async function voidWorkOrder(
   const comps = await loadComponents(tx, args.companyId, wo.id);
   // Restore components at the issue-time average unit cost. This is an
   // approximation: the live moving average is recomputed, not rewound.
-  await applyStock(
+  const { details: voidIssueDetails } = await applyStock(
     tx,
     wo.branchId,
     comps.map((c) => ({
@@ -642,11 +647,15 @@ export async function voidWorkOrder(
       unitCostPaisa: (c.valuePaisa * 1000n + c.qtyMilli / 2n) / c.qtyMilli,
     }))
   );
+  // Movement ledger: void restores components (reversal of MFG_ISSUE).
+  await recordStockDetails(tx, args.companyId, voidDate, "MFG_ISSUE", wo.id, wo.woNo, voidIssueDetails);
   // Deduct the finished goods received. Throws INSUFFICIENT_STOCK when the
   // goods were already sold — the void is then correctly blocked.
-  await applyStock(tx, wo.branchId, [
+  const { details: voidReceiptDetails } = await applyStock(tx, wo.branchId, [
     { productId: wo.productId, qtyMilli: -wo.qtyMilli, avgCostPaisa: 0n },
   ]);
+  // Movement ledger: void deducts the finished goods (reversal of MFG_RECEIPT).
+  await recordStockDetails(tx, args.companyId, voidDate, "MFG_RECEIPT", wo.id, wo.woNo, voidReceiptDetails);
 
   const voidCompletionJournalEntryId = await reverseJournal(tx, {
     companyId: args.companyId,

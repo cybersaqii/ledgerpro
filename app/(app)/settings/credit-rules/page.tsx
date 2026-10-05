@@ -22,7 +22,7 @@ type Candidate = {
 
 export default function CreditRulesPage() {
   const { t } = useLang();
-  const [rules, setRules] = useState<Rules>({ blockIfOverdueDays: null, blockIfUtilizationPct: null });
+  const [, setRules] = useState<Rules>({ blockIfOverdueDays: null, blockIfUtilizationPct: null });
   const [overdueOn, setOverdueOn] = useState(false);
   const [utilOn, setUtilOn] = useState(false);
   const [overdueDays, setOverdueDays] = useState("60");
@@ -66,12 +66,15 @@ export default function CreditRulesPage() {
     }
   }
 
+   
+  /* eslint-disable react-hooks/set-state-in-effect -- intentional: fetch rules on mount */
   useEffect(() => {
     load(); loadPriority();
     api<{ data: { name: string } }>("/api/company")
       .then((c) => { if (c?.data?.name) setBusinessName(c.data.name); })
       .catch(() => {});
   }, []);
+  /* eslint-enable react-hooks/set-state-in-effect */
 
   async function save() {
     setSaving(true); setError(null); setSaved(false);

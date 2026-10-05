@@ -13,7 +13,7 @@ import { NextRequest } from "next/server";
 import { eq, and, sql } from "drizzle-orm";
 import { createTestDb, type TestDb } from "./helpers";
 import { setupCompany, nextDocNo } from "@/lib/setup";
-import { postSalesDoc, postPurchaseDoc, postPayment } from "@/lib/posting";
+import { postSalesDoc, postPurchaseDoc } from "@/lib/posting";
 import { computeTotals, type DocItemInput } from "@/lib/totals";
 import { parseMoney } from "@/lib/money";
 import { parseQty } from "@/lib/qty";

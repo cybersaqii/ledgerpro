@@ -1,6 +1,6 @@
 import { NextRequest } from "next/server";
 import { and, desc, eq, sql } from "drizzle-orm";
-import { landedCostSheets, landedCostHeads, products, purchaseDocs } from "@/db/schema";
+import { landedCostSheets, purchaseDocs } from "@/db/schema";
 import { landedCostSchema } from "@/lib/validators";
 import { parseMoney } from "@/lib/money";
 import { postLandedCostSheet } from "@/lib/landed-cost";

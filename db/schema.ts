@@ -729,6 +729,8 @@ export const payments = sqliteTable(
     uniqueIndex("payments_idem_key").on(t.companyId, t.idempotencyKey).where(sql`idempotency_key IS NOT NULL`),
     index("payments_project").on(t.companyId, t.projectId),
     index("payments_pos_session").on(t.companyId, t.posSessionId),
+    // QA 2026-10-05: party-filtered payment lookups scan on party_id.
+    index("payments_party").on(t.companyId, t.partyId),
   ]
 );
 
@@ -1079,6 +1081,9 @@ export const journalLines = sqliteTable(
     index("jl_entry").on(t.entryId),
     index("jl_account").on(t.accountId),
     index("jl_project").on(t.projectId),
+    // QA 2026-10-05: party-filtered ledger/bank-book queries scan on party_id
+    // (tenant isolation comes from the join to journal_entries).
+    index("jl_party").on(t.partyId),
   ]
 );
 
@@ -1837,7 +1842,7 @@ export const stockMovements = sqliteTable(
     productId: text("product_id").notNull(),
     branchId: text("branch_id").notNull(),
     date: ts("date").notNull(), // source document date
-    txnType: text("txn_type").notNull(), // INVOICE | BILL | GRN | TRANSFER_OUT | TRANSFER_IN | ADJUSTMENT | OPENING | RETURN | DISPATCH | DISPATCH_REVERSAL (Module 21: challan dispatch — stock movement WITHOUT any journal)
+    txnType: text("txn_type").notNull(), // INVOICE | BILL | GRN | TRANSFER_OUT | TRANSFER_IN | ADJUSTMENT | OPENING | RETURN | DISPATCH | DISPATCH_REVERSAL (Module 21: challan dispatch — stock movement WITHOUT any journal) | MFG_ISSUE | MFG_RECEIPT (Module 13: work-order component issue / finished-goods receipt)
     docId: text("doc_id"),
     docNo: text("doc_no"),
     inQty: qty("in_qty"),

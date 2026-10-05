@@ -4,7 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import { Plus, Truck } from "lucide-react";
 import { PageHeader, EmptyState, Field, ErrorNote } from "@/components/ui";
 import { Modal } from "@/components/modal";
-import { api, fmtQty } from "@/lib/format";
+import { api } from "@/lib/format";
 import { useLang } from "@/components/lang-provider";
 
 type Doc = {
@@ -51,7 +51,9 @@ export default function StockTransfersPage() {
     } catch { setDocs([]); } finally { setLoading(false); }
   }, [statusFilter]);
 
+  /* eslint-disable react-hooks/set-state-in-effect -- intentional: fetch on mount/filter change */
   useEffect(() => { load(); }, [load]);
+  /* eslint-enable react-hooks/set-state-in-effect */
   useEffect(() => {
     api<{ data: Branch[] }>("/api/branches").then((d) => {
       setBranches(d.data);

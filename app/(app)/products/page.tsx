@@ -603,9 +603,10 @@ function UomManagerModal({ product, onClose }: { product: Product; onClose: () =
     } catch { setError(t("uom.loadError")); } finally { setLoading(false); }
   }, [product.id, priceUnit, t]);
 
-  // eslint-disable-next-line react-hooks/set-state-in-effect -- initial load
+  /* eslint-disable react-hooks/set-state-in-effect -- intentional: fetch list on mount/filter change */
   useEffect(() => { reload(); }, [reload]);
-  // eslint-disable-next-line react-hooks/set-state-in-effect -- seed weight once
+  /* eslint-enable react-hooks/set-state-in-effect */
+
   useEffect(() => {
     api<{ data: { weightGrams: number } }>(`/api/products/${product.id}`)
       .then((d) => setWeight(d.data.weightGrams ? String(d.data.weightGrams) : ""))

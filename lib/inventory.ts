@@ -1,6 +1,5 @@
 import { and, eq, inArray } from "drizzle-orm";
 import {
-  accounts,
   branches,
   products,
   stockLevels,
@@ -9,7 +8,7 @@ import {
 } from "@/db/schema";
 import { SYS, accountMap, nextDocNo, PRODUCT_ITEM_TYPES, BRANCH_LOCATION_TYPES } from "./setup";
 import { createJournal } from "./posting";
-import { productAccounts, recordMovement, assertProductAccount } from "./stock-ledger";
+import { recordMovement } from "./stock-ledger";
 import type { MovementType } from "./stock-ledger";
 import { assertPeriodOpen } from "./period";
 import { UserError } from "./errors";

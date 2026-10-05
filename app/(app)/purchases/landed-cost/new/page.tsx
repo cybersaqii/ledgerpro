@@ -60,6 +60,7 @@ export default function LandedCostNewPage() {
 
   // doc search (debounced)
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- intentional: clear stale results when search is inactive
     if (mode !== "doc" || selectedDoc) { setDocResults([]); return; }
     const h = setTimeout(async () => {
       try {
@@ -74,6 +75,7 @@ export default function LandedCostNewPage() {
 
   // product search (debounced)
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- intentional: clear stale results when search is inactive
     if (mode !== "explicit") { setProdResults([]); return; }
     const h = setTimeout(async () => {
       try {

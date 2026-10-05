@@ -65,7 +65,7 @@ const trust = [
 
 const paperBad = ["pp0", "pp1", "pp2", "pp3", "pp4", "pp5"];
 const paperGood = ["lp0", "lp1", "lp2", "lp3", "lp4", "lp5"];
-const madeFor = ["mf0", "mf1", "mf2", "mf3", "mf4", "mf5"];
+const madeFor = ["mf0", "mf1", "mf2", "mf3", "mf4", "mf5", "mf6", "mf7"];
 const freeFeatures = ["ff0", "ff1", "ff2", "ff3", "ff4", "ff5"];
 const proFeatures = ["pf0", "pf1", "pf2", "pf3", "pf4", "pf5", "pf6"];
 const footLinks: [string, string][] = [["fl0", "#features"], ["fl1", "#businesses"], ["fl2", "#how"], ["fl5", "#pricing"], ["fl3", "#faq"], ["fl4", "/login"]];
@@ -126,7 +126,7 @@ export default function LandingContent() {
             </div>
             <h1 className="rise rise-1 font-display mt-6 text-4xl font-extrabold leading-[1.06] tracking-tight text-white sm:text-6xl lg:text-[3.6rem]">
               {L("heroTitleA")}{" "}
-              <span className="text-accent">{L("heroTitleMid")}</span>
+              <span className="text-accent">{L("heroTitleMid")}</span>{" "}
               {L("heroTitleB")}
             </h1>
             <p className="rise rise-2 mt-5 max-w-xl text-base text-white/85 sm:text-lg lg:mx-0">

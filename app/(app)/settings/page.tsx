@@ -3,7 +3,7 @@
 import { useEffect, useState, useCallback } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Building2, Database, Download, Save, Upload, Users, UserPlus, ScrollText, KeyRound, Copy, Check, Lock, Activity, TriangleAlert, MonitorSmartphone, LogOut, CircleCheck, History, ShieldCheck, RefreshCw, Crown, Store, CalendarCheck, Globe, Trash2, Plus } from "lucide-react";
+import { Building2, Database, Download, Save, Upload, Users, UserPlus, ScrollText, KeyRound, Lock, Activity, TriangleAlert, MonitorSmartphone, LogOut, CircleCheck, History, ShieldCheck, RefreshCw, Crown, Store, CalendarCheck, Globe, Trash2, Plus } from "lucide-react";
 import { PageHeader, Field, ErrorNote } from "@/components/ui";
 import { useLang } from "@/components/lang-provider";
 import { api, fmtDate, fmtDateTime, fmtMoney } from "@/lib/format";
@@ -758,7 +758,9 @@ function BranchesCard() {
       .catch(() => setRows([]))
       .finally(() => setLoading(false));
   }, []);
+  /* eslint-disable react-hooks/set-state-in-effect -- intentional: fetch on mount/filter change */
   useEffect(() => { load(); }, [load]);
+  /* eslint-enable react-hooks/set-state-in-effect */
 
   async function setLocationType(id: string, locationType: string) {
     setBusy(id);
@@ -1582,7 +1584,9 @@ function AccessSecurityCard() {
       } catch { /* backups card already surfaces its own errors */ }
     }
   }
+  /* eslint-disable react-hooks/set-state-in-effect -- intentional: fetch on mount */
   useEffect(() => { load(); }, []);
+  /* eslint-enable react-hooks/set-state-in-effect */
 
   async function addIp() {
     if (!newCidr.trim()) return;

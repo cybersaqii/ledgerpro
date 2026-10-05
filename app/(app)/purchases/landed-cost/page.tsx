@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
-import { Ship, Plus, Search, CalendarDays } from "lucide-react";
+import { Ship, Plus, CalendarDays } from "lucide-react";
 import { PageHeader, EmptyState, FilterBar, Pagination, StatusPill, ErrorNote } from "@/components/ui";
 import { api, fmtMoney, fmtDate, fmtDateInput } from "@/lib/format";
 import { useLang } from "@/components/lang-provider";
@@ -46,9 +46,12 @@ export default function LandedCostPage() {
     } finally { setLoading(false); }
   }, [page, status, from, to, t]);
 
+  /* eslint-disable react-hooks/set-state-in-effect -- intentional: fetch list on mount/filter change */
   useEffect(() => { load(); }, [load]);
-  // eslint-disable-next-line react-hooks/set-state-in-effect -- reset to first page when filters change
+  /* eslint-enable react-hooks/set-state-in-effect */
+  /* eslint-disable react-hooks/set-state-in-effect -- reset to first page when filters change */
   useEffect(() => { setPage(1); }, [status, from, to]);
+  /* eslint-enable react-hooks/set-state-in-effect */
 
   return (
     <div>

@@ -72,9 +72,13 @@ export default function RecurringPage() {
       setLoading(false);
     }
   }
+  /* eslint-disable react-hooks/set-state-in-effect -- intentional: fetch list on mount */
   useEffect(() => { load(); }, []);
+  /* eslint-enable react-hooks/set-state-in-effect */
 
+   
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- intentional: clear stale results when search is inactive
     if (!prodOpen || prodQ.trim().length < 2) { setProdResults([]); return; }
     const h = setTimeout(() => {
       api<{ data: Product[] }>(`/api/products?q=${encodeURIComponent(prodQ.trim())}&perPage=8`)

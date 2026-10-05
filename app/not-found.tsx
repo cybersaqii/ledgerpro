@@ -3,12 +3,33 @@
 import Link from "next/link";
 import { FileQuestion, Home, LayoutDashboard, ScanBarcode } from "lucide-react";
 import { brand } from "@/lib/brand";
+import { BrandLockup } from "@/components/brand-logo";
 import { useLang } from "@/components/lang-provider";
 
 export default function NotFound() {
   const { t } = useLang();
   return (
-    <div className="grid min-h-screen place-items-center bg-background px-4">
+    <div className="min-h-screen bg-background">
+      {/* Public header: logo + nav, so a lost visitor is never stranded. */}
+      <header className="border-b border-border/60">
+        <div className="mx-auto flex h-16 max-w-5xl items-center justify-between px-4 sm:px-6">
+          <Link href="/" aria-label={brand.name}>
+            <BrandLockup />
+          </Link>
+          <nav className="flex items-center gap-1 text-sm font-semibold">
+            <Link href="/" className="rounded-lg px-3 py-2 text-muted-foreground transition hover:bg-muted hover:text-foreground">
+              {t("notfound.home")}
+            </Link>
+            <Link href="/login" className="rounded-lg px-3 py-2 text-muted-foreground transition hover:bg-muted hover:text-foreground">
+              {t("pub.login")}
+            </Link>
+            <Link href="/dashboard" className="rounded-lg px-3 py-2 text-primary transition hover:bg-primary-soft">
+              {t("notfound.dashboard")}
+            </Link>
+          </nav>
+        </div>
+      </header>
+      <div className="grid place-items-center px-4 py-16">
       <div className="rise w-full max-w-md text-center">
         <span className="mx-auto grid h-20 w-20 place-items-center rounded-[1.75rem] bg-primary-soft text-primary">
           <FileQuestion size={38} />
@@ -29,6 +50,7 @@ export default function NotFound() {
           </div>
         </div>
         <p className="mt-8 text-xs text-muted-foreground">{brand.name} · {brand.tagline}</p>
+      </div>
       </div>
     </div>
   );

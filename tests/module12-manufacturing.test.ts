@@ -305,6 +305,11 @@ describe("work order lifecycle", () => {
     expect(d.wo.status).toBe("IN_PROGRESS");
     expect(d.components.find((c) => c.componentProductId === steel)!.unitCostPaisa).toBe(R(120));
     expect(d.components.find((c) => c.componentProductId === screws)!.unitCostPaisa).toBe(250n);
+    // Movement ledger: component issue recorded in the stock audit trail.
+    const moves = await db.select().from(s.stockMovements)
+      .where(and(eq(s.stockMovements.docId, woId), eq(s.stockMovements.txnType, "MFG_ISSUE")));
+    expect(moves).toHaveLength(2);
+    expect(moves.every((m) => m.outQty > 0n && m.inQty === 0n)).toBe(true);
   });
 
   it("issue is idempotent (no double journal)", async () => {
@@ -347,6 +352,12 @@ describe("work order lifecycle", () => {
     expect(fg.avg).toBe(parseMoney("415.40"));
     const d = await getWorkOrderDetail(db, companyId, woId);
     expect(d.wo.status).toBe("COMPLETED");
+    // Movement ledger: finished-goods receipt recorded in the stock audit trail.
+    const moves = await db.select().from(s.stockMovements)
+      .where(and(eq(s.stockMovements.docId, woId), eq(s.stockMovements.txnType, "MFG_RECEIPT")));
+    expect(moves).toHaveLength(1);
+    expect(moves[0].inQty).toBe(parseQty("10"));
+    expect(moves[0].outQty).toBe(0n);
   });
 
   it("WIP nets to zero and FG inventory carries the full actual cost", async () => {

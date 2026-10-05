@@ -1,5 +1,5 @@
 import { NextRequest } from "next/server";
-import { json, err, portalGate } from "@/lib/portal-route";
+import { json, portalGate } from "@/lib/portal-route";
 import { db } from "@/lib/route-helpers";
 import { submitPortalOrderRequest, logPortalActivity } from "@/lib/portal";
 import { toApiError } from "@/lib/errors";

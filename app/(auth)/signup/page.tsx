@@ -36,6 +36,8 @@ function SignupForm() {
   const [step, setStep] = useState<1 | 2>(1);
   const [code, setCode] = useState("");
   const [sending, setSending] = useState(false);
+  // Terms & Privacy consent — required before an account can be created.
+  const [consent, setConsent] = useState(false);
   // Google OAuth button renders only when the server has it configured.
   const [googleOn, setGoogleOn] = useState(false);
   const [googlePrefill, setGooglePrefill] = useState(false);
@@ -84,6 +86,10 @@ function SignupForm() {
   async function sendCode(e?: React.FormEvent) {
     e?.preventDefault();
     setError(null);
+    if (!consent) {
+      setError(t("auth.consentRequired"));
+      return;
+    }
     setSending(true);
     try {
       await api("/api/auth/otp/request", {
@@ -112,7 +118,7 @@ function SignupForm() {
       if (!v.verificationToken) throw new Error(t("auth.signupError"));
       await api("/api/auth/signup", {
         method: "POST",
-        body: JSON.stringify({ ...form, verificationToken: v.verificationToken }),
+        body: JSON.stringify({ ...form, verificationToken: v.verificationToken, termsConsent: consent }),
       });
       router.push("/welcome");
       router.refresh();
@@ -187,7 +193,25 @@ function SignupForm() {
             <input className="field font-mono uppercase tracking-widest" placeholder="—"
               value={form.referralCode} onChange={(e) => setForm((f) => ({ ...f, referralCode: e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 16) }))} />
           </Field>
-          <button className="btn btn-primary w-full !py-3" disabled={busy || sending}>
+          <label className="flex cursor-pointer items-start gap-3 rounded-xl border border-border bg-muted/40 px-4 py-3 text-sm">
+            <input
+              type="checkbox"
+              checked={consent}
+              onChange={(e) => setConsent(e.target.checked)}
+              className="mt-0.5 h-4 w-4 shrink-0 accent-[#1e4fa3]"
+            />
+            <span className="text-muted-foreground">
+              {t("auth.consentPrefix")}{" "}
+              <Link href="/terms" target="_blank" rel="noopener" className="font-semibold text-primary hover:underline">
+                {t("auth.termsLink")}
+              </Link>{" "}
+              {t("auth.consentAnd")}{" "}
+              <Link href="/privacy" target="_blank" rel="noopener" className="font-semibold text-primary hover:underline">
+                {t("auth.privacyLink")}
+              </Link>
+            </span>
+          </label>
+          <button className="btn btn-primary w-full !py-3" disabled={busy || sending || !consent}>
             <UserPlus size={17} /> {sending ? t("auth.sendingCode") : t("auth.sendCode")}
           </button>
         </form>

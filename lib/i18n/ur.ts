@@ -1137,7 +1137,12 @@ export const ur: DeepPartial<EnDict> = {
     editDetails: "تفصیلات بدلیں",
     noAccount: "اس ای میل کا کوئی اکاؤنٹ نہیں ملا۔",
     verifyFirst: "پہلے کوڈ سے اپنے ای میل کی تصدیق کریں۔",
-    googlePrefill: "گوگل سے سائن اِن ہو گیا — اکاؤنٹ بنانے کے لیے بس پاس ورڈ رکھیں۔"
+    googlePrefill: "گوگل سے سائن اِن ہو گیا — اکاؤنٹ بنانے کے لیے بس پاس ورڈ رکھیں۔",
+    consentPrefix: "میں متفق ہوں",
+    consentAnd: "اور",
+    termsLink: "شرائطِ استعمال",
+    privacyLink: "پرائیویسی پالیسی",
+    consentRequired: "آگے بڑھنے کے لیے شرائطِ استعمال اور پرائیویسی پالیسی قبول کریں۔"
   },
   pub: {
     login: "لاگ اِن",
@@ -1308,7 +1313,7 @@ export const ur: DeepPartial<EnDict> = {
     heroCtaStart: "آج ہی مفت شروع کریں",
     heroCtaLogin: "لاگ اِن",
     heroMicro: "2 منٹ میں سیٹ اپ · مفت شروع کریں · کریڈٹ کارڈ کی ضرورت نہیں",
-    watchDemo: "ڈیمو دیکھیں",
+    watchDemo: "دیکھیں کیسے کام کرتا ہے",
     fcPlT: "نفع و نقصان",
     fcPlD: "اس ماہ +22%",
     fcInvT: "نیا انوائس",
@@ -1480,6 +1485,8 @@ export const ur: DeepPartial<EnDict> = {
     mf3: "کلینکس",
     mf4: "ریسٹورنٹس",
     mf5: "سروسز",
+    mf6: "ڈسٹریبیوشن",
+    mf7: "مینوفیکچرنگ",
     footRights: "جملہ حقوق محفوظ ہیں۔",
     footTerms: "شرائط",
     footPrivacy: "پرائیویسی",

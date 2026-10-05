@@ -184,6 +184,11 @@ export default function LoginPage() {
       <p className="mt-3 text-center text-sm">
         <Link href="/forgot-password" className="font-semibold text-primary hover:underline">{t("auth.forgotPw")}</Link>
       </p>
+      <p className="mt-4 text-center text-xs text-muted-foreground">
+        <Link href="/terms" className="hover:underline">{t("auth.termsLink")}</Link>
+        <span className="mx-2">·</span>
+        <Link href="/privacy" className="hover:underline">{t("auth.privacyLink")}</Link>
+      </p>
     </AuthLayout>
   );
 }

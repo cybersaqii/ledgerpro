@@ -3,7 +3,7 @@ import { eq, and, desc } from "drizzle-orm";
 import { portalPaymentIntents } from "@/db/schema";
 import { json, err, portalGate } from "@/lib/portal-route";
 import { db } from "@/lib/route-helpers";
-import { createPaymentIntent, cancelPaymentIntent, logPortalActivity } from "@/lib/portal";
+import { createPaymentIntent, logPortalActivity } from "@/lib/portal";
 import { extractIdempotencyKey } from "@/lib/idempotency";
 import { toApiError } from "@/lib/errors";
 

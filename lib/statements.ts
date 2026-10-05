@@ -8,8 +8,8 @@ import {
   reconciliationClears,
 } from "@/db/schema";
 import { parseMoney } from "./money";
-import { assertPeriodOpen } from "./period";
-import { nextDocNo } from "./setup";
+import {} from "./period";
+import {} from "./setup";
 import { UserError } from "./errors";
 import type { Db, DbTx } from "./db";
 import { getRecLines } from "./reconciliation";

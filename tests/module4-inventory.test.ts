@@ -24,7 +24,7 @@
  *  9. SERVICE items never touch stock.
  */
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
-import { eq, and, asc, sql } from "drizzle-orm";
+import { eq, and, asc } from "drizzle-orm";
 import { createTestDb, type TestDb } from "./helpers";
 import { setupCompany, SYS, accountMap, nextDocNo } from "@/lib/setup";
 import { postSalesDoc } from "@/lib/posting";

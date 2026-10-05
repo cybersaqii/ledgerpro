@@ -7,7 +7,7 @@ import { requirePermission, db, parseDateOnly } from "@/lib/route-helpers";
 import { periodLockError } from "@/lib/period";
 import { logAudit } from "@/lib/audit";
 import { toApiError } from "@/lib/errors";
-import { parseQty, formatQty } from "@/lib/qty";
+import { parseQty } from "@/lib/qty";
 import { createStockTransfer } from "@/lib/inventory";
 
 const lineSchema = z.object({

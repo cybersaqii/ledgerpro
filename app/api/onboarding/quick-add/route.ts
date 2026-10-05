@@ -2,7 +2,7 @@ import { NextRequest } from "next/server";
 import { eq, and } from "drizzle-orm";
 import { parties, products } from "@/db/schema";
 import { requirePermission, db } from "@/lib/route-helpers";
-import { json, err } from "@/lib/api";
+import { json } from "@/lib/api";
 import { toApiError } from "@/lib/errors";
 import { parseMoney } from "@/lib/money";
 
@@ -12,7 +12,7 @@ import { parseMoney } from "@/lib/money";
 export async function POST(req: NextRequest) {
   const gate = await requirePermission("products");
   if (!gate.ok) return gate.response;
-  const { companyId, session } = gate;
+  const { companyId } = gate;
   try {
     const body = await req.json().catch(() => null);
     const out: { productId?: string; partyId?: string } = {};

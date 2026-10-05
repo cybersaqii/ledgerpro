@@ -1,7 +1,7 @@
 import { NextRequest } from "next/server";
 import { and, eq, inArray } from "drizzle-orm";
 import { parties, priceLists, priceListItems, priceListUomRates, products } from "@/db/schema";
-import { json, err } from "@/lib/api";
+import { json } from "@/lib/api";
 import { toApiError, UserError } from "@/lib/errors";
 import { requirePermission, requireCompany, db } from "@/lib/route-helpers";
 import { validatePriceList } from "@/lib/pricing";

@@ -2,7 +2,7 @@ import { NextRequest } from "next/server";
 import { json, err } from "@/lib/api";
 import { requirePermission, db } from "@/lib/route-helpers";
 import { logAudit } from "@/lib/audit";
-import { reconcilePaymentIntent, cancelPaymentIntent } from "@/lib/portal";
+import { reconcilePaymentIntent } from "@/lib/portal";
 import { toApiError } from "@/lib/errors";
 
 // POST /api/portal/intents/[id]/reconcile — admin confirms the claimed payment

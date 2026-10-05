@@ -48,7 +48,9 @@ export default function LandedCostDetailPage() {
     } finally { setLoading(false); }
   }, [params.id, t]);
 
+  /* eslint-disable react-hooks/set-state-in-effect -- intentional: fetch sheet on mount/id change */
   useEffect(() => { load(); }, [load]);
+  /* eslint-enable react-hooks/set-state-in-effect */
 
   async function doVoid() {
     if (!sheet || voiding) return;

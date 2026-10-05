@@ -1,5 +1,5 @@
 import { NextRequest } from "next/server";
-import { eq, and, desc, sql } from "drizzle-orm";
+import { eq, desc, sql } from "drizzle-orm";
 import { portalActivityLog, parties } from "@/db/schema";
 import { json } from "@/lib/api";
 import { requirePermission, db } from "@/lib/route-helpers";

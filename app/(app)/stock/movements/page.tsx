@@ -74,7 +74,9 @@ export default function StockMovementsPage() {
     } catch { setRows([]); } finally { setLoading(false); }
   }, [product, branchId, from, to]);
 
+  /* eslint-disable react-hooks/set-state-in-effect -- intentional: fetch on mount/filter change */
   useEffect(() => { load(); }, [load]);
+  /* eslint-enable react-hooks/set-state-in-effect */
 
   async function searchProducts(q: string) {
     setProdQ(q);

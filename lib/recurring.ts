@@ -42,7 +42,6 @@ import { periodLockError } from "./period";
 import { approvalRequired } from "./approvals";
 import {
   enforceCreditLimit,
-  CreditLimitError,
   newUdhaarForInvoice,
 } from "./credit-limit";
 import { evaluateCreditHold } from "./credit-control";

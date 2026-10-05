@@ -5,10 +5,7 @@ import { json, err, portalGate } from "@/lib/portal-route";
 import { db } from "@/lib/route-helpers";
 import {
   createPortalOrderRequest,
-  submitPortalOrderRequest,
-  cancelPortalOrderRequest,
   logPortalActivity,
-  portalCan,
 } from "@/lib/portal";
 import { extractIdempotencyKey } from "@/lib/idempotency";
 import { toApiError } from "@/lib/errors";

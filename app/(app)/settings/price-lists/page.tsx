@@ -67,7 +67,9 @@ export default function PriceListsPage() {
       setProductCats(cats.data.productCategories);
     } catch (e) { setError(e instanceof Error ? e.message : t("pricing.loadError")); }
   }
+  /* eslint-disable react-hooks/set-state-in-effect -- intentional: fetch on mount */
   useEffect(() => { loadLists(); loadMatrix(); }, []);
+  /* eslint-enable react-hooks/set-state-in-effect */
 
   if (!canManage) {
     return (

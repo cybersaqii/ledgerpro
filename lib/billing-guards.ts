@@ -76,6 +76,9 @@ export async function requirePro(feature: ProFeature): Promise<ProGate> {
     return { ok: false, session: null, companyId: null, billing: null, response: json({ error: "Company not found." }, { status: 404 }) };
   }
   if (billing.level === "FREE") {
+    // Companies created before trials existed (trialEndsAt = null) never had
+    // a trial — don't tell them it "ended".
+    const hadTrial = !!billing.trialEndsAt;
     return {
       ok: false,
       session: null,
@@ -83,7 +86,9 @@ export async function requirePro(feature: ProFeature): Promise<ProGate> {
       billing: null,
       response: json(
         {
-          error: `This feature needs a PRO subscription. Your free trial has ended — upgrade on the Billing page to continue.`,
+          error: hadTrial
+            ? `This feature needs a PRO subscription. Your free trial has ended — upgrade on the Billing page to continue.`
+            : `This feature needs a PRO subscription. Upgrade to PRO on the Billing page to continue.`,
           code: "UPGRADE_REQUIRED",
           feature,
         },

@@ -79,17 +79,6 @@ export default function ProductSalesPage() {
     });
   }
 
-  function rowCells(r: Row) {
-    return [
-      r.name,
-      fmtQty(r.qtySold),
-      fmtMoney(r.saleValue),
-      fmtMoney(r.cogs),
-      fmtMoney(r.grossProfit),
-      `${r.marginPct.toFixed(2)}%`,
-    ];
-  }
-
   const csvRows = () => {
     const head = [t("fix4.psr.csvProduct"), t("fix4.psr.csvSku"), t("fix4.psr.csvCategory"), t("fix4.psr.csvQty"), t("fix4.psr.csvSaleValue"), t("fix4.psr.csvCogs"), t("fix4.psr.csvGross"), t("fix4.psr.csvMargin")];
     const body: (string | number)[][] = [];

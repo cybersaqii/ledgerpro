@@ -437,7 +437,6 @@ export async function convertGrnToBill(
   const whtAmount = whtAmountPaisa(netBase, whtBps);
 
   const extraCosts = (input.extraCosts ?? []).filter((c) => c.amount > 0n);
-  const totalExtra = extraCosts.reduce((a, c) => a + c.amount, 0n);
 
   const docId = crypto.randomUUID();
   const docNo = await nextDocNo(tx, companyId, "BILL");

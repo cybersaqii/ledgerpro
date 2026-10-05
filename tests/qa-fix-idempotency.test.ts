@@ -43,14 +43,17 @@ const hoisted = vi.hoisted(() => ({
 vi.mock("@/lib/route-helpers", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@/lib/route-helpers")>();
   const dbm = await import("@/lib/db");
+  const gate = {
+    ok: true as const,
+    session: { uid: hoisted.uid, name: "QA Tester" },
+    companyId: hoisted.cid,
+  };
   return {
     ...actual,
     db: dbm.db,
-    requirePermission: async () => ({
-      ok: true as const,
-      session: { uid: hoisted.uid, name: "QA Tester" },
-      companyId: hoisted.cid,
-    }),
+    requirePermission: async () => gate,
+    // /api/sales gates auth before validation (401 vs 422 consistency).
+    requireCompany: async () => ({ ...gate, response: null }),
   };
 });
 

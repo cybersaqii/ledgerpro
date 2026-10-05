@@ -454,7 +454,7 @@ export async function convertPurchaseDoc(
   const srcBranchId = src.branchId;
   const totals = computeTotals(items, srcDiscount);
 
-  let whtBps = input.whtBps ?? whtRateBps(party.whtCategory, { activeTaxPayer: !!party.activeTaxPayer, filerStatus: party.filerStatus });
+  const whtBps = input.whtBps ?? whtRateBps(party.whtCategory, { activeTaxPayer: !!party.activeTaxPayer, filerStatus: party.filerStatus });
   if (!Number.isInteger(whtBps) || whtBps < 0 || whtBps > 10000)
     throw new UserError("WHT rate must be between 0 and 100%.", 422);
   const whtAmount = whtAmountPaisa(

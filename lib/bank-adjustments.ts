@@ -1,5 +1,5 @@
 import { and, eq, sql } from "drizzle-orm";
-import { accounts, bankAccounts, bankAdjustments, journalLines } from "@/db/schema";
+import { bankAccounts, bankAdjustments, journalLines } from "@/db/schema";
 import { createJournal } from "./posting";
 import { assertPeriodOpen } from "./period";
 import { nextDocNo, sysAccount, SYS } from "./setup";

@@ -1,5 +1,5 @@
 import { NextRequest } from "next/server";
-import { eq, and, gte, lte, desc, asc, sql } from "drizzle-orm";
+import { eq, and, gte, lte, asc } from "drizzle-orm";
 import { stockMovements, products, branches } from "@/db/schema";
 import { json } from "@/lib/api";
 import { requirePermission, db } from "@/lib/route-helpers";

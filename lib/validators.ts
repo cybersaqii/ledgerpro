@@ -31,6 +31,7 @@ export const signupSchema = z.object({
   address: z.string().trim().max(300).optional().or(z.literal("")),
   city: z.string().trim().max(60).optional().or(z.literal("")),
   referralCode: z.string().trim().max(16).optional().or(z.literal("")),
+  termsConsent: z.literal(true, { message: "Please accept the Terms of Service and Privacy Policy." }),
 });
 
 export const loginSchema = z.object({
