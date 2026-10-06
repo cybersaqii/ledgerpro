@@ -238,6 +238,7 @@ export const products = sqliteTable(
     trackStock: flag("track_stock", true),
     reorderLevel: qty("reorder_level"),
     minSalePrice: money("min_sale_price"), // floor price; selling below needs an override
+    wholesalePrice: money("wholesale_price"), // bulk/dealer rate shown alongside retail sale price
     // ── Module 4 (migration 0035): item types + per-product GL accounts +
     // opening stock. item_type INVENTORY | NON_INVENTORY | SERVICE.
     itemType: text("item_type").notNull().default("INVENTORY"),
@@ -720,6 +721,9 @@ export const payments = sqliteTable(
     whtSection: text("wht_section"),
     // ── Module 13 (migration 0044): project tagging.
     projectId: text("project_id"),
+    // Direct nominal receipt/payment (migration 0053): when set, the payment
+    // posts bank-vs-nominal directly — no party, no AR/AP, no allocations.
+    nominalAccountId: text("nominal_account_id"),
     // ── Module 14 (migration 0045): POS session tagging (links counter
     // receipts/refunds to the open shift).
     posSessionId: text("pos_session_id"),

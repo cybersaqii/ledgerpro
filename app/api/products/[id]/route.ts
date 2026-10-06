@@ -94,6 +94,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
         ...(itemType !== undefined ? { itemType } : {}),
         ...(p.reorderLevel !== undefined ? { reorderLevel: parseQty(p.reorderLevel) } : {}),
         ...(p.minSalePrice !== undefined ? { minSalePrice: parseMoney(p.minSalePrice || "0") } : {}),
+        ...(p.wholesalePrice !== undefined ? { wholesalePrice: parseMoney(p.wholesalePrice || "0") } : {}),
         ...(p.location !== undefined ? { location: p.location?.trim() ? p.location.trim().slice(0, 60) : null } : {}),
         ...(imageUrl !== undefined ? { imageUrl } : {}),
         ...(p.pctCode !== undefined ? { pctCode: p.pctCode?.trim() ? p.pctCode.trim().slice(0, 20) : null } : {}),

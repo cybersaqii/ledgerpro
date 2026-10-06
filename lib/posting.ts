@@ -855,6 +855,9 @@ export type PostPaymentInput = {
   kind: "RECEIPT" | "PAYMENT";
   partyId: string;
   bankAccountId: string;
+  /** Direct nominal receipt/payment (migration 0053): income/expense account
+      id. When set, partyId is ignored, no AR/AP movement, no allocations. */
+  nominalAccountId?: string | null;
   date: Date;
   amount: bigint;
   method: string;
@@ -1100,6 +1103,69 @@ export async function postPayment(tx: DbTx, input: PostPaymentInput): Promise<{ 
   const bank = bankRows[0];
   if (!bank) throw new UserError("Bank/cash account not found");
 
+  // Direct nominal receipt/payment (migration 0053): posts bank-vs-nominal
+  // directly — no party, no AR/AP, no allocations, no WHT.
+  const nominalAccountId = (input.nominalAccountId ?? "").trim();
+  if (nominalAccountId) {
+    if (input.allocations.length > 0) throw new UserError("Nominal receipts/payments cannot be allocated to documents.");
+    const nomRows = await tx
+      .select({ id: accounts.id, type: accounts.type })
+      .from(accounts)
+      .where(and(eq(accounts.id, nominalAccountId), eq(accounts.companyId, input.companyId)))
+      .limit(1);
+    const nom = nomRows[0];
+    if (!nom) throw new UserError("Account not found");
+    if (nom.type !== "INCOME" && nom.type !== "EXPENSE")
+      throw new UserError("Nominal account must be an income or expense account.");
+    const paymentId = input.id ?? crypto.randomUUID();
+    const docNo = input.docNo ?? (await nextDocNo(tx, input.companyId, input.kind));
+    const entryId = await createJournal(tx, {
+      companyId: input.companyId,
+      branchId: input.branchId,
+      date: input.date,
+      memo: `${input.kind === "RECEIPT" ? "Receipt" : "Payment"}${input.reference ? ` ${input.reference}` : ""}`,
+      reference: input.reference,
+      source: "PAYMENT",
+      sourceId: paymentId,
+      createdById: input.createdById,
+      lines: withProject(
+        input.kind === "RECEIPT"
+          ? [
+              { accountId: bank.accountId, debit: input.amount, credit: 0n },
+              { accountId: nominalAccountId, debit: 0n, credit: input.amount },
+            ]
+          : [
+              { accountId: nominalAccountId, debit: input.amount, credit: 0n },
+              { accountId: bank.accountId, debit: 0n, credit: input.amount },
+            ],
+        input.projectId
+      ),
+    });
+    await tx.insert(payments).values({
+      id: paymentId,
+      companyId: input.companyId,
+      branchId: input.branchId,
+      kind: input.kind,
+      docNo,
+      date: input.date,
+      partyId: null,
+      bankAccountId: input.bankAccountId,
+      nominalAccountId,
+      amount: input.amount,
+      method: input.method,
+      reference: input.reference,
+      notes: input.notes,
+      journalEntryId: entryId,
+      createdById: input.createdById,
+      projectId: input.projectId ?? null,
+      posSessionId: input.posSessionId ?? null,
+      whtAmount: 0n,
+      whtSection: null,
+      ...(input.idempotencyKey ? { idempotencyKey: input.idempotencyKey } : {}),
+    });
+    return { id: paymentId, docNo };
+  }
+
   // M1: the PARTY's kind decides the subsidiary ledger (AR vs AP) — cash
   // direction comes from the payment kind. A customer cash refund (PAYMENT)
   // must hit AR, and a supplier refund received (RECEIPT) must hit AP;
@@ -1244,6 +1310,7 @@ export async function postPayment(tx: DbTx, input: PostPaymentInput): Promise<{ 
     date: input.date,
     partyId: input.partyId,
     bankAccountId: input.bankAccountId,
+    nominalAccountId: null,
     amount: input.amount,
     method: input.method,
     reference: input.reference,

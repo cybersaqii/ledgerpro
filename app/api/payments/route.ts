@@ -138,7 +138,12 @@ export async function POST(req: NextRequest) {
 
       let partyId: string;
       let partyName: string | null = null;
-      {
+      const nominalAccountId = (b.nominalAccountId ?? "").trim();
+      if (nominalAccountId) {
+        // Direct nominal receipt/payment: no party, no allocations.
+        if (b.allocations.length > 0) throw new UserError("Nominal receipts/payments cannot be allocated.", 422);
+        partyId = "";
+      } else {
         if (!b.partyId) throw new UserError("Please select a customer or supplier.", 422);
         const pr = await tx
           .select()
@@ -200,6 +205,7 @@ export async function POST(req: NextRequest) {
         kind: b.kind,
         partyId,
         bankAccountId: b.bankAccountId,
+        nominalAccountId: nominalAccountId || null,
         date,
         amount,
         method: b.method,
@@ -212,7 +218,9 @@ export async function POST(req: NextRequest) {
         // server computes oldest-first allocations in-txn so a receipt lands
         // on the right invoices even if the user skipped the allocation UI.
         // Explicit allocations always win over autoAllocate.
+        // Nominal payments never allocate.
         allocations:
+          nominalAccountId ? [] :
           b.autoAllocate && b.allocations.length === 0
             ? await fifoAllocations(tx, { companyId, partyId, kind: b.kind, amount })
             : b.allocations.map((a) => ({

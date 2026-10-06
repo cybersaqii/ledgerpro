@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState, Fragment } from "react";
-import { Plus, Search, Pencil, TriangleAlert, Package } from "lucide-react";
+import { Plus, Search, Pencil, TriangleAlert, Package, ChevronDown } from "lucide-react";
 import { PageHeader, EmptyState, Field, ErrorNote } from "@/components/ui";
 import { Modal } from "@/components/modal";
 import { api, fmtMoney, fmtQty } from "@/lib/format";
@@ -35,7 +35,7 @@ type ProductPick = { id: string; name: string; sku: string; unit: string };
 
 const emptyForm = {
   sku: "", name: "", barcode: "", pctCode: "", category: "", unit: "PCS",
-  purchasePrice: "", salePrice: "", reorderLevel: "", minSalePrice: "",
+  purchasePrice: "", salePrice: "", wholesalePrice: "", reorderLevel: "", minSalePrice: "",
   location: "", imageUrl: "",
   // Module 4.1: item type drives stock tracking (INVENTORY ⟺ tracked).
   itemType: "INVENTORY",
@@ -46,6 +46,7 @@ type ProductDetail = {
   id: string; sku: string; name: string; barcode: string | null; pctCode: string | null;
   unit: string; category: string | null; purchasePrice: string; salePrice: string;
   trackStock: boolean; reorderLevel: string; minSalePrice: string | null;
+  wholesalePrice: string | null;
   location: string | null; imageUrl: string | null; isBundle: boolean;
   itemType: string | null;
   revenueAccountId: string | null; cogsAccountId: string | null; inventoryAccountId: string | null;
@@ -75,6 +76,8 @@ export default function ProductsPage() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [priceError, setPriceError] = useState<string | null>(null);
+  // beginner-friendly: advanced fields hidden behind a toggle
+  const [showAdvanced, setShowAdvanced] = useState(false);
   // bundle components editor
   const [components, setComponents] = useState<BundleRow[]>([]);
   const [componentsLoaded, setComponentsLoaded] = useState(false);
@@ -117,6 +120,7 @@ export default function ProductsPage() {
     setComponents([]); setComponentsLoaded(true);
     setCompQuery(""); setCompResults([]);
     setOpeningPosted(false); setOpeningInfo(""); setOpening({ qty: "", cost: "", date: "", branchId: "" });
+    setShowAdvanced(false);
     setModal({ mode: "add" });
     loadAccountOpts();
   }
@@ -144,6 +148,7 @@ export default function ProductsPage() {
         itemType: full.itemType ?? (full.trackStock ? "INVENTORY" : "NON_INVENTORY"),
         reorderLevel: thousandthsToStr(full.reorderLevel),
         minSalePrice: paisaToRupees(full.minSalePrice ?? "0"),
+        wholesalePrice: paisaToRupees(full.wholesalePrice ?? "0"),
         location: full.location ?? "",
         imageUrl: full.imageUrl ?? "",
         revenueAccountId: full.revenueAccountId ?? "",
@@ -158,6 +163,7 @@ export default function ProductsPage() {
         ? `${thousandthsToStr(full.openingStockQty)} ${full.unit} @ ${paisaToRupees(full.openingStockCost)}`
         : "");
       setOpening({ qty: "", cost: "", date: "", branchId: "" });
+      setShowAdvanced(false);
       loadAccountOpts();
       // load bundle components for the editor
       api<{ data: { componentProductId: string; componentName: string; componentSku: string; componentUnit: string; qtyThousandths: number }[] }>(
@@ -239,7 +245,7 @@ export default function ProductsPage() {
     e.preventDefault();
     setSaving(true); setError(null); setPriceError(null);
     // Inline guard: prices can never be negative (the API rejects them too).
-    const neg = [form.purchasePrice, form.salePrice, form.minSalePrice]
+    const neg = [form.purchasePrice, form.salePrice, form.wholesalePrice, form.minSalePrice]
       .some((v) => v.trim().startsWith("-") || Number(v) < 0);
     if (neg) {
       setPriceError(t("products.negativePrice"));
@@ -403,75 +409,145 @@ export default function ProductsPage() {
       </div>
 
       {modal && (
-        <Modal title={modal.mode === "add" ? t("products.addTitle", { product: productOne.toLowerCase() }) : t("products.editTitle", { product: productOne.toLowerCase() })} onClose={() => setModal(null)}>
-          <form onSubmit={save} className="space-y-4">
+        <Modal wide title={modal.mode === "add" ? t("products.addTitle", { product: productOne.toLowerCase() }) : t("products.editTitle", { product: productOne.toLowerCase() })} onClose={() => setModal(null)}>
+          <form onSubmit={save} className="space-y-5">
             <ErrorNote message={error} />
+            {/* ── Essentials ── */}
+            <Field label={t("products.productName", { product: productOne })}><input className="field" required value={form.name} onChange={set("name")} placeholder={t("products.namePlaceholder")} autoFocus /></Field>
             <div className="grid gap-4 sm:grid-cols-2">
               <Field label={t("products.skuCode")}><input className="field" required value={form.sku} onChange={set("sku")} placeholder={t("products.skuPlaceholder")} /></Field>
-              <Field label={t("products.barcode")}><input className="field" value={form.barcode} onChange={set("barcode")} /></Field>
-            </div>
-            <div className="grid gap-4 sm:grid-cols-2">
-              <Field label={t("products.pctCode")} hint={t("tax.pctHint")}>
-                <input className="field" value={form.pctCode} onChange={set("pctCode")} maxLength={20} dir="ltr" />
-              </Field>
-            </div>
-            <Field label={t("products.productName", { product: productOne })}><input className="field" required value={form.name} onChange={set("name")} placeholder={t("products.namePlaceholder")} /></Field>
-            <div className="grid gap-4 sm:grid-cols-2">
               <Field label={t("products.category")}><input className="field" value={form.category} onChange={set("category")} placeholder={t("products.categoryPlaceholder")} /></Field>
+            </div>
+            <div className="grid gap-4 sm:grid-cols-2">
               <Field label={t("products.unit")}>
                 <select className="field" value={form.unit} onChange={set("unit")}>
                   {UNITS.map((u) => <option key={u}>{u}</option>)}
                 </select>
               </Field>
-            </div>
-            <Field label={t("batches.location")}><input className="field" value={form.location} onChange={set("location")} placeholder={t("batches.locationPlaceholder")} maxLength={60} /></Field>
-            <Field label={t("products.imageUrl")} hint={t("products.imageUrlHint")}>
-              <div className="flex items-center gap-3">
-                <ProductImage name={form.name || "?"} imageUrl={form.imageUrl.trim() || null} businessType={bp.type} size={44} />
-                <input className="field" type="url" inputMode="url" dir="ltr" value={form.imageUrl} onChange={set("imageUrl")} placeholder="https://…" maxLength={500} />
-              </div>
-            </Field>
-            <div className="grid gap-4 sm:grid-cols-3">
               <Field label={t("products.buyPrice")} error={priceError}><input className="field" type="number" min="0" step="0.01" placeholder="0.00" value={form.purchasePrice} onChange={set("purchasePrice")} /></Field>
               <Field label={t("products.salePrice")} error={priceError}><input className="field" type="number" min="0" step="0.01" placeholder="0.00" value={form.salePrice} onChange={set("salePrice")} /></Field>
-              <Field label={t("products.minSalePrice")} hint={t("products.minSaleHint")} error={priceError}><input className="field" type="number" min="0" step="0.01" placeholder="0.00" value={form.minSalePrice} onChange={set("minSalePrice")} /></Field>
-            </div>
-            <div className="grid gap-4 sm:grid-cols-3">
-              <Field label={t("products.reorderLevel")}><input className="field" type="number" min="0" step="0.001" placeholder="0" value={form.reorderLevel} onChange={set("reorderLevel")} /></Field>
-              <Field label={t("m4.itemType")} hint={t("m4.itemTypeHint")}>
-                <select className="field" value={form.itemType} onChange={set("itemType")}>
-                  <option value="INVENTORY">{t("m4.itemTypeInventory")}</option>
-                  <option value="NON_INVENTORY">{t("m4.itemTypeNonInventory")}</option>
-                  <option value="SERVICE">{t("m4.itemTypeService")}</option>
-                </select>
-              </Field>
+              <Field label={t("products.wholesalePrice")} error={priceError}><input className="field" type="number" min="0" step="0.01" placeholder="0.00" value={form.wholesalePrice} onChange={set("wholesalePrice")} /></Field>
             </div>
 
-            <div className="rounded-xl border border-border p-4">
-              <div className="mb-1 text-sm font-bold">{t("m4.glAccountsTitle")}</div>
-              <p className="mb-3 text-xs text-muted-foreground">{t("m4.glAccountsHint")}</p>
-              <div className="grid gap-4 sm:grid-cols-3">
-                <Field label={t("m4.revenueAccount")} hint={t("m4.defaultSalesRevenue")}>
-                  <select className="field" value={form.revenueAccountId} onChange={set("revenueAccountId")}>
-                    <option value="">{t("m4.defaultAccount")}</option>
-                    {incomeAccounts.map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}
-                  </select>
+            {/* ── Advanced (collapsible) ── */}
+            <button
+              type="button"
+              onClick={() => setShowAdvanced((v) => !v)}
+              aria-expanded={showAdvanced}
+              className="flex w-full items-center justify-between rounded-xl border border-border bg-muted/40 px-4 py-3 text-sm font-bold text-foreground transition hover:border-primary/40"
+            >
+              <span>{t("products.advancedToggle")}</span>
+              <ChevronDown size={18} className={`transition-transform ${showAdvanced ? "rotate-180" : ""}`} />
+            </button>
+            {showAdvanced && (
+              <div className="space-y-4 rounded-xl border border-border p-4">
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <Field label={t("products.barcode")}><input className="field" value={form.barcode} onChange={set("barcode")} /></Field>
+                  <Field label={t("products.pctCode")} hint={t("tax.pctHint")}>
+                    <input className="field" value={form.pctCode} onChange={set("pctCode")} maxLength={20} dir="ltr" />
+                  </Field>
+                </div>
+                <Field label={t("batches.location")}><input className="field" value={form.location} onChange={set("location")} placeholder={t("batches.locationPlaceholder")} maxLength={60} /></Field>
+                <Field label={t("products.imageUrl")} hint={t("products.imageUrlHint")}>
+                  <div className="flex items-center gap-3">
+                    <ProductImage name={form.name || "?"} imageUrl={form.imageUrl.trim() || null} businessType={bp.type} size={44} />
+                    <input className="field" type="url" inputMode="url" dir="ltr" value={form.imageUrl} onChange={set("imageUrl")} placeholder="https://…" maxLength={500} />
+                  </div>
                 </Field>
-                <Field label={t("m4.cogsAccount")} hint={t("m4.defaultCogs")}>
-                  <select className="field" value={form.cogsAccountId} onChange={set("cogsAccountId")}>
-                    <option value="">{t("m4.defaultAccount")}</option>
-                    {expenseAccounts.map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}
-                  </select>
-                </Field>
-                <Field label={t("m4.inventoryAccount")} hint={t("m4.defaultInventory")}>
-                  <select className="field" value={form.inventoryAccountId} onChange={set("inventoryAccountId")}>
-                    <option value="">{t("m4.defaultAccount")}</option>
-                    {assetAccounts.map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}
-                  </select>
-                </Field>
+                <div className="grid gap-4 sm:grid-cols-3">
+                  <Field label={t("products.minSalePrice")} hint={t("products.minSaleHint")} error={priceError}><input className="field" type="number" min="0" step="0.01" placeholder="0.00" value={form.minSalePrice} onChange={set("minSalePrice")} /></Field>
+                  <Field label={t("products.reorderLevel")}><input className="field" type="number" min="0" step="0.001" placeholder="0" value={form.reorderLevel} onChange={set("reorderLevel")} /></Field>
+                  <Field label={t("m4.itemType")} hint={t("m4.itemTypeHint")}>
+                    <select className="field" value={form.itemType} onChange={set("itemType")}>
+                      <option value="INVENTORY">{t("m4.itemTypeInventory")}</option>
+                      <option value="NON_INVENTORY">{t("m4.itemTypeNonInventory")}</option>
+                      <option value="SERVICE">{t("m4.itemTypeService")}</option>
+                    </select>
+                  </Field>
+                </div>
+
+                <div className="rounded-xl border border-border p-4">
+                  <div className="mb-1 text-sm font-bold">{t("m4.glAccountsTitle")}</div>
+                  <p className="mb-3 text-xs text-muted-foreground">{t("m4.glAccountsHint")}</p>
+                  <div className="grid gap-4 sm:grid-cols-3">
+                    <Field label={t("m4.revenueAccount")} hint={t("m4.defaultSalesRevenue")}>
+                      <select className="field" value={form.revenueAccountId} onChange={set("revenueAccountId")}>
+                        <option value="">{t("m4.defaultAccount")}</option>
+                        {incomeAccounts.map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}
+                      </select>
+                    </Field>
+                    <Field label={t("m4.cogsAccount")} hint={t("m4.defaultCogs")}>
+                      <select className="field" value={form.cogsAccountId} onChange={set("cogsAccountId")}>
+                        <option value="">{t("m4.defaultAccount")}</option>
+                        {expenseAccounts.map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}
+                      </select>
+                    </Field>
+                    <Field label={t("m4.inventoryAccount")} hint={t("m4.defaultInventory")}>
+                      <select className="field" value={form.inventoryAccountId} onChange={set("inventoryAccountId")}>
+                        <option value="">{t("m4.defaultAccount")}</option>
+                        {assetAccounts.map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}
+                      </select>
+                    </Field>
+                  </div>
+                </div>
+
+                <div className="rounded-xl border border-border p-4">
+                  <div className="mb-1 text-sm font-bold">{t("bundles.componentsTitle")}</div>
+                  <p className="mb-3 text-xs text-muted-foreground">{t("bundles.componentsHint")}</p>
+                  {components.length === 0 && (
+                    <p className="mb-3 text-xs text-muted-foreground">{t("bundles.noComponents")}</p>
+                  )}
+                  {components.map((c, idx) => (
+                    <div key={c.productId} className="mb-2 flex items-end gap-2">
+                      <div className="min-w-0 flex-1">
+                        <div className="truncate text-sm font-semibold">{c.name}</div>
+                        <div className="text-xs text-muted-foreground">{c.sku} · {c.unit}</div>
+                      </div>
+                      <div className="w-28">
+                        <span className="mb-1 block text-[0.7rem] font-semibold text-foreground/80">{t("bundles.qtyPerBundle")}</span>
+                        <input
+                          className="field !py-2"
+                          type="number" min="0.001" step="0.001" required
+                          value={c.qty}
+                          onChange={(e) => setComponents((cs) => cs.map((x, j) => j === idx ? { ...x, qty: e.target.value } : x))}
+                          aria-label={t("bundles.qtyPerBundle")}
+                        />
+                      </div>
+                      <button
+                        type="button"
+                        className="btn btn-ghost !px-3 !py-2 text-xs"
+                        onClick={() => setComponents((cs) => cs.filter((_, j) => j !== idx))}
+                      >
+                        {t("bundles.removeComponent")}
+                      </button>
+                    </div>
+                  ))}
+                  <div className="relative mt-3">
+                    <input
+                      className="field"
+                      placeholder={t("bundles.searchComponent")}
+                      value={compQuery}
+                      onChange={(e) => searchComponents(e.target.value)}
+                    />
+                    {compResults.length > 0 && (
+                      <div className="absolute z-10 mt-1 max-h-48 w-full overflow-y-auto rounded-xl border border-border bg-card shadow-lg">
+                        {compResults.map((r) => (
+                          <button
+                            key={r.id}
+                            type="button"
+                            className="block w-full px-3 py-2 text-start text-sm hover:bg-muted"
+                            onClick={() => addComponent(r)}
+                          >
+                            <span className="font-semibold">{r.name}</span>
+                            <span className="ms-2 text-xs text-muted-foreground">{r.sku} · {r.unit}</span>
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </div>
               </div>
-            </div>
-
+            )}
             {modal.mode === "edit" && (
               <div className="rounded-xl border border-border p-4">
                 <div className="mb-1 text-sm font-bold">{t("m4.openingStockTitle")}</div>
@@ -504,61 +580,6 @@ export default function ProductsPage() {
               </div>
             )}
 
-            <div className="rounded-xl border border-border p-4">
-              <div className="mb-1 text-sm font-bold">{t("bundles.componentsTitle")}</div>
-              <p className="mb-3 text-xs text-muted-foreground">{t("bundles.componentsHint")}</p>
-              {components.length === 0 && (
-                <p className="mb-3 text-xs text-muted-foreground">{t("bundles.noComponents")}</p>
-              )}
-              {components.map((c, idx) => (
-                <div key={c.productId} className="mb-2 flex items-end gap-2">
-                  <div className="min-w-0 flex-1">
-                    <div className="truncate text-sm font-semibold">{c.name}</div>
-                    <div className="text-xs text-muted-foreground">{c.sku} · {c.unit}</div>
-                  </div>
-                  <div className="w-28">
-                    <span className="mb-1 block text-[0.7rem] font-semibold text-foreground/80">{t("bundles.qtyPerBundle")}</span>
-                    <input
-                      className="field !py-2"
-                      type="number" min="0.001" step="0.001" required
-                      value={c.qty}
-                      onChange={(e) => setComponents((cs) => cs.map((x, j) => j === idx ? { ...x, qty: e.target.value } : x))}
-                      aria-label={t("bundles.qtyPerBundle")}
-                    />
-                  </div>
-                  <button
-                    type="button"
-                    className="btn btn-ghost !px-3 !py-2 text-xs"
-                    onClick={() => setComponents((cs) => cs.filter((_, j) => j !== idx))}
-                  >
-                    {t("bundles.removeComponent")}
-                  </button>
-                </div>
-              ))}
-              <div className="relative mt-3">
-                <input
-                  className="field"
-                  placeholder={t("bundles.searchComponent")}
-                  value={compQuery}
-                  onChange={(e) => searchComponents(e.target.value)}
-                />
-                {compResults.length > 0 && (
-                  <div className="absolute z-10 mt-1 max-h-48 w-full overflow-y-auto rounded-xl border border-border bg-card shadow-lg">
-                    {compResults.map((r) => (
-                      <button
-                        key={r.id}
-                        type="button"
-                        className="block w-full px-3 py-2 text-start text-sm hover:bg-muted"
-                        onClick={() => addComponent(r)}
-                      >
-                        <span className="font-semibold">{r.name}</span>
-                        <span className="ms-2 text-xs text-muted-foreground">{r.sku} · {r.unit}</span>
-                      </button>
-                    ))}
-                  </div>
-                )}
-              </div>
-            </div>
 
             <div className="flex justify-end gap-2 pt-2">
               <button type="button" className="btn btn-ghost" onClick={() => setModal(null)}>{t("common.cancel")}</button>

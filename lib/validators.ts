@@ -81,6 +81,7 @@ export const productSchema = z.object({
   trackStock: z.boolean().default(true),
   reorderLevel: qtyStr.default("0"),
   minSalePrice: priceStr.default("0"),
+  wholesalePrice: priceStr.default("0"),
   location: z.string().trim().max(60).optional().or(z.literal("")),
   imageUrl: z.string().trim().max(500).optional().or(z.literal("")),
   // Module 7: FBR PCT (Pakistan Customs Tariff) code — optional, printed on
@@ -207,6 +208,9 @@ export const paymentSchema = z.object({
   projectId: z.string().min(1).optional(),
   /** Module 14: POS session tag for counter refunds (company + OPEN, server-validated). */
   sessionId: z.string().min(1).optional(),
+  /** Direct nominal receipt/payment (migration 0053): income/expense account
+      id — when set, partyId must be empty and no allocations are allowed. */
+  nominalAccountId: z.string().trim().max(40).optional().or(z.literal("")),
   /** Module 7.2: WHT deducted at payment/receipt time (section + rate bps). */
   whtSection: z.string().trim().max(20).optional().or(z.literal("")),
   whtBps: z.number().int().min(0).max(10000).optional(),

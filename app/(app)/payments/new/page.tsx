@@ -43,6 +43,10 @@ function PaymentFormInner() {
   const [alloc, setAlloc] = useState<Record<string, string>>({});
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // Direct nominal receipt/payment (no party/invoice): "PARTY" = customer/supplier + invoices, "NOMINAL" = income/expense account.
+  const [against, setAgainst] = useState<"PARTY" | "NOMINAL">("PARTY");
+  const [nominalAccounts, setNominalAccounts] = useState<{ id: string; name: string }[]>([]);
+  const [nominalId, setNominalId] = useState("");
   // "Make Payment" deep link pre-fill: ?allocateDocId=&amount= — applied once
   // the outstanding list for the pre-selected party finishes loading.
   const [prefill] = useState(() => ({ docId: sp.get("allocateDocId") ?? "", amount: sp.get("amount") ?? "" }));
@@ -62,6 +66,13 @@ function PaymentFormInner() {
       if (cash) setBankId(cash.id);
     }).catch(() => {});
   }, []);
+
+  // Nominal accounts for direct receipts/payments: income on receipts, expense on payments.
+  useEffect(() => {
+    api<{ data: { id: string; name: string }[] }>(`/api/accounts?type=${isReceipt ? "INCOME" : "EXPENSE"}`)
+      .then((d) => setNominalAccounts(d.data))
+      .catch(() => {});
+  }, [isReceipt]);
 
   useEffect(() => {
     const t = setTimeout(async () => {
@@ -180,24 +191,29 @@ function PaymentFormInner() {
   async function submit(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
-    if (!partyId) { setError(t("payform.errParty", { party: (partyKind === "CUSTOMER" ? bp.partyOne : t("payform.supplier")).toLowerCase() })); return; }
+    const isNominal = against === "NOMINAL";
+    if (!isNominal && !partyId) { setError(t("payform.errParty", { party: (partyKind === "CUSTOMER" ? bp.partyOne : t("payform.supplier")).toLowerCase() })); return; }
+    if (isNominal && !nominalId) { setError(t("payform.errNominal")); return; }
     if (!bankId) { setError(t("payform.errAccount")); return; }
     if (!(parseFloat(amount || "0") > 0)) { setError(t("payform.errAmount")); return; }
-    if (allocTotal > amountPaisa) { setError(t("payform.errAlloc")); return; }
+    if (!isNominal && allocTotal > amountPaisa) { setError(t("payform.errAlloc")); return; }
     setSaving(true);
     try {
       idemRef.current ??= crypto.randomUUID();
       const d = await api<{ data: { id: string } }>("/api/payments", {
         method: "POST",
         body: JSON.stringify({
-          kind, partyId, bankAccountId: bankId, date, amount,
+          kind,
+          partyId: isNominal ? undefined : partyId,
+          nominalAccountId: isNominal ? nominalId : undefined,
+          bankAccountId: bankId, date, amount,
           idempotencyKey: idemRef.current,
           // Module 13: project tag rides on the payment journal lines.
           projectId: projectId || undefined,
           method, reference: reference || undefined, notes: notes || undefined,
-          whtSection: whtSection || undefined,
-          whtBps: whtSection && whtBps > 0 ? whtBps : undefined,
-          allocations: isRefund ? [] : Object.entries(alloc)
+          whtSection: !isNominal && whtSection ? whtSection : undefined,
+          whtBps: !isNominal && whtSection && whtBps > 0 ? whtBps : undefined,
+          allocations: isNominal || isRefund ? [] : Object.entries(alloc)
             .filter(([, v]) => parseFloat(v || "0") > 0)
             .map(([docId, v]) => ({ docId, docKind: isReceipt ? "SALES" : "PURCHASE", amount: v })),
         }),
@@ -242,8 +258,26 @@ function PaymentFormInner() {
             </div>
           )}
 
+          {/* Against: party invoices/bills OR a nominal (income/expense) account */}
+          <div className="mb-5 flex rounded-xl border border-border bg-muted/60 p-1">
+            {(["PARTY", "NOMINAL"] as const).map((a) => (
+              <button key={a} type="button" onClick={() => { setAgainst(a); setPartyId(""); setNominalId(""); setAlloc({}); }}
+                className={`flex-1 rounded-lg px-4 py-2.5 text-sm font-bold transition ${against === a ? "bg-primary text-primary-foreground shadow" : "text-muted-foreground hover:text-foreground"}`}>
+                {a === "PARTY" ? t("payform.againstParty") : t("payform.againstNominal")}
+              </button>
+            ))}
+          </div>
+
           <div className="grid gap-4 sm:grid-cols-2">
-            <Field label={partyKind === "CUSTOMER" ? bp.partyOne : t("payform.supplier")}>
+            {against === "NOMINAL" ? (
+              <Field label={isReceipt ? t("payform.incomeAccount") : t("payform.expenseAccount")}>
+                <select className="field" value={nominalId} onChange={(e) => setNominalId(e.target.value)} required>
+                  <option value="">{t("payform.selectAccount")}</option>
+                  {nominalAccounts.map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}
+                </select>
+              </Field>
+            ) : (
+              <Field label={partyKind === "CUSTOMER" ? bp.partyOne : t("payform.supplier")}>
               <div className="relative" ref={partyBoxRef}>
                 <button type="button" onClick={() => setShowPartyList((s) => !s)} className="field flex items-center justify-between text-start">
                   <span className={selectedParty ? "" : "text-muted-foreground"}>{selectedParty ? selectedParty.name : t("payform.selectPlaceholder")}</span>
@@ -266,6 +300,7 @@ function PaymentFormInner() {
                 )}
               </div>
             </Field>
+            )}
             <Field label={t("payform.account")}>
               <select className="field" value={bankId} onChange={(e) => setBankId(e.target.value)} required>
                 <option value="">{t("payform.selectAccount")}</option>
@@ -335,9 +370,11 @@ function PaymentFormInner() {
         </div>
 
         <div className="card p-5 sm:p-6 lg:sticky lg:top-20">
+          {against === "PARTY" ? (
+            <>
             <div className="flex items-center justify-between gap-2">
               <h2 className="text-base font-bold">{t("payform.allocateTitle")}</h2>
-              {outstanding.length > 0 && !isRefund && (
+              {outstanding.length > 0 && !isRefund && against === "PARTY" && (
                 <button type="button" className="btn btn-ghost !px-3 !py-1.5 text-xs"
                   onClick={autoFillOldestFirst} disabled={!(amountPaisa > 0)}>
                   {t("payform.autoFillOldest")}
@@ -380,6 +417,10 @@ function PaymentFormInner() {
               </p>
             </div>
             )}
+          </>
+          ) : (
+            <p className="text-sm text-muted-foreground">{t("payform.nominalHint")}</p>
+          )}
           </div>
 
       </form>

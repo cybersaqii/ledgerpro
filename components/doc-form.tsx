@@ -278,14 +278,13 @@ export function DocForm({ mode }: { mode: "SALES" | "PURCHASE" }) {
   // posted atomically in the same transaction on the server.
   const [rcptDate, setRcptDate] = useState(fmtDateInput());
   const [rcptAccountId, setRcptAccountId] = useState("");
-  const [rcptMethod, setRcptMethod] = useState("CASH");
   const [rcptRef, setRcptRef] = useState("");
   const [rcptAmount, setRcptAmount] = useState("");
   // Landed extra costs (freight, labour…) — purchase bills only
   const [extraCosts, setExtraCosts] = useState<{ key: number; label: string; amount: string }[]>([]);
   const [extraPaidFrom, setExtraPaidFrom] = useState<"CASH" | "SUPPLIER">("CASH");
   const [extraAccountId, setExtraAccountId] = useState("");
-  const [bankAccounts, setBankAccounts] = useState<{ id: string; name: string }[]>([]);
+  const [bankAccounts, setBankAccounts] = useState<{ id: string; name: string; kind: string }[]>([]);
   // transient UI: toast + row flash (barcode / keyboard adds)
   const [toast, setToast] = useState<string | null>(null);
   const [flashKey, setFlashKey] = useState<number | null>(null);
@@ -424,7 +423,7 @@ export function DocForm({ mode }: { mode: "SALES" | "PURCHASE" }) {
 
   // bank/cash accounts: landed-cost payment (purchase bills) + Add Receipt/Payment section
   useEffect(() => {
-    api<{ data: { id: string; name: string }[] }>("/api/banks")
+    api<{ data: { id: string; name: string; kind: string }[] }>("/api/banks")
       .then((d) => setBankAccounts(d.data))
       .catch(() => {});
   }, []);
@@ -956,10 +955,12 @@ export function DocForm({ mode }: { mode: "SALES" | "PURCHASE" }) {
       if ((isSales && docType === "INVOICE") || (!isSales && docType === "BILL")) {        const rcptAmt = parseFloat(rcptAmount || "0");
         if (rcptAmt > 0) {
           if (!rcptAccountId) { setSaving(false); setError(t("docform.errReceiptAccount")); return; }
+          // Method is derived from the account kind — no separate selector needed.
+          const rcptAcct = bankAccounts.find((b) => b.id === rcptAccountId);
           body.receipt = {
             date: rcptDate,
             bankAccountId: rcptAccountId,
-            method: rcptMethod,
+            method: rcptAcct?.kind === "CASH" ? "CASH" : "BANK",
             reference: rcptRef.trim() || undefined,
             amount: rcptAmount,
           };
@@ -1434,7 +1435,7 @@ export function DocForm({ mode }: { mode: "SALES" | "PURCHASE" }) {
               <h3 className="font-extrabold">{isSales ? t("docform.addReceipt") : t("docform.addPaymentTitle")}</h3>
               <p className="text-xs text-muted-foreground">{t("docform.addReceiptHint")}</p>
             </div>
-            <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
+            <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
               <Field label={t("payform.date")}>
                 <input type="date" className="field" value={rcptDate} onChange={(e) => setRcptDate(e.target.value)} />
               </Field>
@@ -1442,14 +1443,6 @@ export function DocForm({ mode }: { mode: "SALES" | "PURCHASE" }) {
                 <select className="field" value={rcptAccountId} onChange={(e) => setRcptAccountId(e.target.value)}>
                   <option value="">{t("payform.selectAccount")}</option>
                   {bankAccounts.map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}
-                </select>
-              </Field>
-              <Field label={t("payform.method")}>
-                <select className="field" value={rcptMethod} onChange={(e) => setRcptMethod(e.target.value)}>
-                  <option value="CASH">{t("payform.methodCash")}</option>
-                  <option value="BANK">{t("payform.methodBank")}</option>
-                  <option value="CHEQUE">{t("payform.methodCheque")}</option>
-                  <option value="ONLINE">{t("payform.methodOnline")}</option>
                 </select>
               </Field>
               <Field label={t("docform.rcptRef")}>
