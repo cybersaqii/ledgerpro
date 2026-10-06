@@ -58,21 +58,84 @@ const SECTION_KEYS: Record<(typeof SECTIONS)[number], string> = {
 };
 
 /** Sticky jump-links so the long Settings page stays navigable on every screen. */
+/** Section icons for the premium sidebar nav. */
+const SECTION_ICONS: Record<(typeof SECTIONS)[number], typeof Building2> = {
+  "sec-company": Building2,
+  "sec-approvals": ShieldCheck,
+  "sec-currencies": Globe,
+  "sec-data": Database,
+  "sec-import": Upload,
+  "sec-pricing": Crown,
+  "sec-backups": Download,
+  "sec-team": Users,
+  "sec-security": KeyRound,
+  "sec-access": Lock,
+  "sec-sessions": MonitorSmartphone,
+  "sec-lock": CalendarCheck,
+  "sec-health": Activity,
+  "sec-activity": History,
+  "sec-danger": TriangleAlert,
+};
+
 function SettingsJumpNav() {
   const { t } = useLang();
+  const [active, setActive] = useState<string>("sec-company");
+  useEffect(() => {
+    const obs = new IntersectionObserver(
+      (entries) => {
+        for (const e of entries) {
+          if (e.isIntersecting) setActive(e.target.id);
+        }
+      },
+      { rootMargin: "-30% 0px -60% 0px" }
+    );
+    SECTIONS.forEach((id) => {
+      const el = document.getElementById(id);
+      if (el) obs.observe(el);
+    });
+    return () => obs.disconnect();
+  }, []);
+  const linkCls = (id: string) =>
+    `flex items-center gap-3 rounded-xl px-3.5 py-2.5 text-sm font-semibold transition ${
+      active === id
+        ? "bg-primary text-primary-foreground shadow-md"
+        : "text-muted-foreground hover:bg-muted hover:text-foreground"
+    }`;
   return (
-    <nav aria-label={t("settings.navAria")} className="sticky top-16 z-20 -mx-1 mb-6 flex gap-2 overflow-x-auto bg-background/90 px-1 py-2 shadow-[var(--shadow-card)] backdrop-blur-xl">
-      {SECTIONS.map((id) => (
-        <a key={id} href={`#${id}`}
+    <>
+      {/* Desktop: premium sidebar */}
+      <aside className="hidden w-60 shrink-0 lg:block">
+        <nav aria-label={t("settings.navAria")} className="sticky top-20 space-y-1 rounded-2xl border border-border bg-card p-3 shadow-[var(--shadow-card)]">
+          {SECTIONS.map((id) => {
+            const Icon = SECTION_ICONS[id];
+            return (
+              <a key={id} href={`#${id}`} className={linkCls(id)}>
+                <Icon size={17} className="shrink-0" />
+                <span className="truncate">{t(`settings.${SECTION_KEYS[id]}`)}</span>
+              </a>
+            );
+          })}
+          <div className="my-2 h-px bg-border" />
+          <a href="/settings/automation" className="flex items-center gap-3 rounded-xl px-3.5 py-2.5 text-sm font-semibold text-muted-foreground transition hover:bg-muted hover:text-foreground">
+            <RefreshCw size={17} className="shrink-0" />
+            <span className="truncate">{t("rem.navAutomation")}</span>
+          </a>
+        </nav>
+      </aside>
+      {/* Mobile: horizontal pills */}
+      <nav aria-label={t("settings.navAria")} className="sticky top-16 z-20 -mx-1 mb-6 flex gap-2 overflow-x-auto bg-background/90 px-1 py-2 backdrop-blur-xl lg:hidden">
+        {SECTIONS.map((id) => (
+          <a key={id} href={`#${id}`}
+            className="inline-flex min-h-11 shrink-0 items-center rounded-full border border-border bg-card px-3.5 text-xs font-bold text-muted-foreground transition hover:border-primary hover:text-primary">
+            {t(`settings.${SECTION_KEYS[id]}`)}
+          </a>
+        ))}
+        <a href="/settings/automation"
           className="inline-flex min-h-11 shrink-0 items-center rounded-full border border-border bg-card px-3.5 text-xs font-bold text-muted-foreground transition hover:border-primary hover:text-primary">
-          {t(`settings.${SECTION_KEYS[id]}`)}
+          {t("rem.navAutomation")}
         </a>
-      ))}
-      <a href="/settings/automation"
-        className="inline-flex min-h-11 shrink-0 items-center rounded-full border border-border bg-card px-3.5 text-xs font-bold text-muted-foreground transition hover:border-primary hover:text-primary">
-        {t("rem.navAutomation")}
-      </a>
-    </nav>
+      </nav>
+    </>
   );
 }
 
@@ -127,7 +190,9 @@ export default function SettingsPage() {
         subtitle={t("settings.subtitle")}
         icon={<Building2 size={20} />}
       />
-      <SettingsJumpNav />
+      <div className="lg:flex lg:items-start lg:gap-8">
+        <SettingsJumpNav />
+        <div className="min-w-0 flex-1">
       <div id="sec-company" className="card anchor-scroll mx-auto max-w-5xl p-6 sm:p-8 lg:p-10">
         {loading ? (
           <div className="space-y-4">{[1, 2, 3, 4].map((i) => <div key={i} className="skeleton h-12 rounded-xl" />)}</div>
@@ -335,6 +400,8 @@ export default function SettingsPage() {
         <p className="mt-3 text-xs text-muted-foreground">
           {t("settings.auditRetention", { years: AUDIT_LOG_RETENTION_YEARS })}
         </p>
+      </div>
+        </div>
       </div>
     </div>
   );
