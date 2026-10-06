@@ -78,6 +78,12 @@ export default function ProductsPage() {
   const [priceError, setPriceError] = useState<string | null>(null);
   // beginner-friendly: advanced fields hidden behind a toggle
   const [showAdvanced, setShowAdvanced] = useState(false);
+  // selling units (e.g. dozen = 12 pcs): collected here, saved via UOM API
+  const [sellUnits, setSellUnits] = useState<{ unit: string; perBase: string; price: string }[]>([]);
+  const [sellUnitsOrig, setSellUnitsOrig] = useState<string[]>([]);
+  const [newSellUnit, setNewSellUnit] = useState("");
+  const [newSellPer, setNewSellPer] = useState("");
+  const [newSellPrice, setNewSellPrice] = useState("");
   // bundle components editor
   const [components, setComponents] = useState<BundleRow[]>([]);
   const [componentsLoaded, setComponentsLoaded] = useState(false);
@@ -121,6 +127,7 @@ export default function ProductsPage() {
     setCompQuery(""); setCompResults([]);
     setOpeningPosted(false); setOpeningInfo(""); setOpening({ qty: "", cost: "", date: "", branchId: "" });
     setShowAdvanced(false);
+    setSellUnits([]); setSellUnitsOrig([]); setNewSellUnit(""); setNewSellPer(""); setNewSellPrice("");
     setModal({ mode: "add" });
     loadAccountOpts();
   }
@@ -164,6 +171,21 @@ export default function ProductsPage() {
         : "");
       setOpening({ qty: "", cost: "", date: "", branchId: "" });
       setShowAdvanced(false);
+      setSellUnits([]); setSellUnitsOrig([]); setNewSellUnit(""); setNewSellPer(""); setNewSellPrice("");
+      // load existing selling units for editing
+      api<{ data: { conversions: { unit: string; num: number; den: number }[]; prices: { unit: string; salePrice: string }[] } }>(`/api/products/${p.id}/uom`)
+        .then((d) => {
+          const priceByUnit: Record<string, string> = {};
+          d.data.prices.forEach((x) => { priceByUnit[x.unit] = (BigInt(x.salePrice) / 100n).toString(); });
+          const units = d.data.conversions.map((c) => ({
+            unit: c.unit,
+            perBase: c.den === 1 ? String(c.num) : `${c.num}/${c.den}`,
+            price: priceByUnit[c.unit] ?? "",
+          }));
+          setSellUnits(units);
+          setSellUnitsOrig(units.map((u) => u.unit));
+        })
+        .catch(() => {});
       loadAccountOpts();
       // load bundle components for the editor
       api<{ data: { componentProductId: string; componentName: string; componentSku: string; componentUnit: string; qtyThousandths: number }[] }>(
@@ -272,6 +294,26 @@ export default function ProductsPage() {
           });
         } catch (err) {
           throw new Error(err instanceof Error ? err.message : t("bundles.saveError"));
+        }
+      }
+      // persist selling units (e.g. dozen = 12 pcs + dozen price)
+      const curUnits = sellUnits.map((u) => u.unit);
+      const removed = sellUnitsOrig.filter((u) => !curUnits.includes(u));
+      for (const u of removed) {
+        await api(`/api/products/${id}/uom?kind=conversion&unit=${encodeURIComponent(u)}`, { method: "DELETE" }).catch(() => {});
+        await api(`/api/products/${id}/uom?kind=price&unit=${encodeURIComponent(u)}`, { method: "DELETE" }).catch(() => {});
+      }
+      for (const u of sellUnits) {
+        if (sellUnitsOrig.includes(u.unit)) continue; // unchanged
+        await api(`/api/products/${id}/uom`, {
+          method: "POST",
+          body: JSON.stringify({ kind: "conversion", unit: u.unit, num: u.perBase, den: "1" }),
+        });
+        if (u.price.trim() !== "" && Number(u.price) > 0) {
+          await api(`/api/products/${id}/uom`, {
+            method: "POST",
+            body: JSON.stringify({ kind: "price", unit: u.unit, salePrice: u.price }),
+          });
         }
       }
       setModal(null);
@@ -464,6 +506,41 @@ export default function ProductsPage() {
                       <option value="SERVICE">{t("m4.itemTypeService")}</option>
                     </select>
                   </Field>
+                </div>
+
+                <div className="rounded-xl border border-border p-4">
+                  <div className="mb-1 text-sm font-bold">{t("products.sellUnitsTitle")}</div>
+                  <p className="mb-3 text-xs text-muted-foreground">{t("products.sellUnitsHint", { unit: form.unit || "PCS" })}</p>
+                  {sellUnits.length > 0 && (
+                    <ul className="mb-3 space-y-1.5">
+                      {sellUnits.map((u, idx) => (
+                        <li key={`${u.unit}-${idx}`} className="flex items-center justify-between rounded-xl bg-muted/60 px-3 py-2 text-sm">
+                          <span className="font-semibold">
+                            1 {u.unit} = {u.perBase} {form.unit || "PCS"}
+                            {u.price ? ` — ${t("products.sellUnitsPrice", { price: u.price })}` : ""}
+                          </span>
+                          <button type="button" className="text-xs font-bold text-danger hover:underline"
+                            onClick={() => setSellUnits((ss) => ss.filter((_, j) => j !== idx))}>
+                            {t("common.delete")}
+                          </button>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                  <div className="flex flex-wrap items-end gap-2">
+                    <Field label={t("products.sellUnitsUnit")}><input className="field !w-24" value={newSellUnit} onChange={(e) => setNewSellUnit(e.target.value.toUpperCase())} placeholder="DOZEN" maxLength={12} /></Field>
+                    <span className="pb-2.5 text-sm text-muted-foreground">=</span>
+                    <Field label={t("products.sellUnitsPer", { unit: form.unit || "PCS" })}><input className="field !w-20" type="number" min="1" step="1" value={newSellPer} onChange={(e) => setNewSellPer(e.target.value)} placeholder="12" /></Field>
+                    <Field label={t("products.sellUnitsRate")}><input className="field !w-28" type="number" min="0" step="0.01" value={newSellPrice} onChange={(e) => setNewSellPrice(e.target.value)} placeholder="0.00" /></Field>
+                    <button type="button" className="btn btn-primary !px-3 !py-2 text-xs"
+                      disabled={!newSellUnit.trim() || !(Number(newSellPer) > 0)}
+                      onClick={() => {
+                        setSellUnits((ss) => [...ss, { unit: newSellUnit.trim().toUpperCase(), perBase: newSellPer.trim(), price: newSellPrice.trim() }]);
+                        setNewSellUnit(""); setNewSellPer(""); setNewSellPrice("");
+                      }}>
+                      {t("products.sellUnitsAdd")}
+                    </button>
+                  </div>
                 </div>
 
                 <div className="rounded-xl border border-border p-4">
