@@ -128,98 +128,128 @@ export default function SettingsPage() {
         icon={<Building2 size={20} />}
       />
       <SettingsJumpNav />
-      <div id="sec-company" className="card anchor-scroll mx-auto max-w-2xl p-6 sm:p-8">
+      <div id="sec-company" className="card anchor-scroll mx-auto max-w-5xl p-6 sm:p-8 lg:p-10">
         {loading ? (
           <div className="space-y-4">{[1, 2, 3, 4].map((i) => <div key={i} className="skeleton h-12 rounded-xl" />)}</div>
         ) : (
-          <form onSubmit={submit} className="space-y-4">
+          <form onSubmit={submit}>
             <ErrorNote message={error} />
             {!canEditCompany && (
-              <div className="rounded-xl bg-warning-soft px-4 py-3 text-sm font-semibold text-warning">
+              <div className="mb-6 rounded-xl bg-warning-soft px-4 py-3 text-sm font-semibold text-warning">
                 {t("settings.staffNote")}
               </div>
             )}
             {saved && (
-              <div className="rounded-xl bg-primary-soft px-4 py-3 text-sm font-semibold text-primary">
+              <div className="mb-6 rounded-xl bg-primary-soft px-4 py-3 text-sm font-semibold text-primary">
                 {t("settings.saved")}
               </div>
             )}
-            <Field label={t("settings.businessName")}>
-              <input className="field" required value={form.name} onChange={set("name")} />
-            </Field>
-            <Field label={t("settings.tradeName")}>
-              <input className="field" value={form.tradeName ?? ""} onChange={set("tradeName")} placeholder={t("settings.tradeNamePh")} />
-              <p className="mt-1 text-xs text-muted-foreground">{t("settings.tradeNameHint")}</p>
-            </Field>
-            <Field label={t("settings.businessType")}>
-              <select className="field" value={form.businessType} onChange={set("businessType")}>
-                {BUSINESS_TYPES.map((b) => <option key={b.value} value={b.value}>{t(b.label)} — {t(b.hint)}</option>)}
-              </select>
-              <p className="mt-1 text-xs text-muted-foreground">
-                {t("settings.businessTypeHint")}
-              </p>
-            </Field>
-            <div className="grid gap-4 sm:grid-cols-2">
+            {/* ── Business identity ─────────────────────────────── */}
+            <div className="mb-6 flex items-center gap-4">
+              <h3 className="shrink-0 text-xs font-extrabold uppercase tracking-[0.14em] text-muted-foreground">{t("settings.secIdentity")}</h3>
+              <div className="h-px flex-1 bg-border" />
+            </div>
+            <div className="grid gap-x-6 gap-y-5 sm:grid-cols-2">
+              <Field label={t("settings.businessName")}>
+                <input className="field" required value={form.name} onChange={set("name")} />
+              </Field>
+              <Field label={t("settings.tradeName")}>
+                <input className="field" value={form.tradeName ?? ""} onChange={set("tradeName")} placeholder={t("settings.tradeNamePh")} />
+                <p className="mt-1 text-xs text-muted-foreground">{t("settings.tradeNameHint")}</p>
+              </Field>
+              <div className="sm:col-span-2">
+                <Field label={t("settings.businessType")}>
+                  <select className="field" value={form.businessType} onChange={set("businessType")}>
+                    {BUSINESS_TYPES.map((b) => <option key={b.value} value={b.value}>{t(b.label)} — {t(b.hint)}</option>)}
+                  </select>
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    {t("settings.businessTypeHint")}
+                  </p>
+                </Field>
+              </div>
+            </div>
+            {/* ── Contact & address ─────────────────────────────── */}
+            <div className="mb-6 mt-9 flex items-center gap-4">
+              <h3 className="shrink-0 text-xs font-extrabold uppercase tracking-[0.14em] text-muted-foreground">{t("settings.secContact")}</h3>
+              <div className="h-px flex-1 bg-border" />
+            </div>
+            <div className="grid gap-x-6 gap-y-5 sm:grid-cols-2">
               <Field label={t("settings.phone")}>
                 <input className="field" value={form.phone ?? ""} onChange={set("phone")} placeholder={t("settings.phonePh")} />
               </Field>
               <Field label={t("settings.email")}>
                 <input className="field" type="email" value={form.email ?? ""} onChange={set("email")} placeholder="you@business.com" />
               </Field>
-            </div>
-            <Field label={t("settings.address")}>
-              <textarea className="field min-h-20" value={form.address ?? ""} onChange={set("address")} placeholder={t("settings.addressPh")} />
-            </Field>
-            <div className="grid gap-4 sm:grid-cols-2">
+              <div className="sm:col-span-2">
+                <Field label={t("settings.address")}>
+                  <textarea className="field min-h-20" value={form.address ?? ""} onChange={set("address")} placeholder={t("settings.addressPh")} />
+                </Field>
+              </div>
               <Field label={t("settings.city")}>
                 <input className="field" value={form.city ?? ""} onChange={set("city")} placeholder={t("settings.cityPh")} />
               </Field>
+            </div>
+            {/* ── Tax & fiscal year ─────────────────────────────── */}
+            <div className="mb-6 mt-9 flex items-center gap-4">
+              <h3 className="shrink-0 text-xs font-extrabold uppercase tracking-[0.14em] text-muted-foreground">{t("settings.secTax")}</h3>
+              <div className="h-px flex-1 bg-border" />
+            </div>
+            <div className="grid gap-x-6 gap-y-5 sm:grid-cols-3">
               <Field label={t("settings.ntn")}>
                 <input className="field" value={form.ntn ?? ""} onChange={set("ntn")} />
               </Field>
               <Field label={t("settings.strn")}>
                 <input className="field" value={form.strn ?? ""} onChange={set("strn")} />
               </Field>
+              <Field label={t("settings.fiscalYearStart")}>
+                <input
+                  className="field"
+                  value={form.fiscalYearStart}
+                  onChange={set("fiscalYearStart")}
+                  placeholder="07-01"
+                  pattern="(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])"
+                  title="MM-DD"
+                />
+                <p className="mt-1 text-xs text-muted-foreground">{t("settings.fiscalYearStartHint")}</p>
+              </Field>
             </div>
-            <Field label={t("settings.fiscalYearStart")}>
-              <input
-                className="field max-w-40"
-                value={form.fiscalYearStart}
-                onChange={set("fiscalYearStart")}
-                placeholder="07-01"
-                pattern="(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])"
-                title="MM-DD"
-              />
-              <p className="mt-1 text-xs text-muted-foreground">{t("settings.fiscalYearStartHint")}</p>
-            </Field>
-            <Field label={t("settings.bankInfo")}>
-              <textarea className="field min-h-20" value={form.bankInfo ?? ""} onChange={set("bankInfo")} placeholder={t("settings.bankInfoPh")} />
-              <p className="mt-1 text-xs text-muted-foreground">{t("settings.bankInfoHint")}</p>
-            </Field>
-            <Field label={t("fix4.settings.defaultFormat")}>
-              <select className="field" value={form.defaultInvoiceFormat} onChange={set("defaultInvoiceFormat")}>
-                <option value="80mm">{t("fix4.settings.fmt80mm")}</option>
-                <option value="a4">{t("fix4.settings.fmtA4")}</option>
-                <option value="challan">{t("fix4.settings.fmtChallan")}</option>
-              </select>
-              <p className="mt-1 text-xs text-muted-foreground">{t("fix4.settings.defaultFormatHint")}</p>
-            </Field>
-            <Field label={t("settings.invoiceFooter")}>
-              <textarea className="field min-h-20" value={form.invoiceFooter ?? ""} onChange={set("invoiceFooter")} placeholder={t("settings.invoiceFooterPh")} />
-              <p className="mt-1 text-xs text-muted-foreground">{t("settings.invoiceFooterHint")}</p>
-            </Field>
-            <div className="flex justify-end pt-2">
-              <button className="btn btn-primary" disabled={saving || !canEditCompany}>
+            {/* ── Invoice defaults ──────────────────────────────── */}
+            <div className="mb-6 mt-9 flex items-center gap-4">
+              <h3 className="shrink-0 text-xs font-extrabold uppercase tracking-[0.14em] text-muted-foreground">{t("settings.secInvoice")}</h3>
+              <div className="h-px flex-1 bg-border" />
+            </div>
+            <div className="grid gap-x-6 gap-y-5 sm:grid-cols-2">
+              <Field label={t("fix4.settings.defaultFormat")}>
+                <select className="field" value={form.defaultInvoiceFormat} onChange={set("defaultInvoiceFormat")}>
+                  <option value="80mm">{t("fix4.settings.fmt80mm")}</option>
+                  <option value="a4">{t("fix4.settings.fmtA4")}</option>
+                  <option value="challan">{t("fix4.settings.fmtChallan")}</option>
+                </select>
+                <p className="mt-1 text-xs text-muted-foreground">{t("fix4.settings.defaultFormatHint")}</p>
+              </Field>
+              <div className="hidden sm:block" />
+              <Field label={t("settings.bankInfo")}>
+                <textarea className="field min-h-20" value={form.bankInfo ?? ""} onChange={set("bankInfo")} placeholder={t("settings.bankInfoPh")} />
+                <p className="mt-1 text-xs text-muted-foreground">{t("settings.bankInfoHint")}</p>
+              </Field>
+              <Field label={t("settings.invoiceFooter")}>
+                <textarea className="field min-h-20" value={form.invoiceFooter ?? ""} onChange={set("invoiceFooter")} placeholder={t("settings.invoiceFooterPh")} />
+                <p className="mt-1 text-xs text-muted-foreground">{t("settings.invoiceFooterHint")}</p>
+              </Field>
+            </div>
+            <div className="mt-8 flex items-center justify-end gap-3 border-t border-border pt-6">
+              {saved && <span className="text-sm font-semibold text-primary">{t("settings.saved")}</span>}
+              <button className="btn btn-primary min-w-40" disabled={saving || !canEditCompany}>
                 <Save size={16} /> {saving ? t("settings.saving") : t("settings.saveChanges")}
               </button>
             </div>
           </form>
         )}
       </div>
-      <div id="sec-approvals" className="card anchor-scroll mt-6 mx-auto max-w-2xl p-6 sm:p-8">
+      <div id="sec-approvals" className="card anchor-scroll mt-6 mx-auto max-w-4xl p-6 sm:p-8">
         {canEditCompany && <ApprovalRulesCard />}
       </div>
-      <div id="sec-currencies" className="card anchor-scroll mt-6 mx-auto max-w-2xl p-6 sm:p-8">
+      <div id="sec-currencies" className="card anchor-scroll mt-6 mx-auto max-w-4xl p-6 sm:p-8">
         <div className="flex items-center justify-between gap-3">
           <div>
             <h2 className="text-lg font-extrabold">{t("settingscurrencies.title")}</h2>
@@ -230,7 +260,7 @@ export default function SettingsPage() {
           </Link>
         </div>
       </div>
-      <div id="sec-data" className="card anchor-scroll mt-6 mx-auto max-w-2xl p-6 sm:p-8">
+      <div id="sec-data" className="card anchor-scroll mt-6 mx-auto max-w-4xl p-6 sm:p-8">
         <h2 className="text-lg font-extrabold">{t("settings.dataTitle")}</h2>
         <p className="mt-1 text-sm text-muted-foreground">
           {t("settings.dataHint")}
@@ -259,7 +289,7 @@ export default function SettingsPage() {
           </div>
         </div>
       </div>
-      <div id="sec-import" className="card anchor-scroll mt-6 mx-auto max-w-2xl p-6 sm:p-8">
+      <div id="sec-import" className="card anchor-scroll mt-6 mx-auto max-w-4xl p-6 sm:p-8">
         <div className="flex items-center justify-between gap-3">
           <div>
             <h2 className="text-lg font-extrabold">{t("settings.importTitle")}</h2>
@@ -271,7 +301,7 @@ export default function SettingsPage() {
         </div>
       </div>
       {/* Module 22: price lists + discount matrix */}
-      <div id="sec-pricing" className="card anchor-scroll mt-6 mx-auto max-w-2xl p-6 sm:p-8">
+      <div id="sec-pricing" className="card anchor-scroll mt-6 mx-auto max-w-4xl p-6 sm:p-8">
         <div className="flex items-center justify-between gap-3">
           <div>
             <h2 className="text-lg font-extrabold">{t("pricing.title")}</h2>
@@ -292,7 +322,7 @@ export default function SettingsPage() {
       <YearEndCloseCard />
       <SystemHealthCard isOwner={pageIsOwner} />
       <DangerZoneCard isOwner={pageIsOwner} />
-      <div id="sec-activity" className="card anchor-scroll mt-6 mx-auto max-w-2xl p-6 sm:p-8">
+      <div id="sec-activity" className="card anchor-scroll mt-6 mx-auto max-w-4xl p-6 sm:p-8">
         <div className="flex items-center justify-between gap-3">
           <div>
             <h2 className="text-lg font-extrabold">{t("settings.activityTitle")}</h2>
@@ -437,7 +467,7 @@ function BackupsCard({ isOwner }: { isOwner: boolean }) {
   const totalRows = (r: Record<string, number>) => Object.values(r).reduce((a, n) => a + n, 0);
 
   return (
-    <div id="sec-backups" className="card anchor-scroll mt-6 mx-auto max-w-2xl p-6 sm:p-8">
+    <div id="sec-backups" className="card anchor-scroll mt-6 mx-auto max-w-4xl p-6 sm:p-8">
       <h2 className="inline-flex items-center gap-2 text-lg font-extrabold"><History size={19} /> {t("settingsbackups.title")}</h2>
       <p className="mt-1 text-sm text-muted-foreground">
         {t("settingsbackups.hint")}
@@ -774,7 +804,7 @@ function BranchesCard() {
 
   const TYPES = ["WAREHOUSE", "SHOP", "VAN", "OTHER"];
   return (
-    <div id="sec-branches" className="card anchor-scroll mt-6 mx-auto max-w-2xl p-6 sm:p-8">
+    <div id="sec-branches" className="card anchor-scroll mt-6 mx-auto max-w-4xl p-6 sm:p-8">
       <h2 className="inline-flex items-center gap-2 text-lg font-extrabold"><Store size={19} /> {t("m4.branchesTitle")}</h2>
       <p className="mt-1 text-sm text-muted-foreground">{t("m4.branchesHint")}</p>
       {loading ? (
@@ -880,7 +910,7 @@ function TeamCard() {
   }
 
   return (
-    <div id="sec-team" className="card anchor-scroll mt-6 mx-auto max-w-2xl p-6 sm:p-8">
+    <div id="sec-team" className="card anchor-scroll mt-6 mx-auto max-w-4xl p-6 sm:p-8">
       <div className="flex items-center justify-between gap-3">
         <div>
           <h2 className="inline-flex items-center gap-2 text-lg font-extrabold"><Users size={19} /> {t("settingsteam.title")}</h2>
@@ -1028,7 +1058,7 @@ function SecurityCard() {
   }
 
   return (
-    <div id="sec-security" className="card anchor-scroll mt-6 mx-auto max-w-2xl p-6 sm:p-8">
+    <div id="sec-security" className="card anchor-scroll mt-6 mx-auto max-w-4xl p-6 sm:p-8">
       <h2 className="inline-flex items-center gap-2 text-lg font-extrabold"><KeyRound size={19} /> {t("settingssecurity.title")}</h2>
       <p className="mt-1 text-sm text-muted-foreground">{t("settingssecurity.hint")}</p>
 
@@ -1119,7 +1149,7 @@ function SessionsCard() {
   }
 
   return (
-    <div id="sec-sessions" className="card anchor-scroll mt-6 mx-auto max-w-2xl p-6 sm:p-8">
+    <div id="sec-sessions" className="card anchor-scroll mt-6 mx-auto max-w-4xl p-6 sm:p-8">
       <h2 className="inline-flex items-center gap-2 text-lg font-extrabold"><MonitorSmartphone size={19} /> {t("settingssessions.title")}</h2>
       <p className="mt-1 text-sm text-muted-foreground">
         {t("settingssessions.hint")}
@@ -1238,7 +1268,7 @@ function PeriodLockCard() {
   }
 
   return (
-    <div id="sec-lock" className="card anchor-scroll mt-6 mx-auto max-w-2xl p-6 sm:p-8">
+    <div id="sec-lock" className="card anchor-scroll mt-6 mx-auto max-w-4xl p-6 sm:p-8">
       <h2 className="inline-flex items-center gap-2 text-lg font-extrabold"><Lock size={19} /> {t("settingslock.title")}</h2>
       <p className="mt-1 text-sm text-muted-foreground">
         {t("settingslock.hint")}
@@ -1342,7 +1372,7 @@ function YearEndCloseCard() {
 
   if (!visible) return null;
   return (
-    <div className="card anchor-scroll mt-6 mx-auto max-w-2xl p-6 sm:p-8">
+    <div className="card anchor-scroll mt-6 mx-auto max-w-4xl p-6 sm:p-8">
       <h2 className="inline-flex items-center gap-2 text-lg font-extrabold"><CalendarCheck size={19} /> {t("closeyear.title")}</h2>
       <p className="mt-1 text-sm text-muted-foreground">{t("closeyear.hint")}</p>
       {loading ? (
@@ -1414,7 +1444,7 @@ function SystemHealthCard({ isOwner }: { isOwner: boolean }) {
   if (!isOwner) return null;
 
   return (
-    <div id="sec-health" className="card anchor-scroll mt-6 mx-auto max-w-2xl p-6 sm:p-8">
+    <div id="sec-health" className="card anchor-scroll mt-6 mx-auto max-w-4xl p-6 sm:p-8">
       <h2 className="inline-flex items-center gap-2 text-lg font-extrabold"><Activity size={19} /> {t("settingshealth.title")}</h2>
       <p className="mt-1 text-sm text-muted-foreground">
         {t("settingshealth.hint")}
@@ -1486,7 +1516,7 @@ function DangerZoneCard({ isOwner }: { isOwner: boolean }) {
   }
 
   return (
-    <div id="sec-danger" className="card anchor-scroll mx-auto mt-6 max-w-2xl border-danger/30 p-6 sm:p-8">
+    <div id="sec-danger" className="card anchor-scroll mx-auto mt-6 max-w-4xl border-danger/30 p-6 sm:p-8">
       <h2 className="inline-flex items-center gap-2 text-lg font-extrabold text-danger">
         <TriangleAlert size={19} /> {t("settingsdanger.title")}
       </h2>
@@ -1643,7 +1673,7 @@ function AccessSecurityCard() {
   if (!canManage && !canViewBackups) return null;
 
   return (
-    <div id="sec-access" className="card anchor-scroll mt-6 mx-auto max-w-2xl p-6 sm:p-8">
+    <div id="sec-access" className="card anchor-scroll mt-6 mx-auto max-w-4xl p-6 sm:p-8">
       <h2 className="inline-flex items-center gap-2 text-lg font-extrabold"><Globe size={19} /> {t("settingsaccess.title")}</h2>
       <p className="mt-1 text-sm text-muted-foreground">{t("settingsaccess.hint")}</p>
       <ErrorNote message={error} />
