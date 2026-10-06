@@ -559,6 +559,7 @@ export const ur: DeepPartial<EnDict> = {
     colStock: "اسٹاک",
     colBuyPrice: "خرید قیمت",
     colSalePrice: "فروخت قیمت",
+    colWholesalePrice: "ہول سیل",
     lowBadge: "کم",
     skuCode: "SKU (کوڈ)",
     skuPlaceholder: "مثلاً RICE-001",

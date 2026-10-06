@@ -553,6 +553,7 @@ export const en = {
     colStock: "Stock",
     colBuyPrice: "Buy price",
     colSalePrice: "Sale price",
+    colWholesalePrice: "Wholesale",
     lowBadge: "Low",
     skuCode: "SKU (code)",
     skuPlaceholder: "e.g. RICE-001",

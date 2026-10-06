@@ -14,7 +14,7 @@ import { useLang } from "@/components/lang-provider";
 
 type Product = {
   id: string; sku: string; name: string; unit: string; category: string | null;
-  purchasePrice: string; salePrice: string; trackStock: boolean;
+  purchasePrice: string; salePrice: string; wholesalePrice: string | null; trackStock: boolean;
   reorderLevel: string; totalQty: string; minSalePrice: string; isBundle: boolean;
   location: string | null; imageUrl: string | null;
   // Module 18: present when the list was fetched with ?withUom=1.
@@ -359,7 +359,7 @@ export default function ProductsPage() {
         ) : (
           <div className="overflow-x-auto">
             <table className="tbl">
-              <thead><tr><th>{productOne}</th><th>{t("products.colSku")}</th><th className="num">{t("products.colStock")}</th><th className="num">{t("products.colBuyPrice")}</th><th className="num">{t("products.colSalePrice")}</th><th></th></tr></thead>
+              <thead><tr><th>{productOne}</th><th>{t("products.colSku")}</th><th className="num">{t("products.colStock")}</th><th className="num">{t("products.colBuyPrice")}</th><th className="num">{t("products.colSalePrice")}</th><th className="num">{t("products.colWholesalePrice")}</th><th></th></tr></thead>
               <tbody>
                 {rows.map((p) => {
                   const low = !p.isBundle && p.trackStock && BigInt(p.totalQty) <= BigInt(p.reorderLevel);
@@ -392,6 +392,7 @@ export default function ProductsPage() {
                       </td>
                       <td className="num">{fmtMoney(p.purchasePrice)}</td>
                       <td className="num">{fmtMoney(p.salePrice)}</td>
+                      <td className="num">{p.wholesalePrice && BigInt(p.wholesalePrice) > 0n ? fmtMoney(p.wholesalePrice) : <span className="text-muted-foreground">—</span>}</td>
                       <td className="whitespace-nowrap">
                         <div className="flex items-center justify-end gap-1.5">
                         {!p.isBundle && p.trackStock && (
