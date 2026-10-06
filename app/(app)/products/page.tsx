@@ -148,14 +148,16 @@ export default function ProductsPage() {
     try {
       const d = await api<{ data: ProductDetail }>(`/api/products/${p.id}`);
       const full = d.data;
+      // Zero prices show as empty (placeholder "0.00" hints the format) — cleaner for beginners.
+      const blankZero = (v: string) => (v === "0.00" || v === "0" ? "" : v);
       setForm({
         sku: full.sku, name: full.name, barcode: full.barcode ?? "", pctCode: full.pctCode ?? "", category: full.category ?? "", unit: full.unit,
-        purchasePrice: paisaToRupees(full.purchasePrice),
-        salePrice: paisaToRupees(full.salePrice),
+        purchasePrice: blankZero(paisaToRupees(full.purchasePrice)),
+        salePrice: blankZero(paisaToRupees(full.salePrice)),
         itemType: full.itemType ?? (full.trackStock ? "INVENTORY" : "NON_INVENTORY"),
-        reorderLevel: thousandthsToStr(full.reorderLevel),
-        minSalePrice: paisaToRupees(full.minSalePrice ?? "0"),
-        wholesalePrice: paisaToRupees(full.wholesalePrice ?? "0"),
+        reorderLevel: (() => { const r = thousandthsToStr(full.reorderLevel); return r === "0" ? "" : r; })(),
+        minSalePrice: blankZero(paisaToRupees(full.minSalePrice ?? "0")),
+        wholesalePrice: blankZero(paisaToRupees(full.wholesalePrice ?? "0")),
         location: full.location ?? "",
         imageUrl: full.imageUrl ?? "",
         revenueAccountId: full.revenueAccountId ?? "",
