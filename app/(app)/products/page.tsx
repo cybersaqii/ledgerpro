@@ -472,6 +472,42 @@ export default function ProductsPage() {
               <Field label={t("products.wholesalePrice")} error={priceError}><input className="field" type="number" min="0" step="0.01" placeholder="0.00" value={form.wholesalePrice} onChange={set("wholesalePrice")} /></Field>
             </div>
 
+            {/* ── Selling units (multiple quantities: dozen, carton…) — always visible ── */}
+            <div className="rounded-xl border border-border p-4">
+              <div className="mb-1 text-sm font-bold">{t("products.sellUnitsTitle")}</div>
+              <p className="mb-3 text-xs text-muted-foreground">{t("products.sellUnitsHint", { unit: form.unit || "PCS" })}</p>
+              {sellUnits.length > 0 && (
+                <ul className="mb-3 space-y-1.5">
+                  {sellUnits.map((u, idx) => (
+                    <li key={`${u.unit}-${idx}`} className="flex items-center justify-between rounded-xl bg-muted/60 px-3 py-2 text-sm">
+                      <span className="font-semibold">
+                        1 {u.unit} = {u.perBase} {form.unit || "PCS"}
+                        {u.price ? ` — ${t("products.sellUnitsPrice", { price: u.price })}` : ""}
+                      </span>
+                      <button type="button" className="text-xs font-bold text-danger hover:underline"
+                        onClick={() => setSellUnits((ss) => ss.filter((_, j) => j !== idx))}>
+                        {t("common.delete")}
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              )}
+              <div className="flex flex-wrap items-end gap-2">
+                <Field label={t("products.sellUnitsUnit")}><input className="field !w-24" value={newSellUnit} onChange={(e) => setNewSellUnit(e.target.value.toUpperCase())} placeholder="DOZEN" maxLength={12} /></Field>
+                <span className="pb-2.5 text-sm text-muted-foreground">=</span>
+                <Field label={t("products.sellUnitsPer", { unit: form.unit || "PCS" })}><input className="field !w-20" type="number" min="1" step="1" value={newSellPer} onChange={(e) => setNewSellPer(e.target.value)} placeholder="12" /></Field>
+                <Field label={t("products.sellUnitsRate")}><input className="field !w-28" type="number" min="0" step="0.01" value={newSellPrice} onChange={(e) => setNewSellPrice(e.target.value)} placeholder="0.00" /></Field>
+                <button type="button" className="btn btn-primary !px-3 !py-2 text-xs"
+                  disabled={!newSellUnit.trim() || !(Number(newSellPer) > 0)}
+                  onClick={() => {
+                    setSellUnits((ss) => [...ss, { unit: newSellUnit.trim().toUpperCase(), perBase: newSellPer.trim(), price: newSellPrice.trim() }]);
+                    setNewSellUnit(""); setNewSellPer(""); setNewSellPrice("");
+                  }}>
+                  {t("products.sellUnitsAdd")}
+                </button>
+              </div>
+            </div>
+
             {/* ── Advanced (collapsible) ── */}
             <button
               type="button"
@@ -507,41 +543,6 @@ export default function ProductsPage() {
                       <option value="SERVICE">{t("m4.itemTypeService")}</option>
                     </select>
                   </Field>
-                </div>
-
-                <div className="rounded-xl border border-border p-4">
-                  <div className="mb-1 text-sm font-bold">{t("products.sellUnitsTitle")}</div>
-                  <p className="mb-3 text-xs text-muted-foreground">{t("products.sellUnitsHint", { unit: form.unit || "PCS" })}</p>
-                  {sellUnits.length > 0 && (
-                    <ul className="mb-3 space-y-1.5">
-                      {sellUnits.map((u, idx) => (
-                        <li key={`${u.unit}-${idx}`} className="flex items-center justify-between rounded-xl bg-muted/60 px-3 py-2 text-sm">
-                          <span className="font-semibold">
-                            1 {u.unit} = {u.perBase} {form.unit || "PCS"}
-                            {u.price ? ` — ${t("products.sellUnitsPrice", { price: u.price })}` : ""}
-                          </span>
-                          <button type="button" className="text-xs font-bold text-danger hover:underline"
-                            onClick={() => setSellUnits((ss) => ss.filter((_, j) => j !== idx))}>
-                            {t("common.delete")}
-                          </button>
-                        </li>
-                      ))}
-                    </ul>
-                  )}
-                  <div className="flex flex-wrap items-end gap-2">
-                    <Field label={t("products.sellUnitsUnit")}><input className="field !w-24" value={newSellUnit} onChange={(e) => setNewSellUnit(e.target.value.toUpperCase())} placeholder="DOZEN" maxLength={12} /></Field>
-                    <span className="pb-2.5 text-sm text-muted-foreground">=</span>
-                    <Field label={t("products.sellUnitsPer", { unit: form.unit || "PCS" })}><input className="field !w-20" type="number" min="1" step="1" value={newSellPer} onChange={(e) => setNewSellPer(e.target.value)} placeholder="12" /></Field>
-                    <Field label={t("products.sellUnitsRate")}><input className="field !w-28" type="number" min="0" step="0.01" value={newSellPrice} onChange={(e) => setNewSellPrice(e.target.value)} placeholder="0.00" /></Field>
-                    <button type="button" className="btn btn-primary !px-3 !py-2 text-xs"
-                      disabled={!newSellUnit.trim() || !(Number(newSellPer) > 0)}
-                      onClick={() => {
-                        setSellUnits((ss) => [...ss, { unit: newSellUnit.trim().toUpperCase(), perBase: newSellPer.trim(), price: newSellPrice.trim() }]);
-                        setNewSellUnit(""); setNewSellPer(""); setNewSellPrice("");
-                      }}>
-                      {t("products.sellUnitsAdd")}
-                    </button>
-                  </div>
                 </div>
 
                 <div className="rounded-xl border border-border p-4">
