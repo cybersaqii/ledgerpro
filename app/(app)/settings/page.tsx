@@ -77,26 +77,10 @@ const SECTION_ICONS: Record<(typeof SECTIONS)[number], typeof Building2> = {
   "sec-danger": TriangleAlert,
 };
 
-function SettingsJumpNav() {
+function SettingsJumpNav({ active, onSelect }: { active: string; onSelect: (id: string) => void }) {
   const { t } = useLang();
-  const [active, setActive] = useState<string>("sec-company");
-  useEffect(() => {
-    const obs = new IntersectionObserver(
-      (entries) => {
-        for (const e of entries) {
-          if (e.isIntersecting) setActive(e.target.id);
-        }
-      },
-      { rootMargin: "-30% 0px -60% 0px" }
-    );
-    SECTIONS.forEach((id) => {
-      const el = document.getElementById(id);
-      if (el) obs.observe(el);
-    });
-    return () => obs.disconnect();
-  }, []);
   const linkCls = (id: string) =>
-    `flex items-center gap-3 rounded-xl px-3.5 py-2.5 text-sm font-semibold transition ${
+    `flex w-full items-center gap-3 rounded-xl px-3.5 py-2.5 text-sm font-semibold transition ${
       active === id
         ? "bg-primary text-primary-foreground shadow-md"
         : "text-muted-foreground hover:bg-muted hover:text-foreground"
@@ -109,10 +93,10 @@ function SettingsJumpNav() {
           {SECTIONS.map((id) => {
             const Icon = SECTION_ICONS[id];
             return (
-              <a key={id} href={`#${id}`} className={linkCls(id)}>
+              <button key={id} type="button" onClick={() => onSelect(id)} className={linkCls(id)}>
                 <Icon size={17} className="shrink-0" />
                 <span className="truncate">{t(`settings.${SECTION_KEYS[id]}`)}</span>
-              </a>
+              </button>
             );
           })}
           <div className="my-2 h-px bg-border" />
@@ -125,10 +109,14 @@ function SettingsJumpNav() {
       {/* Mobile: horizontal pills */}
       <nav aria-label={t("settings.navAria")} className="sticky top-16 z-20 -mx-1 mb-6 flex gap-2 overflow-x-auto bg-background/90 px-1 py-2 backdrop-blur-xl lg:hidden">
         {SECTIONS.map((id) => (
-          <a key={id} href={`#${id}`}
-            className="inline-flex min-h-11 shrink-0 items-center rounded-full border border-border bg-card px-3.5 text-xs font-bold text-muted-foreground transition hover:border-primary hover:text-primary">
+          <button key={id} type="button" onClick={() => onSelect(id)}
+            className={`inline-flex min-h-11 shrink-0 items-center rounded-full border px-3.5 text-xs font-bold transition ${
+              active === id
+                ? "border-primary bg-primary text-primary-foreground"
+                : "border-border bg-card text-muted-foreground hover:border-primary hover:text-primary"
+            }`}>
             {t(`settings.${SECTION_KEYS[id]}`)}
-          </a>
+          </button>
         ))}
         <a href="/settings/automation"
           className="inline-flex min-h-11 shrink-0 items-center rounded-full border border-border bg-card px-3.5 text-xs font-bold text-muted-foreground transition hover:border-primary hover:text-primary">
@@ -147,6 +135,7 @@ export default function SettingsPage() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
+  const [activeTab, setActiveTab] = useState("sec-company");
   // Company profile needs the "settings" permission; owners always have it.
   const canEditCompany = permsLoading || myRole === "OWNER" || permissions.includes("settings");
   // Cards that stay owner-only (deletion, system health) — mirror the old
@@ -191,9 +180,9 @@ export default function SettingsPage() {
         icon={<Building2 size={20} />}
       />
       <div className="lg:flex lg:items-start lg:gap-8">
-        <SettingsJumpNav />
+        <SettingsJumpNav active={activeTab} onSelect={setActiveTab} />
         <div className="min-w-0 flex-1">
-      <div id="sec-company" className="card anchor-scroll mx-auto max-w-5xl p-6 sm:p-8 lg:p-10">
+      <div id="sec-company" className={`card anchor-scroll mx-auto max-w-5xl p-6 sm:p-8 lg:p-10 ${activeTab !== "sec-company" ? "hidden" : ""}`}>
         {loading ? (
           <div className="space-y-4">{[1, 2, 3, 4].map((i) => <div key={i} className="skeleton h-12 rounded-xl" />)}</div>
         ) : (
@@ -311,10 +300,10 @@ export default function SettingsPage() {
           </form>
         )}
       </div>
-      <div id="sec-approvals" className="card anchor-scroll mt-6 mx-auto max-w-4xl p-6 sm:p-8">
+      <div id="sec-approvals" className={`card anchor-scroll mt-6 mx-auto max-w-4xl p-6 sm:p-8 ${activeTab !== "sec-approvals" ? "hidden" : ""}`}>
         {canEditCompany && <ApprovalRulesCard />}
       </div>
-      <div id="sec-currencies" className="card anchor-scroll mt-6 mx-auto max-w-4xl p-6 sm:p-8">
+      <div id="sec-currencies" className={`card anchor-scroll mt-6 mx-auto max-w-4xl p-6 sm:p-8 ${activeTab !== "sec-currencies" ? "hidden" : ""}`}>
         <div className="flex items-center justify-between gap-3">
           <div>
             <h2 className="text-lg font-extrabold">{t("settingscurrencies.title")}</h2>
@@ -325,7 +314,7 @@ export default function SettingsPage() {
           </Link>
         </div>
       </div>
-      <div id="sec-data" className="card anchor-scroll mt-6 mx-auto max-w-4xl p-6 sm:p-8">
+      <div id="sec-data" className={`card anchor-scroll mt-6 mx-auto max-w-4xl p-6 sm:p-8 ${activeTab !== "sec-data" ? "hidden" : ""}`}>
         <h2 className="text-lg font-extrabold">{t("settings.dataTitle")}</h2>
         <p className="mt-1 text-sm text-muted-foreground">
           {t("settings.dataHint")}
@@ -354,7 +343,7 @@ export default function SettingsPage() {
           </div>
         </div>
       </div>
-      <div id="sec-import" className="card anchor-scroll mt-6 mx-auto max-w-4xl p-6 sm:p-8">
+      <div id="sec-import" className={`card anchor-scroll mt-6 mx-auto max-w-4xl p-6 sm:p-8 ${activeTab !== "sec-import" ? "hidden" : ""}`}>
         <div className="flex items-center justify-between gap-3">
           <div>
             <h2 className="text-lg font-extrabold">{t("settings.importTitle")}</h2>
@@ -366,7 +355,7 @@ export default function SettingsPage() {
         </div>
       </div>
       {/* Module 22: price lists + discount matrix */}
-      <div id="sec-pricing" className="card anchor-scroll mt-6 mx-auto max-w-4xl p-6 sm:p-8">
+      <div id="sec-pricing" className={`card anchor-scroll mt-6 mx-auto max-w-4xl p-6 sm:p-8 ${activeTab !== "sec-pricing" ? "hidden" : ""}`}>
         <div className="flex items-center justify-between gap-3">
           <div>
             <h2 className="text-lg font-extrabold">{t("pricing.title")}</h2>
@@ -377,17 +366,17 @@ export default function SettingsPage() {
           </Link>
         </div>
       </div>
-      <BackupsCard isOwner={pageIsOwner} />
-      <TeamCard />
-      <BranchesCard />
-      <SecurityCard />
-      <AccessSecurityCard />
-      <SessionsCard />
-      <PeriodLockCard />
-      <YearEndCloseCard />
-      <SystemHealthCard isOwner={pageIsOwner} />
-      <DangerZoneCard isOwner={pageIsOwner} />
-      <div id="sec-activity" className="card anchor-scroll mt-6 mx-auto max-w-4xl p-6 sm:p-8">
+      {activeTab === "sec-backups" && <BackupsCard isOwner={pageIsOwner} />}
+      {activeTab === "sec-team" && <TeamCard />}
+      {activeTab === "sec-branches" && <BranchesCard />}
+      {activeTab === "sec-security" && <SecurityCard />}
+      {activeTab === "sec-access" && <AccessSecurityCard />}
+      {activeTab === "sec-sessions" && <SessionsCard />}
+      {activeTab === "sec-lock" && <PeriodLockCard />}
+      {activeTab === "sec-lock" && <YearEndCloseCard />}
+      {activeTab === "sec-health" && <SystemHealthCard isOwner={pageIsOwner} />}
+      {activeTab === "sec-danger" && <DangerZoneCard isOwner={pageIsOwner} />}
+      <div id="sec-activity" className={`card anchor-scroll mt-6 mx-auto max-w-4xl p-6 sm:p-8 ${activeTab !== "sec-activity" ? "hidden" : ""}`}>
         <div className="flex items-center justify-between gap-3">
           <div>
             <h2 className="text-lg font-extrabold">{t("settings.activityTitle")}</h2>
