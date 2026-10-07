@@ -14,7 +14,7 @@ export default function TermsContent() {
     { h: t("terms.s3h"), p: [t("terms.s3p0")] },
     { h: t("terms.s4h"), p: [t("terms.s4p0", { brand: b })] },
     { h: t("terms.s5h"), p: [t("terms.s5p0")] },
-    { h: t("terms.s6h"), p: [t("terms.s6p0")] },
+    { h: t("terms.s6h"), p: [t("terms.s6p0"), t("terms.s6p1"), t("terms.s6p2")] },
     { h: t("terms.s7h"), p: [t("terms.s7p0", { brand: b })] },
   ];
   return (
