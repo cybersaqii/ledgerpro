@@ -87,11 +87,11 @@ export function Stat({ label, value, sub, icon, tone = "primary" }: {
         )}
         {/* pe-8 keeps text clear of the .kpi-tile-go arrow on narrow tiles */}
         <div className="min-w-0 flex-1 pe-8">
-          <p className="truncate text-[0.72rem] font-semibold uppercase tracking-wider text-muted-foreground">{label}</p>
-          <p className="font-display mt-1 truncate text-[1.45rem] font-extrabold tabular-nums tracking-tight">{value}</p>
+          <p className="line-clamp-2 text-[0.72rem] font-semibold uppercase tracking-wider text-muted-foreground" title={label}>{label}</p>
+          <p className="font-display mt-1 break-words text-[1.45rem] font-extrabold tabular-nums tracking-tight" title={value}>{value}</p>
         </div>
       </div>
-      {sub && <p className="mt-2.5 truncate text-xs text-muted-foreground">{sub}</p>}
+      {sub && <p className="mt-2.5 line-clamp-2 text-xs text-muted-foreground" title={sub}>{sub}</p>}
     </div>
   );
 }

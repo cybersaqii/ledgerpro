@@ -53,6 +53,7 @@ export default function DashboardPage() {
   const [data, setData] = useState<DashboardData | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [steps, setSteps] = useState<OnboardingStep[] | null>(null);
+  const [showDoneSteps, setShowDoneSteps] = useState(false);
   const [sampleBusy, setSampleBusy] = useState(false);
   const [sampleError, setSampleError] = useState<string | null>(null);
 
@@ -210,7 +211,7 @@ export default function DashboardPage() {
             </button>
           </div>
           <ul className="mt-4 space-y-1.5">
-            {steps.map((s) => (
+            {(showDoneSteps ? steps : steps.filter((s) => !s.done)).map((s) => (
               <li key={s.key}>
                 {s.action === "load-sample" && !s.done ? (
                   <button
@@ -264,6 +265,17 @@ export default function DashboardPage() {
             <p className="mt-2 rounded-xl bg-danger-soft px-3 py-2 text-xs font-semibold text-danger">
               {sampleError}
             </p>
+          )}
+          {steps.some((s) => s.done) && (
+            <button
+              type="button"
+              onClick={() => setShowDoneSteps((v) => !v)}
+              className="mt-2 text-xs font-bold text-primary hover:underline"
+            >
+              {showDoneSteps
+                ? t("dashboard.hideDone", { count: steps.filter((s) => s.done).length })
+                : t("dashboard.showDone", { count: steps.filter((s) => s.done).length })}
+            </button>
           )}
         </div>
       )}

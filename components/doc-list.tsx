@@ -167,9 +167,9 @@ export function DocList({ mode }: { mode: "SALES" | "PURCHASE" }) {
         </div>
         <div className="flex items-center gap-2">
           <CalendarDays size={15} className="shrink-0 text-muted-foreground" />
-          <input type="date" className="field !w-auto !py-2 text-xs" value={from} onChange={(e) => setFrom(e.target.value)} aria-label={t("docs.fromDate")} />
+          <input type="date" className="field !w-auto !py-2 text-xs" value={from} onChange={(e) => setFrom(e.target.value)} aria-label={t("docs.fromDate")} title={t("docs.dateFormatHint")} />
           <span className="text-xs text-muted-foreground">{t("docs.toWord")}</span>
-          <input type="date" className="field !w-auto !py-2 text-xs" value={to} onChange={(e) => setTo(e.target.value)} aria-label={t("docs.toDate")} />
+          <input type="date" className="field !w-auto !py-2 text-xs" value={to} onChange={(e) => setTo(e.target.value)} aria-label={t("docs.toDate")} title={t("docs.dateFormatHint")} />
         </div>
         {hasFilter && (
           <button className="text-xs font-bold text-danger hover:underline"
@@ -192,29 +192,29 @@ export function DocList({ mode }: { mode: "SALES" | "PURCHASE" }) {
         {loading ? (
           <div className="space-y-3 p-5">{[1, 2, 3, 4, 5].map((i) => <div key={i} className="skeleton h-12 rounded-xl" />)}</div>
         ) : rows.length === 0 ? (
-          <EmptyState title={isSales ? t("docs.noSales", { sales: bp.salesNav.toLowerCase() }) : t("docs.noPurchases")}
+          <EmptyState title={docType === "ORDER" ? t("docs.noOrders") : isSales ? t("docs.noSales", { sales: bp.salesNav.toLowerCase() }) : t("docs.noPurchases")}
             hint={hasFilter ? t("docs.filterHint") : isSales ? t("docs.createFirstSale", { thing: bp.salesNav.toLowerCase() }) : t("docs.createFirstPurchase")}
             action={!hasFilter ? <Link href={isSales ? "/sales/new" : "/purchases/new"} className="btn btn-primary text-sm"><Plus size={16} /> {t("docs.createNow")}</Link> : undefined} />
         ) : (
           <div className="overflow-x-auto">
             <table className="tbl">
-              <thead><tr><th>{t("docs.colBillNo")}</th><th>{t("docs.colType")}</th><th>{isSales ? bp.partyOne : t("docs.supplier")}</th><th>{t("docs.colDate")}</th><th>{t("docs.colStatus")}</th><th className="num">{t("docs.colTotal")}</th><th className="num">{t("docs.colBalance")}</th><th>{t("docs.colPayStatus")}</th><th /></tr></thead>
+              <thead><tr><th className="whitespace-nowrap">{t("docs.colBillNo")}</th><th>{t("docs.colType")}</th><th>{isSales ? bp.partyOne : t("docs.supplier")}</th><th>{t("docs.colDate")}</th><th>{t("docs.colStatus")}</th><th className="num">{t("docs.colTotal")}</th><th className="num">{t("docs.colBalance")}</th><th>{t("docs.colPayStatus")}</th><th className="sticky end-0 bg-card" /></tr></thead>
               <tbody>
                 {rows.map((d) => (
                   <tr key={d.id}>
-                    <td>
-                      <Link href={`${isSales ? "/sales" : "/purchases"}/${d.id}`} className="font-bold text-primary hover:underline">
+                    <td className="whitespace-nowrap">
+                      <Link href={`${isSales ? "/sales" : "/purchases"}/${d.id}`} className="font-bold text-primary hover:underline" title={d.docNo}>
                         {d.docNo}
                       </Link>
                     </td>
-                    <td><span className={`badge ${typeBadge[d.docType] ?? "bg-muted text-muted-foreground"}`}>{d.docType}</span></td>
-                    <td className="max-w-44 truncate">{d.partyName ?? "—"}</td>
+                    <td><span className={`badge whitespace-nowrap ${typeBadge[d.docType] ?? "bg-muted text-muted-foreground"}`}>{d.docType}</span></td>
+                    <td className="max-w-44 truncate" title={d.partyName ?? ""}>{d.partyName ?? "—"}</td>
                     <td className="whitespace-nowrap text-muted-foreground">{fmtDate(d.date)}</td>
                     <td><StatusPill status={d.status} /></td>
-                    <td className="num font-extrabold">{fmtMoney(d.grandTotal)}</td>
-                    <td className="num font-bold">{fmtMoney(docBalance(d))}</td>
+                    <td className="num whitespace-nowrap font-extrabold">{fmtMoney(d.grandTotal)}</td>
+                    <td className="num whitespace-nowrap font-bold">{fmtMoney(docBalance(d))}</td>
                     <td><PayStatusBadge d={d} t={t} nowMs={nowMs} /></td>
-                    <td className="text-end">
+                    <td className="sticky end-0 bg-card text-end">
                       {canPay && (d.docType === "INVOICE" || d.docType === "BILL") && docBalance(d) > 0n && d.partyId ? (
                         <Link
                           href={`/payments/new?kind=${isSales ? "RECEIPT" : "PAYMENT"}&partyId=${d.partyId}&allocateDocId=${d.id}&amount=${paisaDecimal(docBalance(d))}`}
