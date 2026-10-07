@@ -1,7 +1,7 @@
 import { brand } from "@/lib/brand";
 import { en } from "@/lib/i18n/en";
 
-const SITE = "https://ledgerprosolution.com";
+const SITE = "https://www.ledgerprosolution.com";
 
 function fillBrand(s: string): string {
   return s.replaceAll("{brand}", brand.name);

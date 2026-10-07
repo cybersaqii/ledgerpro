@@ -1,6 +1,6 @@
 import type { MetadataRoute } from "next";
 
-const base = "https://ledgerprosolution.com";
+const base = "https://www.ledgerprosolution.com";
 
 // FIXED lastmod — a sitemap must not churn lastModified on every build.
 const lastModified = new Date("2026-10-02");

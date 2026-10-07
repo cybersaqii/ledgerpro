@@ -56,7 +56,7 @@ export async function getOrCreateReferralCode(
 }
 
 export function referralLink(code: string): string {
-  const base = (process.env.APP_URL || "https://ledgerprosolution.com").replace(/\/$/, "");
+  const base = (process.env.APP_URL || "https://www.ledgerprosolution.com").replace(/\/$/, "");
   return `${base}/signup?ref=${code}`;
 }
 

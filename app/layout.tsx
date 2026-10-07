@@ -16,12 +16,12 @@ const geistMono = Geist_Mono({ variable: "--font-geist-mono", subsets: ["latin"]
 // NOTE: only 400/700 ship; full conditional Arabic loading is a future optimization.
 const urduSans = Noto_Sans_Arabic({ variable: "--font-urdu", subsets: ["arabic"], weight: ["400", "700"] });
 
-const siteUrl = "https://ledgerprosolution.com";
+const siteUrl = "https://www.ledgerprosolution.com";
 
 export const metadata: Metadata = {
   metadataBase: new URL(siteUrl),
   title: {
-    default: `${brand.name} — ${brand.tagline}`,
+    default: `${brand.name} | Accounting, POS & Inventory Software for Pakistan`,
     template: `%s · ${brand.name}`,
   },
   description: brand.description,
@@ -33,7 +33,7 @@ export const metadata: Metadata = {
     // NOTE: no hardcoded `url` here — each page emits its own og:url
     // (metadataBase resolves relative values like the landing page's "/").
     siteName: brand.name,
-    title: `${brand.name} — ${brand.tagline}`,
+    title: `${brand.name} | Accounting, POS & Inventory Software for Pakistan`,
     description: brand.description,
     images: [
       {
@@ -46,7 +46,7 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: "summary_large_image",
-    title: `${brand.name} — ${brand.tagline}`,
+    title: `${brand.name} | Accounting, POS & Inventory Software for Pakistan`,
     description: brand.description,
     images: ["/opengraph-image"],
   },

@@ -6,7 +6,7 @@ import {
   ArrowRight, BarChart3, Boxes, CheckCircle2, FileText, Landmark,
   ScanBarcode, ShieldCheck, Smartphone, Sparkles, TrendingUp, Users, Wallet,
   Store, Factory, Stethoscope, Pill, UtensilsCrossed, Briefcase, Truck,
-  TriangleAlert, XCircle, BadgeCheck, Play,
+  TriangleAlert, XCircle, BadgeCheck, Play, LayoutGrid,
 } from "lucide-react";
 import { ThemeToggle, LangToggle } from "@/components/ui";
 import { BrandLockup } from "@/components/brand-logo";
@@ -34,6 +34,7 @@ const businessTypes = [
   { icon: UtensilsCrossed, l: "mq5", d: "bd5" },
   { icon: Briefcase, l: "mq6", d: "bd6" },
   { icon: Factory, l: "mq7", d: "bd7" },
+  { icon: LayoutGrid, l: "mq8", d: "bd8" },
 ];
 
 const stats = [
@@ -157,7 +158,10 @@ export default function LandingContent() {
                     <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">{L("mockToday")}</p>
                     <p className="mt-1 text-3xl font-extrabold tracking-tight">Rs 1,84,500</p>
                   </div>
-                  <span className="badge bg-primary-soft text-primary"><TrendingUp size={13} /> {L("mockWeek")}</span>
+                  <div className="flex flex-col items-end gap-1.5">
+                    <span className="badge bg-primary-soft text-primary"><TrendingUp size={13} /> {L("mockWeek")}</span>
+                    <span className="rounded-md bg-muted px-2 py-0.5 text-[0.65rem] font-bold uppercase tracking-wide text-muted-foreground">{L("mockSample")}</span>
+                  </div>
                 </div>
                 <div className="mt-6 grid grid-cols-3 gap-3">
                   {[
@@ -509,6 +513,18 @@ export default function LandingContent() {
             <ShieldCheck size={17} className="mt-0.5 shrink-0 text-primary" />
             <span>{L("trialNote")}</span>
           </p>
+          {/* How PRO activation works */}
+          <div className="mx-auto mt-8 max-w-3xl rounded-3xl border border-border bg-card p-6 shadow-sm sm:p-7">
+            <p className="text-center text-sm font-extrabold uppercase tracking-wider text-muted-foreground">{L("activateTitle")}</p>
+            <ol className="mt-5 grid gap-4 sm:grid-cols-3">
+              {[L("activateStep1"), L("activateStep2"), L("activateStep3")].map((s, i) => (
+                <li key={i} className="flex items-start gap-3">
+                  <span className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-primary/10 text-sm font-extrabold text-primary">{i + 1}</span>
+                  <span className="pt-1 text-sm leading-relaxed">{s}</span>
+                </li>
+              ))}
+            </ol>
+          </div>
         </div>
       </section>
 
