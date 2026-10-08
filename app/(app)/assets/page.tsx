@@ -192,21 +192,21 @@ export default function AssetsPage() {
             </div>
             <ErrorNote message={formErr} />
 
-            {/* Essentials — premium card */}
-            <div className="mt-5 rounded-2xl border border-border/70 bg-muted/30 p-4 sm:p-5">
+            {/* Essentials — clear bordered fields like customer dialog */}
+            <div className="mt-5">
               <p className="mb-3 text-[0.7rem] font-extrabold uppercase tracking-widest text-primary">
                 {t("assets.essentials")}
               </p>
               <div className="space-y-4">
                 <Field label={t("assets.description")} required hint={t("assets.descriptionHint")}>
-                  <input className="input !rounded-xl !border-border/80 bg-card shadow-sm transition focus:!border-primary focus:!ring-2 focus:!ring-primary/20" value={f.description} onChange={set("description")} placeholder={t("assets.descriptionPh")} />
+                  <input className="input !rounded-xl !border-2 !border-border bg-background" value={f.description} onChange={set("description")} placeholder={t("assets.descriptionPh")} />
                 </Field>
                 <div className="grid grid-cols-2 gap-3">
                   <Field label={t("assets.purchaseCost")} required>
-                    <input inputMode="decimal" className="input !rounded-xl !border-border/80 bg-card text-lg font-bold tabular-nums shadow-sm transition focus:!border-primary focus:!ring-2 focus:!ring-primary/20" value={f.purchaseCost} onChange={set("purchaseCost")} placeholder="0.00" />
+                    <input inputMode="decimal" className="input !rounded-xl !border-2 !border-border bg-background text-lg font-bold tabular-nums" value={f.purchaseCost} onChange={set("purchaseCost")} placeholder="0.00" />
                   </Field>
                   <Field label={t("assets.purchaseDate")} required>
-                    <input type="date" className="input !rounded-xl !border-border/80 bg-card shadow-sm transition focus:!border-primary focus:!ring-2 focus:!ring-primary/20" value={f.purchaseDate} onChange={set("purchaseDate")} />
+                    <input type="date" className="input !rounded-xl !border-2 !border-border bg-background" value={f.purchaseDate} onChange={set("purchaseDate")} />
                   </Field>
                 </div>
               </div>
@@ -229,32 +229,32 @@ export default function AssetsPage() {
             {showAdvanced && (
               <div className="mt-3 grid grid-cols-1 gap-3 rounded-2xl border border-border/60 bg-muted/20 p-4 sm:grid-cols-2">
                 <Field label={t("assets.assetCode")} hint={t("assets.assetCodeHint")}>
-                  <input className="input !rounded-xl bg-card" value={f.code} onChange={set("code")} placeholder="AST-0001" />
+                  <input className="input !rounded-xl !border-2 !border-border bg-background" value={f.code} onChange={set("code")} placeholder="AST-0001" />
                 </Field>
                 <Field label={t("assets.assetClass")}>
-                  <select className="input !rounded-xl bg-card" value={f.assetClass} onChange={set("assetClass")}>
+                  <select className="input !rounded-xl !border-2 !border-border bg-background" value={f.assetClass} onChange={set("assetClass")}>
                     {CLASSES.map((c) => <option key={c} value={c}>{c}</option>)}
                   </select>
                 </Field>
                 <Field label={t("assets.serialNumber")}>
-                  <input className="input !rounded-xl bg-card" value={f.serialNumber} onChange={set("serialNumber")} />
+                  <input className="input !rounded-xl !border-2 !border-border bg-background" value={f.serialNumber} onChange={set("serialNumber")} />
                 </Field>
                 <Field label={t("assets.branch")}>
-                  <select className="input !rounded-xl bg-card" value={f.branchId} onChange={set("branchId")}>
+                  <select className="input !rounded-xl !border-2 !border-border bg-background" value={f.branchId} onChange={set("branchId")}>
                     <option value="">—</option>
                     {branches.map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}
                   </select>
                 </Field>
                 <div className="sm:col-span-2">
                   <Field label={t("assets.assetAccount")} hint={t("assets.assetAccountHint")}>
-                    <select className="input !rounded-xl bg-card" value={f.accountId} onChange={set("accountId")}>
+                    <select className="input !rounded-xl !border-2 !border-border bg-background" value={f.accountId} onChange={set("accountId")}>
                       {accounts.map((a) => <option key={a.id} value={a.id}>{a.code} — {a.name}</option>)}
                     </select>
                   </Field>
                 </div>
                 <div className="sm:col-span-2">
                   <Field label={t("assets.accumDepAccount")} hint={t("assets.accumDepHint")}>
-                    <select className="input !rounded-xl bg-card" value={f.accumDepAccountId} onChange={set("accumDepAccountId")}>
+                    <select className="input !rounded-xl !border-2 !border-border bg-background" value={f.accumDepAccountId} onChange={set("accumDepAccountId")}>
                       <option value="">{t("assets.sharedAccumDep")}</option>
                       {accounts.map((a) => <option key={a.id} value={a.id}>{a.code} — {a.name}</option>)}
                     </select>
@@ -280,10 +280,10 @@ export default function AssetsPage() {
             {showDepreciation && (
               <div className="mt-3 grid grid-cols-1 gap-3 rounded-2xl border border-border/60 bg-muted/20 p-4 sm:grid-cols-2">
                 <Field label={t("assets.usefulLife")} required hint={t("assets.usefulLifeHint")}>
-                  <input type="number" min={1} max={100} className="input !rounded-xl bg-card" value={f.usefulLifeYears} onChange={set("usefulLifeYears")} />
+                  <input type="number" min={1} max={100} className="input !rounded-xl !border-2 !border-border bg-background" value={f.usefulLifeYears} onChange={set("usefulLifeYears")} />
                 </Field>
                 <Field label={t("assets.method")} required hint={t("assets.methodHint")}>
-                  <select className="input !rounded-xl bg-card" value={f.depreciationMethod} onChange={set("depreciationMethod")}>
+                  <select className="input !rounded-xl !border-2 !border-border bg-background" value={f.depreciationMethod} onChange={set("depreciationMethod")}>
                     <option value="SL">{t("assets.methodSL")}</option>
                     <option value="DB">{t("assets.methodDB")}</option>
                   </select>
@@ -293,7 +293,7 @@ export default function AssetsPage() {
                 </Field>
                 {f.depreciationMethod === "DB" && (
                   <Field label={t("assets.annualRate")} required hint={t("assets.annualRateHint")}>
-                    <input inputMode="decimal" className="input !rounded-xl bg-card" value={f.annualRate} onChange={set("annualRate")} />
+                    <input inputMode="decimal" className="input !rounded-xl !border-2 !border-border bg-background" value={f.annualRate} onChange={set("annualRate")} />
                   </Field>
                 )}
               </div>
