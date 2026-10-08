@@ -4150,6 +4150,7 @@ export const en = {
     noAssets: "No assets registered yet.",
     noAssetsHint: "Register the asset here, then record its purchase through Purchases tagging the asset's cost account (14xx).",
     newAssetHint: "Add a big purchase — machinery, vehicle, furniture, computer — so its value and yearly depreciation are tracked.",
+    essentials: "Essentials",
     descriptionHint: "What is it? e.g. Office laptop, Delivery van",
     descriptionPh: "e.g. Dell laptop for accounts",
     moreDetails: "More details (optional)",

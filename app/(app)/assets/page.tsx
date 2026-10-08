@@ -173,68 +173,88 @@ export default function AssetsPage() {
       )}
 
       {open && (
-        <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/50 p-4 sm:items-center" onClick={() => setOpen(false)}>
-          <div className="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-2xl bg-card p-5" onClick={(e) => e.stopPropagation()}>
-            <div className="flex items-center justify-between">
-              <h2 className="text-base font-bold">{t("assets.newAsset")}</h2>
-              <button className="btn btn-ghost !p-2" onClick={() => setOpen(false)}><X size={16} /></button>
+        <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/60 p-4 backdrop-blur-sm sm:items-center" onClick={() => setOpen(false)}>
+          <div className="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-3xl border border-border/60 bg-card p-6 shadow-2xl shadow-black/20 sm:p-7" onClick={(e) => e.stopPropagation()}>
+            {/* Premium header */}
+            <div className="flex items-start justify-between gap-4">
+              <div className="flex items-center gap-3.5">
+                <span className="tile tile-primary h-12 w-12 shrink-0 !rounded-2xl">
+                  <Factory size={22} />
+                </span>
+                <div>
+                  <h2 className="font-display text-lg font-extrabold tracking-tight">{t("assets.newAsset")}</h2>
+                  <p className="mt-0.5 text-xs leading-relaxed text-muted-foreground">{t("assets.newAssetHint")}</p>
+                </div>
+              </div>
+              <button className="btn btn-ghost !p-2 !rounded-xl shrink-0" onClick={() => setOpen(false)} aria-label={t("common.close")}>
+                <X size={16} />
+              </button>
             </div>
-            <p className="mt-1 text-xs text-muted-foreground">{t("assets.newAssetHint")}</p>
             <ErrorNote message={formErr} />
 
-            {/* Essentials — what beginners need */}
-            <div className="mt-4 space-y-3">
-              <Field label={t("assets.description")} required hint={t("assets.descriptionHint")}>
-                <input className="input" value={f.description} onChange={set("description")} placeholder={t("assets.descriptionPh")} />
-              </Field>
-              <div className="grid grid-cols-2 gap-3">
-                <Field label={t("assets.purchaseCost")} required>
-                  <input inputMode="decimal" className="input" value={f.purchaseCost} onChange={set("purchaseCost")} placeholder="0.00" />
+            {/* Essentials — premium card */}
+            <div className="mt-5 rounded-2xl border border-border/70 bg-muted/30 p-4 sm:p-5">
+              <p className="mb-3 text-[0.7rem] font-extrabold uppercase tracking-widest text-primary">
+                {t("assets.essentials")}
+              </p>
+              <div className="space-y-4">
+                <Field label={t("assets.description")} required hint={t("assets.descriptionHint")}>
+                  <input className="input !rounded-xl !border-border/80 bg-card shadow-sm transition focus:!border-primary focus:!ring-2 focus:!ring-primary/20" value={f.description} onChange={set("description")} placeholder={t("assets.descriptionPh")} />
                 </Field>
-                <Field label={t("assets.purchaseDate")} required>
-                  <input type="date" className="input" value={f.purchaseDate} onChange={set("purchaseDate")} />
-                </Field>
+                <div className="grid grid-cols-2 gap-3">
+                  <Field label={t("assets.purchaseCost")} required>
+                    <input inputMode="decimal" className="input !rounded-xl !border-border/80 bg-card text-lg font-bold tabular-nums shadow-sm transition focus:!border-primary focus:!ring-2 focus:!ring-primary/20" value={f.purchaseCost} onChange={set("purchaseCost")} placeholder="0.00" />
+                  </Field>
+                  <Field label={t("assets.purchaseDate")} required>
+                    <input type="date" className="input !rounded-xl !border-border/80 bg-card shadow-sm transition focus:!border-primary focus:!ring-2 focus:!ring-primary/20" value={f.purchaseDate} onChange={set("purchaseDate")} />
+                  </Field>
+                </div>
               </div>
             </div>
 
-            {/* Advanced details — collapsible */}
+            {/* Advanced details — premium collapsible */}
             <button
               type="button"
               onClick={() => setShowAdvanced((v) => !v)}
-              className="mt-4 flex w-full items-center justify-between rounded-xl bg-muted/50 px-4 py-2.5 text-sm font-bold"
+              className="mt-3 flex w-full items-center justify-between rounded-2xl border border-border/60 bg-card px-4 py-3 text-sm font-bold shadow-sm transition hover:border-primary/40 hover:shadow-md"
             >
-              {t("assets.moreDetails")}
-              <ChevronRight size={16} className={`transition-transform ${showAdvanced ? "rotate-90" : ""}`} />
+              <span className="flex items-center gap-2.5">
+                <span className={`grid h-8 w-8 place-items-center rounded-xl transition ${showAdvanced ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground"}`}>
+                  <Plus size={15} className={`transition-transform ${showAdvanced ? "rotate-45" : ""}`} />
+                </span>
+                {t("assets.moreDetails")}
+              </span>
+              <ChevronRight size={16} className={`text-muted-foreground transition-transform duration-200 ${showAdvanced ? "rotate-90" : ""}`} />
             </button>
             {showAdvanced && (
-              <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
+              <div className="mt-3 grid grid-cols-1 gap-3 rounded-2xl border border-border/60 bg-muted/20 p-4 sm:grid-cols-2">
                 <Field label={t("assets.assetCode")} hint={t("assets.assetCodeHint")}>
-                  <input className="input" value={f.code} onChange={set("code")} placeholder="AST-0001" />
+                  <input className="input !rounded-xl bg-card" value={f.code} onChange={set("code")} placeholder="AST-0001" />
                 </Field>
                 <Field label={t("assets.assetClass")}>
-                  <select className="input" value={f.assetClass} onChange={set("assetClass")}>
+                  <select className="input !rounded-xl bg-card" value={f.assetClass} onChange={set("assetClass")}>
                     {CLASSES.map((c) => <option key={c} value={c}>{c}</option>)}
                   </select>
                 </Field>
                 <Field label={t("assets.serialNumber")}>
-                  <input className="input" value={f.serialNumber} onChange={set("serialNumber")} />
+                  <input className="input !rounded-xl bg-card" value={f.serialNumber} onChange={set("serialNumber")} />
                 </Field>
                 <Field label={t("assets.branch")}>
-                  <select className="input" value={f.branchId} onChange={set("branchId")}>
+                  <select className="input !rounded-xl bg-card" value={f.branchId} onChange={set("branchId")}>
                     <option value="">—</option>
                     {branches.map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}
                   </select>
                 </Field>
                 <div className="sm:col-span-2">
                   <Field label={t("assets.assetAccount")} hint={t("assets.assetAccountHint")}>
-                    <select className="input" value={f.accountId} onChange={set("accountId")}>
+                    <select className="input !rounded-xl bg-card" value={f.accountId} onChange={set("accountId")}>
                       {accounts.map((a) => <option key={a.id} value={a.id}>{a.code} — {a.name}</option>)}
                     </select>
                   </Field>
                 </div>
                 <div className="sm:col-span-2">
                   <Field label={t("assets.accumDepAccount")} hint={t("assets.accumDepHint")}>
-                    <select className="input" value={f.accumDepAccountId} onChange={set("accumDepAccountId")}>
+                    <select className="input !rounded-xl bg-card" value={f.accumDepAccountId} onChange={set("accumDepAccountId")}>
                       <option value="">{t("assets.sharedAccumDep")}</option>
                       {accounts.map((a) => <option key={a.id} value={a.id}>{a.code} — {a.name}</option>)}
                     </select>
@@ -243,41 +263,47 @@ export default function AssetsPage() {
               </div>
             )}
 
-            {/* Depreciation — collapsible with plain-language explanations */}
+            {/* Depreciation — premium collapsible */}
             <button
               type="button"
               onClick={() => setShowDepreciation((v) => !v)}
-              className="mt-3 flex w-full items-center justify-between rounded-xl bg-muted/50 px-4 py-2.5 text-sm font-bold"
+              className="mt-3 flex w-full items-center justify-between rounded-2xl border border-border/60 bg-card px-4 py-3 text-sm font-bold shadow-sm transition hover:border-primary/40 hover:shadow-md"
             >
-              {t("assets.depreciationSettings")}
-              <ChevronRight size={16} className={`transition-transform ${showDepreciation ? "rotate-90" : ""}`} />
+              <span className="flex items-center gap-2.5">
+                <span className={`grid h-8 w-8 place-items-center rounded-xl transition ${showDepreciation ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground"}`}>
+                  <CalendarClock size={15} />
+                </span>
+                {t("assets.depreciationSettings")}
+              </span>
+              <ChevronRight size={16} className={`text-muted-foreground transition-transform duration-200 ${showDepreciation ? "rotate-90" : ""}`} />
             </button>
             {showDepreciation && (
-              <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
+              <div className="mt-3 grid grid-cols-1 gap-3 rounded-2xl border border-border/60 bg-muted/20 p-4 sm:grid-cols-2">
                 <Field label={t("assets.usefulLife")} required hint={t("assets.usefulLifeHint")}>
-                  <input type="number" min={1} max={100} className="input" value={f.usefulLifeYears} onChange={set("usefulLifeYears")} />
+                  <input type="number" min={1} max={100} className="input !rounded-xl bg-card" value={f.usefulLifeYears} onChange={set("usefulLifeYears")} />
                 </Field>
                 <Field label={t("assets.method")} required hint={t("assets.methodHint")}>
-                  <select className="input" value={f.depreciationMethod} onChange={set("depreciationMethod")}>
+                  <select className="input !rounded-xl bg-card" value={f.depreciationMethod} onChange={set("depreciationMethod")}>
                     <option value="SL">{t("assets.methodSL")}</option>
                     <option value="DB">{t("assets.methodDB")}</option>
                   </select>
                 </Field>
                 <Field label={t("assets.salvageValue")} hint={t("assets.salvageValueHint")}>
-                  <input inputMode="decimal" className="input" value={f.salvageValue} onChange={set("salvageValue")} placeholder="0.00" />
+                  <input inputMode="decimal" className="input !rounded-xl bg-card tabular-nums" value={f.salvageValue} onChange={set("salvageValue")} placeholder="0.00" />
                 </Field>
                 {f.depreciationMethod === "DB" && (
                   <Field label={t("assets.annualRate")} required hint={t("assets.annualRateHint")}>
-                    <input inputMode="decimal" className="input" value={f.annualRate} onChange={set("annualRate")} />
+                    <input inputMode="decimal" className="input !rounded-xl bg-card" value={f.annualRate} onChange={set("annualRate")} />
                   </Field>
                 )}
               </div>
             )}
 
-            <div className="mt-5 flex justify-end gap-2">
-              <button className="btn btn-ghost" onClick={() => setOpen(false)}>{t("common.cancel")}</button>
-              <button className="btn btn-primary" disabled={busy || !f.description || !f.accountId || !f.purchaseCost} onClick={create}>
-                {t("assets.newAsset")}
+            {/* Premium actions */}
+            <div className="mt-6 flex justify-end gap-2.5 border-t border-border/60 pt-5">
+              <button className="btn btn-ghost !rounded-xl !px-5" onClick={() => setOpen(false)}>{t("common.cancel")}</button>
+              <button className="btn btn-primary !rounded-xl !px-6 shadow-lg shadow-primary/25 transition hover:shadow-xl hover:shadow-primary/30" disabled={busy || !f.description || !f.accountId || !f.purchaseCost} onClick={create}>
+                {busy ? "…" : <><Plus size={16} /> {t("assets.newAsset")}</>}
               </button>
             </div>
           </div>

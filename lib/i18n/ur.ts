@@ -4140,6 +4140,7 @@ export const ur: DeepPartial<EnDict> = {
     noAssets: "ابھی کوئی اثاثہ رجسٹر نہیں ہوا۔",
     noAssetsHint: "پہلے اثاثہ یہاں رجسٹر کریں، پھر اس کی خرید Purchases کے ذریعے اثاثے کے لاگت اکاؤنٹ (14xx) میں درج کریں۔",
     newAssetHint: "Bari khareed add karein — machinery, gari, furniture, computer — taake uski value aur salana depreciation track ho.",
+    essentials: "Zaroori maloomat",
     descriptionHint: "Ye kya hai? masalan Office laptop, Delivery van",
     descriptionPh: "masalan Accounts ke liye Dell laptop",
     moreDetails: "Mazeed tafseel (ikhtiyari)",
