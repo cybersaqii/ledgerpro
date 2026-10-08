@@ -1,5 +1,5 @@
 import { NextRequest } from "next/server";
-import { eq } from "drizzle-orm";
+import { eq, and } from "drizzle-orm";
 import { purchaseDocs, purchaseDocItems } from "@/db/schema";
 import { json, err } from "@/lib/api";
 import { requireCompany, requirePermission, db } from "@/lib/route-helpers";
@@ -43,8 +43,10 @@ export async function DELETE(_req: NextRequest, { params }: { params: Promise<{ 
   const lockErr = await periodLockError(db, companyId, doc.date);
   if (lockErr) return err(lockErr, 422, "PERIOD_LOCKED");
   await db.transaction(async (tx) => {
-    await tx.delete(purchaseDocItems).where(eq(purchaseDocItems.docId, id));
-    await tx.delete(purchaseDocs).where(eq(purchaseDocs.id, id));
+    const deleted = await tx.delete(purchaseDocs).where(and(eq(purchaseDocs.id, id), eq(purchaseDocs.companyId, companyId))).returning({ id: purchaseDocs.id });
+    if (deleted.length > 0) {
+      await tx.delete(purchaseDocItems).where(eq(purchaseDocItems.docId, id));
+    }
   });
   return json({ ok: true });
 }

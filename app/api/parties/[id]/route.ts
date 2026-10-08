@@ -76,9 +76,9 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
       ...(p.notes !== undefined ? { notes: p.notes || null } : {}),
       updatedAt: new Date(),
  })
-    .where(eq(parties.id, id));
+    .where(and(eq(parties.id, id), eq(parties.companyId, companyId)));
   if (p.category !== undefined) {
-    await db.update(parties).set({ category: p.category || null }).where(eq(parties.id, id));
+    await db.update(parties).set({ category: p.category || null }).where(and(eq(parties.id, id), eq(parties.companyId, companyId)));
   }
   // Module 22: party price list must belong to this company (or be cleared).
   if (p.priceListId !== undefined) {
@@ -92,7 +92,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
       if (!pl) return err("The selected price list is invalid.", 422, "VALIDATION_ERROR");
       plId = pl.id;
     }
-    await db.update(parties).set({ priceListId: plId }).where(eq(parties.id, id));
+    await db.update(parties).set({ priceListId: plId }).where(and(eq(parties.id, id), eq(parties.companyId, companyId)));
   }
   await logAudit(db, {
     companyId, userId: session.uid, userName: session.name,
@@ -111,7 +111,7 @@ export async function DELETE(_req: NextRequest, { params }: { params: Promise<{ 
   if (!row) return err("Not found.", 404, "NOT_FOUND");
   if (row.balance !== 0n) return err("Cannot delete a party with an outstanding balance.", 400, "DELETE_BLOCKED");
   try {
-    await db.update(parties).set({ isActive: false }).where(eq(parties.id, id));
+    await db.update(parties).set({ isActive: false }).where(and(eq(parties.id, id), eq(parties.companyId, companyId)));
   } catch (e) {
     if (isForeignKeyViolation(e)) return err("Cannot delete this party: linked records exist.", 409, "DELETE_BLOCKED");
     throw e;

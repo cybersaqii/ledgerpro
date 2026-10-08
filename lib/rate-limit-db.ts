@@ -23,6 +23,9 @@ import { rateLimits } from "@/db/schema";
  * only, defense still relies on per-email/per-account limits too.
  */
 export function clientIp(req: Request): string {
+  // Vercel's edge sets x-vercel-forwarded-for to the real client IP — prefer it.
+  const vercelFwd = req.headers.get("x-vercel-forwarded-for")?.split(",")[0]?.trim();
+  if (vercelFwd) return vercelFwd;
   const fwd = req.headers.get("x-forwarded-for");
   if (fwd) {
     const parts = fwd.split(",").map((p) => p.trim()).filter(Boolean);

@@ -1,5 +1,5 @@
 import { NextRequest } from "next/server";
-import { eq } from "drizzle-orm";
+import { eq, and } from "drizzle-orm";
 import {
   bankAccounts,
   parties,
@@ -26,9 +26,9 @@ export async function GET(_req: NextRequest, ctx: Ctx) {
       .from(payments)
       .leftJoin(parties, eq(payments.partyId, parties.id))
       .leftJoin(bankAccounts, eq(payments.bankAccountId, bankAccounts.id))
-      .where(eq(payments.id, id));
+      .where(and(eq(payments.id, id), eq(payments.companyId, companyId)));
     const row = rows[0];
-    if (!row || row.p.companyId !== companyId) return err("Payment not found.", 404);
+    if (!row) return err("Payment not found.", 404);
 
     const allocs = await db
       .select({ a: paymentAllocations, s: salesDocs, b: purchaseDocs })
