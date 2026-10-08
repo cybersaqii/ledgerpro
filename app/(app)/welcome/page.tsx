@@ -9,7 +9,7 @@ import {
 import { api } from "@/lib/format";
 import { useLang } from "@/components/lang-provider";
 import { Field, ErrorNote } from "@/components/ui";
-import { BUSINESS_TYPES, getBusinessProfile, newSaleHref } from "@/lib/business-types";
+import { getBusinessProfile, newSaleHref } from "@/lib/business-types";
 
 const ICONS: Record<string, typeof Store> = {
   WHOLESALE: Store,
@@ -72,7 +72,7 @@ export default function WelcomePage() {
     setBusy(true);
     setError(null);
     try {
-      if (!skip && step === 1) {
+      if (!skip && step === 0) {
         // Persist the quick-add entries before moving on.
         await api("/api/onboarding/quick-add", {
           method: "POST",
@@ -84,7 +84,7 @@ export default function WelcomePage() {
           }),
         });
       }
-      if (step === 2 || skip) {
+      if (step === 1 || skip) {
         await api("/api/onboarding/wizard", {
           method: "POST",
           body: JSON.stringify({ businessType, completed: true }),
@@ -131,35 +131,6 @@ export default function WelcomePage() {
 
       {step === 0 && (
         <div>
-          <h1 className="text-2xl font-extrabold tracking-tight">{t("onboarding.step1Title")}</h1>
-          <p className="mt-1 text-sm text-muted-foreground">{t("onboarding.step1Hint")}</p>
-          <div className="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-3">
-            {BUSINESS_TYPES.map((b) => {
-              const Icon = ICONS[b.value] ?? LayoutGrid;
-              const active = businessType === b.value;
-              return (
-                <button
-                  key={b.value}
-                  type="button"
-                  onClick={() => saveType(b.value)}
-                  className={`flex flex-col items-center gap-2 rounded-2xl border-2 p-4 text-center transition ${
-                    active ? "border-primary bg-primary/5" : "border-border hover:border-primary/40"
-                  }`}
-                >
-                  <span className={`flex h-10 w-10 items-center justify-center rounded-xl ${active ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground"}`}>
-                    <Icon size={20} />
-                  </span>
-                  <span className="text-sm font-bold">{t(b.label)}</span>
-                  <span className="text-xs text-muted-foreground">{t(b.hint)}</span>
-                </button>
-              );
-            })}
-          </div>
-        </div>
-      )}
-
-      {step === 1 && (
-        <div>
           <h1 className="text-2xl font-extrabold tracking-tight">{t("onboarding.step2Title")}</h1>
           <p className="mt-1 text-sm text-muted-foreground">{t("onboarding.step2Hint")}</p>
           <div className="mt-6 space-y-6">
@@ -201,7 +172,7 @@ export default function WelcomePage() {
         </div>
       )}
 
-      {step === 2 && (
+      {step === 1 && (
         <div className="text-center">
           <span className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-primary/10 text-primary">
             <Sparkles size={28} />
@@ -211,11 +182,11 @@ export default function WelcomePage() {
           <div className="mx-auto mt-6 max-w-md rounded-2xl border border-border bg-card p-5 text-start">
             <p className="text-sm font-bold">{t("onboarding.readyList")}</p>
             <ul className="mt-2 space-y-1.5 text-sm text-muted-foreground">
-              <li className="flex items-center gap-2"><Check size={14} className="text-primary" /> {t("onboarding.readyType", { type: t(BUSINESS_TYPES.find((b) => b.value === businessType)?.label ?? "biztypes.other") })}</li>
+              <li className="flex items-center gap-2"><Check size={14} className="text-primary" /> {t("onboarding.readyType", { type: t("biztypes.other") })}</li>
               {(prodName.trim() || partyName.trim()) && (
                 <li className="flex items-center gap-2"><Check size={14} className="text-primary" /> {t("onboarding.readyData")}</li>
               )}
-              <li className="flex items-center gap-2"><Check size={14} className="text-primary" /> {t("onboarding.readyBill", { where: businessType === "RETAIL" || businessType === "RESTAURANT" ? t("onboarding.posMode") : t("onboarding.billMode") })}</li>
+              <li className="flex items-center gap-2"><Check size={14} className="text-primary" /> {t("onboarding.readyBill", { where: t("onboarding.billMode") })}</li>
             </ul>
           </div>
         </div>
@@ -235,7 +206,7 @@ export default function WelcomePage() {
           )}
         </div>
         <button type="button" onClick={() => finish(false)} className="btn btn-primary" disabled={busy}>
-          {busy ? "…" : step === 2 ? t("onboarding.createBill") : t("onboarding.continue")} <ArrowRight size={16} className="rtl:rotate-180" />
+          {busy ? "…" : step === 1 ? t("onboarding.createBill") : t("onboarding.continue")} <ArrowRight size={16} className="rtl:rotate-180" />
         </button>
       </div>
     </div>

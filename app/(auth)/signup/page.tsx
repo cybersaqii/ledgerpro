@@ -8,11 +8,10 @@ import { AuthLayout } from "@/components/auth-layout";
 import { GoogleGlyph } from "@/components/google-glyph";
 import { Field, ErrorNote } from "@/components/ui";
 import { api } from "@/lib/format";
-import { BUSINESS_TYPES } from "@/lib/business-types";
 import { useLang } from "@/components/lang-provider";
 
 type Form = {
-  companyName: string; businessType: string; name: string; email: string;
+  companyName: string; name: string; email: string;
   phone: string; address: string; city: string; password: string; referralCode: string;
 };
 
@@ -26,7 +25,7 @@ function SignupForm() {
     return ref && /^[A-Za-z0-9]{4,16}$/.test(ref) ? ref.toUpperCase() : "";
   })();
   const [form, setForm] = useState<Form>({
-    companyName: "", businessType: "WHOLESALE", name: "", email: "",
+    companyName: "", name: "", email: "",
     phone: "", address: "", city: "", password: "", referralCode: initialRef,
   });
   const [error, setError] = useState<string | null>(null);
@@ -147,11 +146,6 @@ function SignupForm() {
           <Field label={t("auth.businessName")} required>
             <input className="field" required placeholder={t("auth.businessNamePh")}
               value={form.companyName} onChange={set("companyName")} />
-          </Field>
-          <Field label={t("auth.businessKind")}>
-            <select className="field" value={form.businessType} onChange={set("businessType")}>
-              {BUSINESS_TYPES.map((b) => <option key={b.value} value={b.value}>{t(b.label)}</option>)}
-            </select>
           </Field>
           <div className="grid gap-4 sm:grid-cols-2">
             <Field label={t("auth.address")}>

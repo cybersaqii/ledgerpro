@@ -212,16 +212,7 @@ export default function SettingsPage() {
                 <input className="field" value={form.tradeName ?? ""} onChange={set("tradeName")} placeholder={t("settings.tradeNamePh")} />
                 <p className="mt-1 text-xs text-muted-foreground">{t("settings.tradeNameHint")}</p>
               </Field>
-              <div className="sm:col-span-2">
-                <Field label={t("settings.businessType")}>
-                  <select className="field" value={form.businessType} onChange={set("businessType")}>
-                    {BUSINESS_TYPES.map((b) => <option key={b.value} value={b.value}>{t(b.label)} — {t(b.hint)}</option>)}
-                  </select>
-                  <p className="mt-1 text-xs text-muted-foreground">
-                    {t("settings.businessTypeHint")}
-                  </p>
-                </Field>
-              </div>
+              
             </div>
             {/* ── Contact & address ─────────────────────────────── */}
             <div className="mb-6 mt-9 flex items-center gap-4">

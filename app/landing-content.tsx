@@ -25,17 +25,6 @@ const features = [
   { icon: Smartphone, t: "f8t", d: "f8d" },
 ];
 
-const businessTypes = [
-  { icon: Boxes, l: "mq0", d: "bd0" },
-  { icon: Store, l: "mq1", d: "bd1" },
-  { icon: Truck, l: "mq2", d: "bd2" },
-  { icon: Pill, l: "mq3", d: "bd3" },
-  { icon: Stethoscope, l: "mq4", d: "bd4" },
-  { icon: UtensilsCrossed, l: "mq5", d: "bd5" },
-  { icon: Briefcase, l: "mq6", d: "bd6" },
-  { icon: Factory, l: "mq7", d: "bd7" },
-  { icon: LayoutGrid, l: "mq8", d: "bd8" },
-];
 
 const stats = [
   { v: "stat0v", l: "stat0l" },
@@ -67,10 +56,9 @@ const trust = [
 
 const paperBad = ["pp0", "pp1", "pp2", "pp3", "pp4", "pp5"];
 const paperGood = ["lp0", "lp1", "lp2", "lp3", "lp4", "lp5"];
-const madeFor = ["mf0", "mf1", "mf2", "mf3", "mf4", "mf5", "mf6", "mf7"];
 const freeFeatures = ["ff0", "ff1", "ff2", "ff3", "ff4", "ff5"];
 const proFeatures = ["pf0", "pf1", "pf2", "pf3", "pf4", "pf5", "pf6"];
-const footLinks: [string, string][] = [["fl0", "#features"], ["fl1", "#businesses"], ["fl2", "#how"], ["fl5", "#pricing"], ["fl3", "#faq"], ["fl4", "/login"]];
+const footLinks: [string, string][] = [["fl0", "#features"], ["fl2", "#how"], ["fl5", "#pricing"], ["fl3", "#faq"], ["fl4", "/login"]];
 
 export default function LandingContent() {
   const { t } = useLang();
@@ -94,8 +82,7 @@ export default function LandingContent() {
           </Link>
           <nav className="hidden items-center gap-7 text-sm font-semibold text-white/80 lg:flex">
             <a href="#features" className="transition hover:text-white">{L("navFeatures")}</a>
-            <a href="#businesses" className="transition hover:text-white">{L("navBusinesses")}</a>
-            <a href="#how" className="transition hover:text-white">{L("navHow")}</a>
+                        <a href="#how" className="transition hover:text-white">{L("navHow")}</a>
             <a href="#pricing" className="transition hover:text-white">{L("navPricing")}</a>
             <a href="#faq" className="transition hover:text-white">{L("navFaq")}</a>
           </nav>
@@ -264,21 +251,7 @@ export default function LandingContent() {
             </div>
           </div>
         </div>
-        {/* Business-type marquee — solid ink band, crisp text */}
-        <div className="relative z-10 mt-4 border-y border-white/10 bg-[#0a1120]">
-          <div className="overflow-hidden py-5 [mask-image:linear-gradient(to_right,transparent,black_8%,black_92%,transparent)]">
-            <div className="animate-marquee flex w-max items-center gap-12 pr-12">
-              {[...businessTypes, ...businessTypes].map((bt, i) => (
-                <span key={i} className="flex items-center gap-2.5 text-sm font-bold tracking-wide text-white">
-                  <span className="grid h-8 w-8 place-items-center rounded-lg bg-white/10">
-                    <bt.icon size={15} className="text-[#f0b73f]" />
-                  </span>
-                  {L(bt.l)}
-                </span>
-              ))}
-            </div>
-          </div>
-        </div>
+        
       </section>
 
       {/* Paper vs LedgerProSolution — warm paper tint, thematic */}
@@ -342,32 +315,6 @@ export default function LandingContent() {
       </section>
 
       {/* Businesses */}
-      <section id="businesses" className="relative overflow-hidden border-b border-border/40 bg-gradient-to-b from-primary-soft/50 via-primary-soft/20 to-background dark:from-primary-soft/30 dark:via-primary-soft/10 dark:to-background">
-        <div className="pointer-events-none absolute inset-0">
-          <div className="absolute left-1/2 top-0 h-64 w-[42rem] -translate-x-1/2 rounded-full bg-primary/15 blur-[110px] dark:bg-primary/25" />
-        </div>
-        <div className="relative mx-auto max-w-[1200px] px-4 py-12 sm:px-8 sm:py-16 lg:px-12">
-          <div className="max-w-2xl">
-            <span className="inline-flex items-center gap-1.5 rounded-full bg-primary/10 px-4 py-1.5 text-xs font-bold uppercase tracking-wider text-primary">
-              <Sparkles size={13} /> {L("bizKicker")}
-            </span>
-            <h2 className="font-display mt-4 text-3xl font-extrabold tracking-tight sm:text-4xl">{L("bizTitle")}</h2>
-            <p className="mt-3 text-muted-foreground">{L("bizSub")}</p>
-          </div>
-          <div className="mt-8 grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
-            {businessTypes.map((bt) => (
-              <div key={bt.l} className="card group p-4 transition duration-300 hover:-translate-y-1 hover:border-primary/40 hover:shadow-xl hover:shadow-primary/10 sm:p-6">
-                <span className="grid h-11 w-11 place-items-center rounded-2xl bg-primary/10 text-primary transition group-hover:scale-110 group-hover:bg-primary group-hover:text-white sm:h-12 sm:w-12">
-                  <bt.icon size={20} />
-                </span>
-                <p className="mt-3.5 text-sm font-bold sm:text-base">{L(bt.l)}</p>
-                <p className="mt-1 text-xs leading-relaxed text-muted-foreground sm:text-[0.83rem]">{L(bt.d)}</p>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
-
       {/* Features */}
       <section id="features" className="relative overflow-hidden">
         <div className="relative mx-auto max-w-[1200px] px-4 py-12 sm:px-8 sm:py-16 lg:px-12">
@@ -589,14 +536,6 @@ export default function LandingContent() {
             <ul className="mt-4 space-y-2.5 text-sm">
               {footLinks.map(([lk, h]) => (
                 <li key={h}><Link href={h} className="text-white/75 transition hover:text-white">{L(lk)}</Link></li>
-              ))}
-            </ul>
-          </div>
-          <div>
-            <p className="text-xs font-extrabold uppercase tracking-wider text-white/50">{L("footMadeFor")}</p>
-            <ul className="mt-4 space-y-2.5 text-sm">
-              {madeFor.map((mk) => (
-                <li key={mk} className="text-white/75">{L(mk)}</li>
               ))}
             </ul>
           </div>
