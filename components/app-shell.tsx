@@ -7,11 +7,33 @@ import {
   LayoutDashboard, ShoppingCart, Truck, Wallet, ReceiptText, Users, Package,
   BarChart3, Menu, X, LogOut, Boxes, Plus, Settings, Crown, ShieldCheck,
   LifeBuoy, ArrowRight, Sparkles, Stamp, Landmark, Briefcase, Factory, KeyRound, Cog,
-  FolderKanban, Repeat, ShieldAlert, Search, ChevronDown,
+  FolderKanban, Repeat, ShieldAlert, Search, ChevronDown, MessageCircle,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { Logo, ThemeToggle, LangToggle } from "./ui";
 import { NotificationBell } from "./notification-bell";
+import { whatsappLink } from "@/lib/brand";
+
+/** WhatsApp support button — opens chat with pre-filled issue report (current page included). */
+function WhatsAppSupport() {
+  const { t } = useLang();
+  const pathname = usePathname();
+  const text = t("waAppText").replace("{page}", pathname || "/");
+  const href = whatsappLink(text);
+  if (!href) return null;
+  return (
+    <a
+      href={href}
+      target="_blank"
+      rel="noopener noreferrer"
+      className="grid h-11 w-11 place-items-center rounded-xl border border-border bg-card text-[#25D366] transition hover:-translate-y-0.5 hover:shadow-md"
+      title={t("header.whatsappSupport")}
+      aria-label={t("header.whatsappSupport")}
+    >
+      <MessageCircle size={17} />
+    </a>
+  );
+}
 import { api } from "@/lib/format";
 import { BusinessTypeProvider, getTranslatedProfile } from "./business-type";
 import type { BusinessFeatures } from "@/lib/business-types";
@@ -350,6 +372,7 @@ export function AppShell({ children, initialBusinessType }: { children: ReactNod
             <ThemeToggle />
             <LangToggle />
             <NotificationBell />
+            <WhatsAppSupport />
             <button onClick={logout} className="grid h-11 w-11 place-items-center rounded-xl border border-border bg-card transition hover:-translate-y-0.5 hover:shadow-md hover:text-danger" title={t("header.logout")} aria-label={t("header.logout")}>
               <LogOut size={17} />
             </button>

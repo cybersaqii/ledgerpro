@@ -6,11 +6,11 @@ import {
   ArrowRight, BarChart3, Boxes, CheckCircle2, FileText, Landmark,
   ScanBarcode, ShieldCheck, Smartphone, Sparkles, TrendingUp, Users, Wallet,
   Store, Factory, Stethoscope, Pill, UtensilsCrossed, Briefcase, Truck,
-  TriangleAlert, XCircle, BadgeCheck, Play, LayoutGrid,
+  TriangleAlert, XCircle, BadgeCheck, Play, LayoutGrid, MessageCircle,
 } from "lucide-react";
 import { ThemeToggle, LangToggle } from "@/components/ui";
 import { BrandLockup } from "@/components/brand-logo";
-import { brand } from "@/lib/brand";
+import { brand, whatsappLink } from "@/lib/brand";
 import { useLang } from "@/components/lang-provider";
 
 const features = [
@@ -567,6 +567,20 @@ export default function LandingContent() {
           </Link>
         </div>
       </div>
+
+      {/* Floating WhatsApp support — landing page */}
+      {whatsappLink(L("waLandingText")) && (
+        <a
+          href={whatsappLink(L("waLandingText"))!}
+          target="_blank"
+          rel="noopener noreferrer"
+          aria-label="Chat on WhatsApp"
+          className="fixed bottom-20 right-4 z-40 grid h-14 w-14 place-items-center rounded-full bg-[#25D366] text-white shadow-xl shadow-black/30 transition hover:scale-105 active:scale-95 md:bottom-6 md:right-6"
+          style={{ marginBottom: "env(safe-area-inset-bottom)" }}
+        >
+          <MessageCircle size={26} />
+        </a>
+      )}
     </div>
   );
 }
