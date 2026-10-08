@@ -32,6 +32,8 @@ export default function AssetsPage() {
   const [open, setOpen] = useState(false);
   const [busy, setBusy] = useState(false);
   const [formErr, setFormErr] = useState<string | null>(null);
+  const [showAdvanced, setShowAdvanced] = useState(false);
+  const [showDepreciation, setShowDepreciation] = useState(false);
 
   // New-asset form
   const [accounts, setAccounts] = useState<Account[]>([]);
@@ -70,8 +72,10 @@ export default function AssetsPage() {
         )
       );
       setBranches(b.data);
-      const first = a.data.find((x) => x.code === "1400") ?? a.data.find((x) => x.code >= "1400" && x.code <= "1499");
-      setF((p) => ({ ...p, accountId: first?.id ?? a.data[0]?.id ?? "" }));
+      // Cost account: prefer a 1401-1499 fixed-asset cost account (1400 is Accumulated Depreciation — a contra account, not a cost account)
+      const costAccount = a.data.find((x) => x.code >= "1401" && x.code <= "1499")
+        ?? a.data.find((x) => x.code >= "1400" && x.code <= "1499" && x.code !== "1400");
+      setF((p) => ({ ...p, accountId: costAccount?.id ?? a.data[0]?.id ?? "" }));
     } catch { /* keep dialog usable even if lookups fail */ }
     setOpen(true);
   };
@@ -175,73 +179,104 @@ export default function AssetsPage() {
               <h2 className="text-base font-bold">{t("assets.newAsset")}</h2>
               <button className="btn btn-ghost !p-2" onClick={() => setOpen(false)}><X size={16} /></button>
             </div>
-            <p className="mt-1 text-xs text-muted-foreground">{t("assets.noAssetsHint")}</p>
+            <p className="mt-1 text-xs text-muted-foreground">{t("assets.newAssetHint")}</p>
             <ErrorNote message={formErr} />
-            <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
-              <Field label={t("assets.assetCode")} required>
-                <input className="input" value={f.code} onChange={set("code")} placeholder="AST-0001" />
+
+            {/* Essentials — what beginners need */}
+            <div className="mt-4 space-y-3">
+              <Field label={t("assets.description")} required hint={t("assets.descriptionHint")}>
+                <input className="input" value={f.description} onChange={set("description")} placeholder={t("assets.descriptionPh")} />
               </Field>
-              <Field label={t("assets.assetClass")}>
-                <select className="input" value={f.assetClass} onChange={set("assetClass")}>
-                  {CLASSES.map((c) => <option key={c} value={c}>{c}</option>)}
-                </select>
-              </Field>
-              <div className="sm:col-span-2">
-                <Field label={t("assets.description")} required>
-                  <input className="input" value={f.description} onChange={set("description")} />
+              <div className="grid grid-cols-2 gap-3">
+                <Field label={t("assets.purchaseCost")} required>
+                  <input inputMode="decimal" className="input" value={f.purchaseCost} onChange={set("purchaseCost")} placeholder="0.00" />
+                </Field>
+                <Field label={t("assets.purchaseDate")} required>
+                  <input type="date" className="input" value={f.purchaseDate} onChange={set("purchaseDate")} />
                 </Field>
               </div>
-              <Field label={t("assets.serialNumber")}>
-                <input className="input" value={f.serialNumber} onChange={set("serialNumber")} />
-              </Field>
-              <Field label={t("assets.branch")}>
-                <select className="input" value={f.branchId} onChange={set("branchId")}>
-                  <option value="">—</option>
-                  {branches.map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}
-                </select>
-              </Field>
-              <div className="sm:col-span-2">
-                <Field label={t("assets.assetAccount")} required hint={t("assets.assetAccountHint")}>
-                  <select className="input" value={f.accountId} onChange={set("accountId")}>
-                    {accounts.map((a) => <option key={a.id} value={a.id}>{a.code} — {a.name}</option>)}
-                  </select>
-                </Field>
-              </div>
-              <div className="sm:col-span-2">
-                <Field label={t("assets.accumDepAccount")} hint={t("assets.accumDepHint")}>
-                  <select className="input" value={f.accumDepAccountId} onChange={set("accumDepAccountId")}>
-                    <option value="">{t("assets.sharedAccumDep")}</option>
-                    {accounts.map((a) => <option key={a.id} value={a.id}>{a.code} — {a.name}</option>)}
-                  </select>
-                </Field>
-              </div>
-              <Field label={t("assets.purchaseDate")} required>
-                <input type="date" className="input" value={f.purchaseDate} onChange={set("purchaseDate")} />
-              </Field>
-              <Field label={t("assets.purchaseCost")} required>
-                <input inputMode="decimal" className="input" value={f.purchaseCost} onChange={set("purchaseCost")} />
-              </Field>
-              <Field label={t("assets.salvageValue")}>
-                <input inputMode="decimal" className="input" value={f.salvageValue} onChange={set("salvageValue")} />
-              </Field>
-              <Field label={t("assets.usefulLife")} required>
-                <input type="number" min={1} max={100} className="input" value={f.usefulLifeYears} onChange={set("usefulLifeYears")} />
-              </Field>
-              <Field label={t("assets.method")} required>
-                <select className="input" value={f.depreciationMethod} onChange={set("depreciationMethod")}>
-                  <option value="SL">{t("assets.methodSL")}</option>
-                  <option value="DB">{t("assets.methodDB")}</option>
-                </select>
-              </Field>
-              {f.depreciationMethod === "DB" && (
-                <Field label={t("assets.annualRate")} required>
-                  <input inputMode="decimal" className="input" value={f.annualRate} onChange={set("annualRate")} />
-                </Field>
-              )}
             </div>
+
+            {/* Advanced details — collapsible */}
+            <button
+              type="button"
+              onClick={() => setShowAdvanced((v) => !v)}
+              className="mt-4 flex w-full items-center justify-between rounded-xl bg-muted/50 px-4 py-2.5 text-sm font-bold"
+            >
+              {t("assets.moreDetails")}
+              <ChevronRight size={16} className={`transition-transform ${showAdvanced ? "rotate-90" : ""}`} />
+            </button>
+            {showAdvanced && (
+              <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
+                <Field label={t("assets.assetCode")} hint={t("assets.assetCodeHint")}>
+                  <input className="input" value={f.code} onChange={set("code")} placeholder="AST-0001" />
+                </Field>
+                <Field label={t("assets.assetClass")}>
+                  <select className="input" value={f.assetClass} onChange={set("assetClass")}>
+                    {CLASSES.map((c) => <option key={c} value={c}>{c}</option>)}
+                  </select>
+                </Field>
+                <Field label={t("assets.serialNumber")}>
+                  <input className="input" value={f.serialNumber} onChange={set("serialNumber")} />
+                </Field>
+                <Field label={t("assets.branch")}>
+                  <select className="input" value={f.branchId} onChange={set("branchId")}>
+                    <option value="">—</option>
+                    {branches.map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}
+                  </select>
+                </Field>
+                <div className="sm:col-span-2">
+                  <Field label={t("assets.assetAccount")} hint={t("assets.assetAccountHint")}>
+                    <select className="input" value={f.accountId} onChange={set("accountId")}>
+                      {accounts.map((a) => <option key={a.id} value={a.id}>{a.code} — {a.name}</option>)}
+                    </select>
+                  </Field>
+                </div>
+                <div className="sm:col-span-2">
+                  <Field label={t("assets.accumDepAccount")} hint={t("assets.accumDepHint")}>
+                    <select className="input" value={f.accumDepAccountId} onChange={set("accumDepAccountId")}>
+                      <option value="">{t("assets.sharedAccumDep")}</option>
+                      {accounts.map((a) => <option key={a.id} value={a.id}>{a.code} — {a.name}</option>)}
+                    </select>
+                  </Field>
+                </div>
+              </div>
+            )}
+
+            {/* Depreciation — collapsible with plain-language explanations */}
+            <button
+              type="button"
+              onClick={() => setShowDepreciation((v) => !v)}
+              className="mt-3 flex w-full items-center justify-between rounded-xl bg-muted/50 px-4 py-2.5 text-sm font-bold"
+            >
+              {t("assets.depreciationSettings")}
+              <ChevronRight size={16} className={`transition-transform ${showDepreciation ? "rotate-90" : ""}`} />
+            </button>
+            {showDepreciation && (
+              <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
+                <Field label={t("assets.usefulLife")} required hint={t("assets.usefulLifeHint")}>
+                  <input type="number" min={1} max={100} className="input" value={f.usefulLifeYears} onChange={set("usefulLifeYears")} />
+                </Field>
+                <Field label={t("assets.method")} required hint={t("assets.methodHint")}>
+                  <select className="input" value={f.depreciationMethod} onChange={set("depreciationMethod")}>
+                    <option value="SL">{t("assets.methodSL")}</option>
+                    <option value="DB">{t("assets.methodDB")}</option>
+                  </select>
+                </Field>
+                <Field label={t("assets.salvageValue")} hint={t("assets.salvageValueHint")}>
+                  <input inputMode="decimal" className="input" value={f.salvageValue} onChange={set("salvageValue")} placeholder="0.00" />
+                </Field>
+                {f.depreciationMethod === "DB" && (
+                  <Field label={t("assets.annualRate")} required hint={t("assets.annualRateHint")}>
+                    <input inputMode="decimal" className="input" value={f.annualRate} onChange={set("annualRate")} />
+                  </Field>
+                )}
+              </div>
+            )}
+
             <div className="mt-5 flex justify-end gap-2">
               <button className="btn btn-ghost" onClick={() => setOpen(false)}>{t("common.cancel")}</button>
-              <button className="btn btn-primary" disabled={busy || !f.code || !f.description || !f.accountId || !f.purchaseCost} onClick={create}>
+              <button className="btn btn-primary" disabled={busy || !f.description || !f.accountId || !f.purchaseCost} onClick={create}>
                 {t("assets.newAsset")}
               </button>
             </div>
