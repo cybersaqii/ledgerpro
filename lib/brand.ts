@@ -7,7 +7,7 @@ export const brand = {
   accent: "emerald",
   // WhatsApp support: international format without "+" (e.g. "923001234567").
   // Users tap to chat with pre-filled issue reports (screenshots/videos attach in WhatsApp).
-  supportWhatsApp: "",
+  supportWhatsApp: "923238737464",
 } as const;
 
 /** wa.me deep link with pre-filled text. Returns null when no number is configured. */
