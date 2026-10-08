@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState, useEffect } from "react";
-import { LogIn, Eye, EyeOff } from "lucide-react";
+import { LogIn, Eye, EyeOff, ShieldCheck } from "lucide-react";
 import { AuthLayout } from "@/components/auth-layout";
 import { GoogleGlyph } from "@/components/google-glyph";
 import { Field, ErrorNote } from "@/components/ui";
@@ -24,6 +24,9 @@ export default function LoginPage() {
   const [code, setCode] = useState("");
   const [codeSent, setCodeSent] = useState(false);
   const [sending, setSending] = useState(false);
+  const [mfaMode, setMfaMode] = useState(false);
+  const [mfaCode, setMfaCode] = useState("");
+  const [challengeToken, setChallengeToken] = useState("");
   // Google OAuth button renders only when the server has it configured.
   const [googleOn, setGoogleOn] = useState(false);
   useEffect(() => {
@@ -90,7 +93,30 @@ export default function LoginPage() {
     setError(null);
     setBusy(true);
     try {
-      await api("/api/auth/login", { method: "POST", body: JSON.stringify({ email, password }) });
+      const r = await api<{ mfaRequired?: boolean; challengeToken?: string }>("/api/auth/login", { method: "POST", body: JSON.stringify({ email, password }) });
+      if (r.mfaRequired) {
+        setChallengeToken(r.challengeToken || "");
+        setMfaMode(true);
+        return;
+      }
+      router.push("/dashboard");
+      router.refresh();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : t("auth.loginError"));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function submitMfa(e: React.FormEvent) {
+    e.preventDefault();
+    setError(null);
+    setBusy(true);
+    try {
+      await api("/api/auth/mfa/challenge", {
+        method: "POST",
+        body: JSON.stringify({ challengeToken, code: mfaCode }),
+      });
       router.push("/dashboard");
       router.refresh();
     } catch (err) {
@@ -102,7 +128,31 @@ export default function LoginPage() {
 
   return (
     <AuthLayout heading={t("auth.loginTitle")} sub={t("auth.loginSub", { brand: brand.name })}>
-      {!otpMode ? (
+      {mfaMode ? (
+      <form onSubmit={submitMfa} className="space-y-4">
+        <ErrorNote message={error} />
+        <div className="rounded-2xl bg-primary-soft p-4 text-center">
+          <ShieldCheck size={28} className="mx-auto text-primary" />
+          <p className="mt-2 text-sm font-bold">Two-factor authentication</p>
+          <p className="mt-1 text-xs text-muted-foreground">
+            Enter the 6-digit code from your authenticator app, or a backup code.
+          </p>
+        </div>
+        <Field label="Authentication code" required>
+          <input className="field text-center text-xl tracking-[0.3em]" required
+            inputMode="numeric" autoComplete="one-time-code" autoFocus
+            placeholder="123456" value={mfaCode}
+            onChange={(e) => setMfaCode(e.target.value.replace(/[^0-9A-Za-z-]/g, "").slice(0, 9))} />
+        </Field>
+        <button className="btn btn-primary w-full !py-3" disabled={busy}>
+          <LogIn size={17} /> {busy ? t("auth.loggingIn") : "Verify & Log in"}
+        </button>
+        <button type="button" className="btn btn-ghost w-full text-sm"
+          onClick={() => { setMfaMode(false); setMfaCode(""); setChallengeToken(""); setError(null); }}>
+          Back to login
+        </button>
+      </form>
+      ) : !otpMode ? (
       <form onSubmit={submit} className="space-y-4">
         <ErrorNote message={error} />
         <Field label={t("auth.email")} required>

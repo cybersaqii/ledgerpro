@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useCallback } from "react";
 import Link from "next/link";
+import { QRCodeSVG } from "qrcode.react";
 import { useRouter } from "next/navigation";
 import { Building2, Database, Download, Save, Upload, Users, UserPlus, ScrollText, KeyRound, Lock, Activity, TriangleAlert, MonitorSmartphone, LogOut, CircleCheck, History, ShieldCheck, RefreshCw, Crown, Store, CalendarCheck, Globe, Trash2, Plus } from "lucide-react";
 import { PageHeader, Field, ErrorNote } from "@/components/ui";
@@ -1135,6 +1136,142 @@ function SecurityCard() {
         </div>
         <button className="btn btn-ghost text-sm" disabled={pwBusy}>{pwBusy ? t("settingssecurity.changing") : t("settingssecurity.changeBtn")}</button>
       </form>
+
+      <MfaCard />
+    </div>
+  );
+}
+
+/** Two-factor authentication (TOTP) enrollment and management. */
+function MfaCard() {
+  const { t } = useLang();
+  const [status, setStatus] = useState<{ mfaEnabled: boolean } | null>(null);
+  const [step, setStep] = useState<"idle" | "qr" | "codes">("idle");
+  const [uri, setUri] = useState("");
+  const [code, setCode] = useState("");
+  const [backupCodes, setBackupCodes] = useState<string[]>([]);
+  const [password, setPassword] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const load = useCallback(async () => {
+    try {
+      const r = await api<{ mfaEnabled: boolean }>("/api/auth/mfa/status");
+      setStatus({ mfaEnabled: !!r.mfaEnabled });
+    } catch { /* ignore */ }
+  }, []);
+  useEffect(() => { load(); }, [load]);
+
+  async function startSetup() {
+    setError(null); setBusy(true);
+    try {
+      const r = await api<{ uri: string }>("/api/auth/mfa/setup", { method: "POST" });
+      setUri(r.uri);
+      setStep("qr");
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Failed to start MFA setup.");
+    } finally { setBusy(false); }
+  }
+
+  async function confirmSetup(e: React.FormEvent) {
+    e.preventDefault();
+    setError(null); setBusy(true);
+    try {
+      const r = await api<{ backupCodes: string[] }>("/api/auth/mfa/verify-setup", { method: "POST", body: JSON.stringify({ code }) });
+      setBackupCodes(r.backupCodes || []);
+      setStep("codes");
+      setStatus({ mfaEnabled: true });
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Verification failed.");
+    } finally { setBusy(false); }
+  }
+
+  async function disableMfa(e: React.FormEvent) {
+    e.preventDefault();
+    setError(null); setBusy(true);
+    try {
+      await api("/api/auth/mfa/disable", { method: "POST", body: JSON.stringify({ password }) });
+      setPassword("");
+      setStatus({ mfaEnabled: false });
+      setStep("idle");
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Failed to disable MFA.");
+    } finally { setBusy(false); }
+  }
+
+  return (
+    <div className="mt-5 space-y-3 rounded-2xl border border-border p-4">
+      <h3 className="inline-flex items-center gap-2 text-sm font-extrabold">
+        <ShieldCheck size={16} /> Two-factor authentication (2FA)
+      </h3>
+      <p className="text-sm text-muted-foreground">
+        Add an extra layer of security. After your password, you'll enter a 6-digit code from an authenticator app (Google Authenticator, Authy, 1Password).
+      </p>
+      <ErrorNote message={error} />
+
+      {status === null && <p className="text-sm text-muted-foreground">Loading…</p>}
+
+      {status && !status.mfaEnabled && step === "idle" && (
+        <button className="btn btn-primary text-sm" disabled={busy} onClick={startSetup}>
+          {busy ? "Starting…" : "Enable 2FA"}
+        </button>
+      )}
+
+      {status && !status.mfaEnabled && step === "qr" && (
+        <div className="space-y-3">
+          <p className="text-sm font-semibold">1. Scan this QR code with your authenticator app:</p>
+          <div className="inline-block rounded-xl bg-white p-3">
+            <QRCodeSVG value={uri} size={180} />
+          </div>
+          <p className="text-sm font-semibold">2. Enter the 6-digit code to confirm:</p>
+          <form onSubmit={confirmSetup} className="flex gap-2">
+            <input
+              className="field max-w-40 text-center text-lg tracking-widest"
+              inputMode="numeric" autoComplete="one-time-code" maxLength={6}
+              placeholder="123456" value={code}
+              onChange={(e) => setCode(e.target.value.replace(/\D/g, "").slice(0, 6))}
+              required
+            />
+            <button className="btn btn-primary text-sm" disabled={busy || code.length !== 6}>
+              {busy ? "Verifying…" : "Verify & Enable"}
+            </button>
+          </form>
+        </div>
+      )}
+
+      {step === "codes" && (
+        <div className="space-y-3 rounded-xl bg-amber-50 p-4 dark:bg-amber-950/30">
+          <p className="text-sm font-bold text-amber-800 dark:text-amber-200">
+            Save these backup codes now — each works once if you lose your phone:
+          </p>
+          <div className="grid grid-cols-2 gap-2 font-mono text-sm">
+            {backupCodes.map((c) => (
+              <div key={c} className="rounded-lg bg-white px-3 py-2 text-center dark:bg-black/30">{c}</div>
+            ))}
+          </div>
+          <button className="btn btn-ghost text-sm" onClick={() => { setStep("idle"); setBackupCodes([]); }}>
+            I've saved them — Done
+          </button>
+        </div>
+      )}
+
+      {status?.mfaEnabled && step === "idle" && (
+        <div className="space-y-3">
+          <p className="inline-flex items-center gap-2 rounded-xl bg-emerald-50 px-4 py-2.5 text-sm font-semibold text-emerald-700 dark:bg-emerald-950/30 dark:text-emerald-300">
+            <CircleCheck size={16} /> 2FA is enabled on your account.
+          </p>
+          <form onSubmit={disableMfa} className="flex flex-wrap items-center gap-2">
+            <input
+              className="field max-w-56" type="password" required
+              autoComplete="current-password" placeholder="Current password"
+              value={password} onChange={(e) => setPassword(e.target.value)}
+            />
+            <button className="btn btn-ghost text-sm text-red-600" disabled={busy}>
+              {busy ? "Disabling…" : "Disable 2FA"}
+            </button>
+          </form>
+        </div>
+      )}
     </div>
   );
 }

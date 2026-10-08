@@ -86,6 +86,10 @@ export const users = sqliteTable(
     googleSub: text("google_sub"), // Google OAuth subject id, linked on first Google sign-in
     lastLoginAt: ts("last_login_at"),
     lastActivityAt: ts("last_activity_at"), // idle-timeout tracking; null = pre-migration, start tracking on next request
+    mfaSecretEnc: text("mfa_secret_enc"), // AES-256-GCM encrypted TOTP secret; null = not enrolled
+    mfaEnabled: flag("mfa_enabled", false),
+    mfaBackupCodes: text("mfa_backup_codes"), // JSON array of bcrypt hashes; null when unset
+    mfaEnrolledAt: ts("mfa_enrolled_at"),
     createdAt: createdAt(),
     updatedAt: updatedAt(),
   },

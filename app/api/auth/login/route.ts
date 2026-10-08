@@ -3,6 +3,7 @@ import { eq } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { users, branches, accounts } from "@/db/schema";
 import { verifyPassword, createSession } from "@/lib/auth";
+import { createMfaChallengeToken } from "@/lib/mfa-token";
 import { loginSchema } from "@/lib/validators";
 import { setupCompany, SYS } from "@/lib/setup";
 import { json, err } from "@/lib/api";
@@ -77,6 +78,23 @@ export async function POST(req: NextRequest) {
       console.error("Bootstrap retry failed", e);
       return err("Account setup is incomplete. Please try again in a moment.", 500);
     }
+  }
+
+  // MFA: if the user has TOTP enabled, issue a short-lived challenge token
+  // instead of a session. The client must POST the TOTP code to
+  // /api/auth/mfa/challenge to complete login.
+  if (user.mfaEnabled) {
+    const challengeToken = await createMfaChallengeToken(user.id);
+    await recordLoginAttempt(db, {
+      companyId: user.companyId,
+      userId: user.id,
+      email: user.email,
+      ip: clientIp(req),
+      userAgent: req.headers.get("user-agent"),
+      result: "FAIL",
+      reason: "MFA_REQUIRED",
+    });
+    return json({ ok: true, mfaRequired: true, challengeToken });
   }
 
   await createSession({
