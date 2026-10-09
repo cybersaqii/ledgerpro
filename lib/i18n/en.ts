@@ -113,6 +113,7 @@ export const en = {
   header: {
     openMenu: "Open menu",
     whatsappSupport: "WhatsApp support — report an issue",
+    waAppText: "Hello! I need help with LedgerProSolution.\n\nIssue:\n\n(Page: {page})",
     quickCreate: "Quick create",
     newSale: "New sale",
     newPurchase: "New purchase bill",
@@ -1497,7 +1498,6 @@ export const en = {
     ctaFree: "Start free",
     stickyNote: "Free forever · No credit card",
     waLandingText: "Hello! I have a question about LedgerProSolution.",
-    waAppText: "Hello! I need help with LedgerProSolution.\n\nIssue:\n\n(Page: {page})",
     ctaPro: "Start 30-day free trial",
     ctaTitle: "Every day on paper is money you can't track.",
     ctaSub: "Join {brand} free — see your real sales, stock, dues and profit today.",

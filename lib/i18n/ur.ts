@@ -118,6 +118,7 @@ export const ur: DeepPartial<EnDict> = {
   header: {
     openMenu: "مینیو کھولیں",
     whatsappSupport: "WhatsApp support — issue report karein",
+    waAppText: "Salam! Mujhe LedgerProSolution mein madad chahiye.\n\nMasla:\n\n(Page: {page})",
     quickCreate: "فوری بنائیں",
     newSale: "نئی فروخت",
     newPurchase: "نیا خریداری بل",
@@ -1497,7 +1498,6 @@ export const ur: DeepPartial<EnDict> = {
     ctaFree: "مفت شروع کریں",
     stickyNote: "ہمیشہ مفت · کریڈٹ کارڈ کی ضرورت نہیں",
     waLandingText: "Assalam-o-Alaikum! Mujhe LedgerProSolution ke baare mein sawal hai.",
-    waAppText: "Assalam-o-Alaikum! Mujhe LedgerProSolution mein issue hai.\n\nIssue:\n\n(Page: {page})",
     ctaPro: "30 دن کا مفت ٹرائل شروع کریں",
     ctaTitle: "کاغذ پر ہر دن ایسا پیسہ ہے جسے آپ ٹریک نہیں کر سکتے۔",
     ctaSub: "{brand} مفت جوائن کریں — آج ہی اپنی اصل سیل، اسٹاک، واجبات اور منافع دیکھیں۔",

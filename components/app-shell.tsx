@@ -18,7 +18,7 @@ import { whatsappLink } from "@/lib/brand";
 function WhatsAppSupport() {
   const { t } = useLang();
   const pathname = usePathname();
-  const text = t("waAppText").replace("{page}", pathname || "/");
+  const text = t("header.waAppText").replace("{page}", pathname || "/");
   const href = whatsappLink(text);
   if (!href) return null;
   return (
@@ -84,8 +84,9 @@ export function AppShell({ children, initialBusinessType }: { children: ReactNod
   const [quickOpen, setQuickOpen] = useState(false);
   const quickRef = useRef<HTMLDivElement>(null);
   const [hello, setHello] = useState({ greet: "shell.morning", today: "" });
-  // Grouped nav: every group starts expanded; the search box filters flat.
-  const [collapsed, setCollapsed] = useState<Set<NavGroup>>(new Set());
+  // Grouped nav: all groups start collapsed; the group holding the current
+  // page auto-expands so users always see where they are.
+  const [collapsed, setCollapsed] = useState<Set<NavGroup>>(() => new Set(GROUP_ORDER));
   const [navQuery, setNavQuery] = useState("");
 
   useEffect(() => {
@@ -196,6 +197,19 @@ export function AppShell({ children, initialBusinessType }: { children: ReactNod
       return next;
     });
   }
+
+  // Auto-expand the group holding the current page (runs on navigation).
+  useEffect(() => {
+    if (activeGroup) {
+      setCollapsed((s) => {
+        if (!s.has(activeGroup)) return s;
+        const next = new Set(s);
+        next.delete(activeGroup);
+        return next;
+      });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pathname]);
 
   // When the route changes, auto-expand the group holding the new page — but
   // a manual collapse is respected afterwards. (Previously the active group
