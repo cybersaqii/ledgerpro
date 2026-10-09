@@ -5,7 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { ArrowLeft, ArrowRightLeft, Ban, Mail, MessageCircle, PackageCheck, Printer, Truck, Undo2, Wallet } from "lucide-react";
 import { PageHeader, StatusPill } from "@/components/ui";
-import { api, fmtMoney, fmtMoneyPlain, fmtQty, fmtDate, toBig } from "@/lib/format";
+import { api, fmtMoney, fmtMoneyPlain, fmtMoneyShort, fmtQty, fmtDate, toBig } from "@/lib/format";
 import { formatForeign, paisaToForeignMinor, formatRate } from "@/lib/fx";
 import { brand } from "@/lib/brand";
 import { useLang } from "@/components/lang-provider";
@@ -282,9 +282,9 @@ export function DocDetail({ mode, id }: { mode: "SALES" | "PURCHASE" | "NOTE"; i
   }
   /** Plain-text variant for the thermal template. */
   function dualRowPlain(pkr: bigint, foreignExact: bigint | null): string {
-    if (!isForeignDoc) return fmtMoneyPlain(pkr);
+    if (!isForeignDoc) return fmtMoneyShort(pkr);
     const f = foreignExact ?? fxOf(pkr);
-    return f != null ? `${fmtForeignAmt(f, foreignExact == null)} (≈ ${fmtMoneyPlain(pkr)})` : fmtMoneyPlain(pkr);
+    return f != null ? `${fmtForeignAmt(f, foreignExact == null)} (≈ ${fmtMoneyShort(pkr)})` : fmtMoneyShort(pkr);
   }
   const canPostWo = isSales && doc.docType === "INVOICE" && doc.partyId &&
     (doc.status === "POSTED" || doc.status === "PARTIAL") && outstanding > 0n;
@@ -734,8 +734,8 @@ export function DocDetail({ mode, id }: { mode: "SALES" | "PURCHASE" | "NOTE"; i
                   </td>
                   <td className="whitespace-nowrap border border-black px-1 py-0.5 text-center">{it.lineUnit ?? it.unit ?? "—"}</td>
                   <td className="whitespace-nowrap border border-black px-1 py-0.5 text-end">{it.lineUnit && it.lineUnitQty ? fmtQty(it.lineUnitQty) : fmtQty(it.qty)}</td>
-                  <td className="whitespace-nowrap border border-black px-1 py-0.5 text-end">{it.lineUnit && it.lineUnitRate ? fmtMoneyPlain(it.lineUnitRate) : fmtMoneyPlain(it.rate)}</td>
-                  <td className="whitespace-nowrap border border-black px-1 py-0.5 text-end font-bold">{fmtMoneyPlain(it.lineTotal)}</td>
+                  <td className="whitespace-nowrap border border-black px-1 py-0.5 text-end">{it.lineUnit && it.lineUnitRate ? fmtMoneyShort(it.lineUnitRate) : fmtMoneyShort(it.rate)}</td>
+                  <td className="whitespace-nowrap border border-black px-1 py-0.5 text-end font-bold">{fmtMoneyShort(it.lineTotal)}</td>
                 </tr>
               ))}
             </tbody>

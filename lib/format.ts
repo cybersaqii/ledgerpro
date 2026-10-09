@@ -24,6 +24,11 @@ export function fmtMoneyPlain(paisa: string | number | bigint): string {
   return fmtMoney(paisa).replace(/^(-?)Rs /, "$1");
 }
 
+export function fmtMoneyShort(paisa: string | number | bigint): string {
+  // "40.00" -> "40", "40.50" stays "40.50" — cleaner on printed invoices.
+  return fmtMoneyPlain(paisa).replace(/\.00$/, "");
+}
+
 export function fmtQty(milli: string | number | bigint, unit = ""): string {
   const n = typeof milli === "bigint" ? milli : BigInt(milli);
   const neg = n < 0n;
