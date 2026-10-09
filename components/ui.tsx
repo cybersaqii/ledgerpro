@@ -79,19 +79,20 @@ export function Stat({ label, value, sub, icon, tone = "primary" }: {
     danger: "tile-danger",
     neutral: "tile-neutral",
   };
+  // Shrink long values so big amounts never split digits across lines on mobile.
+  const len = value.length;
+  const valueSize = len > 14 ? "text-base" : len > 10 ? "text-lg" : "text-xl";
   return (
-    <div className="card card-lift rise p-4 sm:p-5">
-      {/* Mobile: icon + label on top row, value full-width below (no vertical char stacking) */}
-      <div className="flex items-center gap-2 sm:gap-3.5">
+    <div className="card card-lift rise min-w-0 p-3.5 sm:p-5">
+      {/* Mobile: icon + label on top row, value full-width below */}
+      <div className="flex items-center gap-2">
         {icon && (
-          <span className={`tile ${tones[tone]} h-9 w-9 shrink-0 sm:h-12 sm:w-12`}>{icon}</span>
+          <span className={`tile ${tones[tone]} h-8 w-8 shrink-0 sm:h-12 sm:w-12`}>{icon}</span>
         )}
-        <p className="line-clamp-2 min-w-0 flex-1 text-[0.65rem] font-semibold uppercase tracking-wider text-muted-foreground sm:text-[0.72rem]" title={label}>{label}</p>
-        {/* spacer keeps text clear of the .kpi-tile-go arrow on narrow tiles */}
-        <span className="w-5 shrink-0 sm:w-8" aria-hidden="true" />
+        <p className="min-w-0 flex-1 text-[0.62rem] font-semibold uppercase leading-snug tracking-wider text-muted-foreground sm:text-[0.72rem]" title={label}>{label}</p>
       </div>
-      <p className="font-display mt-2 break-words text-xl font-extrabold tabular-nums tracking-tight sm:mt-1 sm:text-[1.45rem]" title={value}>{value}</p>
-      {sub && <p className="mt-1.5 line-clamp-2 text-xs text-muted-foreground sm:mt-2.5" title={sub}>{sub}</p>}
+      <p className={`font-display mt-2 font-extrabold tabular-nums leading-tight tracking-tight sm:mt-1 sm:text-[1.45rem] ${valueSize}`} title={value}>{value}</p>
+      {sub && <p className="mt-1 line-clamp-2 text-[0.7rem] text-muted-foreground sm:mt-2.5 sm:text-xs" title={sub}>{sub}</p>}
     </div>
   );
 }

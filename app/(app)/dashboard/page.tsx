@@ -231,8 +231,8 @@ export default function DashboardPage() {
                   >
                     <Circle size={19} className="shrink-0 text-muted-foreground" />
                     <span className="min-w-0 flex-1">
-                      <span className="block truncate text-sm font-bold">{s.label}</span>
-                      <span className="block truncate text-xs text-muted-foreground">{s.hint}</span>
+                      <span className="block text-sm font-bold leading-snug">{s.label}</span>
+                      <span className="block text-xs text-muted-foreground">{s.hint}</span>
                     </span>
                     <span className="shrink-0 rounded-full bg-primary-soft px-3 py-1.5 text-xs font-extrabold text-primary">
                       {sampleBusy ? t("common.loading") : t("dashboard.loadNow")}
@@ -247,8 +247,8 @@ export default function DashboardPage() {
                     ? <CircleCheck size={19} className="shrink-0 text-primary" />
                     : <Circle size={19} className="shrink-0 text-muted-foreground" />}
                   <span className="min-w-0 flex-1">
-                    <span className={`block truncate text-sm font-bold ${s.done ? "line-through" : ""}`}>{s.label}</span>
-                    <span className="block truncate text-xs text-muted-foreground">{s.hint}</span>
+                    <span className={`block text-sm font-bold leading-snug ${s.done ? "line-through" : ""}`}>{s.label}</span>
+                    <span className="block text-xs text-muted-foreground">{s.hint}</span>
                   </span>
                   {s.locked && (
                     <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-accent-soft px-2.5 py-1 text-xs font-extrabold text-accent">
@@ -283,17 +283,17 @@ export default function DashboardPage() {
       {/* POS banner for counter businesses */}
       {canPos && bp.features.pos && (
         <Link href="/sales/pos"
-          className="card card-lift group mb-5 flex items-center justify-between gap-4 p-4 sm:p-5">
-          <span className="flex min-w-0 items-center gap-4">
-            <span className="tile tile-emerald h-12 w-12 shrink-0 transition group-hover:scale-110">
+          className="card card-lift group mb-5 flex items-center justify-between gap-3 p-4 sm:gap-4 sm:p-5">
+          <span className="flex min-w-0 flex-1 items-center gap-3 sm:gap-4">
+            <span className="tile tile-emerald h-11 w-11 shrink-0 transition group-hover:scale-110 sm:h-12 sm:w-12">
               <Zap size={22} />
             </span>
             <span className="min-w-0">
-              <span className="block truncate font-extrabold">{t("dashboard.posTitle")}</span>
-              <span className="block truncate text-sm text-muted-foreground">{t("dashboard.posHint")}</span>
+              <span className="block font-extrabold leading-snug">{t("dashboard.posTitle")}</span>
+              <span className="block text-xs text-muted-foreground sm:text-sm">{t("dashboard.posHint")}</span>
             </span>
           </span>
-          <span className="btn btn-primary shrink-0 !py-2 text-sm">
+          <span className="btn btn-primary shrink-0 !px-3 !py-2 text-sm sm:!px-4">
             {t("dashboard.posStart")} <ArrowRight size={16} className="rtl:rotate-180" />
           </span>
         </Link>
