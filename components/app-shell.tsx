@@ -310,7 +310,7 @@ export function AppShell({ children, initialBusinessType }: { children: ReactNod
 
   return (
     <BusinessTypeProvider businessType={businessType}>
-    <div className="flex min-h-screen bg-background">
+    <div className="flex min-h-screen overflow-x-clip bg-background">
       {/* Desktop sidebar */}
       <aside className="sticky top-0 hidden h-screen w-64 shrink-0 flex-col border-e border-border bg-sidebar lg:flex">
         <div className="flex h-16 items-center border-b border-border px-5">
@@ -339,6 +339,14 @@ export function AppShell({ children, initialBusinessType }: { children: ReactNod
               </button>
             </div>
             <div className="flex-1 overflow-y-auto">{links}</div>
+            <div className="flex items-center justify-around border-t border-border p-3 lg:hidden">
+              <ThemeToggle />
+              <LangToggle />
+              <WhatsAppSupport />
+              <button onClick={logout} className="grid h-11 w-11 place-items-center rounded-xl border border-border bg-card text-muted-foreground transition hover:text-danger" aria-label={t("header.logout")}>
+                <LogOut size={17} />
+              </button>
+            </div>
           </aside>
         </div>
       )}
@@ -363,8 +371,8 @@ export function AppShell({ children, initialBusinessType }: { children: ReactNod
               ) : "…"}
             </div>
           </div>
-          <div className="flex items-center gap-2">
-            <div className="relative" ref={quickRef}>
+          <div className="flex min-w-0 items-center gap-1.5 sm:gap-2">
+            <div className="relative shrink-0" ref={quickRef}>
               {quickCreate.length > 0 && (
               <button onClick={() => setQuickOpen((o) => !o)}
                 className="btn-primary grid h-11 w-11 place-items-center !rounded-xl !p-0"
@@ -384,11 +392,11 @@ export function AppShell({ children, initialBusinessType }: { children: ReactNod
                 </div>
               )}
             </div>
-            <ThemeToggle />
-            <LangToggle />
-            <NotificationBell />
-            <WhatsAppSupport />
-            <button onClick={logout} className="grid h-11 w-11 place-items-center rounded-xl border border-border bg-card transition hover:-translate-y-0.5 hover:shadow-md hover:text-danger" title={t("header.logout")} aria-label={t("header.logout")}>
+            <span className="hidden shrink-0 sm:contents"><ThemeToggle /></span>
+            <span className="hidden shrink-0 sm:contents"><LangToggle /></span>
+            <span className="shrink-0"><NotificationBell /></span>
+            <span className="hidden shrink-0 sm:contents"><WhatsAppSupport /></span>
+            <button onClick={logout} className="hidden h-11 w-11 shrink-0 place-items-center rounded-xl border border-border bg-card transition hover:-translate-y-0.5 hover:shadow-md hover:text-danger sm:grid" title={t("header.logout")} aria-label={t("header.logout")}>
               <LogOut size={17} />
             </button>
           </div>
