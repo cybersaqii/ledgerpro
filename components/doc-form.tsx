@@ -2,7 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Plus, Printer, Search, Trash2 } from "lucide-react";
+import { Plus, Printer, Search, Trash2, Eye, EyeOff } from "lucide-react";
 import { PageHeader, Field, ErrorNote } from "@/components/ui";
 import { api, ApiError, fmtMoney, fmtQty, fmtDateInput, fmtDate } from "@/lib/format";
 import { localizedApiError } from "@/lib/api-errors";
@@ -42,6 +42,8 @@ type Line = {
   isBundle: boolean;
   /** sales: chosen batch to deduct from ("" = FIFO). purchase return: batch to deduct. sales return: batch to restore. */
   batchId: string;
+  /** sales: product cost (purchase price) at time of selection — for profit calc. */
+  costPrice: string;
   /** purchase bill: batch_no for this receipt. */
   batchNo: string;
   /** purchase bill: expiry date for this receipt (YYYY-MM-DD). */
@@ -241,6 +243,8 @@ export function DocForm({ mode }: { mode: "SALES" | "PURCHASE" }) {
   const [discountTotal, setDiscountTotal] = useState("");
   /** Untaxed freight charged on the document — sales INVOICE / QUOTATION / ORDER (Module 1). */
   const [freightTotal, setFreightTotal] = useState("");
+  /** Toggle for invoice profit display (sales only). */
+  const [showProfit, setShowProfit] = useState(true);
   const [notes, setNotes] = useState("");
   const [refNo, setRefNo] = useState("");
   const [terms, setTerms] = useState("");
@@ -684,6 +688,7 @@ export function DocForm({ mode }: { mode: "SALES" | "PURCHASE" }) {
       lineUnit: "",
       uoms: [],
       uomPrices: {},
+      costPrice: (Number(BigInt(p.purchasePrice)) / 100).toString(),
     }]);
     loadBatches(p.id);
     loadLastRate(p.id);
@@ -723,7 +728,7 @@ export function DocForm({ mode }: { mode: "SALES" | "PURCHASE" }) {
   function addCustomLine(desc = "") {
     keyRef.current += 1;
     const key = keyRef.current;
-    setLines((ls) => [...ls, { key, productId: "", description: desc, unit: "", qty: "1", rate: "", discount: "", taxPct: "", availQty: null, isBundle: false, batchId: "", batchNo: "", expiryDate: "", branchId: "", lineUnit: "", uoms: [], uomPrices: {} }]);
+    setLines((ls) => [...ls, { key, productId: "", description: desc, unit: "", qty: "1", rate: "", discount: "", taxPct: "", availQty: null, isBundle: false, batchId: "", batchNo: "", expiryDate: "", branchId: "", lineUnit: "", uoms: [], uomPrices: {}, costPrice: "" }]);
     flashRow(key);
     setTimeout(() => lineFieldRefs.current.get(key)?.desc?.focus(), 60);
   }
@@ -837,6 +842,14 @@ export function DocForm({ mode }: { mode: "SALES" | "PURCHASE" }) {
     }
     return m;
   });
+  // Invoice profit (sales only): Σ (rate − costPrice − discount) × qty
+  const invoiceProfit = isSales ? lines.reduce((sum, l) => {
+    const qty = parseFloat(l.qty) || 0;
+    const rate = parseFloat(l.rate) || 0;
+    const cost = parseFloat(l.costPrice) || 0;
+    const disc = parseFloat(l.discount) || 0;
+    return sum + (rate - cost - disc) * qty;
+  }, 0) : 0;
   const { subtotal, itemDisc: itemDiscTotal, taxTotal, grand } =
     docMath(computed, discountTotal, freightDocTypes ? freightTotal : "0", fxMinorUnits);
   /** PKR equivalent of the live grand total (preview; the server converts per line). */
@@ -1480,6 +1493,22 @@ export function DocForm({ mode }: { mode: "SALES" | "PURCHASE" }) {
                   <span className="text-muted-foreground">{t("docform.freightTotal")}</span>
                   <input className="field num !w-32 !py-1.5" type="number" min="0" step={isForeign ? "any" : "0.01"} placeholder="0.00" value={freightTotal}
                     onChange={(e) => setFreightTotal(e.target.value)} />
+                </div>
+              )}
+              {isSales && (
+                <div className="flex items-center justify-between rounded-xl bg-success/10 px-3 py-2">
+                  <button
+                    type="button"
+                    onClick={() => setShowProfit((v) => !v)}
+                    className="flex items-center gap-2 text-sm font-bold text-success hover:opacity-80"
+                    title={showProfit ? t("docform.hideProfit") : t("docform.showProfit")}
+                  >
+                    {showProfit ? <EyeOff size={15} /> : <Eye size={15} />}
+                    {t("docform.profit")}
+                  </button>
+                  <span className="font-extrabold text-success">
+                    {showProfit ? fmtFx(BigInt(Math.round(invoiceProfit * 100))) : "••••••"}
+                  </span>
                 </div>
               )}
               <div className="flex justify-between border-t border-border pt-3 text-base">

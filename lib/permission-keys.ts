@@ -40,6 +40,9 @@ export const PERMISSIONS = [
   // Module 13: projects & job costing (project master, job-cost P&L).
   // Kept out of the staff defaults: margins are sensitive.
   "projects",
+  // Partners: partnership accounting (register, contributions, drawings, profit distribution).
+  // Kept out of the staff defaults: equity data is owner-granted only.
+  "partners",
 ] as const;
 
 export type Permission = (typeof PERMISSIONS)[number];
@@ -83,6 +86,8 @@ export const PERMISSION_GROUPS: { key: string; permissions: Permission[] }[] = [
   { key: "mfg", permissions: ["manufacturing"] },
   // Module 13: projects stands alone — margins are sensitive.
   { key: "projects", permissions: ["projects"] },
+  // Partners stands alone — equity data is sensitive.
+  { key: "partners", permissions: ["partners"] },
 ];
 
 /** Label/description i18n keys for a permission: perms.<key>, perms.<key>Desc. */

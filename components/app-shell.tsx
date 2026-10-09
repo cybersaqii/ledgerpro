@@ -7,7 +7,7 @@ import {
   LayoutDashboard, ShoppingCart, Truck, Wallet, ReceiptText, Users, Package,
   BarChart3, Menu, X, LogOut, Boxes, Plus, Settings, Crown, ShieldCheck,
   LifeBuoy, ArrowRight, Sparkles, Stamp, Landmark, Briefcase, Factory, KeyRound, Cog,
-  FolderKanban, Repeat, ShieldAlert, Search, ChevronDown, MessageCircle,
+  FolderKanban, Repeat, ShieldAlert, Search, ChevronDown, MessageCircle, Handshake,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { Logo, ThemeToggle, LangToggle } from "./ui";
@@ -142,6 +142,7 @@ export function AppShell({ children, initialBusinessType }: { children: ReactNod
     { href: "/portals", label: t("nav.portals"), icon: KeyRound, perm: "portal", feature: null, group: "accounts" as NavGroup },
     { href: "/manufacturing", label: t("nav.manufacturing"), icon: Cog, perm: "manufacturing", feature: null, group: "accounts" as NavGroup },
     { href: "/projects", label: t("nav.projects"), icon: FolderKanban, perm: "projects", feature: null, group: "accounts" as NavGroup },
+    { href: "/partners", label: t("nav.partners"), icon: Handshake, perm: "partners", feature: null, group: "accounts" as NavGroup },
     { href: "/settings", label: t("nav.settings"), icon: Settings, perm: "", feature: null, group: "setup" as NavGroup },
     ...(billing?.isOwner ? [{ href: "/billing", label: t("nav.billing"), icon: Crown, perm: "", feature: null as keyof BusinessFeatures | null, group: "setup" as NavGroup }] : []),
     ...(billing?.isPlatformAdmin ? [{ href: "/admin/billing", label: t("nav.admin"), icon: ShieldCheck, perm: "", feature: null as keyof BusinessFeatures | null, group: "setup" as NavGroup }] : []),

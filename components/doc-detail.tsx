@@ -41,6 +41,8 @@ type Company = {
   name: string; phone: string | null; address: string | null; city: string | null; ntn: string | null;
   bankInfo: string | null; invoiceFooter: string | null; logoUrl: string | null;
   defaultInvoiceFormat: string | null;
+  invoiceTitle: string | null; invoiceShowLogo: boolean | null; invoiceTerms: string | null;
+  invoiceShowPaid: boolean | null; invoiceHeaderNote: string | null;
 };
 
 // Module 6.5: template designer branding applied to the print views.
@@ -317,7 +319,9 @@ export function DocDetail({ mode, id }: { mode: "SALES" | "PURCHASE" | "NOTE"; i
     : isSales
       ? { INVOICE: salesTitle, RETURN: t("docdetail.typeSalesReturn"), QUOTATION: t("docdetail.typeQuotation"), ORDER: t("docdetail.typeSaleOrder"), CHALLAN: t("docdetail.typeChallan") }
       : { BILL: purchTitle, RETURN: t("docdetail.typePurchaseReturn"), ORDER: t("docdetail.typePurchaseOrder"), GRN: t("docdetail.typeGrn") };
-  const docTitle = typeLabel[doc.docType] ?? doc.docType;
+  const docTitle = (isSales && doc.docType === "INVOICE" && company?.invoiceTitle)
+    ? company.invoiceTitle
+    : (typeLabel[doc.docType] ?? doc.docType);
   const copyLabel =
     copySel === "ORIGINAL" ? t("fix4.print.copyOriginal") :
     copySel === "DUPLICATE" ? t("fix4.print.copyDuplicate") : t("fix4.print.copyOffice");
@@ -464,7 +468,7 @@ export function DocDetail({ mode, id }: { mode: "SALES" | "PURCHASE" | "NOTE"; i
           <div className="flex items-start justify-between gap-4">
             <div>
               <div className="flex items-center gap-3">
-                {tpl.showLogo && company?.logoUrl && (
+                {tpl.showLogo && company?.invoiceShowLogo !== false && company?.logoUrl && (
                   /* eslint-disable-next-line @next/next/no-img-element */
                   <img src={company.logoUrl} alt="" className="h-14 w-14 rounded-xl object-contain" />
                 )}
@@ -520,7 +524,7 @@ export function DocDetail({ mode, id }: { mode: "SALES" | "PURCHASE" | "NOTE"; i
           <div className="flex items-start justify-between gap-4">
             <div>
               <div className="flex items-center gap-3">
-                {tpl.showLogo && company?.logoUrl && (
+                {tpl.showLogo && company?.invoiceShowLogo !== false && company?.logoUrl && (
                   /* eslint-disable-next-line @next/next/no-img-element */
                   <img src={company.logoUrl} alt="" className="h-14 w-14 rounded-xl object-contain" />
                 )}
@@ -529,7 +533,7 @@ export function DocDetail({ mode, id }: { mode: "SALES" | "PURCHASE" | "NOTE"; i
               {sellerLines && <p className="mt-1 max-w-sm text-sm text-muted-foreground">{sellerLines}</p>}
               {company?.ntn && <p className="mt-0.5 text-xs text-muted-foreground">NTN: {company.ntn}</p>}
               <p className="mt-2 text-sm font-bold text-primary">{docTitle}</p>
-              <p className="mt-1 text-xs font-bold uppercase tracking-widest text-muted-foreground">{copyLabel}</p>
+              <p className="mt-1 text-xs font-bold uppercase tracking-widest text-muted-foreground">{company?.invoiceHeaderNote || copyLabel}</p>
             </div>
             <div className="text-end">
               <p className="text-lg font-extrabold">{doc.docNo}</p>
@@ -627,8 +631,12 @@ export function DocDetail({ mode, id }: { mode: "SALES" | "PURCHASE" | "NOTE"; i
                   <span dir="ltr" className="font-semibold">1 {docFxCode} = {formatRate(docFxRate)} PKR</span>
                 </div>
               )}
-              <div className="flex justify-between"><span className="text-muted-foreground">{t("docdetail.paid")}</span><span className="text-end">{dualRow(toBig(paidTotal), null)}</span></div>
-              <div className="flex justify-between"><span className="text-muted-foreground">{t("docdetail.invoiceBalance")}</span><span className="text-end">{dualRow(toBig(balanceTotal), null)}</span></div>
+              {company?.invoiceShowPaid !== false && (
+                <>
+                  <div className="flex justify-between"><span className="text-muted-foreground">{t("docdetail.paid")}</span><span className="text-end">{dualRow(toBig(paidTotal), null)}</span></div>
+                  <div className="flex justify-between"><span className="text-muted-foreground">{t("docdetail.invoiceBalance")}</span><span className="text-end">{dualRow(toBig(balanceTotal), null)}</span></div>
+                </>
+              )}
             </div>
           </div>
           <p className="mt-2 text-end text-xs italic text-muted-foreground">
@@ -657,6 +665,12 @@ export function DocDetail({ mode, id }: { mode: "SALES" | "PURCHASE" | "NOTE"; i
           )}
 
           {company?.invoiceFooter && <p className="mt-6 text-sm">{company.invoiceFooter}</p>}
+          {company?.invoiceTerms && (
+            <div className="mt-4 border-t border-border pt-3">
+              <p className="text-xs font-bold uppercase tracking-wide text-muted-foreground">{t("docdetail.terms")}</p>
+              <p className="mt-1 whitespace-pre-line text-xs">{company.invoiceTerms}</p>
+            </div>
+          )}
           {renderTemplateFooter("text-sm")}
           <p className="mt-2 text-center text-sm font-semibold">{t("docdetail.thankYou")}</p>
           <p className="mt-4 text-center text-xs text-muted-foreground">{t("docdetail.generatedBy", { brand: brand.name, tagline: brand.tagline })}</p>
@@ -665,7 +679,7 @@ export function DocDetail({ mode, id }: { mode: "SALES" | "PURCHASE" | "NOTE"; i
         <div className="thermal mx-auto bg-white p-3 text-black print:shadow-none">
           {/* header: business name, address, bank lines, phone */}
           <div className="text-center">
-            {tpl.showLogo && company?.logoUrl && (
+            {tpl.showLogo && company?.invoiceShowLogo !== false && company?.logoUrl && (
               /* eslint-disable-next-line @next/next/no-img-element */
               <img src={company.logoUrl} alt="" className="mx-auto mb-1 h-12 w-12 rounded-lg object-contain" />
             )}
@@ -716,7 +730,7 @@ export function DocDetail({ mode, id }: { mode: "SALES" | "PURCHASE" | "NOTE"; i
                 <tr key={it.id}>
                   <td className="whitespace-nowrap border border-black px-1 py-0.5 text-center">{i + 1}</td>
                   <td className="border border-black px-1 py-0.5 [overflow-wrap:anywhere]">
-                    {it.description}
+                    <span className="line-clamp-2 leading-tight">{it.description}</span>
                     <ItemSubLines it={it} className="text-[9px] font-normal text-muted-foreground" />
                   </td>
                   <td className="whitespace-nowrap border border-black px-1 py-0.5 text-center">{it.lineUnit ?? it.unit ?? "—"}</td>
@@ -756,14 +770,18 @@ export function DocDetail({ mode, id }: { mode: "SALES" | "PURCHASE" | "NOTE"; i
                 <span dir="ltr">1 {docFxCode} = {formatRate(docFxRate)}</span>
               </div>
             )}
-            <div className="flex justify-between py-0.5">
-              <span>{t("docdetail.paid")}:</span>
-              <span>{dualRowPlain(toBig(paidTotal), null)}</span>
-            </div>
-            <div className="flex justify-between py-0.5">
-              <span>{t("docdetail.invoiceBalance")}:</span>
-              <span className="font-bold">{dualRowPlain(toBig(balanceTotal), null)}</span>
-            </div>
+            {company?.invoiceShowPaid !== false && (
+              <>
+                <div className="flex justify-between py-0.5">
+                  <span>{t("docdetail.paid")}:</span>
+                  <span>{dualRowPlain(toBig(paidTotal), null)}</span>
+                </div>
+                <div className="flex justify-between py-0.5">
+                  <span>{t("docdetail.invoiceBalance")}:</span>
+                  <span className="font-bold">{dualRowPlain(toBig(balanceTotal), null)}</span>
+                </div>
+              </>
+            )}
           </div>
 
           {/* notes + terms + footer print together (never XOR) */}

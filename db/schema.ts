@@ -38,6 +38,11 @@ export const companies = sqliteTable("companies", {
   bankInfo: text("bank_info"), // bank/payment lines printed on invoices
   invoiceFooter: text("invoice_footer"), // default note printed under every invoice
   defaultInvoiceFormat: text("default_invoice_format").notNull().default("80mm"), // 80mm | a4 | challan (migration 0026)
+  invoiceTitle: text("invoice_title"), // custom invoice title (migration 0056)
+  invoiceShowLogo: flag("invoice_show_logo", true), // (migration 0056)
+  invoiceTerms: text("invoice_terms"), // terms & conditions (migration 0056)
+  invoiceShowPaid: flag("invoice_show_paid", true), // show paid/balance section (migration 0056)
+  invoiceHeaderNote: text("invoice_header_note"), // custom note under header (migration 0056)
   logoUrl: text("logo_url"),
   businessType: text("business_type").notNull().default("WHOLESALE"),
   currency: text("currency").notNull().default("PKR"),
@@ -2578,4 +2583,89 @@ export const loginAttempts = sqliteTable(
     index("la_company_time").on(t.companyId, t.createdAt),
     index("la_email_time").on(t.email, t.createdAt),
   ]
+);
+
+/** Partners register. Each partner auto-gets two EQUITY accounts on registration:
+ *  capital (3011+) for permanent investment and current (3021+) for drawings
+ *  and profit shares. Profit share stored as basis points (2500 = 25.00%). */
+export const partners = sqliteTable(
+  "partners",
+  {
+    id: id(),
+    companyId: text("company_id").notNull(),
+    name: text("name").notNull(),
+    phone: text("phone"),
+    cnic: text("cnic"),
+    /** Profit/loss share in basis points; 10000 = 100%. */
+    profitShareBps: integer("profit_share_bps").notNull().default(0),
+    capitalAccountId: text("capital_account_id").notNull(),
+    currentAccountId: text("current_account_id").notNull(),
+    isActive: flag("is_active", true),
+    notes: text("notes"),
+    createdAt: createdAt(),
+    updatedAt: updatedAt(),
+  },
+  (t) => [
+    uniqueIndex("partners_company_name").on(t.companyId, t.name),
+    index("partners_company").on(t.companyId),
+  ]
+);
+
+/** Every capital movement for a partner: CONTRIBUTION (cash/asset in),
+ *  DRAWING (cash out for personal use), CAPITAL_RETURN (investment withdrawn). */
+export const partnerTransactions = sqliteTable(
+  "partner_transactions",
+  {
+    id: id(),
+    companyId: text("company_id").notNull(),
+    partnerId: text("partner_id").notNull(),
+    /** CONTRIBUTION | DRAWING | CAPITAL_RETURN */
+    kind: text("kind").notNull(),
+    /** Paisa, always positive. */
+    amountPaisa: money("amount"),
+    /** Cash/bank account on the other side of the entry. */
+    accountId: text("account_id").notNull(),
+    journalEntryId: text("journal_entry_id"),
+    date: ts("date").notNull(),
+    memo: text("memo"),
+    createdById: text("created_by_id").notNull(),
+    createdAt: createdAt(),
+  },
+  (t) => [index("pt_company_partner").on(t.companyId, t.partnerId, t.date)]
+);
+
+/** Profit/loss distribution runs: DRAFT → POSTED → VOIDED (void via reversal,
+ *  never delete). One balanced journal per run, split by profit_share_bps. */
+export const profitDistributions = sqliteTable(
+  "profit_distributions",
+  {
+    id: id(),
+    companyId: text("company_id").notNull(),
+    periodStart: ts("period_start").notNull(),
+    periodEnd: ts("period_end").notNull(),
+    /** Paisa, signed: +profit / -loss. */
+    totalAmountPaisa: money("total_amount"),
+    /** DRAFT | POSTED | VOIDED */
+    status: text("status").notNull().default("DRAFT"),
+    journalEntryId: text("journal_entry_id"),
+    memo: text("memo"),
+    createdById: text("created_by_id").notNull(),
+    createdAt: createdAt(),
+  },
+  (t) => [index("pd_company").on(t.companyId, t.periodEnd)]
+);
+
+/** Per-partner snapshot of a distribution run (audit trail). */
+export const distributionEntries = sqliteTable(
+  "distribution_entries",
+  {
+    id: id(),
+    distributionId: text("distribution_id").notNull(),
+    partnerId: text("partner_id").notNull(),
+    shareBps: integer("share_bps").notNull(),
+    /** Paisa, signed: +profit / -loss. */
+    amountPaisa: money("amount"),
+    createdAt: createdAt(),
+  },
+  (t) => [index("de_distribution").on(t.distributionId)]
 );

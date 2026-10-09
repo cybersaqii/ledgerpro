@@ -18,9 +18,12 @@ type Company = {
   name: string; tradeName: string | null; email: string | null; phone: string | null; address: string | null;
   city: string | null; ntn: string | null; strn: string | null; bankInfo: string | null; invoiceFooter: string | null;
   businessType: string; defaultInvoiceFormat: string; fiscalYearStart: string;
+  invoiceTitle: string | null; invoiceShowLogo: boolean; invoiceTerms: string | null;
+  invoiceShowPaid: boolean; invoiceHeaderNote: string | null;
 };
 
-const empty: Company = { name: "", tradeName: "", email: "", phone: "", address: "", city: "", ntn: "", strn: "", bankInfo: "", invoiceFooter: "", businessType: "WHOLESALE", defaultInvoiceFormat: "80mm", fiscalYearStart: "07-01" };
+const empty: Company = { name: "", tradeName: "", email: "", phone: "", address: "", city: "", ntn: "", strn: "", bankInfo: "", invoiceFooter: "", businessType: "WHOLESALE", defaultInvoiceFormat: "80mm", fiscalYearStart: "07-01",
+  invoiceTitle: "", invoiceShowLogo: true, invoiceTerms: "", invoiceShowPaid: true, invoiceHeaderNote: "" };
 
 const SECTIONS = [
   "sec-company",
@@ -149,6 +152,9 @@ export default function SettingsPage() {
         name: d.data.name ?? "", tradeName: d.data.tradeName ?? "", email: d.data.email ?? "", phone: d.data.phone ?? "",
         address: d.data.address ?? "", city: d.data.city ?? "", ntn: d.data.ntn ?? "", strn: d.data.strn ?? "",
         bankInfo: d.data.bankInfo ?? "", invoiceFooter: d.data.invoiceFooter ?? "",
+        invoiceTitle: d.data.invoiceTitle ?? "", invoiceShowLogo: d.data.invoiceShowLogo ?? true,
+        invoiceTerms: d.data.invoiceTerms ?? "", invoiceShowPaid: d.data.invoiceShowPaid ?? true,
+        invoiceHeaderNote: d.data.invoiceHeaderNote ?? "",
         businessType: d.data.businessType ?? "WHOLESALE",
         defaultInvoiceFormat: (d.data as { defaultInvoiceFormat?: string }).defaultInvoiceFormat ?? "80mm",
         fiscalYearStart: (d.data as { fiscalYearStart?: string }).fiscalYearStart ?? "07-01",
@@ -282,6 +288,33 @@ export default function SettingsPage() {
                 <textarea className="field min-h-20" value={form.invoiceFooter ?? ""} onChange={set("invoiceFooter")} placeholder={t("settings.invoiceFooterPh")} />
                 <p className="mt-1 text-xs text-muted-foreground">{t("settings.invoiceFooterHint")}</p>
               </Field>
+            </div>
+            {/* ── Invoice customization ───────────────────────────── */}
+            <div className="mb-6 mt-9 flex items-center gap-4">
+              <h3 className="shrink-0 text-xs font-extrabold uppercase tracking-[0.14em] text-muted-foreground">{t("settings.secInvoiceCustom")}</h3>
+              <div className="h-px flex-1 bg-border" />
+            </div>
+            <div className="grid gap-x-6 gap-y-5 sm:grid-cols-2">
+              <Field label={t("settings.invoiceTitle")}>
+                <input className="field" value={form.invoiceTitle ?? ""} onChange={set("invoiceTitle")} placeholder={t("settings.invoiceTitlePh")} />
+                <p className="mt-1 text-xs text-muted-foreground">{t("settings.invoiceTitleHint")}</p>
+              </Field>
+              <Field label={t("settings.invoiceHeaderNote")}>
+                <input className="field" value={form.invoiceHeaderNote ?? ""} onChange={set("invoiceHeaderNote")} placeholder={t("settings.invoiceHeaderNotePh")} />
+              </Field>
+              <Field label={t("settings.invoiceTerms")}>
+                <textarea className="field min-h-20" value={form.invoiceTerms ?? ""} onChange={set("invoiceTerms")} placeholder={t("settings.invoiceTermsPh")} />
+              </Field>
+              <div className="space-y-4">
+                <label className="flex cursor-pointer items-center justify-between rounded-xl border border-border bg-card px-4 py-3">
+                  <span className="text-sm font-semibold">{t("settings.invoiceShowLogo")}</span>
+                  <input type="checkbox" className="toggle" checked={form.invoiceShowLogo} onChange={(e) => setForm({ ...form, invoiceShowLogo: e.target.checked })} />
+                </label>
+                <label className="flex cursor-pointer items-center justify-between rounded-xl border border-border bg-card px-4 py-3">
+                  <span className="text-sm font-semibold">{t("settings.invoiceShowPaid")}</span>
+                  <input type="checkbox" className="toggle" checked={form.invoiceShowPaid} onChange={(e) => setForm({ ...form, invoiceShowPaid: e.target.checked })} />
+                </label>
+              </div>
             </div>
             <div className="mt-8 flex items-center justify-end gap-3 border-t border-border pt-6">
               {saved && <span className="text-sm font-semibold text-primary">{t("settings.saved")}</span>}
