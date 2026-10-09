@@ -306,7 +306,7 @@ export default function DashboardPage() {
             key={tile.key}
             href={metricTileTarget(tile.key)}
             aria-label={t("dashboard.openTile", { target: tile.target })}
-            className="kpi-tile group relative block rise"
+            className="kpi-tile group relative block min-w-0 rise"
           >
             <Stat label={tile.label} value={tile.value} sub={tile.sub} icon={tile.icon} tone={tile.tone} />
             <span className="kpi-tile-go" aria-hidden="true">
@@ -330,7 +330,7 @@ export default function DashboardPage() {
       </div>
 
       <div className="mt-6 grid gap-4 xl:grid-cols-5">
-        <div className="card rise p-5 sm:p-6 xl:col-span-3">
+        <div className="card rise min-w-0 p-5 sm:p-6 xl:col-span-3">
           <h2 className="text-base font-extrabold tracking-tight">{t("dashboard.trend", { sales: bp.salesNav })}</h2>
           <p className="text-xs text-muted-foreground">{t("dashboard.trendSub")}</p>
           <div className="mt-4 h-64">
@@ -342,7 +342,7 @@ export default function DashboardPage() {
           </div>
         </div>
 
-        <div className="card rise rise-1 p-5 sm:p-6 xl:col-span-2">
+        <div className="card rise rise-1 min-w-0 p-5 sm:p-6 xl:col-span-2">
           <div className="flex items-center justify-between">
             <h2 className="text-base font-extrabold tracking-tight">{t("dashboard.recent", { sales: bp.salesNav.toLowerCase() })}</h2>
             <Link href="/sales" className="text-sm font-bold text-primary hover:underline">{t("common.viewAll")}</Link>
@@ -358,7 +358,7 @@ export default function DashboardPage() {
                       <p className="truncate text-sm font-bold">{s.docNo}</p>
                       <p className="truncate text-xs text-muted-foreground">{s.partyName ?? "—"} · {fmtDate(s.date)}</p>
                     </div>
-                    <p className="shrink-0 text-sm font-extrabold tabular-nums">{fmtMoney(s.grandTotal)}</p>
+                    <p className="shrink-0 whitespace-nowrap text-sm font-extrabold tabular-nums">{fmtMoney(s.grandTotal)}</p>
                   </Link>
                 </li>
               ))}
