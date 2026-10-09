@@ -121,7 +121,6 @@ function ItemSubLines({ it, className }: { it: Item; className?: string }) {
   const { t } = useLang();
   const bp = useBusinessProfile();
   const lines: string[] = [];
-  if (bp.showSku && it.sku) lines.push(`SKU: ${it.sku}`);
   if (bp.showBatchExpiry && it.batches?.length) {
     lines.push(
       it.batches
