@@ -80,6 +80,13 @@ export const en = {
     currencyNote: "Rs"
   },
   nav: {
+    groupStock: "Inventory",
+    quotations: "Quotations",
+    orders: "Orders",
+    customers: "Customers",
+    suppliers: "Suppliers",
+    receive: "Receive",
+    pay: "Pay",
     partners: "Partners",
     dashboard: "Dashboard",
     sales: "Sales",

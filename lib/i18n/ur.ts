@@ -85,6 +85,13 @@ export const ur: DeepPartial<EnDict> = {
     currencyNote: "روپے"
   },
   nav: {
+    groupStock: "Inventory",
+    quotations: "Quotations",
+    orders: "Orders",
+    customers: "Customers",
+    suppliers: "Suppliers",
+    receive: "Receive",
+    pay: "Pay",
     partners: "Partners",
     dashboard: "ڈیش بورڈ",
     sales: "فروخت",

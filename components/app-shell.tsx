@@ -8,6 +8,7 @@ import {
   BarChart3, Menu, X, LogOut, Boxes, Plus, Settings, Crown, ShieldCheck,
   LifeBuoy, ArrowRight, Sparkles, Stamp, Landmark, Briefcase, Factory, KeyRound, Cog,
   FolderKanban, Repeat, ShieldAlert, Search, ChevronDown, MessageCircle, Handshake,
+  FileText, ClipboardList, ArrowDownToLine, ArrowUpFromLine,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { Logo, ThemeToggle, LangToggle } from "./ui";
@@ -41,7 +42,7 @@ import { newSaleHref } from "@/lib/business-types";
 import { useLang } from "./lang-provider";
 import { usePermissions, clearMeCache } from "./permissions";
 
-type NavGroup = "main" | "sales" | "purchases" | "money" | "people" | "accounts" | "setup";
+type NavGroup = "dashboard" | "sales" | "purchases" | "money" | "stock" | "accounts" | "setup";
 type NavItem = {
   href: string;
   label: string;
@@ -50,15 +51,25 @@ type NavItem = {
   feature: keyof BusinessFeatures | null;
   group: NavGroup;
 };
-const GROUP_ORDER: NavGroup[] = ["main", "sales", "purchases", "money", "people", "accounts", "setup"];
+// Fast Accounts-inspired: each group is an icon row that expands to sub-items.
+const GROUP_ORDER: NavGroup[] = ["dashboard", "sales", "purchases", "money", "stock", "accounts", "setup"];
 const GROUP_LABEL: Record<NavGroup, string> = {
-  main: "nav.groupMain",
+  dashboard: "nav.dashboard",
   sales: "nav.groupSales",
   purchases: "nav.groupPurchases",
   money: "nav.groupMoney",
-  people: "nav.groupPeopleStock",
+  stock: "nav.groupStock",
   accounts: "nav.groupAccounts",
   setup: "nav.groupSetup",
+};
+const GROUP_ICON: Record<NavGroup, LucideIcon> = {
+  dashboard: LayoutDashboard,
+  sales: ShoppingCart,
+  purchases: Truck,
+  money: Wallet,
+  stock: Package,
+  accounts: BarChart3,
+  setup: Settings,
 };
 
 export function AppShell({ children, initialBusinessType }: { children: ReactNode; initialBusinessType?: string | null }) {
@@ -124,25 +135,37 @@ export function AppShell({ children, initialBusinessType }: { children: ReactNod
   const bp = getTranslatedProfile(businessType, lang);
 
   const nav: NavItem[] = [
-    { href: "/dashboard", label: t("nav.dashboard"), icon: LayoutDashboard, perm: "reports_basic", feature: null, group: "main" as NavGroup },
+    { href: "/dashboard", label: t("nav.dashboard"), icon: LayoutDashboard, perm: "reports_basic", feature: null, group: "dashboard" as NavGroup },
+    // Sales
     { href: "/sales", label: bp.salesNav, icon: ShoppingCart, perm: "sales", feature: null, group: "sales" as NavGroup },
+    { href: "/sales?type=QUOTATION", label: t("nav.quotations"), icon: FileText, perm: "sales", feature: null, group: "sales" as NavGroup },
+    { href: "/sales?type=ORDER", label: t("nav.orders"), icon: ClipboardList, perm: "sales", feature: null, group: "sales" as NavGroup },
+    { href: "/parties", label: t("nav.customers"), icon: Users, perm: "parties", feature: null, group: "sales" as NavGroup },
     { href: "/sales/recurring", label: t("nav.recurring"), icon: Repeat, perm: "sales", feature: null, group: "sales" as NavGroup },
     { href: "/settings/credit-rules", label: t("nav.creditRules"), icon: ShieldAlert, perm: "settings", feature: null, group: "sales" as NavGroup },
+    // Purchases
     { href: "/purchases", label: t("nav.purchases"), icon: Truck, perm: "purchases", feature: "purchases" as const, group: "purchases" as NavGroup },
+    { href: "/parties", label: t("nav.suppliers"), icon: Users, perm: "parties", feature: "purchases" as const, group: "purchases" as NavGroup },
+    // Money
     { href: "/payments", label: t("nav.payments"), icon: Wallet, perm: "payments", feature: null, group: "money" as NavGroup },
+    { href: "/payments/new?kind=RECEIPT", label: t("nav.receive"), icon: ArrowDownToLine, perm: "payments", feature: null, group: "money" as NavGroup },
+    { href: "/payments/new?kind=PAYMENT", label: t("nav.pay"), icon: ArrowUpFromLine, perm: "payments", feature: null, group: "money" as NavGroup },
     { href: "/expenses", label: t("nav.expenses"), icon: ReceiptText, perm: "expenses", feature: null, group: "money" as NavGroup },
-    { href: "/parties", label: bp.partyMany, icon: Users, perm: "parties", feature: null, group: "people" as NavGroup },
-    { href: "/products", label: bp.productMany, icon: Package, perm: "products", feature: null, group: "people" as NavGroup },
-    { href: "/stock", label: bp.stock, icon: Boxes, perm: "stock", feature: null, group: "people" as NavGroup },
+    // Stock
+    { href: "/products", label: bp.productMany, icon: Package, perm: "products", feature: null, group: "stock" as NavGroup },
+    { href: "/stock", label: bp.stock, icon: Boxes, perm: "stock", feature: null, group: "stock" as NavGroup },
+    { href: "/parties", label: bp.partyMany, icon: Users, perm: "parties", feature: null, group: "stock" as NavGroup },
+    // Accounts
     { href: "/reports", label: t("nav.reports"), icon: BarChart3, perm: "reports_basic", feature: null, group: "accounts" as NavGroup },
     { href: "/tax", label: t("nav.tax"), icon: Landmark, perm: "reports_accounting", feature: null, group: "accounts" as NavGroup },
     { href: "/payroll", label: t("nav.payroll"), icon: Briefcase, perm: "payroll", feature: null, group: "accounts" as NavGroup },
     { href: "/assets", label: t("nav.assets"), icon: Factory, perm: "assets", feature: null, group: "accounts" as NavGroup },
+    { href: "/partners", label: t("nav.partners"), icon: Handshake, perm: "partners", feature: null, group: "accounts" as NavGroup },
     { href: "/approvals", label: t("nav.approvals"), icon: Stamp, perm: "approvals", feature: null, group: "accounts" as NavGroup },
-    { href: "/portals", label: t("nav.portals"), icon: KeyRound, perm: "portal", feature: null, group: "accounts" as NavGroup },
     { href: "/manufacturing", label: t("nav.manufacturing"), icon: Cog, perm: "manufacturing", feature: null, group: "accounts" as NavGroup },
     { href: "/projects", label: t("nav.projects"), icon: FolderKanban, perm: "projects", feature: null, group: "accounts" as NavGroup },
-    { href: "/partners", label: t("nav.partners"), icon: Handshake, perm: "partners", feature: null, group: "accounts" as NavGroup },
+    { href: "/portals", label: t("nav.portals"), icon: KeyRound, perm: "portal", feature: null, group: "accounts" as NavGroup },
+    // Setup
     { href: "/settings", label: t("nav.settings"), icon: Settings, perm: "", feature: null, group: "setup" as NavGroup },
     ...(billing?.isOwner ? [{ href: "/billing", label: t("nav.billing"), icon: Crown, perm: "", feature: null as keyof BusinessFeatures | null, group: "setup" as NavGroup }] : []),
     ...(billing?.isPlatformAdmin ? [{ href: "/admin/billing", label: t("nav.admin"), icon: ShieldCheck, perm: "", feature: null as keyof BusinessFeatures | null, group: "setup" as NavGroup }] : []),
@@ -288,18 +311,29 @@ export function AppShell({ children, initialBusinessType }: { children: ReactNod
             const items = nav.filter((n) => n.group === g);
             if (items.length === 0) return null;
             const open = !collapsed.has(g);
+            const GroupIcon = GROUP_ICON[g];
+            const groupActive = items.some(isActiveNav);
+            // Single-item groups (dashboard) render as a direct link row.
+            if (items.length === 1 && g === "dashboard") {
+              return <div key={g}>{renderNavItem(items[0])}</div>;
+            }
             return (
               <div key={g}>
                 <button
                   type="button"
                   onClick={() => toggleGroup(g)}
                   aria-expanded={open}
-                  className="flex w-full items-center justify-between px-3.5 pb-1.5 pt-3 text-[0.7rem] font-extrabold uppercase tracking-wider text-muted-foreground transition hover:text-foreground"
+                  className={`flex w-full items-center gap-3 rounded-xl px-3.5 py-2.5 text-sm font-semibold transition ${
+                    groupActive
+                      ? "bg-sidebar-active text-foreground"
+                      : "text-sidebar-foreground hover:bg-sidebar-active/60 hover:text-foreground"
+                  }`}
                 >
-                  {t(GROUP_LABEL[g])}
+                  <GroupIcon size={18} className={`shrink-0 ${groupActive ? "text-primary" : ""}`} />
+                  <span className="flex-1 truncate text-start">{t(GROUP_LABEL[g])}</span>
                   <ChevronDown size={14} className={`shrink-0 transition-transform ${open ? "" : "-rotate-90 rtl:rotate-90"}`} />
                 </button>
-                {open && <div className="flex flex-col gap-1">{items.map(renderNavItem)}</div>}
+                {open && <div className="ms-5 flex flex-col gap-1 border-s border-border ps-2 pt-1">{items.map(renderNavItem)}</div>}
               </div>
             );
           })

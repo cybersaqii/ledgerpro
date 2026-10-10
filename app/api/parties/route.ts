@@ -37,7 +37,8 @@ export async function GET(req: NextRequest) {
     .select()
     .from(parties)
     .where(and(...conds))
-    .orderBy(desc(parties.createdAt))
+    // Walk-in / counter cash customers float to the top of dropdowns.
+    .orderBy(sql`case when lower(${parties.name}) like '%walk%' then 0 else 1 end`, desc(parties.createdAt))
     .limit(perPage)
     .offset((page - 1) * perPage);
   const total = await db

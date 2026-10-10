@@ -111,6 +111,21 @@ export default function ReportsHub() {
     );
   }
 
+  const [activeBucket, setActiveBucket] = useState<string>("all");
+
+  // Filter by active bucket + search
+  const bucketFiltered = activeBucket === "all"
+    ? searched
+    : activeBucket === "favorites"
+      ? favList
+      : searched.filter((r) => r.bucket === activeBucket);
+  const showFavs = activeBucket === "all" || activeBucket === "favorites";
+  const displayFavs = showFavs ? favList : [];
+  const displayRest = activeBucket === "favorites" ? [] : bucketFiltered.filter((r) => !favorites.includes(r.key));
+
+  // Category counts for the sidebar
+  const bucketCount = (b: string) => searched.filter((r) => r.bucket === b).length;
+
   return (
     <div>
       <PageHeader title={t("reportsindex.title")} subtitle={t("reportsindex.subtitle")} icon={<BarChart3 size={20} />} />
@@ -124,33 +139,73 @@ export default function ReportsHub() {
           aria-label={t("reportsindex.searchPh")}
         />
       </div>
-      {favList.length > 0 && (
-        <div className="mb-8">
-          <h2 className="mb-3 flex items-center gap-2 text-sm font-extrabold uppercase tracking-wider text-muted-foreground">
-            <Star size={14} className="text-accent" fill="currentColor" /> {t("reportsindex.favorites")}
-          </h2>
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {favList.map((r, i) => card(r, i))}
-          </div>
-        </div>
-      )}
-      {BUCKETS.map((b) => {
-        const items = rest.filter((r) => r.bucket === b);
-        if (items.length === 0) return null;
-        return (
-          <div key={b} className="mb-8">
-            <h2 className="mb-3 text-sm font-extrabold uppercase tracking-wider text-muted-foreground">
-              {t(`reportengine.${b}`)}
-            </h2>
-            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-              {items.map((r, i) => card(r, i))}
+      <div className="flex flex-col gap-6 lg:flex-row">
+        {/* Category sidebar */}
+        <aside className="w-full shrink-0 lg:w-56">
+          <nav className="card flex flex-row gap-1 overflow-x-auto p-2 lg:flex-col" aria-label={t("reportsindex.title")}>
+            <button
+              type="button"
+              onClick={() => setActiveBucket("favorites")}
+              className={`flex shrink-0 items-center gap-2.5 rounded-xl px-3.5 py-2.5 text-sm font-semibold transition ${
+                activeBucket === "favorites" ? "bg-primary-soft text-primary" : "text-muted-foreground hover:bg-muted hover:text-foreground"
+              }`}
+            >
+              <Star size={16} className={activeBucket === "favorites" ? "text-accent" : ""} fill={activeBucket === "favorites" ? "currentColor" : "none"} />
+              {t("reportsindex.favorites")}
+              <span className="ms-auto rounded-full bg-muted px-2 py-0.5 text-xs font-bold">{favList.length}</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setActiveBucket("all")}
+              className={`flex shrink-0 items-center gap-2.5 rounded-xl px-3.5 py-2.5 text-sm font-semibold transition ${
+                activeBucket === "all" ? "bg-primary-soft text-primary" : "text-muted-foreground hover:bg-muted hover:text-foreground"
+              }`}
+            >
+              <BarChart3 size={16} />
+              {t("common.all")}
+            </button>
+            {BUCKETS.map((b) => {
+              const count = bucketCount(b);
+              if (count === 0 && needle) return null;
+              return (
+                <button
+                  key={b}
+                  type="button"
+                  onClick={() => setActiveBucket(b)}
+                  className={`flex shrink-0 items-center gap-2.5 rounded-xl px-3.5 py-2.5 text-sm font-semibold transition ${
+                    activeBucket === b ? "bg-primary-soft text-primary" : "text-muted-foreground hover:bg-muted hover:text-foreground"
+                  }`}
+                >
+                  {t(`reportengine.${b}`)}
+                  <span className="ms-auto rounded-full bg-muted px-2 py-0.5 text-xs font-bold">{count}</span>
+                </button>
+              );
+            })}
+          </nav>
+        </aside>
+        {/* Report cards */}
+        <div className="min-w-0 flex-1">
+          {displayFavs.length > 0 && activeBucket !== "favorites" && (
+            <div className="mb-6">
+              <h2 className="mb-3 flex items-center gap-2 text-sm font-extrabold uppercase tracking-wider text-muted-foreground">
+                <Star size={14} className="text-accent" fill="currentColor" /> {t("reportsindex.favorites")}
+              </h2>
+              <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+                {displayFavs.map((r, i) => card(r, i))}
+              </div>
             </div>
-          </div>
-        );
-      })}
-      {searched.length === 0 && (
-        <p className="card mt-2 px-6 py-10 text-center text-sm text-muted-foreground">{t("reportsindex.noMatch")}</p>
-      )}
+          )}
+          {(activeBucket === "favorites" ? displayFavs : displayRest).length > 0 ? (
+            <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+              {(activeBucket === "favorites" ? displayFavs : displayRest).map((r, i) => card(r, i))}
+            </div>
+          ) : (
+            activeBucket !== "all" || searched.length === 0 ? (
+              <p className="card mt-2 px-6 py-10 text-center text-sm text-muted-foreground">{t("reportsindex.noMatch")}</p>
+            ) : null
+          )}
+        </div>
+      </div>
     </div>
   );
 }
