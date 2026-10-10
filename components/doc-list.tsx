@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import { Plus, Search, CalendarDays, ShoppingCart, Truck, Zap, FileText, Ship } from "lucide-react";
-import { PageHeader, EmptyState, FilterBar, SummaryChips, Pagination, StatusPill, ErrorNote } from "@/components/ui";
+import { PageHeader, EmptyState, FilterBar, SummaryChips, Pagination, ErrorNote } from "@/components/ui";
 import { api, fmtMoney, fmtDate, toBig } from "@/lib/format";
 import { paymentStatusOf } from "@/lib/payment-status";
 import { useBusinessProfile } from "@/components/business-type";
@@ -198,7 +198,7 @@ export function DocList({ mode }: { mode: "SALES" | "PURCHASE" }) {
         ) : (
           <div className="overflow-x-auto">
             <table className="tbl">
-              <thead><tr><th className="whitespace-nowrap">{t("docs.colBillNo")}</th><th>{t("docs.colType")}</th><th>{isSales ? bp.partyOne : t("docs.supplier")}</th><th>{t("docs.colDate")}</th><th>{t("docs.colStatus")}</th><th className="num">{t("docs.colTotal")}</th><th className="num">{t("docs.colBalance")}</th><th>{t("docs.colPayStatus")}</th><th className="sticky end-0 bg-card" /></tr></thead>
+              <thead><tr><th className="whitespace-nowrap">{t("docs.colBillNo")}</th><th>{t("docs.colType")}</th><th>{isSales ? bp.partyOne : t("docs.supplier")}</th><th>{t("docs.colDate")}</th><th className="num">{t("docs.colTotal")}</th><th className="num">{t("docs.colBalance")}</th><th>{t("docs.colPayStatus")}</th><th className="sticky end-0 bg-card" /></tr></thead>
               <tbody>
                 {rows.map((d) => (
                   <tr key={d.id}>
@@ -210,7 +210,6 @@ export function DocList({ mode }: { mode: "SALES" | "PURCHASE" }) {
                     <td><span className={`badge whitespace-nowrap ${typeBadge[d.docType] ?? "bg-muted text-muted-foreground"}`}>{d.docType}</span></td>
                     <td className="max-w-44 truncate" title={d.partyName ?? ""}>{d.partyName ?? "—"}</td>
                     <td className="whitespace-nowrap text-muted-foreground">{fmtDate(d.date)}</td>
-                    <td><StatusPill status={d.status} /></td>
                     <td className="num whitespace-nowrap font-extrabold">{fmtMoney(d.grandTotal)}</td>
                     <td className="num whitespace-nowrap font-bold">{fmtMoney(docBalance(d))}</td>
                     <td><PayStatusBadge d={d} t={t} nowMs={nowMs} /></td>
