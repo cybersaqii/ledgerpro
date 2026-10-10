@@ -283,10 +283,15 @@ export default function ReportBuilder() {
           <div className="overflow-x-auto">
             <table className="w-full min-w-[560px] text-sm">
               <thead>
-                <tr className="border-b border-border bg-muted/40 text-start">
-                  {data.columns.map((c) => (
-                    <th key={c.key} className="px-3 py-2 text-start text-xs font-bold uppercase tracking-wide text-muted-foreground">{c.label}</th>
-                  ))}
+                <tr className="border-b border-border bg-muted/40">
+                  {data.columns.map((c, ci) => {
+                    // Match body alignment: money cols + numeric cells right-align
+                    const firstCell = data.rows[0]?.[ci];
+                    const alignEnd = moneySet.has(c.key) || typeof firstCell === "number";
+                    return (
+                      <th key={c.key} className={`px-3 py-2 text-xs font-bold uppercase tracking-wide text-muted-foreground ${alignEnd ? "text-end" : "text-start"}`}>{c.label}</th>
+                    );
+                  })}
                 </tr>
               </thead>
               <tbody>
