@@ -533,6 +533,7 @@ export const ur: DeepPartial<EnDict> = {
     waTotal: "کل: {total}"
   },
   parties: {
+    advanced: "Advanced",
     suppliersTitle: "سپلائرز",
     subtitle: "کل {total} · ہر بل اور ادائیگی کے ساتھ بیلنس خودکار اپ ڈیٹ ہوتا ہے",
     addParty: "{party} شامل کریں",

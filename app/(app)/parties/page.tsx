@@ -47,7 +47,9 @@ export default function PartiesPage() {
   const canSetoff = useCan("payments");
   const canPortal = useCan("portal");
   const [portalParty, setPortalParty] = useState<{ id: string; name: string } | null>(null);
-  const [kind, setKind] = useState<"CUSTOMER" | "SUPPLIER">("CUSTOMER");
+  const searchParams = typeof window !== "undefined" ? new URLSearchParams(window.location.search) : null;
+  const initialKind = searchParams?.get("kind")?.toUpperCase() === "SUPPLIER" ? "SUPPLIER" : "CUSTOMER";
+  const [kind, setKind] = useState<"CUSTOMER" | "SUPPLIER">(initialKind);
   const [q, setQ] = useState("");
   const [category, setCategory] = useState("");
   const [rows, setRows] = useState<Party[]>([]);
@@ -234,12 +236,19 @@ export default function PartiesPage() {
             <Field label={t("common.name")}><input className="field" required value={form.name} onChange={set("name")} placeholder={t("parties.namePlaceholder")} /></Field>
             <div className="grid gap-4 sm:grid-cols-2">
               <Field label={t("common.phone")}><input className="field" value={form.phone} onChange={set("phone")} placeholder={t("parties.phonePlaceholder")} /></Field>
-              <Field label={t("parties.email")}><input className="field" type="email" value={form.email} onChange={set("email")} /></Field>
-            </div>
-            <div className="grid gap-4 sm:grid-cols-2">
               <Field label={t("common.city")}><input className="field" value={form.city} onChange={set("city")} placeholder={t("parties.cityPlaceholder")} /></Field>
-              <Field label={t("parties.ntn")}><input className="field" value={form.ntn} onChange={set("ntn")} /></Field>
             </div>
+            <Field label={t("parties.creditLimit")} hint={t("parties.creditLimitHint")}>
+              <input className="field" type="number" min="0" step="0.01" placeholder="0.00" value={form.creditLimit} onChange={set("creditLimit")} />
+            </Field>
+            {/* Daily essentials only — the rest lives under Advanced below. */}
+            <details className="rounded-xl border border-border">
+              <summary className="cursor-pointer px-4 py-3 text-sm font-bold text-muted-foreground hover:text-foreground">
+                {t("parties.advanced")}
+              </summary>
+              <div className="space-y-4 border-t border-border px-4 py-4">
+            <Field label={t("parties.email")}><input className="field" type="email" value={form.email} onChange={set("email")} /></Field>
+            <Field label={t("parties.ntn")}><input className="field" value={form.ntn} onChange={set("ntn")} /></Field>
             <div className="grid gap-4 sm:grid-cols-3">
               <Field label={t("parties.customerType")}>
                 <select className="field" value={form.customerType} onChange={set("customerType")}>
@@ -281,9 +290,6 @@ export default function PartiesPage() {
             <Field label={t("parties.category")}><input className="field" value={form.category} onChange={set("category")} placeholder={t("parties.categoryFilter")} /></Field>
             <Field label={t("parties.notes")}><textarea className="field" rows={2} value={form.notes} onChange={set("notes")} /></Field>
             <div className="grid gap-4 sm:grid-cols-2">
-              <Field label={t("parties.creditLimit")} hint={t("parties.creditLimitHint")}>
-                <input className="field" type="number" min="0" step="0.01" placeholder="0.00" value={form.creditLimit} onChange={set("creditLimit")} />
-              </Field>
               {/* Module 22: the party's default price list — auto-applies on sales docs */}
               <Field label={t("pricing.priceList")} hint={t("parties.priceListHint")}>
                 <select className="field" value={form.priceListId ?? ""} onChange={set("priceListId")}>
@@ -339,6 +345,8 @@ export default function PartiesPage() {
                 </div>
               </div>
             )}
+              </div>
+            </details>
             <div className="flex justify-end gap-2 pt-2">
               <button type="button" className="btn btn-ghost" onClick={() => setModal(null)}>{t("common.cancel")}</button>
               <button className="btn btn-primary" disabled={saving}>{saving ? t("common.saving") : t("common.save")}</button>

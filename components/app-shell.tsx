@@ -141,13 +141,13 @@ export function AppShell({ children, initialBusinessType }: { children: ReactNod
     { href: "/sales", label: bp.salesNav, icon: ShoppingCart, perm: "sales", feature: null, group: "sales" as NavGroup },
     { href: "/sales?type=QUOTATION", label: t("nav.quotations"), icon: FileText, perm: "sales", feature: null, group: "sales" as NavGroup },
     { href: "/sales?type=ORDER", label: t("nav.orders"), icon: ClipboardList, perm: "sales", feature: null, group: "sales" as NavGroup },
-    { href: "/parties", label: t("nav.customers"), icon: Users, perm: "parties", feature: null, group: "sales" as NavGroup },
-    { href: "/parties", label: t("nav.suppliers"), icon: Users, perm: "parties", feature: null, group: "sales" as NavGroup },
+    { href: "/parties?kind=CUSTOMER", label: t("nav.customers"), icon: Users, perm: "parties", feature: null, group: "sales" as NavGroup },
+    { href: "/parties?kind=SUPPLIER", label: t("nav.suppliers"), icon: Users, perm: "parties", feature: null, group: "sales" as NavGroup },
     { href: "/sales/recurring", label: t("nav.recurring"), icon: Repeat, perm: "sales", feature: null, group: "sales" as NavGroup },
     { href: "/settings/credit-rules", label: t("nav.creditRules"), icon: ShieldAlert, perm: "settings", feature: null, group: "sales" as NavGroup },
     // Purchases
     { href: "/purchases", label: t("nav.purchases"), icon: Truck, perm: "purchases", feature: "purchases" as const, group: "purchases" as NavGroup },
-    { href: "/parties", label: t("nav.suppliers"), icon: Users, perm: "parties", feature: "purchases" as const, group: "purchases" as NavGroup },
+    { href: "/parties?kind=SUPPLIER", label: t("nav.suppliers"), icon: Users, perm: "parties", feature: "purchases" as const, group: "purchases" as NavGroup },
     // Money
     { href: "/payments", label: t("nav.payments"), icon: Wallet, perm: "payments", feature: null, group: "money" as NavGroup },
     { href: "/payments/new?kind=RECEIPT", label: t("nav.receive"), icon: ArrowDownToLine, perm: "payments", feature: null, group: "money" as NavGroup },

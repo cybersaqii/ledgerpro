@@ -527,6 +527,7 @@ export const en = {
     waTotal: "Total: {total}"
   },
   parties: {
+    advanced: "Advanced",
     suppliersTitle: "Suppliers",
     subtitle: "{total} total · balances update automatically with every bill and payment",
     addParty: "Add {party}",

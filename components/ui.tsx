@@ -208,11 +208,16 @@ export function SortableTh({
   );
 }
 
-/** Hook for client-side table sorting. Returns [sort, onSort, sortedRows]. */
+/** Hook for client-side table sorting. Returns [sort, onSort, sortedRows].
+ * Click cycles: none -> ascending -> descending -> none (back to original order). */
 export function useSort<T>(rows: T[], getVal: (row: T, key: string) => string | number | bigint | null | undefined) {
   const [sort, setSort] = useState<{ key: string; dir: "asc" | "desc" } | null>(null);
   const onSort = (key: string) =>
-    setSort((s) => (s?.key === key ? { key, dir: s.dir === "asc" ? "desc" : "asc" } : { key, dir: "asc" }));
+    setSort((s) => {
+      if (!s || s.key !== key) return { key, dir: "asc" };
+      if (s.dir === "asc") return { key, dir: "desc" };
+      return null; // 3rd click: back to original order
+    });
   const sorted = sort
     ? [...rows].sort((a, b) => {
         const va = getVal(a, sort.key);
