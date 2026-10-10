@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState, Fragment } from "react";
 import { Plus, Search, Pencil, TriangleAlert, Package, ChevronDown } from "lucide-react";
-import { PageHeader, EmptyState, Field, ErrorNote } from "@/components/ui";
+import { PageHeader, EmptyState, Field, ErrorNote, SortableTh, useSort} from "@/components/ui";
 import { Modal } from "@/components/modal";
 import { api, fmtMoney, fmtQty } from "@/lib/format";
 // Module 18: alt-unit stock breakdown (exact integer math, client-safe).
@@ -69,6 +69,16 @@ export default function ProductsPage() {
   const [q, setQ] = useState("");
   const [lowOnly, setLowOnly] = useState(false);
   const [rows, setRows] = useState<Product[]>([]);
+  const [sort, onSort, sortedRows] = useSort(rows, (p, key) => {
+    switch (key) {
+      case "name": return p.name;
+      case "sku": return p.sku;
+      case "stock": return BigInt(p.totalQty);
+      case "buy": return BigInt(p.purchasePrice);
+      case "sale": return BigInt(p.salePrice);
+      default: return "";
+    }
+  });
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
   const [modal, setModal] = useState<null | { mode: "add" } | { mode: "edit"; p: Product }>(null);
@@ -361,9 +371,17 @@ export default function ProductsPage() {
         ) : (
           <div className="overflow-x-auto">
             <table className="tbl">
-              <thead><tr><th>{productOne}</th><th>{t("products.colSku")}</th><th className="num">{t("products.colStock")}</th><th className="num">{t("products.colBuyPrice")}</th><th className="num">{t("products.colSalePrice")}</th><th className="num">{t("products.colWholesalePrice")}</th><th></th></tr></thead>
+              <thead><tr>
+                <SortableTh label={productOne} sortKey="name" sort={sort} onSort={onSort} />
+                <SortableTh label={t("products.colSku")} sortKey="sku" sort={sort} onSort={onSort} />
+                <SortableTh label={t("products.colStock")} sortKey="stock" sort={sort} onSort={onSort} className="num" />
+                <SortableTh label={t("products.colBuyPrice")} sortKey="buy" sort={sort} onSort={onSort} className="num" />
+                <SortableTh label={t("products.colSalePrice")} sortKey="sale" sort={sort} onSort={onSort} className="num" />
+                <th className="num">{t("products.colWholesalePrice")}</th>
+                <th></th>
+              </tr></thead>
               <tbody>
-                {rows.map((p) => {
+                {sortedRows.map((p) => {
                   const low = !p.isBundle && p.trackStock && BigInt(p.totalQty) <= BigInt(p.reorderLevel);
                   const expanded = openBatches === p.id;
                   const batches = batchRows[p.id] ?? [];

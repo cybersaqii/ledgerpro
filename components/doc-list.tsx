@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import { Plus, Search, CalendarDays, ShoppingCart, Truck, Zap, FileText, Ship } from "lucide-react";
-import { PageHeader, EmptyState, FilterBar, SummaryChips, Pagination, ErrorNote } from "@/components/ui";
+import { PageHeader, EmptyState, FilterBar, SummaryChips, Pagination, ErrorNote, SortableTh, useSort } from "@/components/ui";
 import { api, fmtMoney, fmtDate, toBig } from "@/lib/format";
 import { paymentStatusOf } from "@/lib/payment-status";
 import { useBusinessProfile } from "@/components/business-type";
@@ -77,6 +77,16 @@ export function DocList({ mode }: { mode: "SALES" | "PURCHASE" }) {
   // computed once and the render stays pure (react-hooks/purity).
   const [nowMs] = useState(() => Date.now());
   const [rows, setRows] = useState<Doc[]>([]);
+  const [sort, onSort, sortedRows] = useSort(rows, (d, key) => {
+    switch (key) {
+      case "docNo": return d.docNo;
+      case "party": return d.partyName ?? "";
+      case "date": return d.date;
+      case "total": return BigInt(d.grandTotal);
+      case "balance": return docBalance(d);
+      default: return "";
+    }
+  });
   const [total, setTotal] = useState(0);
   const [sum, setSum] = useState("0");
   const [page, setPage] = useState(1);
@@ -200,9 +210,19 @@ export function DocList({ mode }: { mode: "SALES" | "PURCHASE" }) {
         ) : (
           <div className="overflow-x-auto">
             <table className="tbl">
-              <thead><tr><th className="whitespace-nowrap">{t("docs.colBillNo")}</th><th className="w-8" title={t("docs.colNote")}><span className="sr-only">{t("docs.colNote")}</span></th><th>{t("docs.colType")}</th><th>{isSales ? bp.partyOne : t("docs.supplier")}</th><th>{t("docs.colDate")}</th><th className="num">{t("docs.colTotal")}</th><th className="num">{t("docs.colBalance")}</th><th>{t("docs.colPayStatus")}</th><th className="sticky end-0 bg-card" /></tr></thead>
+              <thead><tr>
+              <SortableTh label={t("docs.colBillNo")} sortKey="docNo" sort={sort} onSort={onSort} className="whitespace-nowrap" />
+              <th className="w-8" title={t("docs.colNote")}><span className="sr-only">{t("docs.colNote")}</span></th>
+              <th>{t("docs.colType")}</th>
+              <SortableTh label={isSales ? bp.partyOne : t("docs.supplier")} sortKey="party" sort={sort} onSort={onSort} />
+              <SortableTh label={t("docs.colDate")} sortKey="date" sort={sort} onSort={onSort} />
+              <SortableTh label={t("docs.colTotal")} sortKey="total" sort={sort} onSort={onSort} className="num" />
+              <SortableTh label={t("docs.colBalance")} sortKey="balance" sort={sort} onSort={onSort} className="num" />
+              <th>{t("docs.colPayStatus")}</th>
+              <th className="sticky end-0 bg-card" />
+            </tr></thead>
               <tbody>
-                {rows.map((d) => (
+                {sortedRows.map((d) => (
                   <tr key={d.id}>
                     <td className="whitespace-nowrap">
                       <Link href={`${isSales ? "/sales" : "/purchases"}/${d.id}`} className="font-bold text-primary hover:underline" title={d.docNo}>

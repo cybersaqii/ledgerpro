@@ -1,7 +1,7 @@
 "use client";
 
 import { useTheme } from "next-themes";
-import { Moon, Sun, BookOpenCheck, ChevronLeft, ChevronRight, Download, Languages } from "lucide-react";
+import { Moon, Sun, BookOpenCheck, ChevronLeft, ChevronRight, Download, Languages, ArrowUp, ArrowDown, ChevronsUpDown } from "lucide-react";
 import { useEffect, useState, type ReactNode } from "react";
 import { BrandLockup } from "@/components/brand-logo";
 import { downloadCsv } from "@/lib/csv";
@@ -174,6 +174,57 @@ export function StatusPill({ status }: { status: string }) {
     : s === "PENDING_APPROVAL" ? "Pending approval"
     : s.charAt(0) + s.slice(1).toLowerCase();
   return <span className={`badge ${cls}`}>{label}</span>;
+}
+
+/** Sort direction for table columns. */
+export type SortDir = "asc" | "desc" | null;
+
+/** Clickable table header that toggles ascending/descending sort. */
+export function SortableTh({
+  label, sortKey, sort, onSort, className = "", title,
+}: {
+  label: ReactNode; sortKey: string;
+  sort: { key: string; dir: Exclude<SortDir, null> } | null;
+  onSort: (key: string) => void;
+  className?: string; title?: string;
+}) {
+  const active = sort?.key === sortKey;
+  return (
+    <th className={className} title={title}>
+      <button
+        type="button"
+        onClick={() => onSort(sortKey)}
+        className="inline-flex items-center gap-1 font-inherit uppercase tracking-wider hover:text-foreground"
+        aria-label={`${typeof label === "string" ? label : sortKey}: sort`}
+      >
+        <span>{label}</span>
+        {active ? (
+          sort.dir === "asc" ? <ArrowUp size={12} className="shrink-0" /> : <ArrowDown size={12} className="shrink-0" />
+        ) : (
+          <ChevronsUpDown size={12} className="shrink-0 opacity-40" />
+        )}
+      </button>
+    </th>
+  );
+}
+
+/** Hook for client-side table sorting. Returns [sort, onSort, sortedRows]. */
+export function useSort<T>(rows: T[], getVal: (row: T, key: string) => string | number | bigint | null | undefined) {
+  const [sort, setSort] = useState<{ key: string; dir: "asc" | "desc" } | null>(null);
+  const onSort = (key: string) =>
+    setSort((s) => (s?.key === key ? { key, dir: s.dir === "asc" ? "desc" : "asc" } : { key, dir: "asc" }));
+  const sorted = sort
+    ? [...rows].sort((a, b) => {
+        const va = getVal(a, sort.key);
+        const vb = getVal(b, sort.key);
+        let cmp: number;
+        if (typeof va === "bigint" && typeof vb === "bigint") cmp = va < vb ? -1 : va > vb ? 1 : 0;
+        else if (typeof va === "number" && typeof vb === "number") cmp = va - vb;
+        else cmp = String(va ?? "").localeCompare(String(vb ?? ""));
+        return sort.dir === "asc" ? cmp : -cmp;
+      })
+    : rows;
+  return [sort, onSort, sorted] as const;
 }
 
 /** Row of small summary chips shown above list tables (label + value). */

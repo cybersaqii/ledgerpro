@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useCallback, useEffect, useState, Fragment } from "react";
 import { Plus, CalendarDays, Wallet, ArrowLeftRight, Landmark, HandCoins, FileSpreadsheet } from "lucide-react";
-import { PageHeader, EmptyState, FilterBar, SummaryChips, Pagination } from "@/components/ui";
+import { PageHeader, EmptyState, FilterBar, SummaryChips, Pagination, SortableTh, useSort} from "@/components/ui";
 import { api, fmtMoney, fmtDate, toBig } from "@/lib/format";
 import { useLang } from "@/components/lang-provider";
 
@@ -33,6 +33,15 @@ export default function PaymentsPage() {
   const [to, setTo] = useState("");
   const [page, setPage] = useState(1);
   const [rows, setRows] = useState<Pay[]>([]);
+  const [sort, onSort, sortedRows] = useSort(rows, (p, key) => {
+    switch (key) {
+      case "docNo": return p.docNo ?? "";
+      case "party": return p.partyName ?? "";
+      case "date": return p.date;
+      case "amount": return BigInt(p.amount);
+      default: return "";
+    }
+  });
   const [total, setTotal] = useState(0);
   const [sumR, setSumR] = useState("0");
   const [sumP, setSumP] = useState("0");
@@ -137,9 +146,18 @@ export default function PaymentsPage() {
         ) : (
           <div className="overflow-x-auto">
             <table className="tbl">
-              <thead><tr><th>{t("payments.colVoucher")}</th><th>{t("payments.colType")}</th><th>{t("payments.colParty")}</th><th>{t("payments.colAccount")}</th><th>{t("payments.colDate")}</th><th>{t("payments.colMethod")}</th><th className="num">{t("payments.colAmount")}</th><th /></tr></thead>
+              <thead><tr>
+                <SortableTh label={t("payments.colVoucher")} sortKey="docNo" sort={sort} onSort={onSort} />
+                <th>{t("payments.colType")}</th>
+                <SortableTh label={t("payments.colParty")} sortKey="party" sort={sort} onSort={onSort} />
+                <th>{t("payments.colAccount")}</th>
+                <SortableTh label={t("payments.colDate")} sortKey="date" sort={sort} onSort={onSort} />
+                <th>{t("payments.colMethod")}</th>
+                <SortableTh label={t("payments.colAmount")} sortKey="amount" sort={sort} onSort={onSort} className="num" />
+                <th />
+              </tr></thead>
               <tbody>
-                {rows.map((p) => (
+                {sortedRows.map((p) => (
                   <Fragment key={p.id}>
                     <tr>
                       <td className="whitespace-nowrap">

@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { Plus, Search, Pencil, Phone, Users, Eye, ArrowLeftRight, KeyRound } from "lucide-react";
-import { PageHeader, EmptyState, Field, ErrorNote } from "@/components/ui";
+import { PageHeader, EmptyState, Field, ErrorNote, SortableTh, useSort} from "@/components/ui";
 import { Modal } from "@/components/modal";
 import { PortalTokensModal } from "@/components/portal-tokens-modal";
 import { api, fmtMoney } from "@/lib/format";
@@ -51,6 +51,15 @@ export default function PartiesPage() {
   const [q, setQ] = useState("");
   const [category, setCategory] = useState("");
   const [rows, setRows] = useState<Party[]>([]);
+  const [sort, onSort, sortedRows] = useSort(rows, (p, key) => {
+    switch (key) {
+      case "name": return p.name;
+      case "phone": return p.phone ?? "";
+      case "city": return p.city ?? "";
+      case "balance": return BigInt(p.balance);
+      default: return "";
+    }
+  });
   const [total, setTotal] = useState(0);
   // Module 22: price lists for the party form selector.
   const [priceLists, setPriceLists] = useState<{ id: string; name: string }[]>([]);
@@ -183,9 +192,16 @@ export default function PartiesPage() {
         ) : (
           <div className="overflow-x-auto">
             <table className="tbl">
-              <thead><tr><th>{t("common.name")}</th><th>{t("common.phone")}</th><th>{t("common.city")}</th><th>{t("parties.category")}</th><th className="num">{t("common.balance")}</th><th></th></tr></thead>
+              <thead><tr>
+                <SortableTh label={t("common.name")} sortKey="name" sort={sort} onSort={onSort} />
+                <SortableTh label={t("common.phone")} sortKey="phone" sort={sort} onSort={onSort} />
+                <SortableTh label={t("common.city")} sortKey="city" sort={sort} onSort={onSort} />
+                <th>{t("parties.category")}</th>
+                <SortableTh label={t("common.balance")} sortKey="balance" sort={sort} onSort={onSort} className="num" />
+                <th></th>
+              </tr></thead>
               <tbody>
-                {rows.map((p) => (
+                {sortedRows.map((p) => (
                   <tr key={p.id}>
                     <td className="font-bold">{p.name}</td>
                     <td className="text-muted-foreground">{p.phone ? <span className="inline-flex items-center gap-1.5"><Phone size={13} />{p.phone}</span> : "—"}</td>

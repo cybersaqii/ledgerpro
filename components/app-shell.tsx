@@ -142,6 +142,7 @@ export function AppShell({ children, initialBusinessType }: { children: ReactNod
     { href: "/sales?type=QUOTATION", label: t("nav.quotations"), icon: FileText, perm: "sales", feature: null, group: "sales" as NavGroup },
     { href: "/sales?type=ORDER", label: t("nav.orders"), icon: ClipboardList, perm: "sales", feature: null, group: "sales" as NavGroup },
     { href: "/parties", label: t("nav.customers"), icon: Users, perm: "parties", feature: null, group: "sales" as NavGroup },
+    { href: "/parties", label: t("nav.suppliers"), icon: Users, perm: "parties", feature: null, group: "sales" as NavGroup },
     { href: "/sales/recurring", label: t("nav.recurring"), icon: Repeat, perm: "sales", feature: null, group: "sales" as NavGroup },
     { href: "/settings/credit-rules", label: t("nav.creditRules"), icon: ShieldAlert, perm: "settings", feature: null, group: "sales" as NavGroup },
     // Purchases
@@ -155,7 +156,6 @@ export function AppShell({ children, initialBusinessType }: { children: ReactNod
     // Stock
     { href: "/products", label: bp.productMany, icon: Package, perm: "products", feature: null, group: "stock" as NavGroup },
     { href: "/stock", label: bp.stock, icon: Boxes, perm: "stock", feature: null, group: "stock" as NavGroup },
-    { href: "/parties", label: bp.partyMany, icon: Users, perm: "parties", feature: null, group: "stock" as NavGroup },
     // Accounts
     { href: "/reports", label: t("nav.reports"), icon: BarChart3, perm: "reports_basic", feature: null, group: "accounts" as NavGroup },
     { href: "/tax", label: t("nav.tax"), icon: Landmark, perm: "reports_accounting", feature: null, group: "accounts" as NavGroup },
