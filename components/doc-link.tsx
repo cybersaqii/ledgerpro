@@ -14,6 +14,7 @@ export function sourceHref(source: string | null | undefined, sourceId: string |
   if (source === "SALES") return `/sales/${sourceId}`;
   if (source === "PURCHASE") return `/purchases/${sourceId}`;
   if (source === "PAYMENT") return `/payments/${sourceId}`;
+  if (source === "TRANSFER") return `/payments/transfers`;
   return null;
 }
 

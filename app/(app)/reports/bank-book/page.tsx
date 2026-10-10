@@ -133,7 +133,7 @@ export default function BankBookPage() {
                       <td className="whitespace-nowrap text-muted-foreground">{fmtDate(e.date)}</td>
                       <td className="max-w-64 truncate">{e.partyName ? `${e.memo} — ${e.partyName}` : e.memo}</td>
                       {showAll && <td className="whitespace-nowrap text-muted-foreground">{e.accountName ?? "—"}</td>}
-                      <td className="text-muted-foreground"><DocRefLink source={e.source} sourceId={e.sourceId} label={e.reference ?? e.source} className="hover:underline" /></td>
+                      <td><DocRefLink source={e.source} sourceId={e.sourceId} label={e.reference ?? e.source} className="font-bold text-primary hover:underline" /></td>
                       <td className="num">{BigInt(e.debit) ? fmtMoney(e.debit) : "—"}</td>
                       <td className="num">{BigInt(e.credit) ? fmtMoney(e.credit) : "—"}</td>
                       <td className="num font-bold">{fmtMoney(e.balance)}</td>
