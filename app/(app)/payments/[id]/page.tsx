@@ -125,9 +125,9 @@ export default function PaymentDetailPage({ params }: { params: Promise<{ id: st
         </div>
       )}
 
-      <div className="card rise p-5 sm:p-6 print:shadow-none">
+      <div className="card rise p-5 sm:p-6 print:hidden">
         <div className="flex flex-wrap items-center justify-between gap-3">
-          <span className={`badge ${detail.kind === "RECEIPT" ? "bg-primary-soft text-primary" : "bg-accent-soft text-accent"}`}>
+          <span className={`badge px-4 py-2 text-base ${detail.kind === "RECEIPT" ? "bg-primary-soft text-primary" : "bg-accent-soft text-accent"}`}>
             {detail.kind === "RECEIPT" ? t("payments.typeReceived") : t("payments.typePaid")}
           </span>
           <p className={`text-2xl font-extrabold ${detail.kind === "RECEIPT" ? "text-primary" : "text-accent"}`}>
@@ -149,7 +149,7 @@ export default function PaymentDetailPage({ params }: { params: Promise<{ id: st
         {detail.notes && <p className="mt-3 text-sm text-muted-foreground"><span className="font-bold text-foreground">{t("payments.detailNotes")}: </span>{detail.notes}</p>}
       </div>
 
-      <div className="card rise rise-1 mt-5 p-5 sm:p-6 print:shadow-none">
+      <div className="card rise rise-1 mt-5 p-5 sm:p-6 print:hidden">
         <div className="flex items-center justify-between">
           <h2 className="font-extrabold">{t("payments.allocColDoc")}</h2>
           {unallocated !== 0n && (
@@ -223,6 +223,33 @@ export default function PaymentDetailPage({ params }: { params: Promise<{ id: st
           </form>
         </Modal>
       )}
+
+      {/* Thermal receipt — print only */}
+      <div className="hidden print:block thermal-receipt mx-auto bg-white p-2 text-black">
+        <div className="text-center">
+          <div className="text-lg font-extrabold">{detail.kind === "RECEIPT" ? t("payments.typeReceived") : t("payments.typePaid")}</div>
+          <div className="text-xs">{fmtDate(detail.date)}</div>
+          <div className="my-1 border-t border-dashed border-black" />
+        </div>
+        <div className="space-y-1 text-sm">
+          <div className="flex justify-between"><span>{t("payments.colParty")}</span><span className="font-bold">{detail.partyName ?? "—"}</span></div>
+          <div className="flex justify-between"><span>{t("payments.colAccount")}</span><span className="font-bold">{detail.bankName ?? "—"}</span></div>
+          <div className="flex justify-between"><span>{t("payments.colMethod")}</span><span className="font-bold">{detail.method}</span></div>
+          <div className="flex justify-between"><span>{t("payments.colVoucher")}</span><span className="font-bold">{detail.docNo}</span></div>
+          {detail.notes && <div className="text-xs">{detail.notes}</div>}
+          <div className="my-1 border-t border-dashed border-black" />
+          <div className="flex justify-between text-base font-extrabold">
+            <span>{t("payments.colAmount")}</span><span>{fmtMoney(detail.amount)}</span>
+          </div>
+        </div>
+      </div>
+      <style>{`
+        .thermal-receipt { width: 72mm; max-width: 100%; }
+        @media print {
+          .thermal-receipt { width: 72mm; margin: 0 auto; }
+          @page { margin: 4mm; }
+        }
+      `}</style>
     </div>
   );
 }
