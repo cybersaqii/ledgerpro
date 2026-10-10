@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
-import { ArrowLeft, Landmark, Plus } from "lucide-react";
+import { ArrowLeft, ArrowLeftRight, Landmark, Plus } from "lucide-react";
 import { PageHeader, ErrorNote, Switch, Field } from "@/components/ui";
 import { Modal } from "@/components/modal";
 import { useLang } from "@/components/lang-provider";
@@ -113,6 +113,9 @@ export default function BanksPage() {
             <Link href="/payments" className="btn btn-ghost text-sm">
               <ArrowLeft size={16} className="rtl:rotate-180" /> {t("banks.backToPayments")}
             </Link>
+            <Link href="/payments/transfers" className="btn btn-ghost text-sm">
+              <ArrowLeftRight size={16} /> {t("payments.transfers")}
+            </Link>
             {canPost && (
               <button className="btn btn-primary text-sm" onClick={() => { setFormError(null); setModal(true); }}>
                 <Plus size={16} /> {m("newAccount")}
@@ -141,7 +144,9 @@ export default function BanksPage() {
                 {banks.map((b) => (
                   <tr key={b.id} className={b.isActive ? "" : "opacity-60"}>
                     <td>
-                      <div className="font-bold">{b.name}</div>
+                      <a href={`/reports/bank-book?accountId=${b.id}`} className="font-bold text-primary hover:underline" title={t("banks.viewStatement")}>
+                        {b.name}
+                      </a>
                       {([b.bankName, b.accountNo, b.iban].filter(Boolean).length > 0) && (
                         <div className="text-xs text-muted-foreground" dir="ltr">
                           {[b.bankName, b.accountNo, b.iban].filter(Boolean).join(" · ")}

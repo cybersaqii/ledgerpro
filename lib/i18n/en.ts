@@ -716,6 +716,7 @@ export const en = {
     isBundleNote: "Bundle — stock is tracked on its components, not here."
   },
   banks: {
+    viewStatement: "View statement",
     title: "Bank accounts",
     subtitle: "Cash, bank & wallet accounts — switch off the ones you no longer use",
     colAccount: "Account",

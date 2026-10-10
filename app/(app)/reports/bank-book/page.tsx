@@ -15,7 +15,10 @@ export default function BankBookPage() {
   const { t } = useLang();
   const [banks, setBanks] = useState<Bank[]>([]);
   // "All accounts" is the default view — one combined ledger.
-  const [accountId, setAccountId] = useState("all");
+  const initialAccountId = typeof window !== "undefined"
+    ? new URLSearchParams(window.location.search).get("accountId") || "all"
+    : "all";
+  const [accountId, setAccountId] = useState(initialAccountId);
   const [from, setFrom] = useState("");
   const [to, setTo] = useState(fmtDateInput());
   const [entries, setEntries] = useState<Entry[]>([]);

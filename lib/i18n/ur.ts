@@ -722,6 +722,7 @@ export const ur: DeepPartial<EnDict> = {
     isBundleNote: "بنڈل — اسٹاک یہاں نہیں بلکہ اس کے اجزاء پر ٹریک ہوتا ہے۔"
   },
   banks: {
+    viewStatement: "Statement dekhein",
     title: "بینک اکاؤنٹس",
     subtitle: "کیش، بینک اور والیٹ اکاؤنٹس — جن کی ضرورت نہیں انہیں بند کر دیں",
     colAccount: "اکاؤنٹ",
