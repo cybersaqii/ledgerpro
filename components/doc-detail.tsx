@@ -5,7 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { ArrowLeft, ArrowRightLeft, Ban, Mail, MessageCircle, PackageCheck, Printer, Truck, Undo2, Wallet } from "lucide-react";
 import { PageHeader, StatusPill } from "@/components/ui";
-import { api, fmtMoney, fmtMoneyPlain, fmtMoneyShort, fmtQty, fmtDate, toBig } from "@/lib/format";
+import { api, fmtMoney, fmtMoneyPlain, fmtMoneyShort, fmtMoneyShortRs, fmtQty, fmtDate, toBig } from "@/lib/format";
 import { formatForeign, paisaToForeignMinor, formatRate } from "@/lib/fx";
 import { brand } from "@/lib/brand";
 import { useLang } from "@/components/lang-provider";
@@ -358,10 +358,10 @@ export function DocDetail({ mode, id }: { mode: "SALES" | "PURCHASE" | "NOTE"; i
       t("docdetail.waDate", { date: fmtDate(d.date) }),
       `------------------------------`,
       ...d.items.map(
-        (it) => `${fmtQty(it.qty)} x ${it.description} @ ${fmtMoney(it.rate)} = ${fmtMoney(it.lineTotal)}`
+        (it) => `${fmtQty(it.qty)} x ${it.description} @ ${fmtMoneyShortRs(it.rate)} = ${fmtMoneyShortRs(it.lineTotal)}`
       ),
       `------------------------------`,
-      `*${t("docdetail.waTotal", { total: fmtMoney(d.grandTotal) })}*`,
+      `*${t("docdetail.waTotal", { total: fmtMoneyShortRs(d.grandTotal) })}*`,
       t("docdetail.thankYou"),
     ];
     return lines.join("\n");

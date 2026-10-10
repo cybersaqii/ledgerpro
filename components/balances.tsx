@@ -5,7 +5,7 @@ import { Fragment, useEffect, useState } from "react";
 import { Phone, Plus, Hourglass, ChevronDown, MessageCircle, OctagonX, CircleCheck } from "lucide-react";
 import { PageHeader, EmptyState, ExportCsv, SummaryChips, ErrorNote } from "@/components/ui";
 import { csvMoney } from "@/lib/csv";
-import { api, fmtMoney, fmtDate } from "@/lib/format";
+import { api, fmtMoney, fmtMoneyShortRs, fmtDate } from "@/lib/format";
 import { useBusinessProfile } from "@/components/business-type";
 import { waLink, waPhone, reminderText } from "@/lib/whatsapp";
 import { creditUtilization } from "@/lib/credit-limit";
@@ -269,7 +269,7 @@ function AgingView({ kind }: { kind: "CUSTOMER" | "SUPPLIER" }) {
                                 href={waLink(r.phone, reminderText({
                                   businessName,
                                   partyName: r.name,
-                                  totalOverdue: fmtMoney(r.total),
+                                  totalOverdue: fmtMoneyShortRs(r.total),
                                   oldestDays: r.oldestDays,
                                   invoiceCount: r.invoices.length,
                                 }))}

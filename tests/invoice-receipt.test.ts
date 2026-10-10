@@ -7,7 +7,7 @@ import { getSalesDocDetail, getPurchaseDocDetail } from "@/lib/doc-detail";
 import { computeTotals } from "@/lib/totals";
 import { parseMoney } from "@/lib/money";
 import { parseQty } from "@/lib/qty";
-import { fmtMoneyPlain } from "@/lib/format";
+import { fmtMoneyPlain, fmtMoneyShortRs } from "@/lib/format";
 import * as s from "@/db/schema";
 
 let db: TestDb;
@@ -252,6 +252,16 @@ describe("fmtMoneyPlain", () => {
     expect(fmtMoneyPlain(3500000n)).toBe("35,000.00");
     expect(fmtMoneyPlain(0n)).toBe("0.00");
     expect(fmtMoneyPlain(-15000n)).toBe("-150.00");
+  });
+});
+
+describe("fmtMoneyShortRs", () => {
+  it("drops trailing .00 but keeps cents and the Rs prefix", () => {
+    expect(fmtMoneyShortRs(4000n)).toBe("Rs 40");
+    expect(fmtMoneyShortRs(400000n)).toBe("Rs 4,000");
+    expect(fmtMoneyShortRs(4050n)).toBe("Rs 40.50");
+    expect(fmtMoneyShortRs(0n)).toBe("Rs 0");
+    expect(fmtMoneyShortRs(-15000n)).toBe("-Rs 150");
   });
 });
 

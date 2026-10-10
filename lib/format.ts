@@ -29,6 +29,12 @@ export function fmtMoneyShort(paisa: string | number | bigint): string {
   return fmtMoneyPlain(paisa).replace(/\.00$/, "");
 }
 
+export function fmtMoneyShortRs(paisa: string | number | bigint): string {
+  // Same as fmtMoneyShort but keeps the "Rs" prefix: "Rs 40.00" -> "Rs 40",
+  // "Rs 40.50" stays "Rs 40.50" — for customer-facing messages (email, WhatsApp).
+  return fmtMoney(paisa).replace(/\.00$/, "");
+}
+
 export function fmtQty(milli: string | number | bigint, unit = ""): string {
   const n = typeof milli === "bigint" ? milli : BigInt(milli);
   const neg = n < 0n;

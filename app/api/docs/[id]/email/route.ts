@@ -8,7 +8,7 @@ import { getSalesDocDetail, getPurchaseDocDetail } from "@/lib/doc-detail";
 import { sendEmail, brandEmailHeader } from "@/lib/email";
 import { brand } from "@/lib/brand";
 import { logAudit } from "@/lib/audit";
-import { fmtMoney, fmtQty } from "@/lib/format";
+import { fmtMoneyShortRs, fmtQty } from "@/lib/format";
 import type { Permission } from "@/lib/permissions";
 
 const emailSchema = z.object({
@@ -65,8 +65,8 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       (it) =>
         `<tr><td style="padding:8px;border-bottom:1px solid #e5e7eb">${it.description}</td>` +
         `<td style="padding:8px;border-bottom:1px solid #e5e7eb;text-align:right">${fmtQty(it.qty, it.unit ?? "")}</td>` +
-        `<td style="padding:8px;border-bottom:1px solid #e5e7eb;text-align:right">${fmtMoney(it.rate)}</td>` +
-        `<td style="padding:8px;border-bottom:1px solid #e5e7eb;text-align:right"><strong>${fmtMoney(it.lineTotal)}</strong></td></tr>`
+        `<td style="padding:8px;border-bottom:1px solid #e5e7eb;text-align:right">${fmtMoneyShortRs(it.rate)}</td>` +
+        `<td style="padding:8px;border-bottom:1px solid #e5e7eb;text-align:right"><strong>${fmtMoneyShortRs(it.lineTotal)}</strong></td></tr>`
     )
     .join("");
 
@@ -87,13 +87,13 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
         </tr></thead>
         <tbody>${itemRows}</tbody>
       </table>
-      <p style="text-align:right"><strong>Total: ${fmtMoney(grandTotal)}</strong><br/>
-      Paid: ${fmtMoney(paid)}<br/>Balance: ${fmtMoney(balance)}</p>
+      <p style="text-align:right"><strong>Total: ${fmtMoneyShortRs(grandTotal)}</strong><br/>
+      Paid: ${fmtMoneyShortRs(paid)}<br/>Balance: ${fmtMoneyShortRs(balance)}</p>
       <p><a href="${viewLink}">View this document in ${brand.name}</a></p>
       <hr/><p style="color:#555;font-size:13px">یہ ${title.toLowerCase()} ${companyName} کی طرف سے ${brand.name} کے ذریعے بھیجا گیا ہے۔</p>
       </div>
     </div>`,
-    text: `${title} ${doc.docNo} from ${companyName}\nTotal: ${fmtMoney(grandTotal)} · Paid: ${fmtMoney(paid)} · Balance: ${fmtMoney(balance)}\nView: ${viewLink}`,
+    text: `${title} ${doc.docNo} from ${companyName}\nTotal: ${fmtMoneyShortRs(grandTotal)} · Paid: ${fmtMoneyShortRs(paid)} · Balance: ${fmtMoneyShortRs(balance)}\nView: ${viewLink}`,
   });
 
   if (!result.ok) {

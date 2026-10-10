@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { ShieldAlert, RefreshCw, Phone, MessageCircle } from "lucide-react";
 import { PageHeader, EmptyState, ErrorNote, Field, Switch } from "@/components/ui";
-import { api, fmtMoney } from "@/lib/format";
+import { api, fmtMoney, fmtMoneyShortRs } from "@/lib/format";
 import { useLang } from "@/components/lang-provider";
 import { waLink, waPhone, reminderText } from "@/lib/whatsapp";
 import { brand } from "@/lib/brand";
@@ -196,7 +196,7 @@ export default function CreditRulesPage() {
                           href={waLink(c.phone, reminderText({
                             businessName,
                             partyName: c.partyName,
-                            totalOverdue: fmtMoney(c.totalOutstanding),
+                            totalOverdue: fmtMoneyShortRs(c.totalOutstanding),
                             oldestDays: c.maxDaysOverdue,
                             invoiceCount: 0,
                           }))}
