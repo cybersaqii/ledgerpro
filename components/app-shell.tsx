@@ -36,6 +36,7 @@ function WhatsAppSupport() {
   );
 }
 import { api } from "@/lib/format";
+import { CompanySwitcher } from "@/components/company-switcher";
 import { BusinessTypeProvider, getTranslatedProfile } from "./business-type";
 import type { BusinessFeatures } from "@/lib/business-types";
 import { newSaleHref } from "@/lib/business-types";
@@ -350,6 +351,9 @@ export function AppShell({ children, initialBusinessType }: { children: ReactNod
         <div className="flex h-16 items-center border-b border-border px-5">
           <Logo />
         </div>
+        <div className="border-b border-border px-3 py-2.5">
+          <CompanySwitcher />
+        </div>
         <div className="flex-1 overflow-y-auto">{links}</div>
         <div className="border-t border-border p-4">
           {can("sales") && (
@@ -371,6 +375,9 @@ export function AppShell({ children, initialBusinessType }: { children: ReactNod
               <button onClick={() => setOpen(false)} className="grid h-11 w-11 place-items-center rounded-xl text-sidebar-foreground hover:bg-sidebar-active hover:text-foreground" aria-label={t("shell.closeMenu")}>
                 <X size={20} />
               </button>
+            </div>
+            <div className="border-b border-border px-3 py-2.5">
+              <CompanySwitcher />
             </div>
             <div className="flex-1 overflow-y-auto">{links}</div>
             <div className="flex items-center justify-around border-t border-border p-3 lg:hidden">

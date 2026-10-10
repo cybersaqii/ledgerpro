@@ -75,6 +75,19 @@ export const branches = sqliteTable(
   (t) => [uniqueIndex("branches_company_name").on(t.companyId, t.name), index("branches_company").on(t.companyId)]
 );
 
+// Migration 0057: one account can own/manage multiple companies.
+export const userCompanies = sqliteTable(
+  "user_companies",
+  {
+    id: id(),
+    userId: text("user_id").notNull(),
+    companyId: text("company_id").notNull(),
+    role: text("role").notNull().default("OWNER"),
+    isActive: flag("is_active", true),
+    createdAt: ts("created_at").default(new Date()),
+  }
+);
+
 export const users = sqliteTable(
   "users",
   {

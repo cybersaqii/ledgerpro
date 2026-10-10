@@ -84,6 +84,11 @@ export const ur: DeepPartial<EnDict> = {
     language: "زبان",
     currencyNote: "روپے"
   },
+  company: {
+    count: "companies",
+    addCompany: "Add company",
+    newNamePh: "New company name…",
+  },
   nav: {
     groupStock: "Inventory",
     quotations: "Quotations",

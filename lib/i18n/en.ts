@@ -79,6 +79,11 @@ export const en = {
     language: "Language",
     currencyNote: "Rs"
   },
+  company: {
+    count: "companies",
+    addCompany: "Add company",
+    newNamePh: "New company name…",
+  },
   nav: {
     groupStock: "Inventory",
     quotations: "Quotations",

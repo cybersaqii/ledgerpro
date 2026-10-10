@@ -130,8 +130,11 @@ beforeAll(async () => {
   await db.insert(s.companies).values({ id: companyId, name: "Devices Co", trialEndsAt: trialAt });
   await db.insert(s.companies).values({ id: otherCompanyId, name: "Other Co", trialEndsAt: trialAt });
 
-  const user = (id: string, cid: string, name: string, role: "OWNER" | "STAFF") =>
-    db.insert(s.users).values({ id, companyId: cid, name, email: `${id}@x.pk`, passwordHash: "x", role });
+  const user = async (id: string, cid: string, name: string, role: "OWNER" | "STAFF") => {
+    await db.insert(s.users).values({ id, companyId: cid, name, email: `${id}@x.pk`, passwordHash: "x", role });
+    // Migration 0057: session validation requires a user_companies row.
+    await db.insert(s.userCompanies).values({ id: `uc-${id}`, userId: id, companyId: cid, role, isActive: true });
+  };
   await user(ownerId, companyId, "Owner", "OWNER");
   await user(staff1Id, companyId, "Staff One", "STAFF");
   await user(staff2Id, companyId, "Staff Two", "STAFF");

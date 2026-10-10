@@ -2,9 +2,9 @@ import bcrypt from "bcryptjs";
 import { SignJWT, jwtVerify } from "jose";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
-import { eq } from "drizzle-orm";
+import { eq, and } from "drizzle-orm";
 import { db } from "./db";
-import { users } from "@/db/schema";
+import { users, userCompanies } from "@/db/schema";
 import { SESSION_COOKIE, verifySessionToken as verifyTokenEdge } from "./edge-auth";
 import { getIdleTimeoutMs, isIdleExpired, shouldTouchActivity } from "./security";
 
@@ -68,7 +68,20 @@ export async function getSession(): Promise<Session | null> {
     const user = rows[0];
     if (!user || !user.isActive) return null;
     if (user.tokenVersion !== s.v) return null; // logged out everywhere
-    if (user.companyId !== s.cid) return null;
+    // Multi-company (migration 0057): session company must be one of the
+    // user's active companies, not necessarily their primary one.
+    const access = await db
+      .select({ id: userCompanies.id })
+      .from(userCompanies)
+      .where(
+        and(
+          eq(userCompanies.userId, s.uid),
+          eq(userCompanies.companyId, s.cid),
+          eq(userCompanies.isActive, true)
+        )
+      )
+      .limit(1);
+    if (access.length === 0) return null;
     // Idle timeout — a session idle longer than the limit is treated as logged
     // out (fail closed). A missing timestamp never expires: pre-migration users
     // keep their session and tracking simply starts now.
