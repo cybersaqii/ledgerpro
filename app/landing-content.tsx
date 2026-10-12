@@ -57,7 +57,9 @@ const trust = [
 const paperBad = ["pp0", "pp1", "pp2", "pp3", "pp4", "pp5"];
 const paperGood = ["lp0", "lp1", "lp2", "lp3", "lp4", "lp5"];
 const freeFeatures = ["ff0", "ff1", "ff2", "ff3", "ff4", "ff5"];
-const proFeatures = ["pf0", "pf1", "pf2", "pf3", "pf4", "pf5", "pf6"];
+const starterFeatures = ["sf0", "sf1", "sf2", "sf3"];
+const proFeatures = ["pf0", "pf1", "pf2", "pf3", "pf4"];
+const enterpriseFeatures = ["ef0", "ef1", "ef2", "ef3"];
 const footLinks: [string, string][] = [["fl0", "#features"], ["fl2", "#how"], ["fl5", "#pricing"], ["fl3", "#faq"], ["fl4", "/login"]];
 
 export default function LandingContent() {
@@ -416,16 +418,17 @@ export default function LandingContent() {
               ))}
             </div>
           </div>
-          <div className="mx-auto mt-10 grid max-w-4xl gap-6 md:grid-cols-2">
-            {/* Free */}
+          <div className="mx-auto mt-10 grid max-w-6xl gap-6 md:grid-cols-3">
+            {/* Starter */}
             <div className="card flex flex-col p-7 sm:p-8">
-              <p className="text-sm font-extrabold uppercase tracking-wider text-muted-foreground">{L("planFree")}</p>
+              <p className="text-sm font-extrabold uppercase tracking-wider text-muted-foreground">{L("planStarter")}</p>
               <p className="mt-3 flex items-baseline gap-1">
-                <span className="font-display text-4xl font-extrabold tracking-tight">{L("freePrice")}</span>
-                <span className="text-sm text-muted-foreground">{L("freePer")}</span>
+                <span className="font-display text-4xl font-extrabold tracking-tight">{billing === "m" ? L("starterMonthlyPrice") : L("starterYearlyPrice")}</span>
+                <span className="text-sm text-muted-foreground">{billing === "m" ? L("perMonth") : L("perYear")}</span>
               </p>
-              <ul className="mt-6 flex-1 space-y-3">
-                {freeFeatures.map((f) => (
+              <p className="mt-1 text-xs text-muted-foreground">{billing === "y" ? L("billedYearly") : "\u00A0"}</p>
+              <ul className="mt-5 flex-1 space-y-3">
+                {starterFeatures.map((f) => (
                   <li key={f} className="flex items-start gap-2.5 text-sm">
                     <CheckCircle2 size={17} className="mt-0.5 shrink-0 text-primary" />
                     <span>{L(f)}</span>
@@ -433,13 +436,13 @@ export default function LandingContent() {
                 ))}
               </ul>
               <Link href="/signup" className="btn btn-ghost mt-7 w-full !py-3 text-sm">
-                {L("ctaFree")} <ArrowRight size={16} />
+                {L("ctaPro")} <ArrowRight size={16} />
               </Link>
             </div>
-            {/* PRO */}
+            {/* Professional — highlighted */}
             <div className="relative flex flex-col overflow-hidden rounded-3xl border-2 border-[#f0b73f] bg-[#101a2c] p-7 shadow-2xl shadow-[#f0b73f]/15 sm:p-8">
               <span className="absolute end-5 top-5 rounded-full bg-[#f0b73f] px-3 py-1 text-[0.7rem] font-extrabold uppercase tracking-wide text-[#231600]">{L("proTag")}</span>
-              <p className="text-sm font-extrabold uppercase tracking-wider text-[#f0b73f]">{L("planPro")}</p>
+              <p className="text-sm font-extrabold uppercase tracking-wider text-[#f0b73f]">{L("planProfessional")}</p>
               <p className="mt-3 flex items-baseline gap-1">
                 <span className="font-display text-4xl font-extrabold tracking-tight text-white">{billing === "m" ? L("proMonthlyPrice") : L("proYearlyPrice")}</span>
                 <span className="text-sm text-white/60">{billing === "m" ? L("perMonth") : L("perYear")}</span>
@@ -454,6 +457,26 @@ export default function LandingContent() {
                 ))}
               </ul>
               <Link href="/signup" className="mt-7 inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-[#f0b73f] !py-3 text-sm font-extrabold text-[#231600] transition hover:brightness-105">
+                {L("ctaPro")} <ArrowRight size={16} />
+              </Link>
+            </div>
+            {/* Enterprise */}
+            <div className="card flex flex-col p-7 sm:p-8">
+              <p className="text-sm font-extrabold uppercase tracking-wider text-muted-foreground">{L("planEnterprise")}</p>
+              <p className="mt-3 flex items-baseline gap-1">
+                <span className="font-display text-4xl font-extrabold tracking-tight">{billing === "m" ? L("enterpriseMonthlyPrice") : L("enterpriseYearlyPrice")}</span>
+                <span className="text-sm text-muted-foreground">{billing === "m" ? L("perMonth") : L("perYear")}</span>
+              </p>
+              <p className="mt-1 text-xs text-muted-foreground">{billing === "y" ? L("billedYearly") : "\u00A0"}</p>
+              <ul className="mt-5 flex-1 space-y-3">
+                {enterpriseFeatures.map((f) => (
+                  <li key={f} className="flex items-start gap-2.5 text-sm">
+                    <CheckCircle2 size={17} className="mt-0.5 shrink-0 text-primary" />
+                    <span>{L(f)}</span>
+                  </li>
+                ))}
+              </ul>
+              <Link href="/signup" className="btn btn-ghost mt-7 w-full !py-3 text-sm">
                 {L("ctaPro")} <ArrowRight size={16} />
               </Link>
             </div>

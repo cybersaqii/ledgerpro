@@ -13,8 +13,10 @@ import {
   getAccessLevel,
   trialDaysLeft,
   proDaysLeft,
+  normalizePlan,
   type CompanyBilling,
   type ProFeature,
+  type Plan,
 } from "@/lib/entitlements";
 
 /** Load just the billing columns for a company. */
@@ -186,18 +188,21 @@ export function priceForPlan(settings: Record<string, string>, months: number): 
  * immediately reports PRO (not "Free trial") on the billing page and banners.
  * Returns the new proExpiresAt.
  */
-export async function activatePro(
+export async function activatePlan(
   dbc: Db | DbTx,
   companyId: string,
+  plan: Plan,
   months: number,
   now: Date = new Date()
 ): Promise<Date> {
+  const normalized = normalizePlan(plan === "FREE" ? null : plan);
+  if (normalized === "FREE") throw new Error("Cannot activate FREE plan");
   const c = await getCompanyBilling(dbc, companyId);
   const start = c?.proExpiresAt && c.proExpiresAt.getTime() > now.getTime() ? c.proExpiresAt : now;
   const expires = new Date(start.getTime() + months * 30 * 86_400_000);
   await dbc
     .update(companies)
-    .set({ plan: "PRO", proExpiresAt: expires, trialEndsAt: now, updatedAt: new Date() })
+    .set({ plan: normalized, proExpiresAt: expires, trialEndsAt: now, updatedAt: new Date() })
     .where(eq(companies.id, companyId));
   // PRO-activated email — best effort, never breaks activation.
   try {
@@ -215,13 +220,13 @@ export async function activatePro(
     if (to) {
       await sendEmail({
         to,
-        subject: `${brand.name} PRO activated — welcome to the full plan`,
+        subject: `${brand.name} ${normalized} activated — welcome!`,
         html: `<div style="font-family:sans-serif;max-width:560px;margin:0 auto">
           ${brandEmailHeader()}
           <div style="padding:16px 8px 0">
-          <h2>${brand.name} PRO is now active</h2>
+          <h2>${brand.name} ${normalized} is now active</h2>
           <p>Hi ${owner?.name || "there"},</p>
-          <p>Your company <strong>${comp?.name || ""}</strong> is now on the <strong>${brand.name} PRO</strong> plan, valid until <strong>${expires.toDateString()}</strong>. All premium features are unlocked — enjoy!</p>
+          <p>Your company <strong>${comp?.name || ""}</strong> is now on the <strong>${brand.name} ${normalized}</strong> plan, valid until <strong>${expires.toDateString()}</strong>. Enjoy!</p>
           <hr/><p style="color:#555">آپ کا ${brand.name} PRO پلان فعال ہو گیا ہے — میعاد <strong>${expires.toDateString()}</strong> تک ہے۔ تمام پریمیم فیچرز دستیاب ہیں۔</p>
           </div>
         </div>`,
@@ -229,7 +234,7 @@ export async function activatePro(
       });
     }
   } catch (e) {
-    console.error("[activatePro] pro-activated email failed", e);
+    console.error("[activatePlan] plan-activated email failed", e);
   }
   // Referral growth loop: a PRO purchase qualifies a pending referral and can
   // unlock the referrer's monthly reward. Best effort — never breaks activation.
@@ -240,6 +245,16 @@ export async function activatePro(
     console.error("[activatePro] referral qualification failed", e);
   }
   return expires;
+}
+
+/** Legacy wrapper: activates PROFESSIONAL (old "PRO") plan. */
+export async function activatePro(
+  dbc: Db | DbTx,
+  companyId: string,
+  months: number,
+  now: Date = new Date()
+): Promise<Date> {
+  return activatePlan(dbc, companyId, "PROFESSIONAL", months, now);
 }
 
 /** Create a pending manual payment submission. */

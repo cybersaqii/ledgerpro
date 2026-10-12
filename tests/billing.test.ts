@@ -45,23 +45,23 @@ describe("getAccessLevel", () => {
   it("is PRO with an active paid plan after the trial", () => {
     expect(
       getAccessLevel(
-        company({ trialEndsAt: new Date(NOW.getTime() - 40 * DAY), plan: "PRO", proExpiresAt: new Date(NOW.getTime() + 10 * DAY) }),
+        company({ trialEndsAt: new Date(NOW.getTime() - 40 * DAY), plan: "PROFESSIONAL", proExpiresAt: new Date(NOW.getTime() + 10 * DAY) }),
         NOW
       )
-    ).toBe("PRO");
+    ).toBe("PLAN");
   });
   it("prefers PRO over a still-running trial (paid during trial)", () => {
     expect(
       getAccessLevel(
-        company({ trialEndsAt: new Date(NOW.getTime() + 29 * DAY), plan: "PRO", proExpiresAt: new Date(NOW.getTime() + 365 * DAY) }),
+        company({ trialEndsAt: new Date(NOW.getTime() + 29 * DAY), plan: "PROFESSIONAL", proExpiresAt: new Date(NOW.getTime() + 365 * DAY) }),
         NOW
       )
-    ).toBe("PRO");
+    ).toBe("PLAN");
   });
   it("is FREE when the paid plan expired", () => {
     expect(
       getAccessLevel(
-        company({ trialEndsAt: new Date(NOW.getTime() - 40 * DAY), plan: "PRO", proExpiresAt: new Date(NOW.getTime() - DAY) }),
+        company({ trialEndsAt: new Date(NOW.getTime() - 40 * DAY), plan: "PROFESSIONAL", proExpiresAt: new Date(NOW.getTime() - DAY) }),
         NOW
       )
     ).toBe("FREE");
@@ -81,7 +81,7 @@ describe("canAccess", () => {
   });
   it("allows PRO features during trial and on PRO", () => {
     const trial = company({ trialEndsAt: new Date(NOW.getTime() + DAY) });
-    const pro = company({ trialEndsAt: new Date(NOW.getTime() - 40 * DAY), plan: "PRO", proExpiresAt: new Date(NOW.getTime() + DAY) });
+    const pro = company({ trialEndsAt: new Date(NOW.getTime() - 40 * DAY), plan: "PROFESSIONAL", proExpiresAt: new Date(NOW.getTime() + DAY) });
     for (const f of ["pos", "team", "period_lock", "import_export", "advanced_reports"]) {
       expect(canAccess(trial, f, NOW)).toBe(true);
       expect(canAccess(pro, f, NOW)).toBe(true);
@@ -101,8 +101,8 @@ describe("day counters", () => {
     expect(trialDaysLeft(company({ trialEndsAt: null }), NOW)).toBe(0);
   });
   it("proDaysLeft is 0 without an active PRO plan", () => {
-    expect(proDaysLeft(company({ plan: "PRO", proExpiresAt: new Date(NOW.getTime() + 3 * DAY) }), NOW)).toBe(3);
-    expect(proDaysLeft(company({ plan: "PRO", proExpiresAt: new Date(NOW.getTime() - DAY) }), NOW)).toBe(0);
+    expect(proDaysLeft(company({ plan: "PROFESSIONAL", proExpiresAt: new Date(NOW.getTime() + 3 * DAY) }), NOW)).toBe(3);
+    expect(proDaysLeft(company({ plan: "PROFESSIONAL", proExpiresAt: new Date(NOW.getTime() - DAY) }), NOW)).toBe(0);
     expect(proDaysLeft(company({ plan: "FREE" }), NOW)).toBe(0);
   });
 });
@@ -119,7 +119,7 @@ describe("billing DB flow", () => {
     expect(st?.trialDaysLeft).toBeGreaterThan(0);
   });
 
-  it("activatePro sets plan=PRO and stacks onto a future expiry", async () => {
+  it("activatePro sets plan=PROFESSIONAL and stacks onto a future expiry", async () => {
     const id = crypto.randomUUID();
     await db.insert(s.companies).values({
       id, name: "Pro Co", businessType: "WHOLESALE",
@@ -131,12 +131,12 @@ describe("billing DB flow", () => {
     // 12 months stack on top of the existing future expiry
     expect(second.getTime()).toBe(first.getTime() + 12 * 30 * DAY);
     const rows = await db.select({ plan: s.companies.plan }).from(s.companies).where(eq(s.companies.id, id));
-    expect(rows[0].plan).toBe("PRO");
+    expect(rows[0].plan).toBe("PROFESSIONAL");
     const st = await billingStatusFor(id, db);
-    expect(st?.level).toBe("PRO");
+    expect(st?.level).toBe("PLAN");
   });
 
-  it("activatePro during an active trial ends the trial and flips the account to PRO", async () => {
+  it("activatePro during an active trial ends the trial and flips the account to PLAN", async () => {
     const id = crypto.randomUUID();
     await db.insert(s.companies).values({
       id, name: "Trial Buyer Co", businessType: "RETAIL",
@@ -151,12 +151,12 @@ describe("billing DB flow", () => {
       .select({ plan: s.companies.plan, trialEndsAt: s.companies.trialEndsAt, proExpiresAt: s.companies.proExpiresAt })
       .from(s.companies)
       .where(eq(s.companies.id, id));
-    expect(rows[0].plan).toBe("PRO");
+    expect(rows[0].plan).toBe("PROFESSIONAL");
     expect(rows[0].trialEndsAt!.getTime()).toBeLessThanOrEqual(Date.now());
     expect(rows[0].proExpiresAt!.getTime()).toBeGreaterThan(Date.now());
 
     const after = await billingStatusFor(id, db);
-    expect(after?.level).toBe("PRO");
+    expect(after?.level).toBe("PLAN");
     expect(after?.trialDaysLeft).toBe(0);
     expect(after?.proDaysLeft).toBeGreaterThan(0);
   });
