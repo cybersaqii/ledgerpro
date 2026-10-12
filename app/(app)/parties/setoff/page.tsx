@@ -64,7 +64,7 @@ function DocTable({ title, docs, empty }: { title: string; docs: OpenDoc[]; empt
       <p className="border-b border-border px-4 py-3 text-sm font-extrabold">{title}</p>
       {docs.length === 0 ? <p className="p-4 text-sm text-muted-foreground">{empty}</p> : (
         <div className="max-h-64 overflow-auto">
-          <table className="tbl">
+          <div className="overflow-x-auto"><table className="tbl">
             <thead><tr><th>{t("setoff.colDoc")}</th><th>{t("setoff.colDate")}</th><th className="num">{t("setoff.colOutstanding")}</th></tr></thead>
             <tbody>
               {docs.map((d) => (
@@ -78,7 +78,7 @@ function DocTable({ title, docs, empty }: { title: string; docs: OpenDoc[]; empt
             <tfoot>
               <tr className="border-t border-border"><td colSpan={2} className="font-extrabold">{t("common.total")}</td><td className="num font-extrabold">{fmtMoney(total.toString())}</td></tr>
             </tfoot>
-          </table>
+          </table></div>
         </div>
       )}
     </div>

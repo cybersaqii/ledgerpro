@@ -553,3 +553,17 @@ input[type="number"] {
   body { background: #fff !important; }
   thead { display: table-header-group; }
 }
+
+/* ═══════════ Mobile-first responsive enhancements ═══════════ */
+@media (max-width: 640px) {
+  /* Prevent iOS Safari auto-zoom on input focus (needs >= 16px).
+     Applies to all form fields including the compact doc-form —
+     on phones the form stacks to 1 column so 16px inputs fit fine. */
+  .field {
+    font-size: 16px;
+  }
+  /* Smoother horizontal scrolling for tables on touch devices */
+  .overflow-x-auto {
+    -webkit-overflow-scrolling: touch;
+  }
+}

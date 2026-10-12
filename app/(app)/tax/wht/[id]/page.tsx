@@ -77,7 +77,7 @@ export default function WhtCertificatePage() {
           {t("tax.certTitle")}
         </h2>
 
-        <table className="mt-6 w-full text-sm">
+        <div className="overflow-x-auto"><table className="mt-6 w-full text-sm">
           <tbody>
             {rows.map(([label, value], i) => (
               <tr key={i} className={i % 2 ? "bg-muted/40" : ""}>
@@ -86,7 +86,7 @@ export default function WhtCertificatePage() {
               </tr>
             ))}
           </tbody>
-        </table>
+        </table></div>
 
         <p className="mt-6 text-xs leading-relaxed text-muted-foreground">{t("tax.certNote")}</p>
 

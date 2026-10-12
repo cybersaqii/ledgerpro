@@ -183,7 +183,7 @@ export default function DashboardPage() {
 
   const agingTable = (buckets: Record<string, string>, label: string) => (
     <div>
-      <table className="tbl-fa w-full">
+      <div className="overflow-x-auto"><table className="tbl-fa w-full">
         <thead>
           <tr><th className="!text-start">{label}</th><th className="!text-end">{t("dashboard.balance")}</th></tr>
         </thead>
@@ -195,7 +195,7 @@ export default function DashboardPage() {
             </tr>
           ))}
         </tbody>
-      </table>
+      </table></div>
     </div>
   );
 
@@ -203,7 +203,7 @@ export default function DashboardPage() {
     rows.length === 0
       ? <EmptyState title={t("dashboard.noData")} />
       : (
-        <table className="tbl-fa w-full">
+        <div className="overflow-x-auto"><table className="tbl-fa w-full">
           <thead>
             <tr><th className="!text-start">{t("dashboard.name")}</th><th className="!text-end">{t("dashboard.balance")}</th></tr>
           </thead>
@@ -215,7 +215,7 @@ export default function DashboardPage() {
               </tr>
             ))}
           </tbody>
-        </table>
+        </table></div>
       )
   );
 
@@ -318,7 +318,7 @@ export default function DashboardPage() {
               title={t("dashboard.bankBalances")}
               action={<Link href="/bank/balances" className="inline-flex items-center gap-1 text-xs font-bold text-primary hover:underline">{t("common.viewAll")} <ChevronRight size={13} /></Link>}
             >
-              <table className="tbl-fa w-full">
+              <div className="overflow-x-auto"><table className="tbl-fa w-full">
                 <thead>
                   <tr><th className="!text-start !bg-sky-500">{t("dashboard.bank")}</th><th className="!text-end !bg-sky-500">{t("dashboard.balance")}</th></tr>
                 </thead>
@@ -336,7 +336,7 @@ export default function DashboardPage() {
                     <tr><td colSpan={2} className="text-center text-xs text-muted-foreground">{t("dashboard.noData")}</td></tr>
                   )}
                 </tbody>
-              </table>
+              </table></div>
             </Card>
 
             {/* 4. Products */}

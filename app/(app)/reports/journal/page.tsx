@@ -147,7 +147,7 @@ export default function JournalPage() {
                           </button>
                         )}
                       </div>
-                      <table className="tbl !bg-transparent">
+                      <div className="overflow-x-auto"><table className="tbl !bg-transparent">
                         <thead><tr><th>{t("journal.colAccount")}</th><th className="num">{t("journal.colDebit")}</th><th className="num">{t("journal.colCredit")}</th></tr></thead>
                         <tbody>
                           {e.lines.map((l, i) => (
@@ -162,7 +162,7 @@ export default function JournalPage() {
                             </tr>
                           ))}
                         </tbody>
-                      </table>
+                      </table></div>
                     </div>
                   )}
                 </li>

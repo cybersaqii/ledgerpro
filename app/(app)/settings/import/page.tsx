@@ -268,7 +268,7 @@ export default function ImportWizardPage() {
                 <TriangleAlert size={16} className="mt-0.5 shrink-0" /> {t("imp.importBlocked", { count: result.errorCount })}
               </p>
               <div className="mt-3 max-h-72 overflow-auto rounded-2xl border border-border">
-                <table className="w-full text-sm">
+                <div className="overflow-x-auto"><table className="w-full text-sm">
                   <thead className="sticky top-0 bg-muted/70">
                     <tr>
                       <th className="px-3 py-2 text-start font-bold">{t("imp.rowCol")}</th>
@@ -283,7 +283,7 @@ export default function ImportWizardPage() {
                       </tr>
                     ))}
                   </tbody>
-                </table>
+                </table></div>
               </div>
             </>
           ) : (
