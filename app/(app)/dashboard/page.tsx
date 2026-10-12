@@ -2,370 +2,442 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
-  TrendingUp, ShoppingBag, ReceiptText, ArrowDownToLine, ArrowUpFromLine,
-  Landmark, TriangleAlert, FileText, LayoutDashboard, Zap, ArrowRight,
-  ShoppingCart, Truck, Users, Package, BarChart3, X, CircleCheck, Circle, ListChecks, Crown, RotateCcw,
-  ArrowUpRight,
+  TriangleAlert, LayoutDashboard, RotateCcw, Plus, Eye,
+  TrendingUp, TrendingDown, Package, ChevronRight,
 } from "lucide-react";
-import { PageHeader, Stat, EmptyState } from "@/components/ui";
+import { PageHeader, EmptyState } from "@/components/ui";
 import { api, fmtMoney, fmtDate } from "@/lib/format";
-import { useBusinessProfile } from "@/components/business-type";
-import { newSaleHref } from "@/lib/business-types";
 import { useLang } from "@/components/lang-provider";
-import { useCan } from "@/components/permissions";
-import dynamic from "next/dynamic";
-import { metricTileTarget, type MetricTileKey } from "@/lib/dashboard-tiles";
-// recharts (~372KB) loads after first paint so the KPI tiles render first.
-const SalesTrendChart = dynamic(
-  () => import("@/components/sales-trend-chart").then((m) => m.SalesTrendChart),
-  {
-    ssr: false,
-    loading: () => <div className="h-full w-full animate-pulse rounded-xl bg-muted/60" aria-hidden="true" />,
-  },
-);
 
-type DashboardData = {
-  kpis: {
-    salesToday: string; salesMonth: string; purchasesMonth: string; expensesMonth: string;
-    receivables: string; payables: string; cashAndBank: string; profitMonth: string; lowStock: number;
-    expiringBatches: number;
-  };
-  recentSales: Array<{ id: string; docNo: string; date: number; grandTotal: string; partyName: string | null }>;
-  salesTrend: Array<{ month: string; total: string }>;
+type OverviewData = {
+  ar: { total: string; buckets: Record<string, string> };
+  ap: { total: string; buckets: Record<string, string> };
+  banks: Array<{ id: string; name: string; code: string | null; balance: string; kind: string }>;
+  products: { lowStock: number; outOfStock: number; oversold: number; inStock: number };
+  sales: { total: string };
+  expenses: { total: string; top: Array<{ name: string; total: string }> };
+  pnl: { income: string; expenses: string; net: string };
+  arTop10: Array<{ id: string; name: string; balance: string }>;
+  apTop10: Array<{ id: string; name: string; balance: string }>;
 };
 
-type OnboardingStep = {
-  key: string; label: string; hint: string; href: string; done: boolean; locked?: boolean;
-  action?: "load-sample";
+type RecentDoc = {
+  id: string; docNo: string; date: number; grandTotal: string;
+  partyName: string | null; kind: "SALE" | "PURCHASE";
 };
 
-async function loadSampleDataNow(): Promise<void> {
-  await api("/api/sample-data", { method: "POST" });
+type User = { name: string; email: string };
+
+const BUCKET_ORDER = ["older", "current", "d1_7", "d8_14", "d15_21", "d22_28", "future"] as const;
+
+const SALES_PERIODS = [
+  { key: "fy", label: "This Financial Year" },
+  { key: "week", label: "This Week" },
+  { key: "month", label: "This Month" },
+  { key: "lastweek", label: "Last Week" },
+  { key: "lastmonth", label: "Last Month" },
+  { key: "q1", label: "Quarter 1" },
+  { key: "q2", label: "Quarter 2" },
+  { key: "q3", label: "Quarter 3" },
+  { key: "q4", label: "Quarter 4" },
+] as const;
+
+type SalesPeriodKey = (typeof SALES_PERIODS)[number]["key"];
+
+function periodRange(key: SalesPeriodKey): { from: string; to: string } {
+  const now = new Date();
+  const iso = (d: Date) => d.toISOString().slice(0, 10);
+  const startOfDay = (d: Date) => new Date(d.getFullYear(), d.getMonth(), d.getDate());
+  switch (key) {
+    case "week": {
+      const s = startOfDay(new Date(now)); s.setDate(s.getDate() - s.getDay());
+      return { from: iso(s), to: iso(now) };
+    }
+    case "lastweek": {
+      const s = startOfDay(new Date(now)); s.setDate(s.getDate() - s.getDay() - 7);
+      const e = new Date(s); e.setDate(e.getDate() + 6);
+      return { from: iso(s), to: iso(e) };
+    }
+    case "month": {
+      return { from: iso(new Date(now.getFullYear(), now.getMonth(), 1)), to: iso(now) };
+    }
+    case "lastmonth": {
+      const s = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+      const e = new Date(now.getFullYear(), now.getMonth(), 0);
+      return { from: iso(s), to: iso(e) };
+    }
+    case "q1": case "q2": case "q3": case "q4": {
+      const q = Number(key.slice(1)) - 1;
+      const s = new Date(now.getFullYear(), q * 3, 1);
+      const e = new Date(now.getFullYear(), q * 3 + 3, 0);
+      return { from: iso(s), to: iso(e) };
+    }
+    case "fy":
+    default: {
+      // Financial year: July–June (Pakistan)
+      const y = now.getMonth() >= 6 ? now.getFullYear() : now.getFullYear() - 1;
+      return { from: iso(new Date(y, 6, 1)), to: iso(new Date(y + 1, 5, 30)) };
+    }
+  }
+}
+
+function Card({ title, action, children, className = "" }: {
+  title: string; action?: React.ReactNode; children: React.ReactNode; className?: string;
+}) {
+  return (
+    <section className={`card min-w-0 p-4 sm:p-5 ${className}`}>
+      <div className="mb-3 flex items-center justify-between gap-2">
+        <h2 className="truncate text-sm font-extrabold tracking-tight sm:text-base">{title}</h2>
+        {action}
+      </div>
+      {children}
+    </section>
+  );
 }
 
 export default function DashboardPage() {
   const router = useRouter();
-  const bp = useBusinessProfile();
-  const { t, lang } = useLang();
-  const canPos = useCan("pos");
-  const [data, setData] = useState<DashboardData | null>(null);
+  const { t } = useLang();
+  const [tab, setTab] = useState<"new" | "overview">("new");
+  const [user, setUser] = useState<User | null>(null);
+  const [overview, setOverview] = useState<OverviewData | null>(null);
+  const [recent, setRecent] = useState<RecentDoc[]>([]);
   const [error, setError] = useState<string | null>(null);
-  const [steps, setSteps] = useState<OnboardingStep[] | null>(null);
-  const [showDoneSteps, setShowDoneSteps] = useState(false);
-  const [sampleBusy, setSampleBusy] = useState(false);
-  const [sampleError, setSampleError] = useState<string | null>(null);
+  const [salesPeriod, setSalesPeriod] = useState<SalesPeriodKey>("fy");
+  const [salesTotal, setSalesTotal] = useState<string | null>(null);
 
-  async function retry() {
-    setError(null);
-    setData(null);
-    try {
-      setData(await api<{ kpis: DashboardData["kpis"]; recentSales: DashboardData["recentSales"]; salesTrend: DashboardData["salesTrend"] }>("/api/dashboard"));
-    } catch (e) {
-      setError(e instanceof Error ? e.message : t("dashboard.loadError"));
-    }
-  }
+  const bucketLabels: Record<string, string> = useMemo(() => ({
+    older: t("dashboard.bkOlder"),
+    current: t("dashboard.bkCurrent"),
+    d1_7: t("dashboard.bk17"),
+    d8_14: t("dashboard.bk814"),
+    d15_21: t("dashboard.bk1521"),
+    d22_28: t("dashboard.bk2228"),
+    future: t("dashboard.bkFuture"),
+  }), [t]);
 
-  const quickActions = [
-    { href: newSaleHref(bp), label: bp.newSale, icon: ShoppingCart, cls: "tile-primary" },
-    ...(bp.features.purchases ? [{ href: "/purchases/new", label: t("dashboard.qaNewPurchase"), icon: Truck, cls: "tile-accent" }] : []),
-    { href: "/payments/new?kind=RECEIPT", label: t("dashboard.qaReceive"), icon: ArrowDownToLine, cls: "tile-emerald" },
-    { href: "/payments/new?kind=PAYMENT", label: t("dashboard.qaPay"), icon: ArrowUpFromLine, cls: "tile-sky" },
-    { href: "/expenses", label: t("dashboard.qaExpense"), icon: ReceiptText, cls: "tile-violet" },
-    { href: "/parties", label: bp.partyMany, icon: Users, cls: "tile-amber" },
-    { href: "/products", label: bp.productMany, icon: Package, cls: "tile-rose" },
-    { href: "/reports", label: t("dashboard.qaReports"), icon: BarChart3, cls: "tile-cyan" },
-  ];
+  const loadOverview = useCallback(async () => {
+    const r = periodRange(salesPeriod);
+    const d = await api<{ data: OverviewData }>(
+      `/api/dashboard/overview?salesFrom=${r.from}&salesTo=${r.to}`
+    );
+    setOverview(d.data);
+    setSalesTotal(d.data.sales.total);
+  }, [salesPeriod]);
 
   useEffect(() => {
-    api<{ kpis: DashboardData["kpis"]; recentSales: DashboardData["recentSales"]; salesTrend: DashboardData["salesTrend"] }>("/api/dashboard")
-      .then(setData)
-      .catch((e) => setError(e instanceof Error ? e.message : t("dashboard.loadError")));
-    // First-run onboarding checklist (dismissible, once — hides when complete).
-    if (typeof window !== "undefined" && !localStorage.getItem("lp-onboarding-dismissed")) {
-      api<{ data: OnboardingStep[] }>("/api/onboarding")
-        .then((d) => { if (d.data.some((s) => !s.done)) setSteps(d.data); })
-        .catch(() => {});
-    }
-    // Brand-new companies (no wizard done, no real data yet) go through the
-    // guided setup instead of landing on an empty dashboard.
-    api<{ data: { completed: boolean } }>("/api/onboarding/wizard")
-      .then((w) => {
-        if (!w.data.completed) {
-          api<{ data: OnboardingStep[] }>("/api/onboarding")
-            .then((d) => {
-              const hasData = d.data.some((s) => s.done && s.key !== "profile");
-              if (!hasData) router.replace("/welcome");
-            })
-            .catch(() => {});
-        }
-      })
-      .catch(() => {});
-  }, [t, router]);
+    let mounted = true;
+    (async () => {
+      try {
+        const me = await api<{ user: User }>("/api/auth/me");
+        if (mounted) setUser(me.user);
+      } catch { router.push("/login"); }
+      try {
+        await loadOverview();
+      } catch (e) {
+        if (mounted) setError(e instanceof Error ? e.message : t("dashboard.loadError"));
+      }
+      // Updates: recent sales + purchases merged
+      try {
+        const [s, p] = await Promise.all([
+          api<{ data: Array<{ id: string; docNo: string; date: number; grandTotal: string; partyName: string | null }> }>("/api/sales?docType=INVOICE&perPage=5").catch(() => ({ data: [] as never[] })),
+          api<{ data: Array<{ id: string; docNo: string; date: number; grandTotal: string; partyName: string | null }> }>("/api/purchases?docType=BILL&perPage=5").catch(() => ({ data: [] as never[] })),
+        ]);
+        if (!mounted) return;
+        const merged: RecentDoc[] = [
+          ...s.data.map((d) => ({ ...d, kind: "SALE" as const })),
+          ...p.data.map((d) => ({ ...d, kind: "PURCHASE" as const })),
+        ].sort((a, b) => b.date - a.date).slice(0, 5);
+        setRecent(merged);
+      } catch { /* updates are best-effort */ }
+    })();
+    return () => { mounted = false; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
-  // Full 6-month window with short month names — the API only returns months
-  // that have sales, so fill the gaps with 0 instead of showing one giant
-  // orphan bar with a cryptic "09" label. (Above the early returns: hooks
-  // must run unconditionally.)
-  const trend = useMemo(() => {
-    if (!data) return [];
-    const byMonth = new Map(
-      data.salesTrend.map((t) => [t.month, Number(BigInt(t.total) / 100n)] as const)
-    );
-    const dtf = new Intl.DateTimeFormat(lang === "ur" ? "ur-PK" : "en-GB", { month: "short" });
-    const now = new Date();
-    const out: Array<{ month: string; total: number }> = [];
-    for (let i = 5; i >= 0; i--) {
-      const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
-      const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
-      out.push({ month: dtf.format(d), total: byMonth.get(key) ?? 0 });
-    }
-    return out;
-  }, [data, lang]);
-  const trendTotal = trend.reduce((s, p) => s + p.total, 0);
+  const onPeriodChange = (key: SalesPeriodKey) => {
+    setSalesPeriod(key);
+    // Reload with the new period (loadOverview reads salesPeriod via closure —
+    // pass explicitly by temporarily relying on the state update below).
+    const r = periodRange(key);
+    api<{ data: OverviewData }>(`/api/dashboard/overview?salesFrom=${r.from}&salesTo=${r.to}`)
+      .then((d) => { setOverview(d.data); setSalesTotal(d.data.sales.total); })
+      .catch(() => {});
+  };
 
   if (error) return (
     <div>
       <PageHeader title={t("dashboard.title")} icon={<LayoutDashboard size={20} />} />
       <div className="card mx-auto flex max-w-lg flex-col items-center gap-3 p-8 text-center">
-        <span className="tile tile-danger h-14 w-14">
-          <TriangleAlert size={26} />
-        </span>
+        <span className="tile tile-danger h-14 w-14"><TriangleAlert size={26} /></span>
         <h2 className="text-lg font-extrabold">{t("dashboard.loadError")}</h2>
         <p className="text-sm text-muted-foreground">{error}</p>
-        <button type="button" className="btn btn-primary text-sm" onClick={retry}>
+        <button type="button" className="btn btn-primary text-sm" onClick={() => { setError(null); loadOverview().catch((e) => setError(e.message)); }}>
           <RotateCcw size={15} /> {t("ui.tryAgain")}
         </button>
       </div>
     </div>
   );
-  if (!data) {
-    return (
-      <div>
-        <PageHeader title={t("dashboard.title")} subtitle={t("dashboard.loading")} />
-        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-          {[1, 2, 3, 4].map((i) => <div key={i} className="card h-28"><div className="skeleton h-full rounded-[var(--radius)]" /></div>)}
-        </div>
-      </div>
-    );
-  }
 
-  const k = data.kpis;
+  const agingTable = (buckets: Record<string, string>, label: string) => (
+    <div>
+      <table className="tbl-fa w-full">
+        <thead>
+          <tr><th className="!text-start">{label}</th><th className="!text-end">{t("dashboard.balance")}</th></tr>
+        </thead>
+        <tbody>
+          {BUCKET_ORDER.map((b) => (
+            <tr key={b}>
+              <td className="!text-start text-xs">{bucketLabels[b]}</td>
+              <td className="!text-end text-xs font-bold tabular-nums">{fmtMoney(buckets[b] ?? "0")}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
 
-  // Interactive metric tiles — each KPI opens its detail list.
-  const metricTiles: Array<{
-    key: MetricTileKey; label: string; value: string; sub?: string;
-    icon: ReactNode; tone: "primary" | "accent" | "danger" | "neutral"; target: string;
-  }> = [
-    { key: "salesToday", label: t("dashboard.salesToday", { sales: bp.salesNav }), value: fmtMoney(k.salesToday), icon: <TrendingUp size={20} />, tone: "primary", target: bp.salesNav },
-    { key: "receivables", label: bp.receivables, value: fmtMoney(k.receivables), sub: t("dashboard.fromParties", { parties: bp.partyMany.toLowerCase() }), icon: <ArrowDownToLine size={20} />, tone: "accent", target: bp.receivables },
-    { key: "payables", label: t("dashboard.toPay"), value: fmtMoney(k.payables), sub: t("dashboard.toSuppliers"), icon: <ArrowUpFromLine size={20} />, tone: "danger", target: t("balances.payables") },
-    { key: "lowStock", label: t("dashboard.lowStock"), value: String(k.lowStock), sub: t("dashboard.needsReorder"), icon: <TriangleAlert size={20} />, tone: k.lowStock > 0 ? "danger" : "neutral", target: t("dashboard.lowStock") },
-    { key: "salesMonth", label: t("dashboard.salesThisMonth", { sales: bp.salesNav }), value: fmtMoney(k.salesMonth), icon: <ShoppingBag size={20} />, tone: "primary", target: bp.salesNav },
-    { key: "profitLoss", label: t("dashboard.profitLoss"), value: fmtMoney(k.profitMonth), sub: t("dashboard.profitSub"), icon: <FileText size={20} />, tone: "primary", target: t("dashboard.profitLoss") },
-    { key: "cashBank", label: t("dashboard.cashBank"), value: fmtMoney(k.cashAndBank), icon: <Landmark size={20} />, tone: "neutral", target: t("nav.payments") },
-    { key: "expensesMonth", label: t("dashboard.expensesMonth"), value: fmtMoney(k.expensesMonth), icon: <ReceiptText size={20} />, tone: "neutral", target: t("nav.expenses") },
-  ];
-
-  // Adaptive widgets: batch-expiry alert replaces the generic low-stock tile
-  // for pharmacy/clinic where expiry is the critical stock risk.
-  const tiles = bp.features.batches && (bp.type === "PHARMACY" || bp.type === "CLINIC")
-    ? metricTiles.map((tile) =>
-        tile.key === "lowStock"
-          ? { ...tile, key: "expiringBatches" as MetricTileKey, label: t("dashboard.expiringBatches"), value: String(k.expiringBatches), sub: t("dashboard.expiringSoon"), tone: (k.expiringBatches > 0 ? "danger" : "neutral") as typeof tile.tone, target: t("nav.stock") }
-          : tile
+  const top10Table = (rows: Array<{ id: string; name: string; balance: string }>) => (
+    rows.length === 0
+      ? <EmptyState title={t("dashboard.noData")} />
+      : (
+        <table className="tbl-fa w-full">
+          <thead>
+            <tr><th className="!text-start">{t("dashboard.name")}</th><th className="!text-end">{t("dashboard.balance")}</th></tr>
+          </thead>
+          <tbody>
+            {rows.map((r) => (
+              <tr key={r.id}>
+                <td className="!text-start truncate text-xs font-semibold">{r.name}</td>
+                <td className="!text-end text-xs font-bold tabular-nums">{fmtMoney(r.balance)}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
       )
-    : metricTiles;
+  );
 
   return (
     <div>
-      <PageHeader
-        title={t("dashboard.title")}
-        subtitle={t("dashboard.subtitle")}
-        icon={<LayoutDashboard size={20} />}
-      />
-
-      {/* First-run onboarding checklist */}
-      {steps && steps.length > 0 && (
-        <div className="card rise mb-5 p-4 sm:p-5">
-          <div className="flex items-start justify-between gap-3">
-            <div className="flex items-center gap-3">
-              <span className="tile tile-primary h-10 w-10 shrink-0">
-                <ListChecks size={19} />
-              </span>
-              <div>
-                <p className="font-extrabold">{t("dashboard.getSetUp")}</p>
-                <p className="text-sm text-muted-foreground">
-                  {t("dashboard.stepsDone", { done: steps.filter((s) => s.done).length, total: steps.length })}
-                </p>
-              </div>
-            </div>
-            <button
-              type="button"
-              aria-label={t("dashboard.dismiss")}
-              onClick={() => { setSteps(null); try { localStorage.setItem("lp-onboarding-dismissed", "1"); } catch {} }}
-              className="grid h-11 w-11 shrink-0 place-items-center rounded-lg text-muted-foreground transition hover:bg-muted"
-            >
-              <X size={16} />
-            </button>
-          </div>
-          <ul className="mt-4 space-y-1.5">
-            {(showDoneSteps ? steps : steps.filter((s) => !s.done)).map((s) => (
-              <li key={s.key}>
-                {s.action === "load-sample" && !s.done ? (
-                  <button
-                    type="button"
-                    onClick={async () => {
-                      setSampleBusy(true); setSampleError(null);
-                      try {
-                        await loadSampleDataNow();
-                        const d = await api<{ data: OnboardingStep[] }>("/api/onboarding");
-                        if (d.data.some((x) => !x.done)) setSteps(d.data); else setSteps(null);
-                      } catch (e) {
-                        setSampleError(e instanceof Error ? e.message : t("dashboard.sampleError"));
-                      } finally { setSampleBusy(false); }
-                    }}
-                    disabled={sampleBusy}
-                    className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-start transition hover:bg-muted/70 disabled:opacity-60"
-                  >
-                    <Circle size={19} className="shrink-0 text-muted-foreground" />
-                    <span className="min-w-0 flex-1">
-                      <span className="block text-sm font-bold leading-snug">{s.label}</span>
-                      <span className="block text-xs text-muted-foreground">{s.hint}</span>
-                    </span>
-                    <span className="shrink-0 rounded-full bg-primary-soft px-3 py-1.5 text-xs font-extrabold text-primary">
-                      {sampleBusy ? t("common.loading") : t("dashboard.loadNow")}
-                    </span>
-                  </button>
-                ) : (
-                <Link
-                  href={s.href}
-                  className={`flex items-center gap-3 rounded-xl px-3 py-2.5 transition hover:bg-muted/70 ${s.done ? "opacity-60" : ""}`}
-                >
-                  {s.done
-                    ? <CircleCheck size={19} className="shrink-0 text-primary" />
-                    : <Circle size={19} className="shrink-0 text-muted-foreground" />}
-                  <span className="min-w-0 flex-1">
-                    <span className={`block text-sm font-bold leading-snug ${s.done ? "line-through" : ""}`}>{s.label}</span>
-                    <span className="block text-xs text-muted-foreground">{s.hint}</span>
-                  </span>
-                  {s.locked && (
-                    <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-accent-soft px-2.5 py-1 text-xs font-extrabold text-accent">
-                      <Crown size={12} /> PRO
-                    </span>
-                  )}
-                  {!s.done && <ArrowRight size={16} className="shrink-0 text-muted-foreground rtl:rotate-180" />}
-                </Link>
-                )}
-              </li>
-            ))}
-          </ul>
-          {sampleError && (
-            <p className="mt-2 rounded-xl bg-danger-soft px-3 py-2 text-xs font-semibold text-danger">
-              {sampleError}
-            </p>
-          )}
-          {steps.some((s) => s.done) && (
-            <button
-              type="button"
-              onClick={() => setShowDoneSteps((v) => !v)}
-              className="mt-2 text-xs font-bold text-primary hover:underline"
-            >
-              {showDoneSteps
-                ? t("dashboard.hideDone", { count: steps.filter((s) => s.done).length })
-                : t("dashboard.showDone", { count: steps.filter((s) => s.done).length })}
-            </button>
-          )}
-        </div>
-      )}
-
-      {/* POS banner for counter businesses */}
-      {canPos && bp.features.pos && (
-        <Link href="/sales/pos"
-          className="card card-lift group mb-5 flex items-center justify-between gap-3 p-4 sm:gap-4 sm:p-5">
-          <span className="flex min-w-0 flex-1 items-center gap-3 sm:gap-4">
-            <span className="tile tile-emerald h-11 w-11 shrink-0 transition group-hover:scale-110 sm:h-12 sm:w-12">
-              <Zap size={22} />
-            </span>
-            <span className="min-w-0">
-              <span className="block font-extrabold leading-snug">{t("dashboard.posTitle")}</span>
-              <span className="block text-xs text-muted-foreground sm:text-sm">{t("dashboard.posHint")}</span>
-            </span>
-          </span>
-          <span className="btn btn-primary shrink-0 !px-3 !py-2 text-sm sm:!px-4">
-            {t("dashboard.posStart")} <ArrowRight size={16} className="rtl:rotate-180" />
-          </span>
-        </Link>
-      )}
-
-      {/* Beginner KPIs first — today's sales, money in/out, low stock */}
-      <div className="stagger-rise mb-5 grid grid-cols-2 gap-3 sm:gap-4 xl:grid-cols-4">
-        {tiles.map((tile) => (
-          <Link
-            key={tile.key}
-            href={metricTileTarget(tile.key)}
-            aria-label={t("dashboard.openTile", { target: tile.target })}
-            className="kpi-tile group relative block min-w-0 rise"
+      {/* Tabs */}
+      <div className="mb-4 flex gap-1 rounded-xl bg-muted p-1 sm:w-fit">
+        {(["new", "overview"] as const).map((k) => (
+          <button
+            key={k}
+            type="button"
+            onClick={() => setTab(k)}
+            className={`rounded-lg px-4 py-1.5 text-xs font-bold transition ${tab === k ? "bg-card text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}`}
           >
-            <Stat label={tile.label} value={tile.value} sub={tile.sub} icon={tile.icon} tone={tile.tone} />
-            <span className="kpi-tile-go" aria-hidden="true">
-              <ArrowUpRight size={15} className="rtl:-scale-x-100" />
-            </span>
-          </Link>
+            {t(k === "new" ? "dashboard.tabNew" : "dashboard.tabOverview")}
+          </button>
         ))}
       </div>
 
-      {/* Quick actions — horizontal swipe strip on phones, grid on larger screens */}
-      <div className="mb-5 flex snap-x snap-mandatory gap-2.5 overflow-x-auto pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden sm:grid sm:grid-cols-4 sm:overflow-visible lg:grid-cols-8">
-        {quickActions.map((q) => (
-          <Link key={q.href} href={q.href}
-            className="card card-lift group flex w-[78px] shrink-0 snap-start flex-col items-center gap-1.5 py-3.5 sm:w-auto">
-            <span className={`tile ${q.cls} h-10 w-10 transition group-hover:scale-110`}>
-              <q.icon size={19} />
-            </span>
-            <span className="flex min-h-[2.2em] items-center px-0.5 text-center text-xs font-bold leading-tight">{q.label}</span>
-          </Link>
-        ))}
-      </div>
-
-      <div className="mt-6 grid gap-4 xl:grid-cols-5">
-        <div className="card rise min-w-0 p-5 sm:p-6 xl:col-span-3">
-          <h2 className="text-base font-extrabold tracking-tight">{t("dashboard.trend", { sales: bp.salesNav })}</h2>
-          <p className="text-xs text-muted-foreground">{t("dashboard.trendSub")}</p>
-          <div className="mt-4 h-64">
-            {trendTotal === 0 ? (
-              <EmptyState title={t("dashboard.noSales")} hint={t("dashboard.noSalesHint")} icon={<BarChart3 size={26} />} />
-            ) : (
-              <SalesTrendChart data={trend} tooltipSales={t("dashboard.salesTooltip")} />
-            )}
+      {tab === "new" && (
+        <div>
+          <h1 className="mb-4 text-xl font-extrabold tracking-tight sm:text-2xl">
+            {t("dashboard.welcome", { name: user?.name ?? "" })}
+          </h1>
+          <div className="grid gap-4 lg:grid-cols-2">
+            {/* Quick Actions */}
+            <Card title={t("dashboard.quickActions")}>
+              <div className="flex flex-wrap gap-2.5">
+                <Link href="/sales/new" className="btn btn-primary text-sm">
+                  <Plus size={16} /> {t("dashboard.addSalesInvoice")}
+                </Link>
+                <Link href="/purchases/new" className="btn btn-primary text-sm">
+                  <Plus size={16} /> {t("dashboard.addSupplierBill")}
+                </Link>
+              </div>
+            </Card>
+            {/* Updates */}
+            <Card title={t("dashboard.updates")}>
+              {recent.length === 0 ? (
+                <EmptyState title={t("dashboard.noUpdates")} hint={t("dashboard.noUpdatesHint")} />
+              ) : (
+                <ul className="divide-y divide-border">
+                  {recent.map((d) => (
+                    <li key={d.id} className="flex items-center justify-between gap-3 py-2.5">
+                      <div className="min-w-0">
+                        <p className="truncate text-sm font-bold">
+                          {d.kind === "SALE" ? t("dashboard.saleInvoice") : t("dashboard.supplierBill")}{" "}
+                          <span className="font-extrabold">{d.docNo}</span>
+                        </p>
+                        <p className="truncate text-xs text-muted-foreground">
+                          {fmtDate(d.date)} · {d.partyName ?? "—"} · {fmtMoney(d.grandTotal)}
+                        </p>
+                      </div>
+                      <Link
+                        href={d.kind === "SALE" ? `/sales/${d.id}` : `/purchases/${d.id}`}
+                        className="btn btn-ghost shrink-0 !px-3 !py-1.5 text-xs font-bold text-primary"
+                      >
+                        <Eye size={14} /> {t("common.view")}
+                      </Link>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </Card>
           </div>
         </div>
+      )}
 
-        <div className="card rise rise-1 min-w-0 p-5 sm:p-6 xl:col-span-2">
-          <div className="flex items-center justify-between">
-            <h2 className="text-base font-extrabold tracking-tight">{t("dashboard.recent", { sales: bp.salesNav.toLowerCase() })}</h2>
-            <Link href="/sales" className="text-sm font-bold text-primary hover:underline">{t("common.viewAll")}</Link>
+      {tab === "overview" && (
+        !overview ? (
+          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+            {[1, 2, 3, 4, 5, 6].map((i) => (
+              <div key={i} className="card h-48"><div className="skeleton h-full rounded-[var(--radius)]" /></div>
+            ))}
           </div>
-          {data.recentSales.length === 0 ? (
-            <EmptyState title={t("dashboard.noRecent", { sales: bp.salesNav.toLowerCase() })} hint={t("dashboard.noRecentHint", { sales: bp.salesNav.toLowerCase() })} />
-          ) : (
-            <ul className="mt-3 divide-y divide-border">
-              {data.recentSales.map((s) => (
-                <li key={s.id}>
-                  <Link href={`/sales/${s.id}`} className="-mx-2 flex items-center justify-between gap-3 rounded-xl px-2 py-3 transition hover:bg-muted/60">
-                    <div className="min-w-0">
-                      <p className="truncate text-sm font-bold">{s.docNo}</p>
-                      <p className="truncate text-xs text-muted-foreground">{s.partyName ?? "—"} · {fmtDate(s.date)}</p>
-                    </div>
-                    <p className="shrink-0 whitespace-nowrap text-sm font-extrabold tabular-nums">{fmtMoney(s.grandTotal)}</p>
-                  </Link>
-                </li>
-              ))}
-            </ul>
-          )}
-        </div>
-      </div>
+        ) : (
+          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+            {/* 1. AR Summary */}
+            <Card
+              title={t("dashboard.arSummary")}
+              action={<Link href="/reports/aging?kind=CUSTOMER" className="inline-flex items-center gap-1 text-xs font-bold text-primary hover:underline">{t("dashboard.viewReport")} <ChevronRight size={13} /></Link>}
+            >
+              <p className="mb-1 text-xs text-muted-foreground">{t("dashboard.totalReceivable")}</p>
+              <p className="mb-3 text-xl font-extrabold tabular-nums">{fmtMoney(overview.ar.total)}</p>
+              {agingTable(overview.ar.buckets, t("dashboard.unpaidInvoices"))}
+            </Card>
+
+            {/* 2. AP Summary */}
+            <Card
+              title={t("dashboard.apSummary")}
+              action={<Link href="/reports/aging?kind=SUPPLIER" className="inline-flex items-center gap-1 text-xs font-bold text-primary hover:underline">{t("dashboard.viewReport")} <ChevronRight size={13} /></Link>}
+            >
+              <p className="mb-1 text-xs text-muted-foreground">{t("dashboard.totalPayable")}</p>
+              <p className="mb-3 text-xl font-extrabold tabular-nums">{fmtMoney(overview.ap.total)}</p>
+              {agingTable(overview.ap.buckets, t("dashboard.unpaidBills"))}
+            </Card>
+
+            {/* 3. Bank Balances */}
+            <Card
+              title={t("dashboard.bankBalances")}
+              action={<Link href="/bank/balances" className="inline-flex items-center gap-1 text-xs font-bold text-primary hover:underline">{t("common.viewAll")} <ChevronRight size={13} /></Link>}
+            >
+              <table className="tbl-fa w-full">
+                <thead>
+                  <tr><th className="!text-start !bg-sky-500">{t("dashboard.bank")}</th><th className="!text-end !bg-sky-500">{t("dashboard.balance")}</th></tr>
+                </thead>
+                <tbody>
+                  {overview.banks.map((b) => (
+                    <tr key={b.id}>
+                      <td className="!text-start truncate text-xs font-semibold">
+                        <Link href="/bank/balances" className="text-primary hover:underline">{b.name}</Link>
+                        {b.code && <span className="ms-1 text-muted-foreground">({b.code})</span>}
+                      </td>
+                      <td className="!text-end text-xs font-bold tabular-nums">{fmtMoney(b.balance)}</td>
+                    </tr>
+                  ))}
+                  {overview.banks.length === 0 && (
+                    <tr><td colSpan={2} className="text-center text-xs text-muted-foreground">{t("dashboard.noData")}</td></tr>
+                  )}
+                </tbody>
+              </table>
+            </Card>
+
+            {/* 4. Products */}
+            <Card
+              title={t("dashboard.productsCard")}
+              action={<Link href="/inventory/products" className="inline-flex items-center gap-1 text-xs font-bold text-primary hover:underline">{t("common.viewAll")} <ChevronRight size={13} /></Link>}
+            >
+              <div className="grid grid-cols-2 gap-2.5">
+                {[
+                  { label: t("dashboard.lowStock"), value: overview.products.lowStock, tone: "text-amber-600", icon: <TriangleAlert size={16} /> },
+                  { label: t("dashboard.outOfStock"), value: overview.products.outOfStock, tone: "text-danger", icon: <Package size={16} /> },
+                  { label: t("dashboard.oversold"), value: overview.products.oversold, tone: "text-danger", icon: <TrendingDown size={16} /> },
+                  { label: t("dashboard.inStock"), value: overview.products.inStock, tone: "text-emerald-600", icon: <TrendingUp size={16} /> },
+                ].map((s) => (
+                  <div key={s.label} className="rounded-xl border border-border bg-muted/40 p-3">
+                    <p className={`flex items-center gap-1.5 text-lg font-extrabold tabular-nums ${s.tone}`}>{s.icon}{s.value}</p>
+                    <p className="mt-0.5 text-xs text-muted-foreground">{s.label}</p>
+                  </div>
+                ))}
+              </div>
+            </Card>
+
+            {/* 5. Sales */}
+            <Card
+              title={t("dashboard.salesCard")}
+              action={
+                <select
+                  value={salesPeriod}
+                  onChange={(e) => onPeriodChange(e.target.value as SalesPeriodKey)}
+                  className="field !w-auto !py-1.5 !px-2 text-xs"
+                  aria-label={t("dashboard.period")}
+                >
+                  {SALES_PERIODS.map((p) => (
+                    <option key={p.key} value={p.key}>{t(`dashboard.period_${p.key}`)}</option>
+                  ))}
+                </select>
+              }
+            >
+              <p className="text-2xl font-extrabold tabular-nums">{fmtMoney(salesTotal ?? overview.sales.total)}</p>
+              <p className="mt-1 text-xs text-muted-foreground">
+                {t(`dashboard.period_${salesPeriod}`)} · <Link href="/sales/invoices" className="font-bold text-primary hover:underline">{t("dashboard.viewReport")}</Link>
+              </p>
+            </Card>
+
+            {/* 6. Expenses */}
+            <Card
+              title={t("dashboard.expensesCard")}
+              action={<Link href="/expenses" className="inline-flex items-center gap-1 text-xs font-bold text-primary hover:underline">{t("common.viewAll")} <ChevronRight size={13} /></Link>}
+            >
+              <p className="text-2xl font-extrabold tabular-nums">{fmtMoney(overview.expenses.total)}</p>
+              {overview.expenses.top.length > 0 && (
+                <ul className="mt-3 space-y-1.5">
+                  {overview.expenses.top.map((c) => (
+                    <li key={c.name} className="flex items-center justify-between gap-2 text-xs">
+                      <span className="truncate font-semibold">{c.name}</span>
+                      <span className="shrink-0 font-bold tabular-nums">{fmtMoney(c.total)}</span>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </Card>
+
+            {/* 7. P&L */}
+            <Card
+              title={t("dashboard.pnlCard")}
+              action={<Link href="/reports/profit-loss" className="inline-flex items-center gap-1 text-xs font-bold text-primary hover:underline">{t("dashboard.viewReport")} <ChevronRight size={13} /></Link>}
+            >
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs text-muted-foreground">{t("dashboard.netProfit")}</span>
+                  <span className={`text-lg font-extrabold tabular-nums ${BigInt(overview.pnl.net) >= 0n ? "text-emerald-600" : "text-danger"}`}>{fmtMoney(overview.pnl.net)}</span>
+                </div>
+                <div className="flex items-center justify-between text-xs">
+                  <span className="text-muted-foreground">{t("dashboard.totalIncome")}</span>
+                  <span className="font-bold tabular-nums">{fmtMoney(overview.pnl.income)}</span>
+                </div>
+                <div className="flex items-center justify-between text-xs">
+                  <span className="text-muted-foreground">{t("dashboard.totalExpenses")}</span>
+                  <span className="font-bold tabular-nums">{fmtMoney(overview.pnl.expenses)}</span>
+                </div>
+              </div>
+            </Card>
+
+            {/* 8. AR Top 10 */}
+            <Card
+              title={t("dashboard.arTop10")}
+              action={<Link href="/sales/customers" className="inline-flex items-center gap-1 text-xs font-bold text-primary hover:underline">{t("common.viewAll")} <ChevronRight size={13} /></Link>}
+            >
+              {top10Table(overview.arTop10)}
+            </Card>
+
+            {/* 9. AP Top 10 */}
+            <Card
+              title={t("dashboard.apTop10")}
+              action={<Link href="/purchases/suppliers" className="inline-flex items-center gap-1 text-xs font-bold text-primary hover:underline">{t("common.viewAll")} <ChevronRight size={13} /></Link>}
+            >
+              {top10Table(overview.apTop10)}
+            </Card>
+          </div>
+        )
+      )}
     </div>
   );
 }
