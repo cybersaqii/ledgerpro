@@ -2663,6 +2663,7 @@ export const ur: DeepPartial<EnDict> = {
     favorites: "پسندیدہ",
     favToggle: "پسندیدہ بدلیں",
     noMatch: "آپ کی تلاش سے کوئی رپورٹ نہیں ملی۔",
+    noFavs: "ابھی کوئی پسندیدہ رپورٹ نہیں — کسی بھی رپورٹ پر ستارے کو دبائیں تاکہ وہ یہاں نظر آئے۔",
     statements: "{party} اسٹیٹمنٹ",
     statementsText: "رننگ بیلنس اور ایجنگ کے ساتھ رسمی {party}/سپلائر اسٹیٹمنٹ۔",
     saleSummary: "فروخت کا خلاصہ",

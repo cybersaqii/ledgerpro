@@ -2663,6 +2663,7 @@ export const en = {
     favorites: "Favorites",
     favToggle: "Toggle favorite",
     noMatch: "No reports match your search.",
+    noFavs: "No favorite reports yet — tap the star on any report to pin it here.",
     statements: "{party} statement",
     statementsText: "Formal {party}/supplier statement with running balance and aging.",
     saleSummary: "Sale summary",
