@@ -17,7 +17,7 @@ const MODES = [
 ] as const;
 
 type Bank = { id: string; name: string; kind: string };
-type Nominal = { id: string; name: string };
+type Nominal = { id: string; name: string; isSystem?: boolean };
 
 type Row = {
   key: string;
@@ -64,7 +64,7 @@ export function BankVoucherForm({ kind }: { kind: "PAYMENT" | "RECEIPT" }) {
       else if (d.data[0]) setBankId(d.data[0].id);
     }).catch(() => {});
     api<{ data: Nominal[] }>(`/api/accounts?type=${isPayment ? "EXPENSE" : "INCOME"}`)
-      .then((d) => setNominals(d.data))
+      .then((d) => setNominals(d.data.filter((n) => !n.isSystem)))
       .catch(() => {});
   }, [isPayment]);
 
