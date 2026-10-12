@@ -481,9 +481,9 @@ export function AppShell({ children, initialBusinessType }: { children: ReactNod
           <div className="px-4 pt-4 print:hidden sm:px-6 lg:px-8">
             <Link
               href="/billing"
-              className="group flex flex-wrap items-center justify-center gap-x-2.5 gap-y-1 rounded-2xl border border-accent/30 bg-accent-soft px-5 py-2.5 text-center text-sm font-bold text-foreground transition duration-300 hover:-translate-y-0.5 hover:shadow-md"
+              className="group flex flex-wrap items-center justify-center gap-x-2 gap-y-0.5 rounded-xl border border-accent/30 bg-accent-soft px-4 py-1.5 text-center text-xs font-bold text-foreground transition duration-300 hover:-translate-y-0.5 hover:shadow-md"
             >
-              <Crown size={16} className="shrink-0 text-accent transition group-hover:scale-125 group-hover:rotate-12" />
+              <Crown size={14} className="shrink-0 text-accent transition group-hover:scale-125 group-hover:rotate-12" />
               <span>
                 {billing.trialDaysLeft === 1 ? t("shell.trialOneDay") : t("shell.trialDays", { days: billing.trialDaysLeft })}
               </span>
@@ -510,7 +510,7 @@ export function AppShell({ children, initialBusinessType }: { children: ReactNod
           </div>
         )}
 
-        <main className="flex-1 px-4 py-6 sm:px-6 lg:px-8">
+        <main className="flex-1 px-4 py-3 sm:px-6 lg:px-8">
           {(() => {
             // Best-matching nav item (longest href wins) for the breadcrumb trail.
             const ranked = nav
@@ -522,9 +522,10 @@ export function AppShell({ children, initialBusinessType }: { children: ReactNod
               { label: t("nav.home"), href: "/dashboard" },
             ];
             if (!SINGLE_LINK_GROUPS.includes(item.group)) {
-              crumbs.push({ label: t(GROUP_LABEL[item.group]) });
+              const groupFirst = nav.find((n) => n.group === item.group);
+              crumbs.push({ label: t(GROUP_LABEL[item.group]), href: groupFirst?.href });
             }
-            crumbs.push({ label: item.label });
+            crumbs.push({ label: item.label, href: item.href });
             // Skip the trail when it would just repeat "Home / Dashboard".
             if (crumbs.length <= 2 && item.group === "dashboard") return null;
             return <Breadcrumb items={crumbs} />;

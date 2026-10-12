@@ -53,16 +53,16 @@ export function LangToggle() {
 
 export function PageHeader({ title, subtitle, actions, icon }: { title: ReactNode; subtitle?: ReactNode; actions?: ReactNode; icon?: ReactNode }) {
   return (
-    <div className="rise mb-5 flex flex-wrap items-center justify-between gap-4">
-      <div className="flex items-center gap-3.5">
+    <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
+      <div className="flex items-center gap-2.5">
         {icon && (
-          <span className="tile tile-primary h-12 w-12 shrink-0 ring-1 ring-white/20">
+          <span className="tile tile-primary h-9 w-9 shrink-0 ring-1 ring-white/20">
             {icon}
           </span>
         )}
         <div>
-          <h1 className="font-display text-2xl font-extrabold tracking-tight sm:text-[1.7rem]">{title}</h1>
-          {subtitle && <p className="mt-0.5 text-sm text-muted-foreground">{subtitle}</p>}
+          <h1 className="font-display text-xl font-extrabold tracking-tight">{title}</h1>
+          {subtitle && <p className="mt-0 text-xs text-muted-foreground">{subtitle}</p>}
         </div>
       </div>
       {actions && <div className="flex flex-wrap items-center gap-2">{actions}</div>}
@@ -304,7 +304,7 @@ export function Pagination({ page, perPage, total, onPage }: { page: number; per
 /** Breadcrumb trail: Home / Section / Page. */
 export function Breadcrumb({ items }: { items: { label: ReactNode; href?: string }[] }) {
   return (
-    <nav aria-label="Breadcrumb" className="mb-4 flex flex-wrap items-center gap-1.5 text-[0.82rem] font-semibold">
+    <nav aria-label="Breadcrumb" className="mb-2 flex flex-wrap items-center gap-1.5 text-[0.78rem] font-semibold">
       {items.map((it, i) => {
         const last = i === items.length - 1;
         return (
