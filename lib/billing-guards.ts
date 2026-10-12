@@ -17,6 +17,7 @@ import {
   type CompanyBilling,
   type ProFeature,
   type Plan,
+  type AccessLevel,
 } from "@/lib/entitlements";
 
 /** Load just the billing columns for a company. */
@@ -39,7 +40,7 @@ export async function getCompanyBilling(
 }
 
 export interface BillingStatus {
-  level: "TRIAL" | "PRO" | "FREE";
+  level: AccessLevel;
   trialDaysLeft: number;
   proDaysLeft: number;
   trialEndsAt: string | null;

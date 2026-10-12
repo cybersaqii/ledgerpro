@@ -7,7 +7,7 @@ import { api, fmtMoney } from "@/lib/format";
 import { useLang } from "@/components/lang-provider";
 
 type Status = {
-  level: "TRIAL" | "PRO" | "FREE";
+  level: "TRIAL" | "PLAN" | "FREE";
   trialDaysLeft: number;
   proDaysLeft: number;
   trialEndsAt: string | null;
@@ -113,7 +113,7 @@ export default function BillingPage() {
   if (loading) return <PageHeader title={t("billing.title")} subtitle={t("billing.subtitle")} icon={<Crown size={22} />} />;
   if (!status) return <PageHeader title={t("billing.title")} subtitle={t("billing.subtitle")} icon={<Crown size={22} />} />;
 
-  const planName = status.level === "TRIAL" ? t("billing.freeTrial") : status.level === "PRO" ? t("billing.pro") : t("billing.free");
+  const planName = status.level === "TRIAL" ? t("billing.freeTrial") : status.level === "PLAN" ? status.plan : t("billing.free");
   const price = months === 12 ? status.prices.yearlyPaisa : status.prices.monthlyPaisa;
 
   return (
@@ -135,7 +135,7 @@ export default function BillingPage() {
               <Clock size={15} /> {t("billing.daysLeftOther", { count: status.trialDaysLeft })}
             </span>
           )}
-          {status.level === "PRO" && status.proExpiresAt && (
+          {status.level === "PLAN" && status.proExpiresAt && (
             <span className="inline-flex items-center gap-1.5 rounded-full border border-success/30 bg-success-soft px-3.5 py-1.5 text-sm font-bold text-success">
               <BadgeCheck size={15} /> {t("billing.activeUntil", { date: status.proExpiresAt.slice(0, 10) })}
             </span>

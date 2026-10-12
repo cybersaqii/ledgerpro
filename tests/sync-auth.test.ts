@@ -51,7 +51,7 @@ function billing(level: BillingStatus["level"]): BillingStatus {
     proDaysLeft: 0,
     trialEndsAt: null,
     proExpiresAt: null,
-    plan: level === "PRO" ? "PRO" : "FREE",
+    plan: level === "PLAN" ? "PROFESSIONAL" : "FREE",
   };
 }
 
@@ -95,9 +95,9 @@ describe("syncProGate", () => {
     expect(body.feature).toBe("sync");
   });
 
-  it("allows TRIAL and PRO through", () => {
+  it("allows TRIAL and PLAN through", () => {
     expect(syncAuth.syncProGate(billing("TRIAL"))).toBeNull();
-    expect(syncAuth.syncProGate(billing("PRO"))).toBeNull();
+    expect(syncAuth.syncProGate(billing("PLAN"))).toBeNull();
   });
 });
 
