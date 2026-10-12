@@ -67,7 +67,7 @@ function PayStatusBadge({ d, t, nowMs }: { d: Doc; t: (k: string, v?: Record<str
   return <span className={`badge whitespace-nowrap ${tone}`}>{label}</span>;
 }
 
-export function DocList({ mode }: { mode: "SALES" | "PURCHASE" }) {
+export function DocList({ mode, initialDocType }: { mode: "SALES" | "PURCHASE"; initialDocType?: string }) {
   const bp = useBusinessProfile();
   const { t } = useLang();
   const canPos = useCan("pos");
@@ -91,7 +91,7 @@ export function DocList({ mode }: { mode: "SALES" | "PURCHASE" }) {
   const [sum, setSum] = useState("0");
   const [page, setPage] = useState(1);
   const [q, setQ] = useState("");
-  const [docType, setDocType] = useState("");
+  const [docType, setDocType] = useState(initialDocType ?? "");
   const [from, setFrom] = useState("");
   const [to, setTo] = useState("");
   const [loading, setLoading] = useState(true);

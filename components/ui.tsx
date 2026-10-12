@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useTheme } from "next-themes";
 import { Moon, Sun, BookOpenCheck, ChevronLeft, ChevronRight, Download, Languages, ArrowUp, ArrowDown, ChevronsUpDown } from "lucide-react";
 import { useEffect, useState, type ReactNode } from "react";
@@ -297,5 +298,26 @@ export function Pagination({ page, perPage, total, onPage }: { page: number; per
         </button>
       </div>
     </div>
+  );
+}
+
+/** Breadcrumb trail: Home / Section / Page. */
+export function Breadcrumb({ items }: { items: { label: ReactNode; href?: string }[] }) {
+  return (
+    <nav aria-label="Breadcrumb" className="mb-4 flex flex-wrap items-center gap-1.5 text-[0.82rem] font-semibold">
+      {items.map((it, i) => {
+        const last = i === items.length - 1;
+        return (
+          <span key={i} className="flex items-center gap-1.5">
+            {i > 0 && <ChevronRight size={13} className="text-muted-foreground rtl:rotate-180" />}
+            {it.href && !last ? (
+              <Link href={it.href} className="text-primary hover:underline">{it.label}</Link>
+            ) : (
+              <span className={last ? "text-foreground" : "text-primary"}>{it.label}</span>
+            )}
+          </span>
+        );
+      })}
+    </nav>
   );
 }

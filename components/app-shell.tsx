@@ -8,10 +8,12 @@ import {
   BarChart3, Menu, X, LogOut, Boxes, Plus, Settings, Crown, ShieldCheck,
   LifeBuoy, ArrowRight, Sparkles, Stamp, Landmark, Briefcase, Factory, KeyRound, Cog,
   FolderKanban, Repeat, ShieldAlert, Search, ChevronDown, MessageCircle, Handshake,
-  FileText, ClipboardList, ArrowDownToLine, ArrowUpFromLine,
+  FileText, ClipboardList, ArrowDownToLine, ArrowUpFromLine, ArrowLeftRight,
+  ClipboardCheck, FileUp, Receipt, CalendarClock, Layers, FileEdit, TrendingUp,
+  ShoppingBag,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
-import { Logo, ThemeToggle, LangToggle } from "./ui";
+import { Logo, ThemeToggle, LangToggle, Breadcrumb } from "./ui";
 import { NotificationBell } from "./notification-bell";
 import { whatsappLink } from "@/lib/brand";
 
@@ -43,7 +45,7 @@ import { newSaleHref } from "@/lib/business-types";
 import { useLang } from "./lang-provider";
 import { usePermissions, clearMeCache } from "./permissions";
 
-type NavGroup = "dashboard" | "sales" | "purchases" | "money" | "stock" | "accounts" | "setup";
+type NavGroup = "dashboard" | "bank" | "sales" | "purchases" | "inventory" | "reports" | "analytical" | "setup";
 type NavItem = {
   href: string;
   label: string;
@@ -51,27 +53,33 @@ type NavItem = {
   perm: string;
   feature: keyof BusinessFeatures | null;
   group: NavGroup;
+  /** Extra path prefixes (old URLs) that also count as active for this item. */
+  match?: string[];
 };
-// Fast Accounts-inspired: each group is an icon row that expands to sub-items.
-const GROUP_ORDER: NavGroup[] = ["dashboard", "sales", "purchases", "money", "stock", "accounts", "setup"];
+// Fast Accounts-style: each group is an icon row that expands to sub-items.
+const GROUP_ORDER: NavGroup[] = ["dashboard", "bank", "sales", "purchases", "inventory", "reports", "analytical", "setup"];
 const GROUP_LABEL: Record<NavGroup, string> = {
   dashboard: "nav.dashboard",
+  bank: "nav.groupBank",
   sales: "nav.groupSales",
   purchases: "nav.groupPurchases",
-  money: "nav.groupMoney",
-  stock: "nav.groupStock",
-  accounts: "nav.groupAccounts",
+  inventory: "nav.groupInventory",
+  reports: "nav.reports",
+  analytical: "nav.analyticalReports",
   setup: "nav.groupSetup",
 };
 const GROUP_ICON: Record<NavGroup, LucideIcon> = {
   dashboard: LayoutDashboard,
-  sales: ShoppingCart,
-  purchases: Truck,
-  money: Wallet,
-  stock: Package,
-  accounts: BarChart3,
+  bank: Landmark,
+  sales: FileText,
+  purchases: ReceiptText,
+  inventory: Package,
+  reports: BarChart3,
+  analytical: TrendingUp,
   setup: Settings,
 };
+// Groups rendered as a single direct link row (no expand).
+const SINGLE_LINK_GROUPS: NavGroup[] = ["dashboard", "reports", "analytical"];
 
 export function AppShell({ children, initialBusinessType }: { children: ReactNode; initialBusinessType?: string | null }) {
   const pathname = usePathname();
@@ -137,37 +145,49 @@ export function AppShell({ children, initialBusinessType }: { children: ReactNod
 
   const nav: NavItem[] = [
     { href: "/dashboard", label: t("nav.dashboard"), icon: LayoutDashboard, perm: "reports_basic", feature: null, group: "dashboard" as NavGroup },
+    // Bank
+    { href: "/bank/balances", label: t("nav.accountBalances"), icon: Landmark, perm: "payments", feature: null, group: "bank" as NavGroup, match: ["/payments/banks"] },
+    { href: "/bank/payments", label: t("nav.bankPayments"), icon: ArrowUpFromLine, perm: "payments", feature: null, group: "bank" as NavGroup, match: ["/payments"] },
+    { href: "/bank/receipts", label: t("nav.bankReceipts"), icon: ArrowDownToLine, perm: "payments", feature: null, group: "bank" as NavGroup, match: ["/payments/receipts"] },
+    { href: "/bank/transfers", label: t("nav.transfers"), icon: ArrowLeftRight, perm: "payments", feature: null, group: "bank" as NavGroup, match: ["/payments/transfers"] },
+    { href: "/bank/reconciliation", label: t("nav.reconciliation"), icon: ClipboardCheck, perm: "payments", feature: null, group: "bank" as NavGroup },
+    { href: "/bank/import", label: t("nav.importStatement"), icon: FileUp, perm: "payments", feature: null, group: "bank" as NavGroup, match: ["/settings/import"] },
+    { href: "/bank/1bill", label: t("nav.oneBill"), icon: Receipt, perm: "payments", feature: null, group: "bank" as NavGroup },
     // Sales
-    { href: "/sales", label: bp.salesNav, icon: ShoppingCart, perm: "sales", feature: null, group: "sales" as NavGroup },
-    { href: "/sales?type=QUOTATION", label: t("nav.quotations"), icon: FileText, perm: "sales", feature: null, group: "sales" as NavGroup },
-    { href: "/sales?type=ORDER", label: t("nav.orders"), icon: ClipboardList, perm: "sales", feature: null, group: "sales" as NavGroup },
-    { href: "/parties?kind=CUSTOMER", label: t("nav.customers"), icon: Users, perm: "parties", feature: null, group: "sales" as NavGroup },
-    { href: "/parties?kind=SUPPLIER", label: t("nav.suppliers"), icon: Users, perm: "parties", feature: null, group: "sales" as NavGroup },
-    { href: "/sales/recurring", label: t("nav.recurring"), icon: Repeat, perm: "sales", feature: null, group: "sales" as NavGroup },
-    { href: "/settings/credit-rules", label: t("nav.creditRules"), icon: ShieldAlert, perm: "settings", feature: null, group: "sales" as NavGroup },
+    { href: "/sales/invoices", label: t("nav.invoices"), icon: FileText, perm: "sales", feature: null, group: "sales" as NavGroup, match: ["/sales"] },
+    { href: "/sales/receipts", label: t("nav.receipts"), icon: ArrowDownToLine, perm: "payments", feature: null, group: "sales" as NavGroup },
+    { href: "/sales/pdc-received", label: t("nav.pdcReceived"), icon: CalendarClock, perm: "payments", feature: null, group: "sales" as NavGroup, match: ["/payments/pdc"] },
+    { href: "/sales/all", label: t("nav.salesAll"), icon: Layers, perm: "sales", feature: null, group: "sales" as NavGroup },
+    { href: "/sales/quotations", label: t("nav.quotations"), icon: FileEdit, perm: "sales", feature: null, group: "sales" as NavGroup },
+    { href: "/sales/orders", label: t("nav.orders"), icon: ClipboardList, perm: "sales", feature: null, group: "sales" as NavGroup },
+    { href: "/sales/customers", label: t("nav.customers"), icon: Users, perm: "parties", feature: null, group: "sales" as NavGroup, match: ["/parties"] },
     // Purchases
-    { href: "/purchases", label: t("nav.purchases"), icon: Truck, perm: "purchases", feature: "purchases" as const, group: "purchases" as NavGroup },
-    { href: "/parties?kind=SUPPLIER", label: t("nav.suppliers"), icon: Users, perm: "parties", feature: "purchases" as const, group: "purchases" as NavGroup },
-    // Money
-    { href: "/payments", label: t("nav.payments"), icon: Wallet, perm: "payments", feature: null, group: "money" as NavGroup },
-    { href: "/payments/new?kind=RECEIPT", label: t("nav.receive"), icon: ArrowDownToLine, perm: "payments", feature: null, group: "money" as NavGroup },
-    { href: "/payments/new?kind=PAYMENT", label: t("nav.pay"), icon: ArrowUpFromLine, perm: "payments", feature: null, group: "money" as NavGroup },
-    { href: "/expenses", label: t("nav.expenses"), icon: ReceiptText, perm: "expenses", feature: null, group: "money" as NavGroup },
-    // Stock
-    { href: "/products", label: bp.productMany, icon: Package, perm: "products", feature: null, group: "stock" as NavGroup },
-    { href: "/stock", label: bp.stock, icon: Boxes, perm: "stock", feature: null, group: "stock" as NavGroup },
-    // Accounts
-    { href: "/reports", label: t("nav.reports"), icon: BarChart3, perm: "reports_basic", feature: null, group: "accounts" as NavGroup },
-    { href: "/tax", label: t("nav.tax"), icon: Landmark, perm: "reports_accounting", feature: null, group: "accounts" as NavGroup },
-    { href: "/payroll", label: t("nav.payroll"), icon: Briefcase, perm: "payroll", feature: null, group: "accounts" as NavGroup },
-    { href: "/assets", label: t("nav.assets"), icon: Factory, perm: "assets", feature: null, group: "accounts" as NavGroup },
-    { href: "/partners", label: t("nav.partners"), icon: Handshake, perm: "partners", feature: null, group: "accounts" as NavGroup },
-    { href: "/approvals", label: t("nav.approvals"), icon: Stamp, perm: "approvals", feature: null, group: "accounts" as NavGroup },
-    { href: "/manufacturing", label: t("nav.manufacturing"), icon: Cog, perm: "manufacturing", feature: null, group: "accounts" as NavGroup },
-    { href: "/projects", label: t("nav.projects"), icon: FolderKanban, perm: "projects", feature: null, group: "accounts" as NavGroup },
-    { href: "/portals", label: t("nav.portals"), icon: KeyRound, perm: "portal", feature: null, group: "accounts" as NavGroup },
-    // Setup
+    { href: "/purchases/bills", label: t("nav.bills"), icon: ReceiptText, perm: "purchases", feature: "purchases" as const, group: "purchases" as NavGroup, match: ["/purchases"] },
+    { href: "/purchases/payments", label: t("nav.payments"), icon: ArrowUpFromLine, perm: "payments", feature: "purchases" as const, group: "purchases" as NavGroup },
+    { href: "/purchases/pdc-issued", label: t("nav.pdcIssued"), icon: CalendarClock, perm: "payments", feature: "purchases" as const, group: "purchases" as NavGroup },
+    { href: "/purchases/all", label: t("nav.purchasesAll"), icon: Layers, perm: "purchases", feature: "purchases" as const, group: "purchases" as NavGroup },
+    { href: "/purchases/po", label: t("nav.po"), icon: ShoppingBag, perm: "purchases", feature: "purchases" as const, group: "purchases" as NavGroup },
+    { href: "/purchases/suppliers", label: t("nav.suppliers"), icon: Users, perm: "parties", feature: "purchases" as const, group: "purchases" as NavGroup, match: ["/parties"] },
+    // Inventory
+    { href: "/inventory/products", label: t("nav.products"), icon: Package, perm: "products", feature: null, group: "inventory" as NavGroup, match: ["/products"] },
+    { href: "/inventory/stock-adjustment", label: t("nav.stockAdjustment"), icon: Boxes, perm: "stock", feature: null, group: "inventory" as NavGroup, match: ["/stock"] },
+    // Reports
+    { href: "/reports", label: t("nav.reports"), icon: BarChart3, perm: "reports_basic", feature: null, group: "reports" as NavGroup },
+    // Analytical Reports
+    { href: "/analytical-reports", label: t("nav.analyticalReports"), icon: TrendingUp, perm: "reports_basic", feature: null, group: "analytical" as NavGroup },
+    // Setup — settings plus modules not covered by the Fast Accounts groups
     { href: "/settings", label: t("nav.settings"), icon: Settings, perm: "", feature: null, group: "setup" as NavGroup },
+    { href: "/expenses", label: t("nav.expenses"), icon: ReceiptText, perm: "expenses", feature: null, group: "setup" as NavGroup },
+    { href: "/sales/recurring", label: t("nav.recurring"), icon: Repeat, perm: "sales", feature: null, group: "setup" as NavGroup },
+    { href: "/settings/credit-rules", label: t("nav.creditRules"), icon: ShieldAlert, perm: "settings", feature: null, group: "setup" as NavGroup },
+    { href: "/tax", label: t("nav.tax"), icon: Landmark, perm: "reports_accounting", feature: null, group: "setup" as NavGroup },
+    { href: "/payroll", label: t("nav.payroll"), icon: Briefcase, perm: "payroll", feature: null, group: "setup" as NavGroup },
+    { href: "/assets", label: t("nav.assets"), icon: Factory, perm: "assets", feature: null, group: "setup" as NavGroup },
+    { href: "/partners", label: t("nav.partners"), icon: Handshake, perm: "partners", feature: null, group: "setup" as NavGroup },
+    { href: "/approvals", label: t("nav.approvals"), icon: Stamp, perm: "approvals", feature: null, group: "setup" as NavGroup },
+    { href: "/manufacturing", label: t("nav.manufacturing"), icon: Cog, perm: "manufacturing", feature: null, group: "setup" as NavGroup },
+    { href: "/projects", label: t("nav.projects"), icon: FolderKanban, perm: "projects", feature: null, group: "setup" as NavGroup },
+    { href: "/portals", label: t("nav.portals"), icon: KeyRound, perm: "portal", feature: null, group: "setup" as NavGroup },
     ...(billing?.isOwner ? [{ href: "/billing", label: t("nav.billing"), icon: Crown, perm: "", feature: null as keyof BusinessFeatures | null, group: "setup" as NavGroup }] : []),
     ...(billing?.isPlatformAdmin ? [{ href: "/admin/billing", label: t("nav.admin"), icon: ShieldCheck, perm: "", feature: null as keyof BusinessFeatures | null, group: "setup" as NavGroup }] : []),
     ...(billing?.isPlatformAdmin ? [{ href: "/admin/support", label: t("nav.supportInbox"), icon: LifeBuoy, perm: "", feature: null as keyof BusinessFeatures | null, group: "setup" as NavGroup }] : []),
@@ -211,8 +231,21 @@ export function AppShell({ children, initialBusinessType }: { children: ReactNod
     router.refresh();
   }
 
-  const isActiveNav = (n: NavItem) =>
-    pathname === n.href || (n.href !== "/dashboard" && pathname.startsWith(n.href + "/"));
+  const isActiveNav = (n: NavItem) => {
+    if (pathname === n.href) return true;
+    if (n.href !== "/dashboard" && pathname.startsWith(n.href + "/")) return true;
+    for (const m of n.match ?? []) {
+      if (pathname !== m && !pathname.startsWith(m + "/")) continue;
+      // /parties serves both customers and suppliers — disambiguate by ?kind=
+      if (m === "/parties" && typeof window !== "undefined") {
+        const kind = new URLSearchParams(window.location.search).get("kind")?.toUpperCase();
+        const wantSupplier = n.href.includes("/suppliers");
+        if ((kind === "SUPPLIER") !== wantSupplier) continue;
+      }
+      return true;
+    }
+    return false;
+  };
   const activeGroup: NavGroup | null = nav.find(isActiveNav)?.group ?? null;
 
   function toggleGroup(g: NavGroup) {
@@ -314,9 +347,9 @@ export function AppShell({ children, initialBusinessType }: { children: ReactNod
             const open = !collapsed.has(g);
             const GroupIcon = GROUP_ICON[g];
             const groupActive = items.some(isActiveNav);
-            // Single-item groups (dashboard) render as a direct link row.
-            if (items.length === 1 && g === "dashboard") {
-              return <div key={g}>{renderNavItem(items[0])}</div>;
+            // Single-item groups render as a direct link row.
+            if (SINGLE_LINK_GROUPS.includes(g)) {
+              return <div key={g}>{items.map(renderNavItem)}</div>;
             }
             return (
               <div key={g}>
@@ -478,6 +511,24 @@ export function AppShell({ children, initialBusinessType }: { children: ReactNod
         )}
 
         <main className="flex-1 px-4 py-6 sm:px-6 lg:px-8">
+          {(() => {
+            // Best-matching nav item (longest href wins) for the breadcrumb trail.
+            const ranked = nav
+              .filter(isActiveNav)
+              .sort((a, b) => b.href.length - a.href.length);
+            const item = ranked[0];
+            if (!item) return null;
+            const crumbs: { label: string; href?: string }[] = [
+              { label: t("nav.home"), href: "/dashboard" },
+            ];
+            if (!SINGLE_LINK_GROUPS.includes(item.group)) {
+              crumbs.push({ label: t(GROUP_LABEL[item.group]) });
+            }
+            crumbs.push({ label: item.label });
+            // Skip the trail when it would just repeat "Home / Dashboard".
+            if (crumbs.length <= 2 && item.group === "dashboard") return null;
+            return <Breadcrumb items={crumbs} />;
+          })()}
           {children}
         </main>
       </div>

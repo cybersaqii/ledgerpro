@@ -41,14 +41,14 @@ const emptyForm = {
   priceListId: "",
 };
 
-export default function PartiesPage() {
+export default function PartiesPage({ defaultKind }: { defaultKind?: "CUSTOMER" | "SUPPLIER" }) {
   const bp = useBusinessProfile();
   const { t } = useLang();
   const canSetoff = useCan("payments");
   const canPortal = useCan("portal");
   const [portalParty, setPortalParty] = useState<{ id: string; name: string } | null>(null);
   const searchParams = typeof window !== "undefined" ? new URLSearchParams(window.location.search) : null;
-  const initialKind = searchParams?.get("kind")?.toUpperCase() === "SUPPLIER" ? "SUPPLIER" : "CUSTOMER";
+  const initialKind = defaultKind ?? (searchParams?.get("kind")?.toUpperCase() === "SUPPLIER" ? "SUPPLIER" : "CUSTOMER");
   const [kind, setKind] = useState<"CUSTOMER" | "SUPPLIER">(initialKind);
   const [q, setQ] = useState("");
   const [category, setCategory] = useState("");
