@@ -403,6 +403,7 @@ export const en = {
     subtotal: "Subtotal",
     itemDiscounts: "Item discounts",
     moreOptions: "More options",
+    viewStatement: "View statement",
     gstPerLineHint: "Tax is set per line",
     billDiscount: "Bill discount (Rs)",
     taxTotal: "Tax",

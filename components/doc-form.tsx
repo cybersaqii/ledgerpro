@@ -14,7 +14,6 @@ import { parseDecimalToMinor } from "@/lib/decimal";
 import { toBaseMilli, parseMilliUnits, formatMilliUnits } from "@/lib/uom-math";
 import { whtRateBps, type WhtCategory, type FilerStatus } from "@/lib/wht";
 import { useBusinessProfile } from "@/components/business-type";
-import { ProjectSelect } from "@/components/project-select";
 import { useLang } from "@/components/lang-provider";
 
 type Party = { id: string; name: string; phone: string | null; address?: string | null; creditLimit?: string | null; paymentTerms?: string | null; whtCategory?: string | null; activeTaxPayer?: boolean | null; filerStatus?: string | null; priceListId?: string | null; category?: string | null };
@@ -316,6 +315,29 @@ export function DocForm({ mode }: { mode: "SALES" | "PURCHASE" }) {
   const printRef = useRef<HTMLDivElement>(null);
   /** FA layout: selected party's current balance (receivable/payable). */
   const [partyBalance, setPartyBalance] = useState<string | null>(null);
+  /** Editable credit limit (Rs) — synced from party, saved via PATCH on blur. */
+  const [creditLimitEdit, setCreditLimitEdit] = useState("");
+  const saveCreditLimit = useCallback(async () => {
+    if (!partyId) return;
+    const v = creditLimitEdit.trim();
+    // creditLimit is stored in paisa on the party record
+    let paisa = "0";
+    try { paisa = v === "" ? "0" : String(BigInt(Math.round(parseFloat(v) * 100))); } catch { paisa = "0"; }
+    try {
+      await api(`/api/parties/${partyId}`, {
+        method: "PATCH",
+        body: JSON.stringify({ creditLimit: paisa }),
+      });
+      setParties((ps) => ps.map((p) => (p.id === partyId ? { ...p, creditLimit: paisa } : p)));
+    } catch { /* keep local value; party form remains the source of truth */ }
+  }, [partyId, creditLimitEdit]);
+  // Sync the editable credit-limit field when the party changes (paisa -> Rs)
+  function syncCreditLimitEdit(p: Party | undefined) {
+    try {
+      const paisa = BigInt(p?.creditLimit || "0");
+      setCreditLimitEdit(paisa === 0n ? "" : (Number(paisa) / 100).toString());
+    } catch { setCreditLimitEdit(""); }
+  }
   /** FA-style: "+ Add New" quick-create row is always visible in the party dropdown. */
   const [showQuickAdd, setShowQuickAdd] = useState(false);
   /** last posted rate per product: productId -> paisa string (null = none yet). */
@@ -615,6 +637,7 @@ export function DocForm({ mode }: { mode: "SALES" | "PURCHASE" }) {
 
   function chooseParty(p: Party) {
     setPartyId(p.id);
+    syncCreditLimitEdit(p);
     setShowPartyList(false);
     // Module 22: the party's price list auto-selects — its rates apply at
     // once (the party is picked before lines are usually added). The
@@ -839,6 +862,7 @@ export function DocForm({ mode }: { mode: "SALES" | "PURCHASE" }) {
       });
       setParties((ps) => [{ id: d.data.id, name: d.data.name, phone: d.data.phone }, ...ps]);
       setPartyId(d.data.id);
+      setCreditLimitEdit("");
       setPartyQ("");
       setQuickPhone("");
       setShowPartyList(false);
@@ -1107,12 +1131,6 @@ export function DocForm({ mode }: { mode: "SALES" | "PURCHASE" }) {
       setDiscountTotal(minorToStr(amt < 0n ? 0n : amt));
     } catch { /* keep the typed amount */ }
   }
-  /** FA layout: credit limit panel value. */
-  const creditLimitDisplay = (() => {
-    const raw = selectedParty?.creditLimit;
-    if (!raw) return fmtMoney(0n);
-    try { return fmtMoney(BigInt(raw)); } catch { return "\u2014"; }
-  })();
   /** FA layout: Mode column in Add Receipt — derived from the account kind (unchanged logic). */
   const rcptMode = !rcptAccountId
     ? "\u2014"
@@ -1212,6 +1230,25 @@ export function DocForm({ mode }: { mode: "SALES" | "PURCHASE" }) {
                 <input type="date" className="field !py-1.5 text-[13px]" required value={date}
                   onChange={(e) => onDateChange(e.target.value)} />
               </CompactField>
+<CompactField label={t("docform.typeLabel")}>
+                <select className="field !py-1.5 text-[13px]" value={docType} onChange={(e) => setDocType(e.target.value)}>
+                  {isSales ? (
+                    <>
+                      <option value="INVOICE">{t("docform.optInvoice")}</option>
+                      <option value="RETURN">{t("docform.optSalesReturn")}</option>
+                      <option value="QUOTATION">{t("docform.optQuotation")}</option>
+                      <option value="ORDER">{t("docform.optOrder")}</option>
+                      <option value="CHALLAN">{t("docform.optChallan")}</option>
+                    </>
+                  ) : (
+                    <>
+                      <option value="BILL">{t("docform.optPurchaseBill")}</option>
+                      <option value="RETURN">{t("docform.optPurchaseReturn")}</option>
+                      <option value="ORDER">{t("docform.optOrder")}</option>
+                    </>
+                  )}
+                </select>
+              </CompactField>
               <CompactField label="Term Days">
                 <input type="number" min="0" max="3650" className="field !py-1.5 text-[13px]" placeholder="0"
                   value={termDays} onChange={(e) => onTermDays(e.target.value)} />
@@ -1231,95 +1268,30 @@ export function DocForm({ mode }: { mode: "SALES" | "PURCHASE" }) {
                   value={selectedParty?.phone ?? ""} placeholder="\u2014" />
               </CompactField>
             </div>
-            {/* col 3: credit limit + balance */}
+            {/* col 3: credit limit (editable) + balance (clickable -> party ledger) */}
             <div className="space-y-2">
               <div>
                 <span className="mb-0.5 block text-[11px] font-semibold text-foreground/90">Credit Limit</span>
-                <div className="field !bg-muted/40 !py-1.5 text-end text-[13px] font-bold tabular-nums">{creditLimitDisplay}</div>
+                <input type="number" min="0" step="0.01" dir="ltr"
+                  className="field !py-1.5 text-end text-[13px] font-bold tabular-nums"
+                  value={creditLimitEdit} placeholder="0"
+                  disabled={!selectedParty}
+                  onChange={(e) => setCreditLimitEdit(e.target.value)}
+                  onBlur={saveCreditLimit}
+                  aria-label="Credit Limit" />
               </div>
               <div>
                 <span className="mb-0.5 block text-[11px] font-semibold text-foreground/90">Balance</span>
-                <div className="field !bg-muted/40 !py-1.5 text-end text-[13px] font-bold tabular-nums">
+                <button type="button" disabled={!selectedParty}
+                  onClick={() => selectedParty && router.push(`/reports/party-ledger?party=${selectedParty.id}`)}
+                  title={t("docform.viewStatement")}
+                  className="field flex w-full items-center justify-end !py-1.5 text-[13px] font-bold tabular-nums text-primary underline-offset-2 hover:underline disabled:cursor-default disabled:text-foreground disabled:no-underline">
                   {partyBalance == null ? "\u2014" : fmtMoney(BigInt(partyBalance))}
-                </div>
+                </button>
               </div>
             </div>
           </div>
-          {/* extra doc options stay available without breaking the FA placement */}
-          <details className="mt-3 rounded-xl bg-muted/40 px-3 py-2">
-            <summary className="cursor-pointer text-xs font-bold text-muted-foreground">{t("docform.moreOptions")}</summary>
-            <div className="grid gap-3 pt-3 sm:grid-cols-3 lg:grid-cols-6">
-              <CompactField label={t("docform.typeLabel")}>
-                <select className="field !py-1.5 text-[13px]" value={docType} onChange={(e) => setDocType(e.target.value)}>
-                  {isSales ? (
-                    <>
-                      <option value="INVOICE">{t("docform.optInvoice")}</option>
-                      <option value="RETURN">{t("docform.optSalesReturn")}</option>
-                      <option value="QUOTATION">{t("docform.optQuotation")}</option>
-                      <option value="ORDER">{t("docform.optOrder")}</option>
-                      <option value="CHALLAN">{t("docform.optChallan")}</option>
-                    </>
-                  ) : (
-                    <>
-                      <option value="BILL">{t("docform.optPurchaseBill")}</option>
-                      <option value="RETURN">{t("docform.optPurchaseReturn")}</option>
-                      <option value="ORDER">{t("docform.optOrder")}</option>
-                    </>
-                  )}
-                </select>
-              </CompactField>
-              <CompactField label={t("docform.fxCurrency")}>
-                <select className="field !py-1.5 text-[13px]" value={currencyCode}
-                  onChange={(e) => setCurrencyCode(e.target.value)} aria-label={t("docform.fxCurrency")}>
-                  {fxCurrencies.map((c) => (
-                    <option key={c.code} value={c.code}>{c.code} — {c.name}</option>
-                  ))}
-                </select>
-              </CompactField>
-              {isSales && (
-                <CompactField label={t("pricing.priceList")}>
-                  <div className="flex gap-1.5">
-                    <select className="field !py-1.5 text-[13px]" value={priceListId}
-                      onChange={(e) => setPriceListId(e.target.value)} aria-label={t("pricing.priceList")}>
-                      <option value="">{t("pricing.defaultPricing")}</option>
-                      {priceLists.map((l) => (
-                        <option key={l.id} value={l.id}>{l.name}</option>
-                      ))}
-                    </select>
-                    {priceListId !== appliedListId && (
-                      <button type="button" className="btn btn-ghost shrink-0 !px-2 !py-1 text-xs"
-                        disabled={repriceBusy} onClick={() => applyPriceList(priceListId)}>
-                        {repriceBusy ? t("pricing.applying") : t("pricing.apply")}
-                      </button>
-                    )}
-                  </div>
-                </CompactField>
-              )}
-              <ProjectSelect value={projectId} onChange={setProjectId} />
-              {!isSales && docType === "BILL" && (
-                <CompactField label={t("docform.whtRate")}>
-                  <input className="field !py-1.5 text-[13px]" type="number" min="0" max="100" step="0.01" dir="ltr"
-                    value={whtPct} onChange={(e) => setWhtPct(e.target.value)}
-                    placeholder={t("docform.whtRatePlaceholder")} />
-                </CompactField>
-              )}
-              {!isSales && docType === "RETURN" && (
-                <div className="flex items-end pb-2">
-                  <label className="flex cursor-pointer items-center gap-2">
-                    <input type="checkbox" className="h-4 w-4 accent-primary"
-                      checked={deductFromInventory}
-                      onChange={(e) => setDeductFromInventory(e.target.checked)} />
-                    <span className="text-xs font-semibold">{t("docform.deductFromInventory")}</span>
-                  </label>
-                </div>
-              )}
-              <CompactField label={t("docform.terms")}>
-                <input className="field !py-1.5 text-[13px]" value={terms} maxLength={500}
-                  onChange={(e) => setTerms(e.target.value)}
-                  placeholder={t("docform.termsPlaceholder")} />
-              </CompactField>
-            </div>
-          </details>
+          
         </SectionCard>
 
         {/* ══════════ 2 · Products Details ══════════ */}
@@ -1684,13 +1656,13 @@ export function DocForm({ mode }: { mode: "SALES" | "PURCHASE" }) {
         {((isSales && docType === "INVOICE") || (!isSales && docType === "BILL")) && (
           <SectionCard title={isSales ? "Add Receipt" : "Add Payment"}>
             <div className="overflow-x-auto">
-              <table className="tbl-fa">
+              <table className="tbl-fa w-auto">
                 <thead><tr>
-                  <th>Date</th>
-                  <th>Bank</th>
-                  <th>Mode</th>
-                  <th>Ref. No.</th>
-                  <th className="num">Amount</th>
+                  <th className="w-36">Date</th>
+                  <th className="min-w-40">Bank</th>
+                  <th className="w-20">Mode</th>
+                  <th className="min-w-32">Ref. No.</th>
+                  <th className="num w-32">Amount</th>
                 </tr></thead>
                 <tbody>
                   <tr>
@@ -1719,7 +1691,6 @@ export function DocForm({ mode }: { mode: "SALES" | "PURCHASE" }) {
                 </tbody>
               </table>
             </div>
-            <p className="mt-1.5 text-[11px] text-muted-foreground">{t("docform.addReceiptHint")}</p>
           </SectionCard>
         )}
 
