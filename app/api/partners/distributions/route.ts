@@ -42,6 +42,7 @@ const createSchema = z.object({
   // Signed decimal string: "500000.00" profit, "-20000.00" loss.
   totalAmount: z.string().regex(/^-?\d{1,12}(\.\d{1,2})?$/, "Invalid amount"),
   memo: z.string().trim().max(300).optional(),
+  method: z.enum(["FIXED", "TIME_WEIGHTED"]).optional(),
 });
 
 // POST /api/partners/distributions — create DRAFT run
@@ -63,6 +64,7 @@ export async function POST(req: NextRequest) {
         totalAmountPaisa: parseMoney(b.data.totalAmount),
         memo: b.data.memo,
         createdById: session.uid,
+        method: b.data.method ?? "FIXED",
       });
     });
     await logAudit(db, {

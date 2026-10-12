@@ -27,6 +27,7 @@ export default function PartnersPage() {
   const [loading, setLoading] = useState(true);
   const [showAdd, setShowAdd] = useState(false);
   const [showMove, setShowMove] = useState<{ partner: Partner; kind: "contribute" | "draw" } | null>(null);
+  const [showDistribute, setShowDistribute] = useState(false);
   const [err, setErr] = useState("");
 
   const load = () => {
@@ -53,9 +54,14 @@ export default function PartnersPage() {
         title={t("partners.title")}
         icon={<Handshake size={20} />}
         actions={
-          <button className="btn btn-primary" onClick={() => setShowAdd(true)}>
-            <Plus size={16} /> {t("partners.addPartner")}
-          </button>
+          <div className="flex gap-2">
+            <button className="btn btn-ghost" onClick={() => setShowDistribute(true)}>
+              <TrendingUp size={16} /> {t("partners.distributeProfit")}
+            </button>
+            <button className="btn btn-primary" onClick={() => setShowAdd(true)}>
+              <Plus size={16} /> {t("partners.addPartner")}
+            </button>
+          </div>
         }
       />
       <ErrorNote message={err} />
@@ -85,6 +91,13 @@ export default function PartnersPage() {
         <AddPartnerDialog
           onClose={() => setShowAdd(false)}
           onDone={() => { setShowAdd(false); load(); }}
+          t={t}
+        />
+      )}
+      {showDistribute && (
+        <DistributeDialog
+          onClose={() => setShowDistribute(false)}
+          onDone={() => { setShowDistribute(false); load(); }}
           t={t}
         />
       )}
@@ -262,6 +275,136 @@ function MoveMoneyDialog({ partner, kind, cashAccounts, onClose, onDone, t }: {
           <button className="btn btn-ghost !rounded-xl" onClick={onClose}>{t("common.cancel")}</button>
           <button className="btn btn-primary !rounded-xl shadow-lg shadow-primary/25" disabled={busy || !amount || !accountId} onClick={save}>
             {busy ? "…" : t("common.save")}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+type PreviewShare = {
+  partnerId: string;
+  partnerName: string;
+  capitalDays: string;
+  activeDays: number;
+  shareBps: number;
+  amount: string;
+};
+
+function DistributeDialog({ onClose, onDone, t }: {
+  onClose: () => void; onDone: () => void; t: (k: string) => string;
+}) {
+  const [method, setMethod] = useState<"FIXED" | "TIME_WEIGHTED">("TIME_WEIGHTED");
+  const [periodStart, setPeriodStart] = useState("");
+  const [periodEnd, setPeriodEnd] = useState("");
+  const [amount, setAmount] = useState("");
+  const [memo, setMemo] = useState("");
+  const [preview, setPreview] = useState<PreviewShare[] | null>(null);
+  const [previewBusy, setPreviewBusy] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState("");
+
+  const doPreview = async () => {
+    if (!periodStart || !periodEnd || !amount) return;
+    setPreviewBusy(true); setErr("");
+    try {
+      const d = await api<{ data: PreviewShare[] }>("/api/partners/distributions/preview", {
+        method: "POST",
+        body: JSON.stringify({ periodStart, periodEnd, totalAmount: amount }),
+      });
+      setPreview(d.data);
+    } catch (e) { setErr(e instanceof Error ? e.message : "Failed"); setPreview(null); }
+    finally { setPreviewBusy(false); }
+  };
+
+  const save = async () => {
+    setBusy(true); setErr("");
+    try {
+      await api("/api/partners/distributions", {
+        method: "POST",
+        body: JSON.stringify({ periodStart, periodEnd, totalAmount: amount, memo: memo || undefined, method }),
+      });
+      onDone();
+    } catch (e) { setErr(e instanceof Error ? e.message : "Failed"); }
+    finally { setBusy(false); }
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/60 p-4 backdrop-blur-sm sm:items-center" onClick={onClose}>
+      <div className="max-h-[92vh] w-full max-w-lg overflow-y-auto rounded-3xl border border-border/60 bg-card p-6 shadow-2xl" onClick={(e) => e.stopPropagation()}>
+        <div className="flex items-start justify-between">
+          <h2 className="font-display text-lg font-extrabold">{t("partners.distributeProfit")}</h2>
+          <button className="btn btn-ghost !p-2 !rounded-xl" onClick={onClose}><X size={16} /></button>
+        </div>
+        <ErrorNote message={err} />
+
+        <div className="mt-4 space-y-4">
+          <div>
+            <p className="mb-2 text-sm font-bold">{t("partners.distMethod")}</p>
+            <div className="flex gap-1 rounded-xl bg-muted p-1">
+              {(["TIME_WEIGHTED", "FIXED"] as const).map((m) => (
+                <button key={m} type="button" onClick={() => { setMethod(m); setPreview(null); }}
+                  className={`flex-1 rounded-lg px-4 py-2 text-xs font-bold transition ${method === m ? "bg-card text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}`}>
+                  {t(`partners.method${m === "FIXED" ? "Fixed" : "TimeWeighted"}`)}
+                </button>
+              ))}
+            </div>
+            {method === "TIME_WEIGHTED" && (
+              <p className="mt-1.5 text-xs text-muted-foreground">{t("partners.timeWeightedHint")}</p>
+            )}
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <Field label={t("partners.periodStart")} required>
+              <input type="date" className="input !rounded-xl !border-2 !border-border bg-background" value={periodStart} onChange={(e) => { setPeriodStart(e.target.value); setPreview(null); }} />
+            </Field>
+            <Field label={t("partners.periodEnd")} required>
+              <input type="date" className="input !rounded-xl !border-2 !border-border bg-background" value={periodEnd} onChange={(e) => { setPeriodEnd(e.target.value); setPreview(null); }} />
+            </Field>
+          </div>
+
+          <Field label={t("partners.distAmount")} required hint={t("partners.distAmountHint")}>
+            <input inputMode="decimal" className="input !rounded-xl !border-2 !border-border bg-background text-lg font-bold tabular-nums" value={amount} onChange={(e) => { setAmount(e.target.value); setPreview(null); }} placeholder="0.00" />
+          </Field>
+
+          <Field label={t("partners.memo")}>
+            <input className="input !rounded-xl !border-2 !border-border bg-background" value={memo} onChange={(e) => setMemo(e.target.value)} maxLength={300} />
+          </Field>
+
+          {method === "TIME_WEIGHTED" && (
+            <button type="button" className="btn btn-ghost w-full" disabled={previewBusy || !periodStart || !periodEnd || !amount} onClick={doPreview}>
+              {previewBusy ? "…" : t("partners.previewShares")}
+            </button>
+          )}
+
+          {preview && preview.length > 0 && (
+            <div className="overflow-x-auto rounded-xl border border-border">
+              <table className="tbl tbl-fa">
+                <thead><tr>
+                  <th>{t("partners.partner")}</th>
+                  <th className="num">{t("partners.activeDays")}</th>
+                  <th className="num">{t("partners.sharePct")}</th>
+                  <th className="num">{t("partners.amount")}</th>
+                </tr></thead>
+                <tbody>
+                  {preview.map((s) => (
+                    <tr key={s.partnerId}>
+                      <td className="font-semibold">{s.partnerName}</td>
+                      <td className="num">{s.activeDays}</td>
+                      <td className="num">{(s.shareBps / 100).toFixed(1)}%</td>
+                      <td className="num font-bold">{fmtMoney(s.amount)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+
+        <div className="mt-6 flex justify-end gap-2.5 border-t border-border/60 pt-5">
+          <button className="btn btn-ghost !rounded-xl" onClick={onClose}>{t("common.cancel")}</button>
+          <button className="btn btn-primary !rounded-xl shadow-lg shadow-primary/25" disabled={busy || !periodStart || !periodEnd || !amount} onClick={save}>
+            {busy ? "…" : t("partners.createDistribution")}
           </button>
         </div>
       </div>

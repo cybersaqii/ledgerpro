@@ -211,33 +211,168 @@ export type CreateDistributionInput = {
   totalAmountPaisa: bigint; // signed: +profit / -loss
   memo?: string;
   createdById: string;
+  /** "FIXED" = by profitShareBps; "TIME_WEIGHTED" = by capital-days. */
+  method?: "FIXED" | "TIME_WEIGHTED";
 };
 
-/** Create a DRAFT distribution run with per-partner share snapshots. */
-export async function createDistribution(tx: DbTx, input: CreateDistributionInput) {
+export type TimeWeightedShare = {
+  partnerId: string;
+  partnerName: string;
+  capitalDays: bigint; // sum of daily capital balance (paisa-days)
+  activeDays: number; // days with capital > 0 in period
+  shareBps: number; // computed share in basis points
+  amount: bigint;
+};
+
+/**
+ * Time-weighted profit distribution: each partner's share is proportional to
+ * their "capital-days" — the sum of their daily capital balance over the period.
+ * - CONTRIBUTION increases capital from its date
+ * - DRAWING / CAPITAL_RETURN decrease capital from their date
+ * - A partner who joins late (or withdraws early) gets proportionally less
+ */
+export async function calcTimeWeightedShares(
+  tx: DbTx,
+  companyId: string,
+  periodStart: Date,
+  periodEnd: Date,
+  totalAmountPaisa: bigint
+): Promise<TimeWeightedShare[]> {
   const list = await tx
     .select()
     .from(partners)
-    .where(and(eq(partners.companyId, input.companyId), eq(partners.isActive, true)));
+    .where(and(eq(partners.companyId, companyId), eq(partners.isActive, true)));
   if (list.length === 0) throw new Error("No active partners.");
 
-  const totalBps = list.reduce((s: number, p: { profitShareBps: number }) => s + p.profitShareBps, 0);
-  if (totalBps <= 0) throw new Error("Partners have no profit share configured.");
+  const startMs = new Date(periodStart).setHours(0, 0, 0, 0);
+  const endMs = new Date(periodEnd).setHours(23, 59, 59, 999);
+  const dayMs = 86400000;
 
-  // Split by bps; remainder goes to the largest shareholder.
-  const total = input.totalAmountPaisa;
-  const shares = list.map((p) => ({
-    partner: p,
-    amount: (total * BigInt(p.profitShareBps)) / BigInt(totalBps),
+  // Load all capital movements in/before the period
+  const txs = await tx
+    .select()
+    .from(partnerTransactions)
+    .where(
+      and(
+        eq(partnerTransactions.companyId, companyId),
+        sql`${partnerTransactions.date} <= ${new Date(endMs)}`
+      )
+    );
+
+  const shares: TimeWeightedShare[] = [];
+  for (const p of list) {
+    // Build daily capital balance for this partner
+    const movements = txs
+      .filter((t) => t.partnerId === p.id)
+      .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+
+    let capitalDays = 0n;
+    let activeDays = 0;
+    // Walk each day in the period
+    for (let d = startMs; d <= endMs; d += dayMs) {
+      let bal = 0n;
+      for (const m of movements) {
+        const mMs = new Date(m.date).getTime();
+        if (mMs > d) break;
+        const amt = BigInt(m.amountPaisa as unknown as string);
+        if (m.kind === "CONTRIBUTION") bal += amt;
+        else bal -= amt; // DRAWING | CAPITAL_RETURN
+      }
+      if (bal < 0n) bal = 0n;
+      capitalDays += bal;
+      if (bal > 0n) activeDays++;
+    }
+    shares.push({
+      partnerId: p.id,
+      partnerName: p.name,
+      capitalDays,
+      activeDays,
+      shareBps: 0,
+      amount: 0n,
+    });
+  }
+
+  const totalCapitalDays = shares.reduce((s, x) => s + x.capitalDays, 0n);
+  if (totalCapitalDays <= 0n) throw new Error("No capital invested in this period.");
+
+  // Convert to basis points; remainder to the largest shareholder
+  let assignedBps = 0;
+  const withBps = shares.map((s) => {
+    const bps = Number((s.capitalDays * 10000n) / totalCapitalDays);
+    assignedBps += bps;
+    return { ...s, shareBps: bps };
+  });
+  const bpsRemainder = 10000 - assignedBps;
+  if (bpsRemainder !== 0) {
+    let idx = 0;
+    for (let i = 1; i < withBps.length; i++) {
+      if (withBps[i].capitalDays > withBps[idx].capitalDays) idx = i;
+    }
+    withBps[idx].shareBps += bpsRemainder;
+  }
+
+  // Split the amount by bps; remainder to largest
+  const result = withBps.map((s) => ({
+    ...s,
+    amount: (totalAmountPaisa * BigInt(s.shareBps)) / 10000n,
   }));
-  const assigned = shares.reduce((s: bigint, x: { amount: bigint }) => s + x.amount, 0n);
-  const remainder = total - assigned;
+  const assigned = result.reduce((s, x) => s + x.amount, 0n);
+  const remainder = totalAmountPaisa - assigned;
   if (remainder !== 0n) {
     let idx = 0;
-    for (let i = 1; i < shares.length; i++) {
-      if (shares[i].partner.profitShareBps > shares[idx].partner.profitShareBps) idx = i;
+    for (let i = 1; i < result.length; i++) {
+      if (result[i].capitalDays > result[idx].capitalDays) idx = i;
     }
-    shares[idx].amount += remainder;
+    result[idx].amount += remainder;
+  }
+  return result;
+}
+
+/** Create a DRAFT distribution run with per-partner share snapshots. */
+export async function createDistribution(tx: DbTx, input: CreateDistributionInput) {
+  const method = input.method ?? "FIXED";
+  const total = input.totalAmountPaisa;
+
+  let shares: { partner: { id: string; profitShareBps: number }; amount: bigint; shareBps: number }[];
+
+  if (method === "TIME_WEIGHTED") {
+    const tw = await calcTimeWeightedShares(tx, input.companyId, input.periodStart, input.periodEnd, total);
+    // Map to the common shape
+    const pmap = new Map(tw.map((x) => [x.partnerId, x]));
+    const list = await tx
+      .select()
+      .from(partners)
+      .where(and(eq(partners.companyId, input.companyId), eq(partners.isActive, true)));
+    shares = list.map((p) => {
+      const t = pmap.get(p.id);
+      return { partner: p, amount: t?.amount ?? 0n, shareBps: t?.shareBps ?? 0 };
+    });
+  } else {
+    const list = await tx
+      .select()
+      .from(partners)
+      .where(and(eq(partners.companyId, input.companyId), eq(partners.isActive, true)));
+    if (list.length === 0) throw new Error("No active partners.");
+
+    const totalBps = list.reduce((s: number, p: { profitShareBps: number }) => s + p.profitShareBps, 0);
+    if (totalBps <= 0) throw new Error("Partners have no profit share configured.");
+
+    // Split by bps; remainder goes to the largest shareholder.
+    const fixed = list.map((p) => ({
+      partner: p,
+      amount: (total * BigInt(p.profitShareBps)) / BigInt(totalBps),
+      shareBps: Math.round((p.profitShareBps / totalBps) * 10000),
+    }));
+    const assigned = fixed.reduce((s: bigint, x: { amount: bigint }) => s + x.amount, 0n);
+    const remainder = total - assigned;
+    if (remainder !== 0n) {
+      let idx = 0;
+      for (let i = 1; i < fixed.length; i++) {
+        if (fixed[i].partner.profitShareBps > fixed[idx].partner.profitShareBps) idx = i;
+      }
+      fixed[idx].amount += remainder;
+    }
+    shares = fixed;
   }
 
   const distId = randomUUID();
@@ -248,7 +383,7 @@ export async function createDistribution(tx: DbTx, input: CreateDistributionInpu
     periodEnd: input.periodEnd,
     totalAmountPaisa: total,
     status: "DRAFT",
-    memo: input.memo ?? null,
+    memo: [input.memo, `method:${method}`].filter(Boolean).join(" | ") || null,
     createdById: input.createdById,
     createdAt: now(),
   });
@@ -257,7 +392,7 @@ export async function createDistribution(tx: DbTx, input: CreateDistributionInpu
       id: randomUUID(),
       distributionId: distId,
       partnerId: s.partner.id,
-      shareBps: s.partner.profitShareBps,
+      shareBps: s.shareBps,
       amountPaisa: s.amount,
       createdAt: now(),
     });
