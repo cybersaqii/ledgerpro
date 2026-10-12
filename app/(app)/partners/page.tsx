@@ -5,7 +5,7 @@ import { Handshake, Plus, X, Wallet, TrendingUp, Eye, EyeOff } from "lucide-reac
 import { PageHeader, Field, ErrorNote, EmptyState } from "@/components/ui";
 import { useLang } from "@/components/lang-provider";
 import { useCan } from "@/components/permissions";
-import { api, fmtMoney } from "@/lib/format";
+import { api, fmtMoney, fmtDate } from "@/lib/format";
 
 type Partner = {
   id: string;
@@ -28,6 +28,8 @@ export default function PartnersPage() {
   const [showAdd, setShowAdd] = useState(false);
   const [showMove, setShowMove] = useState<{ partner: Partner; kind: "contribute" | "draw" } | null>(null);
   const [showDistribute, setShowDistribute] = useState(false);
+  const [dists, setDists] = useState<{ id: string; periodStart: string; periodEnd: string; totalAmountPaisa: string; status: string }[]>([]);
+  const [selectedDist, setSelectedDist] = useState<string | null>(null);
   const [err, setErr] = useState("");
 
   const load = () => {
@@ -35,9 +37,11 @@ export default function PartnersPage() {
     Promise.all([
       api<{ data: Partner[] }>("/api/partners"),
       api<{ data: CashAccount[] }>("/api/accounts?type=ASSET"),
+      api<{ data: { id: string; periodStart: string; periodEnd: string; totalAmountPaisa: string; status: string }[] }>("/api/partners/distributions"),
     ])
-      .then(([p, a]) => {
+      .then(([p, a, d]) => {
         setPartners(p.data);
+        setDists(d.data ?? []);
         // Cash/bank accounts only (10xx-11xx)
         setCashAccounts(a.data.filter((x) => /^10|^11/.test(x.code)));
       })
@@ -94,6 +98,46 @@ export default function PartnersPage() {
           t={t}
         />
       )}
+      {dists.length > 0 && (
+        <div className="mt-8">
+          <h2 className="mb-3 font-display text-base font-extrabold">{t("partners.distributions")}</h2>
+          <div className="card overflow-x-auto">
+            <table className="tbl tbl-fa">
+              <thead><tr>
+                <th>{t("partners.period")}</th>
+                <th className="num">{t("partners.amount")}</th>
+                <th>{t("partners.status")}</th>
+                <th></th>
+              </tr></thead>
+              <tbody>
+                {dists.map((d) => (
+                  <tr key={d.id}>
+                    <td className="whitespace-nowrap">{fmtDate(d.periodStart)} — {fmtDate(d.periodEnd)}</td>
+                    <td className="num font-semibold">{fmtMoney(d.totalAmountPaisa)}</td>
+                    <td><span className="badge bg-muted text-muted-foreground">{d.status}</span></td>
+                    <td>
+                      <button className="btn btn-ghost !py-1 text-xs font-bold" onClick={() => setSelectedDist(d.id)}>
+                        {t("partners.viewPayments")}
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {selectedDist && (
+        <DistributionPaymentsDialog
+          distId={selectedDist}
+          cashAccounts={cashAccounts}
+          onClose={() => setSelectedDist(null)}
+          onDone={() => { setSelectedDist(null); load(); }}
+          t={t}
+        />
+      )}
+
       {showDistribute && (
         <DistributeDialog
           onClose={() => setShowDistribute(false)}
@@ -432,6 +476,133 @@ function DistributeDialog({ onClose, onDone, t }: {
           <button className="btn btn-primary !rounded-xl shadow-lg shadow-primary/25" disabled={busy || !periodStart || !periodEnd || !amount} onClick={save}>
             {busy ? "…" : t("partners.createDistribution")}
           </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+type PayStatus = {
+  partnerId: string;
+  partnerName: string;
+  shareBps: number;
+  share: string;
+  paid: string;
+  pending: string;
+};
+
+function DistributionPaymentsDialog({ distId, cashAccounts, onClose, onDone, t }: {
+  distId: string;
+  cashAccounts: CashAccount[];
+  onClose: () => void; onDone: () => void; t: (k: string) => string;
+}) {
+  const [status, setStatus] = useState<PayStatus[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [paying, setPaying] = useState<PayStatus | null>(null);
+  const [amount, setAmount] = useState("");
+  const [accountId, setAccountId] = useState(cashAccounts[0]?.id ?? "");
+  const [date, setDate] = useState(new Date().toISOString().slice(0, 10));
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState("");
+
+  const loadStatus = () => {
+    setLoading(true);
+    api<{ data: PayStatus[] }>(`/api/partners/distributions/${distId}/payments`)
+      .then((d) => setStatus(d.data))
+      .catch(() => setStatus([]))
+      .finally(() => setLoading(false));
+  };
+  useEffect(() => { loadStatus(); }, [distId]);
+
+  const doPay = async () => {
+    if (!paying || !amount || !accountId) return;
+    setBusy(true); setErr("");
+    try {
+      await api(`/api/partners/distributions/${distId}/payments`, {
+        method: "POST",
+        body: JSON.stringify({ partnerId: paying.partnerId, amount, accountId, date }),
+      });
+      setPaying(null); setAmount("");
+      loadStatus();
+    } catch (e) { setErr(e instanceof Error ? e.message : "Failed"); }
+    finally { setBusy(false); }
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/60 p-4 backdrop-blur-sm sm:items-center" onClick={onClose}>
+      <div className="max-h-[92vh] w-full max-w-2xl overflow-y-auto rounded-3xl border border-border/60 bg-card p-6 shadow-2xl" onClick={(e) => e.stopPropagation()}>
+        <div className="flex items-start justify-between">
+          <h2 className="font-display text-lg font-extrabold">{t("partners.distributionPayments")}</h2>
+          <button className="btn btn-ghost !p-2 !rounded-xl" onClick={onClose}><X size={16} /></button>
+        </div>
+        <ErrorNote message={err} />
+
+        {loading ? (
+          <p className="py-8 text-center text-muted-foreground">{t("common.loading")}</p>
+        ) : (
+          <div className="mt-4 overflow-x-auto rounded-xl border border-border">
+            <table className="tbl tbl-fa">
+              <thead><tr>
+                <th>{t("partners.partner")}</th>
+                <th className="num">{t("partners.sharePct")}</th>
+                <th className="num">{t("partners.shareAmount")}</th>
+                <th className="num">{t("partners.paid")}</th>
+                <th className="num">{t("partners.pending")}</th>
+                <th></th>
+              </tr></thead>
+              <tbody>
+                {status.map((s) => (
+                  <tr key={s.partnerId}>
+                    <td className="font-semibold">{s.partnerName}</td>
+                    <td className="num">{(s.shareBps / 100).toFixed(1)}%</td>
+                    <td className="num">{fmtMoney(s.share)}</td>
+                    <td className="num text-emerald-600 font-semibold">{fmtMoney(s.paid)}</td>
+                    <td className={`num font-bold ${BigInt(s.pending) > 0n ? "text-warning" : "text-muted-foreground"}`}>
+                      {fmtMoney(s.pending)}
+                    </td>
+                    <td>
+                      {BigInt(s.pending) > 0n && (
+                        <button className="btn btn-ghost !py-1 text-xs font-bold text-primary"
+                          onClick={() => { setPaying(s); setAmount((Number(BigInt(s.pending)) / 100).toString()); }}>
+                          {t("partners.recordPayment")}
+                        </button>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+
+        {paying && (
+          <div className="mt-4 rounded-2xl border border-primary/30 bg-primary/5 p-4">
+            <p className="font-bold">{t("partners.payTo").replace("{name}", paying.partnerName)}</p>
+            <div className="mt-3 grid grid-cols-2 gap-3">
+              <Field label={t("partners.amount")} required>
+                <input inputMode="decimal" className="input !rounded-xl !border-2 !border-border bg-background font-bold tabular-nums"
+                  value={amount} onChange={(e) => setAmount(e.target.value)} placeholder="0.00" />
+              </Field>
+              <Field label={t("partners.cashAccount")} required>
+                <select className="input !rounded-xl !border-2 !border-border bg-background" value={accountId} onChange={(e) => setAccountId(e.target.value)}>
+                  {cashAccounts.map((a) => <option key={a.id} value={a.id}>{a.code} — {a.name}</option>)}
+                </select>
+              </Field>
+            </div>
+            <Field label={t("partners.date")} required>
+              <input type="date" className="input !rounded-xl !border-2 !border-border bg-background" value={date} onChange={(e) => setDate(e.target.value)} />
+            </Field>
+            <div className="mt-3 flex justify-end gap-2">
+              <button className="btn btn-ghost !rounded-xl" onClick={() => setPaying(null)}>{t("common.cancel")}</button>
+              <button className="btn btn-primary !rounded-xl" disabled={busy || !amount || !accountId} onClick={doPay}>
+                {busy ? "…" : t("partners.confirmPayment")}
+              </button>
+            </div>
+          </div>
+        )}
+
+        <div className="mt-6 flex justify-end border-t border-border/60 pt-5">
+          <button className="btn btn-ghost !rounded-xl" onClick={onClose}>{t("common.close")}</button>
         </div>
       </div>
     </div>

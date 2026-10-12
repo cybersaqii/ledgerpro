@@ -4,6 +4,7 @@ import {
   partnerTransactions,
   profitDistributions,
   distributionEntries,
+  distributionPayments,
   accounts,
 } from "@/db/schema";
 import { createJournal } from "@/lib/posting";
@@ -528,4 +529,141 @@ export async function voidDistribution(
     .update(profitDistributions)
     .set({ status: "VOIDED" })
     .where(eq(profitDistributions.id, distributionId));
+}
+
+
+/** Record a cash payment against a partner's distribution share.
+ *  Dr Partner Current Account / Cr Cash-Bank. */
+export async function recordDistributionPayment(
+  tx: DbTx,
+  input: {
+    companyId: string;
+    distributionId: string;
+    partnerId: string;
+    amountPaisa: bigint;
+    accountId: string;
+    date: Date;
+    memo?: string;
+    createdById: string;
+  }
+): Promise<string> {
+  if (input.amountPaisa <= 0n) throw new Error("Amount must be positive.");
+
+  // Verify distribution is POSTED
+  const d = await tx
+    .select()
+    .from(profitDistributions)
+    .where(and(eq(profitDistributions.companyId, input.companyId), eq(profitDistributions.id, input.distributionId)))
+    .limit(1);
+  if (!d[0]) throw new Error("Distribution not found.");
+  if (d[0].status !== "POSTED") throw new Error("Only POSTED distributions can be paid.");
+
+  // Verify partner has a share entry
+  const entries = await tx
+    .select()
+    .from(distributionEntries)
+    .where(and(eq(distributionEntries.distributionId, input.distributionId), eq(distributionEntries.partnerId, input.partnerId)))
+    .limit(1);
+  if (!entries[0]) throw new Error("Partner has no share in this distribution.");
+
+  // Check already-paid total doesn't exceed the share
+  const paid = await tx
+    .select({ total: sql<bigint>`coalesce(sum(${distributionPayments.amountPaisa}), 0)` })
+    .from(distributionPayments)
+    .where(
+      and(
+        eq(distributionPayments.companyId, input.companyId),
+        eq(distributionPayments.distributionId, input.distributionId),
+        eq(distributionPayments.partnerId, input.partnerId)
+      )
+    );
+  const paidSoFar = BigInt(paid[0]?.total ?? 0n);
+  const share = entries[0].amountPaisa as unknown as bigint;
+  if (share > 0n && paidSoFar + input.amountPaisa > share) {
+    throw new Error(`Only ${paidSoFar} of ${share} remains unpaid for this partner.`);
+  }
+
+  // Get partner current account
+  const p = await tx
+    .select()
+    .from(partners)
+    .where(and(eq(partners.companyId, input.companyId), eq(partners.id, input.partnerId)))
+    .limit(1);
+  if (!p[0]) throw new Error("Partner not found.");
+
+  // Journal: Dr Partner Current / Cr Cash-Bank
+  const entryId = await createJournal(tx, {
+    companyId: input.companyId,
+    date: input.date,
+    memo: input.memo ?? `Distribution payment — ${p[0].name}`,
+    source: "distribution_payment",
+    sourceId: input.distributionId,
+    lines: [
+      { accountId: p[0].currentAccountId, debit: input.amountPaisa, credit: 0n },
+      { accountId: input.accountId, debit: 0n, credit: input.amountPaisa },
+    ],
+    createdById: input.createdById,
+  });
+
+  const payId = randomUUID();
+  await tx.insert(distributionPayments).values({
+    id: payId,
+    companyId: input.companyId,
+    distributionId: input.distributionId,
+    partnerId: input.partnerId,
+    amountPaisa: input.amountPaisa,
+    accountId: input.accountId,
+    journalEntryId: entryId,
+    date: input.date,
+    memo: input.memo ?? null,
+    createdById: input.createdById,
+    createdAt: now(),
+  });
+  return payId;
+}
+
+/** Paid/pending summary per partner for a distribution. */
+export async function getDistributionPaymentStatus(
+  tx: DbTx,
+  companyId: string,
+  distributionId: string
+) {
+  const entries = await tx
+    .select({
+      partnerId: distributionEntries.partnerId,
+      shareBps: distributionEntries.shareBps,
+      amountPaisa: distributionEntries.amountPaisa,
+      name: partners.name,
+    })
+    .from(distributionEntries)
+    .innerJoin(partners, eq(partners.id, distributionEntries.partnerId))
+    .where(eq(distributionEntries.distributionId, distributionId));
+
+  const payments = await tx
+    .select({
+      partnerId: distributionPayments.partnerId,
+      total: sql<bigint>`coalesce(sum(${distributionPayments.amountPaisa}), 0)`,
+    })
+    .from(distributionPayments)
+    .where(
+      and(
+        eq(distributionPayments.companyId, companyId),
+        eq(distributionPayments.distributionId, distributionId)
+      )
+    )
+    .groupBy(distributionPayments.partnerId);
+
+  const paidBy = new Map(payments.map((r) => [r.partnerId, BigInt(r.total ?? 0n)]));
+  return entries.map((e) => {
+    const share = e.amountPaisa as unknown as bigint;
+    const paid = paidBy.get(e.partnerId) ?? 0n;
+    return {
+      partnerId: e.partnerId,
+      partnerName: e.name,
+      shareBps: e.shareBps,
+      share,
+      paid,
+      pending: share - paid,
+    };
+  });
 }

@@ -2683,3 +2683,28 @@ export const distributionEntries = sqliteTable(
   },
   (t) => [index("de_distribution").on(t.distributionId)]
 );
+
+/** Payments made against a profit distribution: tracks how much of each
+ *  partner's share has been paid out (cash/bank) vs still pending. */
+export const distributionPayments = sqliteTable(
+  "distribution_payments",
+  {
+    id: id(),
+    companyId: text("company_id").notNull(),
+    distributionId: text("distribution_id").notNull(),
+    partnerId: text("partner_id").notNull(),
+    /** Paisa, always positive. */
+    amountPaisa: money("amount"),
+    /** Cash/bank account the money was paid from. */
+    accountId: text("account_id").notNull(),
+    journalEntryId: text("journal_entry_id"),
+    date: ts("date").notNull(),
+    memo: text("memo"),
+    createdById: text("created_by_id").notNull(),
+    createdAt: createdAt(),
+  },
+  (t) => [
+    index("dp_distribution").on(t.companyId, t.distributionId),
+    index("dp_partner").on(t.companyId, t.partnerId, t.date),
+  ]
+);
