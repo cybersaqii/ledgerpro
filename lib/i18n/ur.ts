@@ -458,6 +458,7 @@ export const ur: DeepPartial<EnDict> = {
     colItemName: "آئٹم کا نام",
     colPurchasePrice: "خرید قیمت",
     colLineTotal: "لائن ٹوٹل",
+    colSalePrice: "فروخت قیمت",
     retailShort: "ریٹیل",
     stockQty: "اسٹاک {qty}",
     addCustomLine: "کسٹم لائن شامل کریں",
