@@ -354,6 +354,32 @@ function DistributeDialog({ onClose, onDone, t }: {
             )}
           </div>
 
+          <div>
+            <p className="mb-2 text-sm font-bold">{t("partners.quickMonth")}</p>
+            <div className="flex flex-wrap gap-1.5">
+              {[0, 1, 2].map((back) => {
+                const d = new Date();
+                d.setMonth(d.getMonth() - back);
+                const y = d.getFullYear();
+                const m = String(d.getMonth() + 1).padStart(2, "0");
+                const label = d.toLocaleDateString("en-GB", { month: "short", year: "numeric" });
+                const isSel = periodStart === `${y}-${m}-01`;
+                return (
+                  <button key={back} type="button"
+                    onClick={() => {
+                      const lastDay = new Date(y, d.getMonth() + 1, 0).getDate();
+                      setPeriodStart(`${y}-${m}-01`);
+                      setPeriodEnd(`${y}-${m}-${String(lastDay).padStart(2, "0")}`);
+                      setPreview(null);
+                    }}
+                    className={`rounded-lg px-3 py-1.5 text-xs font-bold transition ${isSel ? "bg-primary text-white shadow-sm" : "bg-muted text-muted-foreground hover:text-foreground"}`}>
+                    {label}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
           <div className="grid grid-cols-2 gap-3">
             <Field label={t("partners.periodStart")} required>
               <input type="date" className="input !rounded-xl !border-2 !border-border bg-background" value={periodStart} onChange={(e) => { setPeriodStart(e.target.value); setPreview(null); }} />

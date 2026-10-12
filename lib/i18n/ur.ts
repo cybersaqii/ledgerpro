@@ -159,6 +159,7 @@ export const ur: DeepPartial<EnDict> = {
     methodFixed: "فکسڈ ٪",
     methodTimeWeighted: "وقت کے حساب سے",
     timeWeightedHint: "ہر پارٹنر کا حصہ اس کے سرمایہ اور مدت کے حساب سے ہوگا۔ دیر سے شامل ہونے والے کو متناسب کم ملے گا۔",
+    quickMonth: "مہینہ منتخب کریں",
     periodStart: "مدت کا آغاز",
     periodEnd: "مدت کا اختتام",
     distAmount: "نفع / نقصان کی رقم",

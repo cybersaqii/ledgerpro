@@ -154,6 +154,7 @@ export const en = {
     methodFixed: "Fixed %",
     methodTimeWeighted: "Time-weighted",
     timeWeightedHint: "Each partner's share is based on how much capital they had invested and for how long. Late joiners get proportionally less.",
+    quickMonth: "Quick select month",
     periodStart: "Period start",
     periodEnd: "Period end",
     distAmount: "Profit / loss amount",
