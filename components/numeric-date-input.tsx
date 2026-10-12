@@ -59,7 +59,7 @@ export function NumericDateInput({
       type="text"
       inputMode="numeric"
       dir="ltr"
-      placeholder="DD/MM/YYYY"
+      placeholder="12/10/2026"
       value={text}
       onChange={(e) => handle(e.target.value)}
       className={`field tabular-nums ${className}`}
