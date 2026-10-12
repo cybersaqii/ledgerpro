@@ -219,7 +219,7 @@ html[lang="ur"] body {
 
 /* Fast Accounts-style dense table: bright blue header, tight rows (doc-form). */
 .tbl-fa { width: 100%; border-collapse: separate; border-spacing: 0; font-size: 12px; }
-.tbl-fa thead th {
+.tbl.tbl-fa thead th {
   background: #1d9bd7;
   color: #fff;
   font-weight: 700;
@@ -228,9 +228,9 @@ html[lang="ur"] body {
   padding: 4px 6px;
   white-space: nowrap;
 }
-.tbl-fa thead th.num { text-align: end; }
-.tbl-fa thead th:first-child { border-start-start-radius: 0.25rem; }
-.tbl-fa thead th:last-child { border-start-end-radius: 0.25rem; }
+.tbl.tbl-fa thead th.num { text-align: end; }
+.tbl.tbl-fa thead th:first-child { border-start-start-radius: 0.25rem; }
+.tbl.tbl-fa thead th:last-child { border-start-end-radius: 0.25rem; }
 .tbl-fa td {
   padding: 2px 6px;
   border-bottom: 1px solid var(--border);

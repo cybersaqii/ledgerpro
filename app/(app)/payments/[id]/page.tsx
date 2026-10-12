@@ -134,15 +134,15 @@ export default function PaymentDetailPage({ params }: { params: Promise<{ id: st
             {fmtMoney(detail.amount)}
           </p>
         </div>
-        <dl className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-          <div><dt className="text-xs text-muted-foreground">{t("payments.colParty")}</dt><dd className="font-bold">{detail.partyName ?? "—"}</dd></div>
-          <div><dt className="text-xs text-muted-foreground">{t("payments.colAccount")}</dt><dd className="font-bold">{detail.bankName ?? "—"}</dd></div>
-          <div><dt className="text-xs text-muted-foreground">{t("payments.colMethod")}</dt><dd className="font-bold">{detail.method}</dd></div>
-          <div><dt className="text-xs text-muted-foreground">{t("payments.detailReference")}</dt><dd className="font-bold">{detail.reference ?? "—"}</dd></div>
+        <dl className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          <div><dt className="text-sm font-medium text-muted-foreground">{t("payments.colParty")}</dt><dd className="font-bold">{detail.partyName ?? "—"}</dd></div>
+          <div><dt className="text-sm font-medium text-muted-foreground">{t("payments.colAccount")}</dt><dd className="font-bold">{detail.bankName ?? "—"}</dd></div>
+          <div><dt className="text-sm font-medium text-muted-foreground">{t("payments.colMethod")}</dt><dd className="font-bold">{detail.method}</dd></div>
+          <div><dt className="text-sm font-medium text-muted-foreground">{t("payments.detailReference")}</dt><dd className="font-bold">{detail.reference ?? "—"}</dd></div>
           {detail.whtAmount && BigInt(detail.whtAmount) > 0n && (
             <>
-              <div><dt className="text-xs text-muted-foreground">{t("tax.whtSection")}</dt><dd className="font-bold" dir="ltr">{detail.whtSection ?? "—"}</dd></div>
-              <div><dt className="text-xs text-muted-foreground">{t("tax.payWhtDeducted")}</dt><dd className="font-bold text-warning">{fmtMoney(detail.whtAmount)}</dd></div>
+              <div><dt className="text-sm font-medium text-muted-foreground">{t("tax.whtSection")}</dt><dd className="font-bold" dir="ltr">{detail.whtSection ?? "—"}</dd></div>
+              <div><dt className="text-sm font-medium text-muted-foreground">{t("tax.payWhtDeducted")}</dt><dd className="font-bold text-warning">{fmtMoney(detail.whtAmount)}</dd></div>
             </>
           )}
         </dl>
@@ -162,7 +162,7 @@ export default function PaymentDetailPage({ params }: { params: Promise<{ id: st
           <p className="mt-3 text-sm text-muted-foreground">{t("payments.noAllocations")}</p>
         ) : (
           <div className="mt-3 overflow-x-auto">
-            <table className="tbl">
+            <table className="tbl tbl-fa">
               <thead><tr>
                 <th>{t("payments.allocColDoc")}</th>
                 <th>{t("payments.allocColDate")}</th>

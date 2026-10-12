@@ -15,6 +15,7 @@ import { toBaseMilli, parseMilliUnits, formatMilliUnits } from "@/lib/uom-math";
 import { whtRateBps, type WhtCategory, type FilerStatus } from "@/lib/wht";
 import { useBusinessProfile } from "@/components/business-type";
 import { useLang } from "@/components/lang-provider";
+import { NumericDateInput } from "@/components/numeric-date-input";
 
 type Party = { id: string; name: string; phone: string | null; address?: string | null; creditLimit?: string | null; paymentTerms?: string | null; whtCategory?: string | null; activeTaxPayer?: boolean | null; filerStatus?: string | null; priceListId?: string | null; category?: string | null };
 type Product = { id: string; sku: string; name: string; unit: string; salePrice: string; purchasePrice: string; wholesalePrice?: string | null; totalQty: string; minSalePrice?: string | null; isBundle?: boolean };
@@ -1267,16 +1268,14 @@ export function DocForm({ mode, initialType }: { mode: "SALES" | "PURCHASE"; ini
             {/* col 2: dates */}
             <div className="space-y-2">
               <CompactField label="Date" required>
-                <input type="date" className="field !py-1.5 text-[13px]" required value={date}
-                  onChange={(e) => onDateChange(e.target.value)} />
+                <NumericDateInput value={date} onChange={onDateChange} className="!py-1.5 text-[13px]" required />
               </CompactField>
               <CompactField label="Term Days">
                 <input type="number" min="0" max="3650" className="field !py-1.5 text-[13px]" placeholder="0"
                   value={termDays} onChange={(e) => onTermDays(e.target.value)} />
               </CompactField>
               <CompactField label={isSales && docType === "QUOTATION" ? t("docform.validUntil") : "Due Date"}>
-                <input type="date" className="field !py-1.5 text-[13px]" value={dueDate}
-                  onChange={(e) => { setDueDate(e.target.value); setTermDays(""); }} />
+                <NumericDateInput value={dueDate} onChange={(v) => { setDueDate(v); setTermDays(""); }} className="!py-1.5 text-[13px]" />
               </CompactField>
             </div>
             {/* col 3: doc no + mobile */}

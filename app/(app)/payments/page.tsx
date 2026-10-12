@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useCallback, useEffect, useRef, useState, Fragment } from "react";
 import { Plus, CalendarDays, Wallet, ArrowLeftRight, Landmark, HandCoins, FileSpreadsheet, ChevronDown } from "lucide-react";
 import { PageHeader, EmptyState, FilterBar, SummaryChips, Pagination, SortableTh, useSort} from "@/components/ui";
+import { NumericDateInput } from "@/components/numeric-date-input";
 import { api, fmtMoney, fmtDate, toBig } from "@/lib/format";
 import { useLang } from "@/components/lang-provider";
 
@@ -147,6 +148,24 @@ export default function PaymentsPage({
   const toggleSelectAll = () =>
     setSelected(allSelected ? new Set() : new Set(sortedRows.map((p) => p.id)));
 
+  const [bulking, setBulking] = useState(false);
+  const bulkVoid = async () => {
+    if (selected.size === 0 || bulking) return;
+    if (!confirm(t("payments.bulkVoidConfirm", { n: selected.size }))) return;
+    setBulking(true);
+    try {
+      for (const id of selected) {
+        await api(`/api/payments/${id}/void`, { method: "POST" });
+      }
+      setSelected(new Set());
+      load();
+    } catch (e) {
+      alert(e instanceof Error ? e.message : String(e));
+    } finally {
+      setBulking(false);
+    }
+  };
+
   const hasFilter = (!lockedKind && kind !== "") || from !== "" || to !== "";
   // When the kind is locked, the clear button must not reset it.
   const clearFilters = () => { if (!lockedKind) setKind(""); setFrom(""); setTo(""); };
@@ -200,9 +219,9 @@ export default function PaymentsPage({
         )}
         <div className="flex items-center gap-2">
           <CalendarDays size={15} className="shrink-0 text-muted-foreground" />
-          <input type="date" className="field !w-auto !py-2 text-xs" value={from} onChange={(e) => setFrom(e.target.value)} aria-label={t("payments.fromDate")} />
+          <NumericDateInput value={from} onChange={setFrom} className="!w-auto !py-2 text-xs" ariaLabel={t("payments.fromDate")} />
           <span className="text-xs text-muted-foreground">{t("payments.toWord")}</span>
-          <input type="date" className="field !w-auto !py-2 text-xs" value={to} onChange={(e) => setTo(e.target.value)} aria-label={t("payments.toDate")} />
+          <NumericDateInput value={to} onChange={setTo} className="!w-auto !py-2 text-xs" ariaLabel={t("payments.toDate")} />
         </div>
         {hasFilter && (
           <button className="text-xs font-bold text-danger hover:underline"
@@ -235,6 +254,20 @@ export default function PaymentsPage({
                 { label: t("payments.sumNet"), value: fmtMoney(toBig(sumR) - toBig(sumP)), tone: "neutral" },
               ]
         } />
+      )}
+
+      {selected.size > 0 && (
+        <div className="mb-3 flex items-center gap-3 rounded-xl border border-primary/30 bg-primary/5 px-4 py-2.5">
+          <span className="text-sm font-bold">{t("payments.selectedCount", { n: selected.size })}</span>
+          <button type="button" onClick={bulkVoid} disabled={bulking}
+            className="btn btn-ghost !py-1.5 text-sm font-bold text-danger hover:bg-danger-soft disabled:opacity-50">
+            {bulking ? t("common.working") : t("payments.bulkVoid")}
+          </button>
+          <button type="button" onClick={() => setSelected(new Set())}
+            className="btn btn-ghost !py-1.5 text-sm">
+            {t("common.clear")}
+          </button>
+        </div>
       )}
 
       <div className="card rise rise-1 overflow-hidden">
@@ -280,7 +313,7 @@ export default function PaymentsPage({
                       </td>
                       <td className="whitespace-nowrap">
                         <Link href={`/payments/${p.id}`} className="font-bold text-primary hover:underline">
-                          {p.docNo ?? "—"}
+                          {p.docNo ?? p.reference ?? "—"}
                         </Link>
                       </td>
                       <td className="whitespace-nowrap text-muted-foreground">{fmtDate(p.date)}</td>
