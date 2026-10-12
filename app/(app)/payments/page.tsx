@@ -26,9 +26,17 @@ type PayDetail = {
 
 const PER_PAGE = 20;
 
-export default function PaymentsPage() {
+export default function PaymentsPage({
+  lockedKind,
+  titleKey,
+  subtitleKey,
+}: {
+  lockedKind?: "PAYMENT" | "RECEIPT";
+  titleKey?: string;
+  subtitleKey?: string;
+}) {
   const { t } = useLang();
-  const [kind, setKind] = useState("");
+  const [kind, setKind] = useState(lockedKind ?? "");
   const [from, setFrom] = useState("");
   const [to, setTo] = useState("");
   const [page, setPage] = useState(1);
@@ -72,7 +80,10 @@ export default function PaymentsPage() {
   // eslint-disable-next-line react-hooks/set-state-in-effect -- reset to first page when filters change
   useEffect(() => { setPage(1); }, [kind, from, to]);
 
-  const hasFilter = kind !== "" || from !== "" || to !== "";
+  const hasFilter = (!lockedKind && kind !== "") || from !== "" || to !== "";
+  // When the kind is locked, the clear button must not reset it.
+  const clearFilters = () => { if (!lockedKind) setKind(""); setFrom(""); setTo(""); };
+  const newHref = `/payments/new?kind=${lockedKind ?? "PAYMENT"}`;
 
   async function toggleDetail(id: string) {
     if (expanded === id) { setExpanded(null); return; }
@@ -89,10 +100,13 @@ export default function PaymentsPage() {
   return (
     <div>
       <PageHeader
-        title={t("payments.title")}
-        subtitle={t("payments.subtitle")}
+        title={titleKey ? t(titleKey) : t("payments.title")}
+        subtitle={subtitleKey ? t(subtitleKey) : t("payments.subtitle")}
         icon={<Wallet size={20} />}
         actions={
+          lockedKind ? (
+            <Link href={newHref} className="btn btn-primary text-sm"><Plus size={16} /> {t("common.addNew")}</Link>
+          ) : (
           <>
             <Link href="/payments/transfers" className="btn btn-ghost text-sm"><ArrowLeftRight size={16} /> {t("payments.transfers")}</Link>
             <Link href="/payments/receipts" className="btn btn-ghost text-sm"><HandCoins size={16} /> {t("m3banking.sundryReceipts")}</Link>
@@ -102,10 +116,12 @@ export default function PaymentsPage() {
             <Link href="/payments/new?kind=PAYMENT" className="btn btn-ghost text-sm"><Plus size={16} /> {t("payments.paySupplier")}</Link>
             <Link href="/payments/new?kind=RECEIPT" className="btn btn-primary text-sm"><Plus size={16} /> {t("payments.receivePayment")}</Link>
           </>
+          )
         }
       />
 
       <FilterBar>
+        {!lockedKind && (
         <div className="flex gap-1 rounded-xl bg-muted p-1">
           {[["", t("payments.tabAll")], ["RECEIPT", t("payments.tabReceipts")], ["PAYMENT", t("payments.tabPayments")]].map(([v, l]) => (
             <button key={v} onClick={() => setKind(v)}
@@ -114,6 +130,7 @@ export default function PaymentsPage() {
             </button>
           ))}
         </div>
+        )}
         <div className="flex items-center gap-2">
           <CalendarDays size={15} className="shrink-0 text-muted-foreground" />
           <input type="date" className="field !w-auto !py-2 text-xs" value={from} onChange={(e) => setFrom(e.target.value)} aria-label={t("payments.fromDate")} />
@@ -122,18 +139,24 @@ export default function PaymentsPage() {
         </div>
         {hasFilter && (
           <button className="text-xs font-bold text-danger hover:underline"
-            onClick={() => { setKind(""); setFrom(""); setTo(""); }}>
+            onClick={clearFilters}>
             {t("payments.clearFilters")}
           </button>
         )}
       </FilterBar>
 
       {!loading && (
-        <SummaryChips items={[
-          { label: t("payments.sumReceived"), value: fmtMoney(toBig(sumR)), tone: "primary" },
-          { label: t("payments.sumPaid"), value: fmtMoney(toBig(sumP)), tone: "accent" },
-          { label: t("payments.sumNet"), value: fmtMoney(toBig(sumR) - toBig(sumP)), tone: "neutral" },
-        ]} />
+        <SummaryChips items={
+          lockedKind === "RECEIPT"
+            ? [{ label: t("payments.sumReceived"), value: fmtMoney(toBig(sumR)), tone: "primary" }]
+            : lockedKind === "PAYMENT"
+              ? [{ label: t("payments.sumPaid"), value: fmtMoney(toBig(sumP)), tone: "accent" }]
+              : [
+                { label: t("payments.sumReceived"), value: fmtMoney(toBig(sumR)), tone: "primary" },
+                { label: t("payments.sumPaid"), value: fmtMoney(toBig(sumP)), tone: "accent" },
+                { label: t("payments.sumNet"), value: fmtMoney(toBig(sumR) - toBig(sumP)), tone: "neutral" },
+              ]
+        } />
       )}
 
       <div className="card rise rise-1 overflow-hidden">
@@ -142,7 +165,7 @@ export default function PaymentsPage() {
         ) : rows.length === 0 ? (
           <EmptyState title={t("payments.emptyTitle")}
             hint={hasFilter ? t("payments.emptyHintFilter") : t("payments.emptyHint")}
-            action={!hasFilter ? <Link href="/payments/new?kind=RECEIPT" className="btn btn-primary text-sm"><Plus size={16} /> {t("payments.recordNow")}</Link> : undefined} />
+            action={!hasFilter ? <Link href={newHref} className="btn btn-primary text-sm"><Plus size={16} /> {t("payments.recordNow")}</Link> : undefined} />
         ) : (
           <div className="overflow-x-auto">
             <table className="tbl">

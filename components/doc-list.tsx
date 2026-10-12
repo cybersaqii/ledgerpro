@@ -67,7 +67,14 @@ function PayStatusBadge({ d, t, nowMs }: { d: Doc; t: (k: string, v?: Record<str
   return <span className={`badge whitespace-nowrap ${tone}`}>{label}</span>;
 }
 
-export function DocList({ mode, initialDocType }: { mode: "SALES" | "PURCHASE"; initialDocType?: string }) {
+export function DocList({ mode, initialDocType, lockedType, titleKey, subtitleKey }: {
+  mode: "SALES" | "PURCHASE";
+  initialDocType?: string;
+  /** When set, the doc-type filter is pinned to this value and the type toggle is hidden. */
+  lockedType?: string;
+  titleKey?: string;
+  subtitleKey?: string;
+}) {
   const bp = useBusinessProfile();
   const { t } = useLang();
   const canPos = useCan("pos");
@@ -91,7 +98,7 @@ export function DocList({ mode, initialDocType }: { mode: "SALES" | "PURCHASE"; 
   const [sum, setSum] = useState("0");
   const [page, setPage] = useState(1);
   const [q, setQ] = useState("");
-  const [docType, setDocType] = useState(initialDocType ?? "");
+  const [docType, setDocType] = useState(lockedType ?? initialDocType ?? "");
   const [from, setFrom] = useState("");
   const [to, setTo] = useState("");
   const [loading, setLoading] = useState(true);
@@ -134,13 +141,14 @@ export function DocList({ mode, initialDocType }: { mode: "SALES" | "PURCHASE"; 
     ? [["", t("docs.typeAll")], ["INVOICE", t("docs.typeInvoices")], ["RETURN", t("docs.typeReturns")], ["QUOTATION", t("docs.typeQuotations")], ["ORDER", t("docs.typeOrders")], ["CHALLAN", t("docs.typeChallans")]]
     : [["", t("docs.typeAll")], ["BILL", t("docs.typeBills")], ["RETURN", t("docs.typeReturns")], ["ORDER", t("docs.typeOrders")], ["GRN", t("docs.typeGrns")]];
 
-  const hasFilter = q !== "" || docType !== "" || from !== "" || to !== "";
+  const hasFilter = q !== "" || (!lockedType && docType !== "") || from !== "" || to !== "";
+  const clearFilters = () => { setQ(""); if (!lockedType) setDocType(""); setFrom(""); setTo(""); };
 
   return (
     <div>
       <PageHeader
-        title={isSales ? bp.salesNav : t("docs.purchasesTitle")}
-        subtitle={isSales ? t("docs.salesSubtitle") : t("docs.purchasesSubtitle")}
+        title={titleKey ? t(titleKey) : isSales ? bp.salesNav : t("docs.purchasesTitle")}
+        subtitle={subtitleKey ? t(subtitleKey) : isSales ? t("docs.salesSubtitle") : t("docs.purchasesSubtitle")}
         icon={isSales ? <ShoppingCart size={20} /> : <Truck size={20} />}
         actions={
           <div className="flex gap-2">
@@ -165,6 +173,7 @@ export function DocList({ mode, initialDocType }: { mode: "SALES" | "PURCHASE"; 
       />
 
       <FilterBar>
+        {!lockedType && (
         <div className="rise rise-1 flex flex-wrap gap-1 rounded-xl bg-muted p-1">
           {types.map(([v, l]) => (
             <button key={v} onClick={() => setDocType(v)}
@@ -173,6 +182,7 @@ export function DocList({ mode, initialDocType }: { mode: "SALES" | "PURCHASE"; 
             </button>
           ))}
         </div>
+        )}
         <div className="relative min-w-44 flex-1 sm:max-w-xs">
           <Search size={16} className="absolute start-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
           <input className="field !ps-9" placeholder={t("docs.searchPlaceholder")} value={q} onChange={(e) => setQ(e.target.value)} />
@@ -185,7 +195,7 @@ export function DocList({ mode, initialDocType }: { mode: "SALES" | "PURCHASE"; 
         </div>
         {hasFilter && (
           <button className="text-xs font-bold text-danger hover:underline"
-            onClick={() => { setQ(""); setDocType(""); setFrom(""); setTo(""); }}>
+            onClick={clearFilters}>
             {t("docs.clearFilters")}
           </button>
         )}
