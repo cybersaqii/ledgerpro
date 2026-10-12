@@ -218,25 +218,36 @@ html[lang="ur"] body {
 .tbl th.num { text-align: right; }
 
 /* Fast Accounts-style dense table: bright blue header, tight rows (doc-form). */
-.tbl-fa { width: 100%; border-collapse: separate; border-spacing: 0; font-size: 13px; }
+.tbl-fa { width: 100%; border-collapse: separate; border-spacing: 0; font-size: 12px; }
 .tbl-fa thead th {
   background: #1d9bd7;
   color: #fff;
   font-weight: 700;
-  font-size: 12px;
+  font-size: 11px;
   text-align: start;
-  padding: 6px 8px;
+  padding: 4px 6px;
   white-space: nowrap;
 }
 .tbl-fa thead th.num { text-align: end; }
-.tbl-fa thead th:first-child { border-start-start-radius: 0.5rem; }
-.tbl-fa thead th:last-child { border-start-end-radius: 0.5rem; }
+.tbl-fa thead th:first-child { border-start-start-radius: 0.25rem; }
+.tbl-fa thead th:last-child { border-start-end-radius: 0.25rem; }
 .tbl-fa td {
-  padding: 4px 8px;
+  padding: 2px 6px;
   border-bottom: 1px solid var(--border);
   vertical-align: middle;
 }
 .tbl-fa tbody tr:hover { background: color-mix(in srgb, var(--muted) 45%, transparent); }
+
+/* Fast Accounts dense doc form — scoped compact overrides */
+.docform-fa .field {
+  padding: 0.3rem 0.5rem;
+  font-size: 0.75rem;
+  border-radius: 0.25rem;
+  min-height: 2rem;
+}
+.docform-fa textarea.field { min-height: 2rem; }
+.docform-fa .btn { font-size: 0.75rem; }
+.docform-fa input[type="date"].field { padding: 0.25rem 0.4rem; }
 
 /* Badge */
 .badge {

@@ -228,20 +228,20 @@ function UnitPicker({ line, t, onUnit }: {
 }
 
 
-/** Fast Accounts-style collapsible card section. */
+/** Fast Accounts-style flat dense section (no card chrome). */
 function SectionCard({ title, children, defaultOpen = true }: {
   title: React.ReactNode; children: React.ReactNode; defaultOpen?: boolean;
 }) {
   const [open, setOpen] = useState(defaultOpen);
   return (
-    <div className="card rise overflow-hidden">
+    <div className="overflow-hidden rounded border border-border bg-card">
       <button type="button" onClick={() => setOpen((o) => !o)}
-        className="flex w-full items-center gap-2 px-4 py-2.5 text-left text-sm font-extrabold"
+        className="flex w-full items-center gap-1.5 px-2 py-1.5 text-left text-xs font-bold"
         aria-expanded={open}>
-        <ChevronDown size={16} className={`shrink-0 transition-transform ${open ? "" : "-rotate-90 rtl:rotate-90"}`} />
+        <ChevronDown size={14} className={`shrink-0 transition-transform ${open ? "" : "-rotate-90 rtl:rotate-90"}`} />
         {title}
       </button>
-      {open && <div className="border-t border-border px-4 py-3">{children}</div>}
+      {open && <div className="border-t border-border px-2 py-2">{children}</div>}
     </div>
   );
 }
@@ -252,7 +252,7 @@ function CompactField({ label, children, required }: {
 }) {
   return (
     <label className="block">
-      <span className="mb-1 block text-xs font-semibold text-foreground/90">
+      <span className="mb-0.5 block text-[11px] font-semibold text-foreground/90">
         {label}{required && <span className="text-danger"> *</span>}
       </span>
       {children}
@@ -1119,17 +1119,17 @@ export function DocForm({ mode }: { mode: "SALES" | "PURCHASE" }) {
     : bankAccounts.find((b) => b.id === rcptAccountId)?.kind === "CASH" ? "CASH" : "BANK";
 
   return (
-    <div className="text-[13px]">
+    <div className="docform-fa text-xs">
       <PageHeader title={isSales ? bp.newSale : t("docs.newPurchase")}
         subtitle={isSales ? t("docform.subtitleSales") : t("docform.subtitlePurchases")} />
-      <form onSubmit={submit} className="space-y-4">
+      <form onSubmit={submit} className="docform-fa space-y-2">
         <ErrorNote message={error} />
 
         {/* ══════════ 1 · Customer / Supplier Details ══════════ */}
         <SectionCard title={isSales ? "Customer Details" : "Supplier Details"}>
-          <div className="grid gap-x-4 gap-y-3 md:grid-cols-3">
+          <div className="grid gap-x-2 gap-y-2 md:grid-cols-3">
             {/* col 1: party + address */}
-            <div className="space-y-3">
+            <div className="space-y-2">
               <CompactField label={isSales ? "Customer" : "Supplier"} required>
 <div className="relative">
                 <button type="button" onClick={() => setShowPartyList((s) => !s)}
@@ -1200,14 +1200,14 @@ export function DocForm({ mode }: { mode: "SALES" | "PURCHASE" }) {
               </div>
               </CompactField>
               <div>
-                <span className="mb-1 block text-xs font-semibold text-foreground/90">Address</span>
+                <span className="mb-0.5 block text-[11px] font-semibold text-foreground/90">Address</span>
                 <textarea readOnly rows={5} aria-label="Address"
                   className="field !bg-muted/40 !py-1.5 text-[13px]"
                   value={selectedParty?.address ?? ""} placeholder="\u2014" />
               </div>
             </div>
             {/* col 2: dates + doc no + mobile */}
-            <div className="space-y-3">
+            <div className="space-y-2">
               <CompactField label="Date" required>
                 <input type="date" className="field !py-1.5 text-[13px]" required value={date}
                   onChange={(e) => onDateChange(e.target.value)} />
@@ -1232,13 +1232,13 @@ export function DocForm({ mode }: { mode: "SALES" | "PURCHASE" }) {
               </CompactField>
             </div>
             {/* col 3: credit limit + balance */}
-            <div className="space-y-3">
+            <div className="space-y-2">
               <div>
-                <span className="mb-1 block text-xs font-semibold text-foreground/90">Credit Limit</span>
+                <span className="mb-0.5 block text-[11px] font-semibold text-foreground/90">Credit Limit</span>
                 <div className="field !bg-muted/40 !py-1.5 text-end text-[13px] font-bold tabular-nums">{creditLimitDisplay}</div>
               </div>
               <div>
-                <span className="mb-1 block text-xs font-semibold text-foreground/90">Balance</span>
+                <span className="mb-0.5 block text-[11px] font-semibold text-foreground/90">Balance</span>
                 <div className="field !bg-muted/40 !py-1.5 text-end text-[13px] font-bold tabular-nums">
                   {partyBalance == null ? "\u2014" : fmtMoney(BigInt(partyBalance))}
                 </div>
@@ -1480,14 +1480,14 @@ export function DocForm({ mode }: { mode: "SALES" | "PURCHASE" }) {
               </div>
 
 {/* Mobile: stacked cards */}
-              <div className="space-y-3 sm:hidden">
+              <div className="space-y-2 sm:hidden">
                 {lines.map((l, idx) => {
                   const c = computed[idx];
                   return (
-                    <div key={l.key} className={`rounded-2xl border border-border bg-muted/40 p-3 ${flashKey === l.key ? "row-flash" : ""}`}>
+                    <div key={l.key} className={`rounded border border-border bg-muted/40 p-2 ${flashKey === l.key ? "row-flash" : ""}`}>
                       <div className="flex items-start justify-between gap-2">
                         <p className="text-xs font-bold text-muted-foreground">{t("docform.itemCard", { n: idx + 1 })}</p>
-                        <button type="button" onClick={() => removeLine(l.key)} className="grid h-11 w-11 shrink-0 place-items-center rounded-xl text-danger hover:bg-danger-soft" aria-label={t("docform.removeItem")}>
+                        <button type="button" onClick={() => removeLine(l.key)} className="grid h-8 w-8 shrink-0 place-items-center rounded text-danger hover:bg-danger-soft" aria-label={t("docform.removeItem")}>
                           <Trash2 size={16} />
                         </button>
                       </div>
@@ -1555,9 +1555,9 @@ export function DocForm({ mode }: { mode: "SALES" | "PURCHASE" }) {
             </>
           )}
 
-          <div className="mt-4 grid gap-4 lg:grid-cols-2">
+          <div className="mt-2 grid gap-2 lg:grid-cols-2">
             <div>
-              <span className="mb-1 block text-xs font-semibold text-foreground/90">Notes</span>
+              <span className="mb-0.5 block text-[11px] font-semibold text-foreground/90">Notes</span>
               <textarea className="field min-h-20 !py-1.5 text-[13px]" value={notes}
                 onChange={(e) => setNotes(e.target.value)} placeholder={t("docform.notesPlaceholder")} />
             </div>
@@ -1724,7 +1724,7 @@ export function DocForm({ mode }: { mode: "SALES" | "PURCHASE" }) {
         )}
 
         {/* ══════════ bottom action bar ══════════ */}
-        <div className="flex flex-wrap items-center justify-between gap-3 pb-4">
+        <div className="flex flex-wrap items-center justify-between gap-2 pb-2">
           <button type="button" className="btn btn-ghost !py-2 text-sm" onClick={() => router.back()}>
             Cancel
           </button>
