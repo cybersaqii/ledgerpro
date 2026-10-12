@@ -1,8 +1,8 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { Plus, Search, Pencil, Phone, Users, Eye, ArrowLeftRight, KeyRound } from "lucide-react";
+import { Plus, Pencil, Users, Eye, ArrowLeftRight, KeyRound, ChevronDown } from "lucide-react";
 import { PageHeader, EmptyState, Field, ErrorNote, SortableTh, useSort} from "@/components/ui";
 import { Modal } from "@/components/modal";
 import { PortalTokensModal } from "@/components/portal-tokens-modal";
@@ -13,7 +13,7 @@ import { useLang } from "@/components/lang-provider";
 import { useCan } from "@/components/permissions";
 
 type Party = {
-  id: string; kind: string; name: string; phone: string | null; city: string | null;
+  id: string; kind: string; name: string; phone: string | null; email: string | null; city: string | null;
   balance: string; creditLimit: string; filerStatus: string; category: string | null;
 };
 
@@ -41,6 +41,16 @@ const emptyForm = {
   priceListId: "",
 };
 
+// Derived, stable account number — the schema has no account-code field,
+// so this is computed client-side from the party id + kind only.
+function accountNo(p: { id: string; kind: string }): string {
+  let h = 0;
+  for (const c of p.id) h = (h * 31 + c.charCodeAt(0)) >>> 0;
+  return `${p.kind === "CUSTOMER" ? "C" : "S"}-${String(100000 + (h % 900000))}`;
+}
+
+type StatusFilter = "ACTIVE" | "ARCHIVED" | "ALL";
+
 export default function PartiesPage({ defaultKind }: { defaultKind?: "CUSTOMER" | "SUPPLIER" }) {
   const bp = useBusinessProfile();
   const { t } = useLang();
@@ -48,11 +58,15 @@ export default function PartiesPage({ defaultKind }: { defaultKind?: "CUSTOMER" 
   const canPortal = useCan("portal");
   const [portalParty, setPortalParty] = useState<{ id: string; name: string } | null>(null);
   const searchParams = typeof window !== "undefined" ? new URLSearchParams(window.location.search) : null;
-  const initialKind = defaultKind ?? (searchParams?.get("kind")?.toUpperCase() === "SUPPLIER" ? "SUPPLIER" : "CUSTOMER");
-  const [kind, setKind] = useState<"CUSTOMER" | "SUPPLIER">(initialKind);
-  const [q, setQ] = useState("");
-  const [category, setCategory] = useState("");
+  // Kind is fixed per route (/sales/customers → CUSTOMER, /purchases/suppliers → SUPPLIER).
+  const kind: "CUSTOMER" | "SUPPLIER" = defaultKind ?? (searchParams?.get("kind")?.toUpperCase() === "SUPPLIER" ? "SUPPLIER" : "CUSTOMER");
+  // FA-style filters — all client-side; the API returns this kind's active parties only.
+  const [acctNoFilter, setAcctNoFilter] = useState("");
+  const [partyFilter, setPartyFilter] = useState("");
+  const [status, setStatus] = useState<StatusFilter>("ACTIVE");
   const [rows, setRows] = useState<Party[]>([]);
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [openMenu, setOpenMenu] = useState<string | null>(null);
   const [sort, onSort, sortedRows] = useSort(rows, (p, key) => {
     switch (key) {
       case "name": return p.name;
@@ -79,18 +93,73 @@ export default function PartiesPage({ defaultKind }: { defaultKind?: "CUSTOMER" 
   const load = useCallback(async () => {
     setLoading(true);
     try {
+      // perPage=100 so the party dropdown lists as many parties as possible.
       const d = await api<{ data: Party[]; total: number }>(
-        `/api/parties?kind=${kind}&q=${encodeURIComponent(q)}${category ? `&category=${encodeURIComponent(category)}` : ""}&perPage=50`
+        `/api/parties?kind=${kind}&perPage=100`
       );
       setRows(d.data);
       setTotal(d.total);
+      setSelected(new Set());
     } catch { setRows([]); } finally { setLoading(false); }
-  }, [kind, q, category]);
+  }, [kind]);
 
+  /* eslint-disable react-hooks/set-state-in-effect -- intentional: fetch list on mount/kind change */
+  useEffect(() => { load(); }, [load]);
+  /* eslint-enable react-hooks/set-state-in-effect */
+
+  // Close the action dropdown on outside click / Escape.
   useEffect(() => {
-    const t = setTimeout(load, q ? 300 : 0);
-    return () => clearTimeout(t);
-  }, [load, q]);
+    if (!openMenu) return;
+    const close = (e: MouseEvent) => {
+      if (!(e.target as HTMLElement).closest("[data-action-menu]")) setOpenMenu(null);
+    };
+    const esc = (e: KeyboardEvent) => { if (e.key === "Escape") setOpenMenu(null); };
+    document.addEventListener("mousedown", close);
+    document.addEventListener("keydown", esc);
+    return () => {
+      document.removeEventListener("mousedown", close);
+      document.removeEventListener("keydown", esc);
+    };
+  }, [openMenu]);
+
+  const filtered = useMemo(() => {
+    const a = acctNoFilter.trim().toLowerCase();
+    return sortedRows.filter((p) => {
+      if (status === "ARCHIVED") return false; // API returns active parties only
+      if (partyFilter && p.id !== partyFilter) return false;
+      if (a && !accountNo(p).toLowerCase().includes(a)) return false;
+      return true;
+    });
+  }, [sortedRows, acctNoFilter, partyFilter, status]);
+
+  // Row selection resets whenever the user changes any filter.
+  function resetSelection() { setSelected(new Set()); }
+
+  const visibleIds = filtered.map((p) => p.id);
+  const allSelected = visibleIds.length > 0 && visibleIds.every((id) => selected.has(id));
+  function toggleAll() {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (allSelected) visibleIds.forEach((id) => next.delete(id));
+      else visibleIds.forEach((id) => next.add(id));
+      return next;
+    });
+  }
+  function toggleOne(id: string) {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  }
+
+  const filtersSet = acctNoFilter !== "" || partyFilter !== "" || status !== "ACTIVE";
+  function clearFilters() {
+    setAcctNoFilter("");
+    setPartyFilter("");
+    setStatus("ACTIVE");
+    resetSelection();
+  }
 
   function openAdd() { setForm(emptyForm); setError(null); setModal({ mode: "add" }); }
   // Fetch the full row first: the list omits email/address/NTN/notes, and
@@ -147,6 +216,8 @@ export default function PartiesPage({ defaultKind }: { defaultKind?: "CUSTOMER" 
 
   const partyWord = kind === "CUSTOMER" ? bp.partyOne.toLowerCase() : t("docs.supplier").toLowerCase();
   const partyMany = kind === "CUSTOMER" ? bp.partyMany : t("parties.suppliersTitle");
+  const nameCol = kind === "CUSTOMER" ? t("parties.customerName") : t("parties.supplierName");
+  const ledgerLink = (p: Party) => `/reports/party-ledger?party=${p.id}`;
 
   return (
     <div>
@@ -160,27 +231,36 @@ export default function PartiesPage({ defaultKind }: { defaultKind?: "CUSTOMER" 
         </>}
       />
 
-      <div className="mb-4 flex flex-wrap items-center gap-3">
-        <div className="flex rounded-xl border border-border bg-card p-1">
-          {(["CUSTOMER", "SUPPLIER"] as const).map((k) => (
-            <button key={k} onClick={() => setKind(k)}
-              className={`rounded-lg px-4 py-2 text-sm font-bold transition ${kind === k ? "bg-primary text-primary-foreground shadow" : "text-muted-foreground hover:text-foreground"}`}>
-              {k === "CUSTOMER" ? bp.partyMany : t("parties.suppliersTitle")}
-            </button>
-          ))}
-        </div>
-        <div className="relative min-w-52 flex-1 sm:max-w-xs">
-          <Search size={16} className="absolute start-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
-          <input className="field !ps-9" placeholder={t("parties.searchName")} value={q} onChange={(e) => setQ(e.target.value)} />
-        </div>
-        <div className="relative min-w-40 sm:max-w-2xs">
-          <input className="field" placeholder={t("parties.categoryFilter")} value={category} onChange={(e) => setCategory(e.target.value)} list="party-categories" />
-          <datalist id="party-categories">
-            {[...new Set(rows.map((r) => r.category).filter(Boolean))].map((c) => (
-              <option key={c as string} value={c as string} />
+      {/* FA-style filters row */}
+      <div className="mb-4 flex flex-wrap items-end gap-3">
+        <label className="block">
+          <span className="mb-1 block text-xs font-bold text-muted-foreground">{t("parties.accountNo")}</span>
+          <input className="field min-w-44" dir="ltr" placeholder={t("parties.accountNo")}
+            value={acctNoFilter} onChange={(e) => { setAcctNoFilter(e.target.value); resetSelection(); }} />
+        </label>
+        <label className="block">
+          <span className="mb-1 block text-xs font-bold text-muted-foreground">{kind === "CUSTOMER" ? bp.partyMany : t("parties.suppliersTitle")}</span>
+          <select className="field min-w-52" value={partyFilter}
+            onChange={(e) => { setPartyFilter(e.target.value === "__all" ? "" : e.target.value); resetSelection(); }}>
+            <option value="">{kind === "CUSTOMER" ? t("parties.selectCustomer") : t("parties.selectSupplier")}</option>
+            <option value="__all">{t("parties.statusAll")}</option>
+            {rows.map((p) => (
+              <option key={p.id} value={p.id}>{p.name}</option>
             ))}
-          </datalist>
-        </div>
+          </select>
+        </label>
+        <label className="block">
+          <span className="mb-1 block text-xs font-bold text-muted-foreground">{t("parties.status")}</span>
+          <select className="field" value={status} onChange={(e) => { setStatus(e.target.value as StatusFilter); resetSelection(); }}>
+            <option value="ACTIVE">{t("parties.statusActive")}</option>
+            <option value="ARCHIVED">{t("parties.statusArchived")}</option>
+            <option value="ALL">{t("parties.statusAll")}</option>
+          </select>
+        </label>
+        {filtersSet && (
+          <button className="btn btn-ghost !border !border-primary !bg-transparent text-sm !text-primary hover:!bg-primary/5"
+            onClick={clearFilters}>{t("common.clear")}</button>
+        )}
       </div>
       {!modal && <ErrorNote message={error} />}
 
@@ -195,30 +275,70 @@ export default function PartiesPage({ defaultKind }: { defaultKind?: "CUSTOMER" 
           <div className="overflow-x-auto">
             <table className="tbl">
               <thead><tr>
-                <SortableTh label={t("common.name")} sortKey="name" sort={sort} onSort={onSort} />
-                <SortableTh label={t("common.phone")} sortKey="phone" sort={sort} onSort={onSort} />
-                <SortableTh label={t("common.city")} sortKey="city" sort={sort} onSort={onSort} />
-                <th>{t("parties.category")}</th>
+                <th className="w-10">
+                  <input type="checkbox" className="h-4 w-4 accent-primary" checked={allSelected}
+                    onChange={toggleAll} aria-label={t("parties.selectAll")} />
+                </th>
+                <SortableTh label={nameCol} sortKey="name" sort={sort} onSort={onSort} />
+                <th>{t("parties.accountNo")}</th>
+                <th>{t("parties.colContact")}</th>
+                <th>{t("parties.email")}</th>
+                <th>{t("parties.colMobile")}</th>
                 <SortableTh label={t("common.balance")} sortKey="balance" sort={sort} onSort={onSort} className="num" />
-                <th></th>
+                <th>{t("parties.colAction")}</th>
               </tr></thead>
               <tbody>
-                {sortedRows.map((p) => (
+                {filtered.length === 0 ? (
+                  <tr>
+                    <td colSpan={8} className="py-10 text-center text-muted-foreground">
+                      {t("parties.noMatch", { parties: partyMany.toLowerCase() })}
+                      {filtersSet && (
+                        <div className="mt-3">
+                          <button className="btn btn-ghost !border !border-primary !bg-transparent text-sm !text-primary"
+                            onClick={clearFilters}>{t("common.clear")}</button>
+                        </div>
+                      )}
+                    </td>
+                  </tr>
+                ) : filtered.map((p) => (
                   <tr key={p.id}>
-                    <td className="font-bold">{p.name}</td>
-                    <td className="text-muted-foreground">{p.phone ? <span className="inline-flex items-center gap-1.5"><Phone size={13} />{p.phone}</span> : "—"}</td>
-                    <td className="text-muted-foreground">{p.city ?? "—"}</td>
-                    <td className="text-muted-foreground">{p.category ? <span className="rounded-full bg-muted px-2.5 py-0.5 text-xs font-semibold">{p.category}</span> : "—"}</td>
+                    <td>
+                      <input type="checkbox" className="h-4 w-4 accent-primary" checked={selected.has(p.id)}
+                        onChange={() => toggleOne(p.id)} aria-label={p.name} />
+                    </td>
+                    <td className="font-bold">
+                      <Link href={ledgerLink(p)} className="text-primary hover:underline">{p.name}</Link>
+                    </td>
+                    <td className="font-mono text-muted-foreground" dir="ltr">{accountNo(p)}</td>
+                    <td className="text-muted-foreground">—</td>
+                    <td className="text-muted-foreground">{p.email || "—"}</td>
+                    <td className="text-muted-foreground">{p.phone || "—"}</td>
                     <td className={`num font-extrabold ${BigInt(p.balance) > 0n ? "text-accent" : ""}`}>{fmtMoney(p.balance)}</td>
                     <td className="whitespace-nowrap">
-                      <div className="flex items-center justify-end gap-1.5">
-                      <Link href={`/reports/party-ledger?party=${p.id}`} className="btn btn-ghost !p-2" aria-label={t("parties.view360")} title={t("parties.view360")}>
-                        <Eye size={15} />
-                      </Link>
-                      <button className="btn btn-ghost !p-2" onClick={() => openEdit(p)} aria-label={t("common.edit")}><Pencil size={15} /></button>
-                      {canPortal && (
-                        <button className="btn btn-ghost !p-2" onClick={() => setPortalParty({ id: p.id, name: p.name })} aria-label={t("portal.tokensTitle")} title={t("portal.tokensTitle")}><KeyRound size={15} /></button>
-                      )}
+                      <div className="flex items-center gap-1.5">
+                        <div className="relative" data-action-menu>
+                          <button
+                            className="btn btn-ghost inline-flex items-center gap-1 !px-3 !py-2 text-sm font-bold"
+                            onClick={() => setOpenMenu(openMenu === p.id ? null : p.id)}
+                            aria-haspopup="menu" aria-expanded={openMenu === p.id}>
+                            {t("common.view")} <ChevronDown size={15} className={`transition ${openMenu === p.id ? "rotate-180" : ""}`} />
+                          </button>
+                          {openMenu === p.id && (
+                            <div role="menu" className="absolute end-0 top-full z-20 mt-1 min-w-36 rounded-xl border border-border bg-card p-1 shadow-lg">
+                              <Link role="menuitem" href={ledgerLink(p)} onClick={() => setOpenMenu(null)}
+                                className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm hover:bg-muted">
+                                <Eye size={14} /> {t("parties.view360")}
+                              </Link>
+                              <button role="menuitem" onClick={() => { setOpenMenu(null); openEdit(p); }}
+                                className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-start text-sm hover:bg-muted">
+                                <Pencil size={14} /> {t("common.edit")}
+                              </button>
+                            </div>
+                          )}
+                        </div>
+                        {canPortal && (
+                          <button className="btn btn-ghost !p-2" onClick={() => setPortalParty({ id: p.id, name: p.name })} aria-label={t("portal.tokensTitle")} title={t("portal.tokensTitle")}><KeyRound size={15} /></button>
+                        )}
                       </div>
                     </td>
                   </tr>

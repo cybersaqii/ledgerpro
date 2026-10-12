@@ -1,7 +1,7 @@
 "use client";
 
-import { useCallback, useEffect, useState, Fragment } from "react";
-import { Plus, Search, Pencil, TriangleAlert, Package, ChevronDown } from "lucide-react";
+import { useCallback, useEffect, useMemo, useRef, useState, Fragment } from "react";
+import { Plus, Search, TriangleAlert, Package, ChevronDown } from "lucide-react";
 import { PageHeader, EmptyState, Field, ErrorNote, SortableTh, useSort} from "@/components/ui";
 import { Modal } from "@/components/modal";
 import { api, fmtMoney, fmtQty } from "@/lib/format";
@@ -17,6 +17,8 @@ type Product = {
   purchasePrice: string; salePrice: string; wholesalePrice: string | null; trackStock: boolean;
   reorderLevel: string; totalQty: string; minSalePrice: string; isBundle: boolean;
   location: string | null; imageUrl: string | null;
+  // Module 4.1: item type drives stock tracking (INVENTORY ⟺ tracked).
+  itemType: string | null;
   // Module 18: present when the list was fetched with ?withUom=1.
   uoms?: { unit: string; num: number; den: number }[];
 };
@@ -63,18 +65,90 @@ function thousandthsToStr(n: string | number | bigint): string {
   return frac ? `${whole}.${frac}` : `${whole}`;
 }
 
+type ProductTypeKey = "BUNDLE" | "STOCK" | "NONSTOCK" | "SERVICE";
+
+/** Fast Accounts "Type" column derivation: Bundle / Stock / Non-Stock / Service. */
+function typeKeyOf(p: Product): ProductTypeKey {
+  if (p.isBundle) return "BUNDLE";
+  if ((p.itemType ?? "").toUpperCase() === "SERVICE") return "SERVICE";
+  return p.trackStock ? "STOCK" : "NONSTOCK";
+}
+
+type AddPreset = { itemType: string; expandAdvanced?: boolean };
+
+/** Green "Add New ▾" split button (Fast Accounts style). */
+function ProductAddNewSplit({ t, onPick }: { t: (k: string) => string; onPick: (preset: AddPreset) => void }) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!open) return;
+    const close = (e: MouseEvent) => { if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false); };
+    const esc = (e: KeyboardEvent) => { if (e.key === "Escape") setOpen(false); };
+    document.addEventListener("mousedown", close);
+    document.addEventListener("keydown", esc);
+    return () => { document.removeEventListener("mousedown", close); document.removeEventListener("keydown", esc); };
+  }, [open ]);
+  const options: { label: string; preset: AddPreset }[] = [
+    { label: t("products.addOptNonStock"), preset: { itemType: "NON_INVENTORY" } },
+    { label: t("products.addOptStock"), preset: { itemType: "INVENTORY" } },
+    { label: t("products.addOptBundle"), preset: { itemType: "INVENTORY", expandAdvanced: true } },
+  ];
+  const pick = (preset: AddPreset) => { setOpen(false); onPick(preset); };
+  return (
+    <div className="relative" ref={ref}>
+      <div className="flex">
+        <button type="button" onClick={() => pick({ itemType: "INVENTORY" })} className="btn btn-primary !rounded-e-none text-sm">
+          <Plus size={16} /> {t("products.addNew")}
+        </button>
+        <button
+          type="button"
+          onClick={() => setOpen((o) => !o)}
+          aria-expanded={open}
+          aria-haspopup="menu"
+          aria-label={t("docs.addNewOptions")}
+          className="btn btn-primary !rounded-s-none border-s border-white/25 !px-2 text-sm"
+        >
+          <ChevronDown size={16} className={`transition-transform ${open ? "rotate-180" : ""}`} />
+        </button>
+      </div>
+      {open && (
+        <div role="menu" className="modal-pop absolute end-0 z-40 mt-1.5 w-52 overflow-hidden rounded-xl border border-border bg-card p-1 shadow-xl">
+          {options.map((o) => (
+            <button key={o.label} type="button" role="menuitem" onClick={() => pick(o.preset)}
+              className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-start text-sm font-semibold transition hover:bg-muted">
+              {o.label}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function ProductsPage() {
   const bp = useBusinessProfile();
   const { t } = useLang();
   const [q, setQ] = useState("");
   const [lowOnly, setLowOnly] = useState(false);
+  // Fast Accounts filters (client-side on the loaded rows).
+  const [typeFilter, setTypeFilter] = useState<"ALL" | "STOCK" | "NONSTOCK" | "BUNDLE">("ALL");
+  const [nameFilter, setNameFilter] = useState("");
+  const [codeFilter, setCodeFilter] = useState("");
+  const [statusFilter, setStatusFilter] = useState<"ALL" | "ACTIVE" | "ARCHIVED">("ACTIVE");
+  // FA parity checkboxes (selection only; no batch actions yet).
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  // Per-row Action menu (fixed-position so it escapes the table scroll area).
+  const [menuFor, setMenuFor] = useState<Product | null>(null);
+  const [menuPos, setMenuPos] = useState<{ top: number; left: number } | null>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
   const [rows, setRows] = useState<Product[]>([]);
   const [sort, onSort, sortedRows] = useSort(rows, (p, key) => {
     switch (key) {
       case "name": return p.name;
       case "sku": return p.sku;
+      case "type": return typeKeyOf(p);
+      case "category": return p.category ?? "";
       case "stock": return BigInt(p.totalQty);
-      case "buy": return BigInt(p.purchasePrice);
       case "sale": return BigInt(p.salePrice);
       default: return "";
     }
@@ -131,12 +205,13 @@ export default function ProductsPage() {
     return () => clearTimeout(t);
   }, [load, q]);
 
-  function openAdd() {
-    setForm(emptyForm); setError(null); setPriceError(null);
+  function openAdd(opts?: AddPreset) {
+    setForm({ ...emptyForm, itemType: opts?.itemType ?? "INVENTORY" }); setError(null); setPriceError(null);
     setComponents([]); setComponentsLoaded(true);
     setCompQuery(""); setCompResults([]);
     setOpeningPosted(false); setOpeningInfo(""); setOpening({ qty: "", cost: "", date: "", branchId: "" });
-    setShowAdvanced(false);
+    // "Bundle" preset opens Advanced so the bundle components editor is visible.
+    setShowAdvanced(!!opts?.expandAdvanced);
     setSellUnits([]); setSellUnitsOrig([]); setNewSellUnit(""); setNewSellPer(""); setNewSellPrice("");
     setModal({ mode: "add" });
     loadAccountOpts();
@@ -341,17 +416,121 @@ export default function ProductsPage() {
   const productOne = bp.productOne;
   const productMany = bp.productMany;
 
+  // ── Fast Accounts client-side filters ──
+  const visibleRows = useMemo(() => sortedRows.filter((p) => {
+    if (statusFilter === "ARCHIVED") return false; // API only returns active products
+    if (typeFilter === "STOCK" && !(p.trackStock && !p.isBundle)) return false;
+    if (typeFilter === "NONSTOCK" && !(!p.trackStock && !p.isBundle)) return false;
+    if (typeFilter === "BUNDLE" && !p.isBundle) return false;
+    const nf = nameFilter.trim().toLowerCase();
+    if (nf && !p.name.toLowerCase().includes(nf)) return false;
+    const cf = codeFilter.trim().toLowerCase();
+    if (cf && !p.sku.toLowerCase().includes(cf)) return false;
+    return true;
+  }), [sortedRows, typeFilter, nameFilter, codeFilter, statusFilter]);
+
+  const anyFilter = typeFilter !== "ALL" || nameFilter.trim() !== "" || codeFilter.trim() !== ""
+    || statusFilter !== "ACTIVE" || q.trim() !== "" || lowOnly;
+
+  function clearFilters() {
+    setTypeFilter("ALL"); setNameFilter(""); setCodeFilter("");
+    setStatusFilter("ACTIVE"); setQ(""); setLowOnly(false);
+  }
+
+  function toggleSelect(id: string) {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  }
+
+  function toggleAllVisible() {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      const allOn = visibleRows.length > 0 && visibleRows.every((p) => next.has(p.id));
+      if (allOn) visibleRows.forEach((p) => next.delete(p.id));
+      else visibleRows.forEach((p) => next.add(p.id));
+      return next;
+    });
+  }
+
+  function typeLabel(k: ProductTypeKey): string {
+    switch (k) {
+      case "BUNDLE": return t("products.typeBundle");
+      case "STOCK": return t("products.typeStock");
+      case "NONSTOCK": return t("products.typeNonStock");
+      case "SERVICE": return t("products.typeService");
+    }
+  }
+
+  // ── Per-row Action menu (fixed position, closes on outside click / Escape / scroll) ──
+  function openActionMenu(e: React.MouseEvent, p: Product) {
+    e.stopPropagation();
+    if (menuFor?.id === p.id) { setMenuFor(null); return; }
+    const r = (e.currentTarget as HTMLElement).getBoundingClientRect();
+    const menuH = 170;
+    const top = r.bottom + menuH + 8 > window.innerHeight ? Math.max(8, r.top - menuH) : r.bottom + 4;
+    setMenuFor(p);
+    setMenuPos({ top, left: r.right });
+  }
+
+  useEffect(() => {
+    if (!menuFor) return;
+    const close = (e: MouseEvent) => { if (menuRef.current && !menuRef.current.contains(e.target as Node)) setMenuFor(null); };
+    const esc = (e: KeyboardEvent) => { if (e.key === "Escape") setMenuFor(null); };
+    const scr = () => setMenuFor(null);
+    document.addEventListener("mousedown", close);
+    document.addEventListener("keydown", esc);
+    window.addEventListener("scroll", scr, true);
+    return () => {
+      document.removeEventListener("mousedown", close);
+      document.removeEventListener("keydown", esc);
+      window.removeEventListener("scroll", scr, true);
+    };
+  }, [menuFor ]);
+
   return (
     <div>
       <PageHeader
         title={productMany}
         subtitle={t("products.subtitle", { total, products: productMany.toLowerCase() })}
         icon={<Package size={20} />}
-        actions={<button className="btn btn-primary text-sm" onClick={openAdd}><Plus size={16} /> {t("products.addProduct", { product: productOne.toLowerCase() })}</button>}
+        actions={<ProductAddNewSplit t={t} onPick={(preset) => openAdd(preset)} />}
       />
 
-      <div className="mb-4 flex flex-wrap items-center gap-3">
-        <div className="relative min-w-52 flex-1 sm:max-w-xs">
+      <div className="mb-4 flex flex-wrap items-end gap-3">
+        <div>
+          <label className="mb-1 block text-xs font-bold text-muted-foreground" htmlFor="flt-type">{t("products.filterType")}</label>
+          <select id="flt-type" className="field !w-auto !py-2 text-sm" value={typeFilter} onChange={(e) => setTypeFilter(e.target.value as typeof typeFilter)}>
+            <option value="ALL">{t("products.typeAll")}</option>
+            <option value="STOCK">{t("products.typeStock")}</option>
+            <option value="NONSTOCK">{t("products.typeNonStock")}</option>
+            <option value="BUNDLE">{t("products.typeBundle")}</option>
+          </select>
+        </div>
+        <div>
+          <label className="mb-1 block text-xs font-bold text-muted-foreground" htmlFor="flt-name">{t("products.filterName")}</label>
+          <input id="flt-name" className="field !w-40 !py-2 text-sm" placeholder={t("products.namePh")} value={nameFilter} onChange={(e) => setNameFilter(e.target.value)} />
+        </div>
+        <div>
+          <label className="mb-1 block text-xs font-bold text-muted-foreground" htmlFor="flt-code">{t("products.filterCode")}</label>
+          <input id="flt-code" className="field !w-32 !py-2 text-sm" placeholder={t("products.codePh")} value={codeFilter} onChange={(e) => setCodeFilter(e.target.value)} />
+        </div>
+        <div>
+          <label className="mb-1 block text-xs font-bold text-muted-foreground" htmlFor="flt-status">{t("products.filterStatus")}</label>
+          <select id="flt-status" className="field !w-auto !py-2 text-sm" value={statusFilter} onChange={(e) => setStatusFilter(e.target.value as typeof statusFilter)}>
+            <option value="ALL">{t("products.statusAll")}</option>
+            <option value="ACTIVE">{t("products.statusActive")}</option>
+            <option value="ARCHIVED">{t("products.statusArchived")}</option>
+          </select>
+        </div>
+        {anyFilter && (
+          <button className="rounded-full border border-primary px-4 py-2 text-sm font-bold text-primary transition hover:bg-primary/10" onClick={clearFilters}>
+            {t("common.clear")}
+          </button>
+        )}
+        <div className="relative min-w-44 flex-1 sm:max-w-xs">
           <Search size={16} className="absolute start-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
           <input className="field !ps-9" placeholder={t("products.searchSku")} value={q} onChange={(e) => setQ(e.target.value)} />
         </div>
@@ -365,29 +544,56 @@ export default function ProductsPage() {
       <div className="card rise rise-1 overflow-hidden">
         {loading ? (
           <div className="space-y-3 p-5">{[1, 2, 3].map((i) => <div key={i} className="skeleton h-12 rounded-xl" />)}</div>
-        ) : rows.length === 0 ? (
+        ) : visibleRows.length === 0 ? (
           <EmptyState title={t("products.noProducts", { products: productMany.toLowerCase() })} hint={t("products.emptyHint", { products: productMany.toLowerCase() })}
-            action={<button className="btn btn-primary text-sm" onClick={openAdd}><Plus size={16} /> {t("products.addNow")}</button>} />
+            action={anyFilter ? (
+              <button className="rounded-full border border-primary px-4 py-2 text-sm font-bold text-primary transition hover:bg-primary/10" onClick={clearFilters}>
+                {t("common.clear")}
+              </button>
+            ) : (
+              <button className="btn btn-primary text-sm" onClick={() => openAdd()}><Plus size={16} /> {t("products.addNow")}</button>
+            )} />
         ) : (
           <div className="overflow-x-auto">
             <table className="tbl">
               <thead><tr>
+                <th className="w-10">
+                  <input
+                    type="checkbox"
+                    className="h-4 w-4 accent-[var(--primary)]"
+                    aria-label={t("docs.selectAll")}
+                    checked={visibleRows.length > 0 && visibleRows.every((p) => selected.has(p.id))}
+                    onChange={toggleAllVisible}
+                  />
+                </th>
+                <SortableTh label={t("products.colCode")} sortKey="sku" sort={sort} onSort={onSort} />
                 <SortableTh label={productOne} sortKey="name" sort={sort} onSort={onSort} />
-                <SortableTh label={t("products.colSku")} sortKey="sku" sort={sort} onSort={onSort} />
-                <SortableTh label={t("products.colStock")} sortKey="stock" sort={sort} onSort={onSort} className="num" />
-                <SortableTh label={t("products.colBuyPrice")} sortKey="buy" sort={sort} onSort={onSort} className="num" />
+                <SortableTh label={t("products.colType")} sortKey="type" sort={sort} onSort={onSort} />
+                <SortableTh label={t("products.colCategory")} sortKey="category" sort={sort} onSort={onSort} />
                 <SortableTh label={t("products.colSalePrice")} sortKey="sale" sort={sort} onSort={onSort} className="num" />
-                <th className="num">{t("products.colWholesalePrice")}</th>
-                <th></th>
+                <SortableTh label={t("products.colQtyOnHand")} sortKey="stock" sort={sort} onSort={onSort} className="num" />
+                <th>{t("products.colLowStock")}</th>
+                <th className="text-end">{t("docs.colAction")}</th>
               </tr></thead>
               <tbody>
-                {sortedRows.map((p) => {
+                {visibleRows.map((p) => {
                   const low = !p.isBundle && p.trackStock && BigInt(p.totalQty) <= BigInt(p.reorderLevel);
+                  const tracked = !p.isBundle && p.trackStock;
                   const expanded = openBatches === p.id;
                   const batches = batchRows[p.id] ?? [];
                   return (
                     <Fragment key={p.id}>
                     <tr key={p.id}>
+                      <td>
+                        <input
+                          type="checkbox"
+                          className="h-4 w-4 accent-[var(--primary)]"
+                          aria-label={p.name}
+                          checked={selected.has(p.id)}
+                          onChange={() => toggleSelect(p.id)}
+                        />
+                      </td>
+                      <td><span className="rounded-md bg-muted px-1.5 py-0.5 font-mono text-xs text-muted-foreground">{p.sku}</span></td>
                       <td>
                         <span className="flex items-center gap-2.5">
                           <ProductImage name={p.name} imageUrl={p.imageUrl} businessType={bp.type} size={36} />
@@ -396,41 +602,49 @@ export default function ProductsPage() {
                             {p.isBundle && <span className="badge ms-2 bg-primary-soft text-primary">{t("bundles.badge")}</span>}
                             {low && <span className="badge ms-2 bg-danger-soft text-danger"><TriangleAlert size={11} /> {t("products.lowBadge")}</span>}
                             <span className="block text-xs text-muted-foreground">
-                              {[p.category, p.location].filter(Boolean).join(" · ")}
+                              {[p.unit, p.location].filter(Boolean).join(" · ")}
                             </span>
                           </span>
                         </span>
                       </td>
-                      <td><span className="rounded-md bg-muted px-1.5 py-0.5 font-mono text-xs text-muted-foreground">{p.sku}</span></td>
+                      <td className="whitespace-nowrap text-sm">{typeLabel(typeKeyOf(p))}</td>
+                      <td className="whitespace-nowrap text-sm text-muted-foreground">{p.category ?? "—"}</td>
+                      <td className="num">{fmtMoney(p.salePrice)}</td>
                       <td className="num font-bold">
-                        {p.trackStock && !p.isBundle ? fmtQty(p.totalQty, p.unit) : "—"}
-                        {p.trackStock && !p.isBundle && p.uoms && p.uoms.length > 0 && (
+                        {tracked ? fmtQty(p.totalQty, p.unit) : "—"}
+                        {tracked && p.uoms && p.uoms.length > 0 && (
                           <span className="block text-[11px] font-normal text-muted-foreground">
                             {describeAltUnits(BigInt(p.totalQty), p.unit, p.uoms)}
                           </span>
                         )}
                       </td>
-                      <td className="num">{fmtMoney(p.purchasePrice)}</td>
-                      <td className="num">{fmtMoney(p.salePrice)}</td>
-                      <td className="num">{p.wholesalePrice && BigInt(p.wholesalePrice) > 0n ? fmtMoney(p.wholesalePrice) : <span className="text-muted-foreground">—</span>}</td>
-                      <td className="whitespace-nowrap">
-                        <div className="flex items-center justify-end gap-1.5">
-                        {!p.isBundle && p.trackStock && (
-                          <button className="btn btn-ghost !px-2 !py-1.5 text-xs font-bold text-primary" onClick={() => toggleBatches(p)}>
-                            {expanded ? t("batches.hideBatches") : t("batches.viewBatches")}
-                          </button>
+                      <td>
+                        {tracked ? (
+                          low
+                            ? <span className="badge bg-danger-soft text-danger">{t("products.lowBadge")}</span>
+                            : <span className="badge bg-primary-soft text-primary">{t("products.lowOk")}</span>
+                        ) : (
+                          <span className="text-muted-foreground">—</span>
                         )}
-                        <button className="btn btn-ghost !p-2" onClick={() => openEdit(p)} aria-label={t("common.edit")}><Pencil size={15} /></button>
-                        <button className="btn btn-ghost !px-2 !py-1.5 text-xs font-bold text-muted-foreground hover:text-foreground"
-                          onClick={() => setUomProduct(p)} title={t("uom.manageHint")}>
-                          {t("uom.manage")}
+                      </td>
+                      <td className="whitespace-nowrap text-end">
+                        <button type="button" className="font-bold text-primary hover:underline" onClick={() => openEdit(p)}>
+                          {t("products.view")}
                         </button>
-                        </div>
+                        <button
+                          type="button"
+                          className="btn btn-ghost !p-1.5"
+                          aria-label={t("docs.addNewOptions")}
+                          aria-expanded={menuFor?.id === p.id}
+                          onClick={(e) => openActionMenu(e, p)}
+                        >
+                          <ChevronDown size={14} className={`transition-transform ${menuFor?.id === p.id ? "rotate-180" : ""}`} />
+                        </button>
                       </td>
                     </tr>
                     {expanded && (
                       <tr key={`${p.id}-batches`}>
-                        <td colSpan={6} className="!bg-muted/40 !py-3">
+                        <td colSpan={9} className="!bg-muted/40 !py-3">
                           {batchLoading && !batchRows[p.id] ? (
                             <div className="skeleton h-10 rounded-xl" />
                           ) : batches.length === 0 ? (
@@ -470,6 +684,40 @@ export default function ProductsPage() {
           </div>
         )}
       </div>
+
+      {/* Per-row Action menu: fixed position so it escapes the table's scroll area. */}
+      {menuFor && menuPos && (
+        <div
+          ref={menuRef}
+          role="menu"
+          className="modal-pop fixed z-50 w-48 overflow-hidden rounded-xl border border-border bg-card p-1 shadow-xl"
+          style={{ top: menuPos.top, left: menuPos.left, transform: "translateX(-100%)" }}
+        >
+          <button
+            type="button" role="menuitem"
+            className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-start text-sm font-semibold transition hover:bg-muted"
+            onClick={() => { const p = menuFor; setMenuFor(null); openEdit(p); }}
+          >
+            {t("common.edit")}
+          </button>
+          <button
+            type="button" role="menuitem"
+            className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-start text-sm font-semibold transition hover:bg-muted"
+            onClick={() => { const p = menuFor; setMenuFor(null); setUomProduct(p); }}
+          >
+            {t("uom.manage")}
+          </button>
+          {!menuFor.isBundle && menuFor.trackStock && (
+            <button
+              type="button" role="menuitem"
+              className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-start text-sm font-semibold transition hover:bg-muted"
+              onClick={() => { const p = menuFor; setMenuFor(null); toggleBatches(p); }}
+            >
+              {t("batches.viewBatches")}
+            </button>
+          )}
+        </div>
+      )}
 
       {modal && (
         <Modal wide title={modal.mode === "add" ? t("products.addTitle", { product: productOne.toLowerCase() }) : t("products.editTitle", { product: productOne.toLowerCase() })} onClose={() => setModal(null)}>
