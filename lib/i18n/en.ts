@@ -402,6 +402,8 @@ export const en = {
     notesPlaceholder: "Any notes for this bill…",
     subtotal: "Subtotal",
     itemDiscounts: "Item discounts",
+    moreOptions: "More options",
+    gstPerLineHint: "Tax is set per line",
     billDiscount: "Bill discount (Rs)",
     taxTotal: "Tax",
     total: "Total",

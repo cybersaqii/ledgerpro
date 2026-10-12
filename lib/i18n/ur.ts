@@ -408,6 +408,8 @@ export const ur: DeepPartial<EnDict> = {
     notesPlaceholder: "اس بل کے لیے کوئی نوٹ…",
     subtotal: "ذیلی کل",
     itemDiscounts: "آئٹمز پر رعایت",
+    moreOptions: "مزید آپشنز",
+    gstPerLineHint: "ٹیکس ہر لائن پر لگتا ہے",
     billDiscount: "بل رعایت (روپے)",
     taxTotal: "ٹیکس",
     total: "کل",

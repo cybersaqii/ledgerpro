@@ -217,6 +217,27 @@ html[lang="ur"] body {
 .num { text-align: right; font-variant-numeric: tabular-nums; }
 .tbl th.num { text-align: right; }
 
+/* Fast Accounts-style dense table: bright blue header, tight rows (doc-form). */
+.tbl-fa { width: 100%; border-collapse: separate; border-spacing: 0; font-size: 13px; }
+.tbl-fa thead th {
+  background: #1d9bd7;
+  color: #fff;
+  font-weight: 700;
+  font-size: 12px;
+  text-align: start;
+  padding: 6px 8px;
+  white-space: nowrap;
+}
+.tbl-fa thead th.num { text-align: end; }
+.tbl-fa thead th:first-child { border-start-start-radius: 0.5rem; }
+.tbl-fa thead th:last-child { border-start-end-radius: 0.5rem; }
+.tbl-fa td {
+  padding: 4px 8px;
+  border-bottom: 1px solid var(--border);
+  vertical-align: middle;
+}
+.tbl-fa tbody tr:hover { background: color-mix(in srgb, var(--muted) 45%, transparent); }
+
 /* Badge */
 .badge {
   display: inline-flex;

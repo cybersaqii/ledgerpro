@@ -2,8 +2,8 @@
 
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Plus, Printer, Search, Trash2, Eye, EyeOff } from "lucide-react";
-import { PageHeader, Field, ErrorNote } from "@/components/ui";
+import { Plus, Printer, Search, Trash2, Eye, EyeOff, ChevronDown } from "lucide-react";
+import { PageHeader, ErrorNote } from "@/components/ui";
 import { api, ApiError, fmtMoney, fmtQty, fmtDateInput, fmtDate } from "@/lib/format";
 import { localizedApiError } from "@/lib/api-errors";
 import { lineMath, docMath, taxBpsOf, taxOf, matrixLineDiscount } from "@/lib/doc-math";
@@ -17,7 +17,7 @@ import { useBusinessProfile } from "@/components/business-type";
 import { ProjectSelect } from "@/components/project-select";
 import { useLang } from "@/components/lang-provider";
 
-type Party = { id: string; name: string; phone: string | null; paymentTerms?: string | null; whtCategory?: string | null; activeTaxPayer?: boolean | null; filerStatus?: string | null; priceListId?: string | null; category?: string | null };
+type Party = { id: string; name: string; phone: string | null; address?: string | null; creditLimit?: string | null; paymentTerms?: string | null; whtCategory?: string | null; activeTaxPayer?: boolean | null; filerStatus?: string | null; priceListId?: string | null; category?: string | null };
 type Product = { id: string; sku: string; name: string; unit: string; salePrice: string; purchasePrice: string; totalQty: string; minSalePrice?: string | null; isBundle?: boolean };
 
 type BatchOpt = { id: string; batchNo: string; expiryDate: string | null; qtyThousandths: string };
@@ -32,6 +32,8 @@ type Line = {
   key: number;
   productId: string;
   description: string;
+  /** FA layout: master product name for the Product / Services column. */
+  productName: string;
   unit: string;
   qty: string;
   rate: string;
@@ -225,6 +227,39 @@ function UnitPicker({ line, t, onUnit }: {
   );
 }
 
+
+/** Fast Accounts-style collapsible card section. */
+function SectionCard({ title, children, defaultOpen = true }: {
+  title: React.ReactNode; children: React.ReactNode; defaultOpen?: boolean;
+}) {
+  const [open, setOpen] = useState(defaultOpen);
+  return (
+    <div className="card rise overflow-hidden">
+      <button type="button" onClick={() => setOpen((o) => !o)}
+        className="flex w-full items-center gap-2 px-4 py-2.5 text-left text-sm font-extrabold"
+        aria-expanded={open}>
+        <ChevronDown size={16} className={`shrink-0 transition-transform ${open ? "" : "-rotate-90 rtl:rotate-90"}`} />
+        {title}
+      </button>
+      {open && <div className="border-t border-border px-4 py-3">{children}</div>}
+    </div>
+  );
+}
+
+/** Compact field: small label + tight control (FA density). */
+function CompactField({ label, children, required }: {
+  label: React.ReactNode; children: React.ReactNode; required?: boolean;
+}) {
+  return (
+    <label className="block">
+      <span className="mb-1 block text-xs font-semibold text-foreground/90">
+        {label}{required && <span className="text-danger"> *</span>}
+      </span>
+      {children}
+    </label>
+  );
+}
+
 export function DocForm({ mode }: { mode: "SALES" | "PURCHASE" }) {
   const bp = useBusinessProfile();
   const { t } = useLang();
@@ -274,6 +309,13 @@ export function DocForm({ mode }: { mode: "SALES" | "PURCHASE" }) {
   /** discount-matrix bps per productId (party-scoped; reset on party change). */
   const [matrixBps, setMatrixBps] = useState<Record<string, number>>({});
   const [quickPhone, setQuickPhone] = useState("");
+  /** FA layout: Discount (%) input synced with the bill discount amount. */
+  const [discPct, setDiscPct] = useState("");
+  /** FA layout: Thermal Print dropdown. */
+  const [printOpen, setPrintOpen] = useState(false);
+  const printRef = useRef<HTMLDivElement>(null);
+  /** FA layout: selected party's current balance (receivable/payable). */
+  const [partyBalance, setPartyBalance] = useState<string | null>(null);
   /** FA-style: "+ Add New" quick-create row is always visible in the party dropdown. */
   const [showQuickAdd, setShowQuickAdd] = useState(false);
   /** last posted rate per product: productId -> paisa string (null = none yet). */
@@ -431,6 +473,35 @@ export function DocForm({ mode }: { mode: "SALES" | "PURCHASE" }) {
       .then((d) => setBankAccounts(d.data))
       .catch(() => {});
   }, []);
+
+  // FA layout: party balance panel — sum of outstanding docs for this party.
+  useEffect(() => {
+    if (!partyId) return;
+    let cancelled = false;
+    api<{ data: { balance: string }[] }>(
+      `/api/parties/${partyId}/outstanding?kind=${isSales ? "SALES" : "PURCHASE"}`
+    )
+      .then((d) => {
+        if (cancelled) return;
+        let sum = 0n;
+        for (const r of d.data) { try { sum += BigInt(r.balance || "0"); } catch { /* ignore */ } }
+        setPartyBalance(sum.toString());
+      })
+      .catch(() => { if (!cancelled) setPartyBalance(null); });
+    return () => { cancelled = true; };
+  }, [partyId, isSales]);
+
+  // FA layout: close the Thermal Print menu on outside click / Escape.
+  useEffect(() => {
+    if (!printOpen) return;
+    const onDown = (e: MouseEvent) => {
+      if (printRef.current && !printRef.current.contains(e.target as Node)) setPrintOpen(false);
+    };
+    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") setPrintOpen(false); };
+    document.addEventListener("mousedown", onDown);
+    document.addEventListener("keydown", onKey);
+    return () => { document.removeEventListener("mousedown", onDown); document.removeEventListener("keydown", onKey); };
+  }, [printOpen]);
 
   // Module 22: price lists for the selector (sales docs only).
   useEffect(() => {
@@ -674,6 +745,7 @@ export function DocForm({ mode }: { mode: "SALES" | "PURCHASE" }) {
       key,
       productId: p.id,
       description: p.name,
+      productName: p.name,
       unit: p.unit,
       qty: "1",
       rate: rateStr,
@@ -728,7 +800,7 @@ export function DocForm({ mode }: { mode: "SALES" | "PURCHASE" }) {
   function addCustomLine(desc = "") {
     keyRef.current += 1;
     const key = keyRef.current;
-    setLines((ls) => [...ls, { key, productId: "", description: desc, unit: "", qty: "1", rate: "", discount: "", taxPct: "", availQty: null, isBundle: false, batchId: "", batchNo: "", expiryDate: "", branchId: "", lineUnit: "", uoms: [], uomPrices: {}, costPrice: "" }]);
+    setLines((ls) => [...ls, { key, productId: "", description: desc, productName: "", unit: "", qty: "1", rate: "", discount: "", taxPct: "", availQty: null, isBundle: false, batchId: "", batchNo: "", expiryDate: "", branchId: "", lineUnit: "", uoms: [], uomPrices: {}, costPrice: "" }]);
     flashRow(key);
     setTimeout(() => lineFieldRefs.current.get(key)?.desc?.focus(), 60);
   }
@@ -1015,17 +1087,51 @@ export function DocForm({ mode }: { mode: "SALES" | "PURCHASE" }) {
   const selectedParty = parties.find((p) => p.id === partyId);
   const showCustomOption = showProdList && prodQ.trim().length > 0;
 
+  /** FA layout: bigint minor-units -> decimal string in the doc currency. */
+  function minorToStr(m: bigint): string {
+    const scale = 10n ** BigInt(fxMinorUnits);
+    const neg = m < 0n;
+    const a = neg ? -m : m;
+    const frac = (a % scale).toString().padStart(fxMinorUnits, "0");
+    return `${neg ? "-" : ""}${a / scale}.${frac}`;
+  }
+  /** FA layout: Discount (%) -> Discount Amount (half-up, doc currency). */
+  function onDiscPct(v: string) {
+    setDiscPct(v);
+    const t = v.trim();
+    if (t === "") return;
+    const p = parseFloat(t);
+    if (Number.isNaN(p) || p < 0) return;
+    try {
+      const amt = (subtotal * BigInt(Math.round(p * 100)) + 5000n) / 10000n;
+      setDiscountTotal(minorToStr(amt < 0n ? 0n : amt));
+    } catch { /* keep the typed amount */ }
+  }
+  /** FA layout: credit limit panel value. */
+  const creditLimitDisplay = (() => {
+    const raw = selectedParty?.creditLimit;
+    if (!raw) return fmtMoney(0n);
+    try { return fmtMoney(BigInt(raw)); } catch { return "\u2014"; }
+  })();
+  /** FA layout: Mode column in Add Receipt — derived from the account kind (unchanged logic). */
+  const rcptMode = !rcptAccountId
+    ? "\u2014"
+    : bankAccounts.find((b) => b.id === rcptAccountId)?.kind === "CASH" ? "CASH" : "BANK";
+
   return (
-    <div>
+    <div className="text-[13px]">
       <PageHeader title={isSales ? bp.newSale : t("docs.newPurchase")}
         subtitle={isSales ? t("docform.subtitleSales") : t("docform.subtitlePurchases")} />
-      <form onSubmit={submit} className="space-y-5">
+      <form onSubmit={submit} className="space-y-4">
         <ErrorNote message={error} />
 
-        <div className="card rise p-5 sm:p-6">
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
-            <Field label={isSales ? bp.partyOne : t("docs.supplier")}>
-              <div className="relative">
+        {/* ══════════ 1 · Customer / Supplier Details ══════════ */}
+        <SectionCard title={isSales ? "Customer Details" : "Supplier Details"}>
+          <div className="grid gap-x-4 gap-y-3 md:grid-cols-3">
+            {/* col 1: party + address */}
+            <div className="space-y-3">
+              <CompactField label={isSales ? "Customer" : "Supplier"} required>
+<div className="relative">
                 <button type="button" onClick={() => setShowPartyList((s) => !s)}
                   className="field flex items-center justify-between text-start">
                   <span className={selectedParty ? "" : "text-muted-foreground"}>
@@ -1092,106 +1198,134 @@ export function DocForm({ mode }: { mode: "SALES" | "PURCHASE" }) {
                   </div>
                 )}
               </div>
-            </Field>
-            <Field label={t("docform.typeLabel")}>
-              <select className="field" value={docType} onChange={(e) => setDocType(e.target.value)}>
-                {isSales ? (
-                  <>
-                    <option value="INVOICE">{t("docform.optInvoice")}</option>
-                    <option value="RETURN">{t("docform.optSalesReturn")}</option>
-                    <option value="QUOTATION">{t("docform.optQuotation")}</option>
-                    <option value="ORDER">{t("docform.optOrder")}</option>
-                    <option value="CHALLAN">{t("docform.optChallan")}</option>
-                  </>
-                ) : (
-                  <>
-                    <option value="BILL">{t("docform.optPurchaseBill")}</option>
-                    <option value="RETURN">{t("docform.optPurchaseReturn")}</option>
-                    <option value="ORDER">{t("docform.optOrder")}</option>
-                    {/* Module 2.3: GRNs are received from an order's Receive action, not from this form */}
-                  </>
-                )}
-              </select>
-            </Field>
-            <Field label={t("docform.date")}><input type="date" className="field" required value={date} onChange={(e) => onDateChange(e.target.value)} /></Field>
-            <Field label={t("docform.fxCurrency")}>
-              <select className="field" value={currencyCode} onChange={(e) => setCurrencyCode(e.target.value)}
-                aria-label={t("docform.fxCurrency")}>
-                {fxCurrencies.map((c) => (
-                  <option key={c.code} value={c.code}>{c.code} — {c.name}</option>
-                ))}
-              </select>
-            </Field>
-            {/* Module 22: price list — the party's list auto-selects on party
-                pick; Apply reprices every line from the chosen list. */}
-            {isSales && (
-              <Field label={t("pricing.priceList")}>
-                <div className="flex gap-2">
-                  <select className="field" value={priceListId}
-                    onChange={(e) => setPriceListId(e.target.value)}
-                    aria-label={t("pricing.priceList")}>
-                    <option value="">{t("pricing.defaultPricing")}</option>
-                    {priceLists.map((l) => (
-                      <option key={l.id} value={l.id}>{l.name}</option>
-                    ))}
-                  </select>
-                  {priceListId !== appliedListId && (
-                    <button type="button" className="btn btn-ghost shrink-0 text-sm"
-                      disabled={repriceBusy} onClick={() => applyPriceList(priceListId)}>
-                      {repriceBusy ? t("pricing.applying") : t("pricing.apply")}
-                    </button>
-                  )}
+              </CompactField>
+              <div>
+                <span className="mb-1 block text-xs font-semibold text-foreground/90">Address</span>
+                <textarea readOnly rows={5} aria-label="Address"
+                  className="field !bg-muted/40 !py-1.5 text-[13px]"
+                  value={selectedParty?.address ?? ""} placeholder="\u2014" />
+              </div>
+            </div>
+            {/* col 2: dates + doc no + mobile */}
+            <div className="space-y-3">
+              <CompactField label="Date" required>
+                <input type="date" className="field !py-1.5 text-[13px]" required value={date}
+                  onChange={(e) => onDateChange(e.target.value)} />
+              </CompactField>
+              <CompactField label="Term Days">
+                <input type="number" min="0" max="3650" className="field !py-1.5 text-[13px]" placeholder="0"
+                  value={termDays} onChange={(e) => onTermDays(e.target.value)} />
+              </CompactField>
+              <CompactField label={isSales && docType === "QUOTATION" ? t("docform.validUntil") : "Due Date"}>
+                <input type="date" className="field !py-1.5 text-[13px]" value={dueDate}
+                  onChange={(e) => { setDueDate(e.target.value); setTermDays(""); }} />
+              </CompactField>
+              <CompactField label="Doc No." required={!isSales && docType === "BILL"}>
+                <input className="field !py-1.5 text-[13px]" value={refNo} maxLength={60}
+                  required={!isSales && docType === "BILL"}
+                  onChange={(e) => setRefNo(e.target.value)}
+                  placeholder={isSales ? t("docform.refPlaceholderSales") : t("docform.refPlaceholder")} />
+              </CompactField>
+              <CompactField label="Mobile No">
+                <input readOnly aria-label="Mobile No" className="field !bg-muted/40 !py-1.5 text-[13px]"
+                  value={selectedParty?.phone ?? ""} placeholder="\u2014" />
+              </CompactField>
+            </div>
+            {/* col 3: credit limit + balance */}
+            <div className="space-y-3">
+              <div>
+                <span className="mb-1 block text-xs font-semibold text-foreground/90">Credit Limit</span>
+                <div className="field !bg-muted/40 !py-1.5 text-end text-[13px] font-bold tabular-nums">{creditLimitDisplay}</div>
+              </div>
+              <div>
+                <span className="mb-1 block text-xs font-semibold text-foreground/90">Balance</span>
+                <div className="field !bg-muted/40 !py-1.5 text-end text-[13px] font-bold tabular-nums">
+                  {partyBalance == null ? "\u2014" : fmtMoney(BigInt(partyBalance))}
                 </div>
-              </Field>
-            )}
-            <Field label={t("docform.termDays")}>
-              <input type="number" min="0" max="3650" className="field" placeholder="0"
-                value={termDays} onChange={(e) => onTermDays(e.target.value)} />
-            </Field>
-            <Field label={isSales && docType === "QUOTATION" ? t("docform.validUntil") : t("docform.dueDate")}><input type="date" className="field" value={dueDate} onChange={(e) => { setDueDate(e.target.value); setTermDays(""); }} /></Field>
+              </div>
+            </div>
           </div>
-          <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-            <Field label={isSales ? t("docform.refNoSales") : t("docform.refNo")}
-              required={!isSales && docType === "BILL"}
-              hint={!isSales && docType === "BILL" ? t("docform.refNoRequiredHint") : undefined}>
-              <input className="field" value={refNo} maxLength={60}
-                required={!isSales && docType === "BILL"}
-                onChange={(e) => setRefNo(e.target.value)}
-                placeholder={isSales ? t("docform.refPlaceholderSales") : t("docform.refPlaceholder")} />
-            </Field>
-            {/* Module 13: project tag — visible only when the company has projects */}
-            <ProjectSelect value={projectId} onChange={setProjectId} />
-            {/* Module 2.4: WHT on purchase bills — blank = supplier default */}
-            {!isSales && docType === "BILL" && (
-              <Field label={t("docform.whtRate")} hint={t("docform.whtRateHint")}>
-                <input className="field" type="number" min="0" max="100" step="0.01" dir="ltr"
-                  value={whtPct} onChange={(e) => setWhtPct(e.target.value)}
-                  placeholder={t("docform.whtRatePlaceholder")} />
-              </Field>
-            )}
-            {/* Module 2.6: pure-ledger purchase returns */}
-            {!isSales && docType === "RETURN" && (
-              <Field label={t("docform.deductFromInventory")}>
-                <label className="flex cursor-pointer items-center gap-2.5 pt-2">
-                  <input type="checkbox" className="h-4 w-4 accent-primary"
-                    checked={deductFromInventory}
-                    onChange={(e) => setDeductFromInventory(e.target.checked)} />
-                  <span className="text-sm text-muted-foreground">{t("docform.deductFromInventoryHint")}</span>
-                </label>
-              </Field>
-            )}
-            <Field label={t("docform.terms")}>
-              <input className="field" value={terms} maxLength={500}
-                onChange={(e) => setTerms(e.target.value)}
-                placeholder={t("docform.termsPlaceholder")} />
-            </Field>
-          </div>
-        </div>
+          {/* extra doc options stay available without breaking the FA placement */}
+          <details className="mt-3 rounded-xl bg-muted/40 px-3 py-2">
+            <summary className="cursor-pointer text-xs font-bold text-muted-foreground">{t("docform.moreOptions")}</summary>
+            <div className="grid gap-3 pt-3 sm:grid-cols-3 lg:grid-cols-6">
+              <CompactField label={t("docform.typeLabel")}>
+                <select className="field !py-1.5 text-[13px]" value={docType} onChange={(e) => setDocType(e.target.value)}>
+                  {isSales ? (
+                    <>
+                      <option value="INVOICE">{t("docform.optInvoice")}</option>
+                      <option value="RETURN">{t("docform.optSalesReturn")}</option>
+                      <option value="QUOTATION">{t("docform.optQuotation")}</option>
+                      <option value="ORDER">{t("docform.optOrder")}</option>
+                      <option value="CHALLAN">{t("docform.optChallan")}</option>
+                    </>
+                  ) : (
+                    <>
+                      <option value="BILL">{t("docform.optPurchaseBill")}</option>
+                      <option value="RETURN">{t("docform.optPurchaseReturn")}</option>
+                      <option value="ORDER">{t("docform.optOrder")}</option>
+                    </>
+                  )}
+                </select>
+              </CompactField>
+              <CompactField label={t("docform.fxCurrency")}>
+                <select className="field !py-1.5 text-[13px]" value={currencyCode}
+                  onChange={(e) => setCurrencyCode(e.target.value)} aria-label={t("docform.fxCurrency")}>
+                  {fxCurrencies.map((c) => (
+                    <option key={c.code} value={c.code}>{c.code} — {c.name}</option>
+                  ))}
+                </select>
+              </CompactField>
+              {isSales && (
+                <CompactField label={t("pricing.priceList")}>
+                  <div className="flex gap-1.5">
+                    <select className="field !py-1.5 text-[13px]" value={priceListId}
+                      onChange={(e) => setPriceListId(e.target.value)} aria-label={t("pricing.priceList")}>
+                      <option value="">{t("pricing.defaultPricing")}</option>
+                      {priceLists.map((l) => (
+                        <option key={l.id} value={l.id}>{l.name}</option>
+                      ))}
+                    </select>
+                    {priceListId !== appliedListId && (
+                      <button type="button" className="btn btn-ghost shrink-0 !px-2 !py-1 text-xs"
+                        disabled={repriceBusy} onClick={() => applyPriceList(priceListId)}>
+                        {repriceBusy ? t("pricing.applying") : t("pricing.apply")}
+                      </button>
+                    )}
+                  </div>
+                </CompactField>
+              )}
+              <ProjectSelect value={projectId} onChange={setProjectId} />
+              {!isSales && docType === "BILL" && (
+                <CompactField label={t("docform.whtRate")}>
+                  <input className="field !py-1.5 text-[13px]" type="number" min="0" max="100" step="0.01" dir="ltr"
+                    value={whtPct} onChange={(e) => setWhtPct(e.target.value)}
+                    placeholder={t("docform.whtRatePlaceholder")} />
+                </CompactField>
+              )}
+              {!isSales && docType === "RETURN" && (
+                <div className="flex items-end pb-2">
+                  <label className="flex cursor-pointer items-center gap-2">
+                    <input type="checkbox" className="h-4 w-4 accent-primary"
+                      checked={deductFromInventory}
+                      onChange={(e) => setDeductFromInventory(e.target.checked)} />
+                    <span className="text-xs font-semibold">{t("docform.deductFromInventory")}</span>
+                  </label>
+                </div>
+              )}
+              <CompactField label={t("docform.terms")}>
+                <input className="field !py-1.5 text-[13px]" value={terms} maxLength={500}
+                  onChange={(e) => setTerms(e.target.value)}
+                  placeholder={t("docform.termsPlaceholder")} />
+              </CompactField>
+            </div>
+          </details>
+        </SectionCard>
 
-        <div className="card rise p-5 sm:p-6">
-          <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-            <h2 className="text-base font-bold">{t("docform.items")}</h2>
-            <div className="relative" ref={prodBoxRef}>
+        {/* ══════════ 2 · Products Details ══════════ */}
+        <SectionCard title="Products Details">
+          <div className="mb-3">
+<div className="relative" ref={prodBoxRef}>
               <div className="relative">
                 <Search size={16} className="absolute start-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
                 <input
@@ -1247,83 +1381,105 @@ export function DocForm({ mode }: { mode: "SALES" | "PURCHASE" }) {
           </div>
 
           {lines.length === 0 ? (
-            <div className="rounded-2xl border border-dashed border-border px-6 py-10 text-center">
-              <p className="text-sm font-semibold">{t("docform.noItems")}</p>
-              <p className="mt-1 text-sm text-muted-foreground">{t("docform.noItemsHint")}</p>
-              <button type="button" className="btn btn-ghost mt-4 text-sm" onClick={() => addCustomLine()}><Plus size={15} /> {t("docform.customLine")}</button>
+            <div className="rounded-xl border border-dashed border-border px-6 py-8 text-center">
+              <p className="text-[13px] font-semibold">{t("docform.noItems")}</p>
+              <p className="mt-1 text-xs text-muted-foreground">{t("docform.noItemsHint")}</p>
+              <button type="button" className="btn btn-ghost mt-3 !py-1.5 text-[13px]" onClick={() => addCustomLine()}>
+                <Plus size={14} /> {t("docform.customLine")}
+              </button>
             </div>
           ) : (
             <>
-              {/* Desktop: classic grid like pro accounting apps */}
+              {/* Desktop: dense FA-style grid */}
               <div className="hidden overflow-x-auto sm:block">
-                <table className="tbl">
-                  <thead><tr><th className="w-8">#</th><th>{t("docform.colItem")}</th><th className="num w-24">{t("docform.colQty")}</th><th className="w-20">{t("docform.colUnit")}</th><th className="num w-28">{t("docform.colRate")}</th><th className="num w-24">{t("docform.colDisc")}</th><th className="num w-20">{t("docform.colTax")}</th><th className="num w-28">{t("docform.colAmount")}</th><th className="w-10"></th></tr></thead>
+                <table className="tbl-fa">
+                  <thead><tr>
+                    <th>Product / Services</th>
+                    <th>Description</th>
+                    <th>Unit</th>
+                    <th className="num">Qty</th>
+                    <th className="num">Rate</th>
+                    <th className="num">Disc</th>
+                    <th className="num">Tax</th>
+                    <th className="num">Amount</th>
+                    <th className="!px-1"></th>
+                    <th>Last Rate</th>
+                  </tr></thead>
                   <tbody>
                     {lines.map((l, idx) => {
                       const c = computed[idx];
+                      const prodName = l.productId ? (l.productName || l.description) : t("docform.customLine");
                       return (
                         <tr key={l.key} className={flashKey === l.key ? "row-flash" : ""}>
-                          <td className="text-muted-foreground">{idx + 1}</td>
-                          <td className="min-w-44">
+                          <td className="min-w-32">
+                            <span className="block text-[13px] font-semibold leading-tight">{prodName}</span>
+                            {l.availQty !== null && (
+                              <span className="block text-[11px] text-muted-foreground">
+                                {t("docform.inStock", { qty: (Number(BigInt(l.availQty)) / 1000).toLocaleString(), unit: l.unit })}
+                              </span>
+                            )}
+                          </td>
+                          <td className="min-w-40">
                             <input
                               ref={setRowRef(l.key, "desc")}
                               onKeyDown={(e) => rowKeyDown(e, l.key, "desc")}
-                              className="field !border-transparent !bg-transparent !px-1 !py-1.5 font-semibold hover:!border-border focus:!border-primary focus:!bg-card" placeholder={t("docform.itemPlaceholder")} value={l.description}
+                              className="field !border-transparent !bg-transparent !px-1 !py-1 text-[13px] font-medium hover:!border-border focus:!border-primary focus:!bg-card"
+                              placeholder={t("docform.itemPlaceholder")} value={l.description}
                               onChange={(e) => updateLine(l.key, { description: e.target.value })} />
-                            {l.availQty !== null && (
-                              <p className="px-1 text-xs text-muted-foreground">
-                                {t("docform.inStock", { qty: (Number(BigInt(l.availQty)) / 1000).toLocaleString(), unit: l.unit })}
-                              </p>
-                            )}
                             <BatchControls line={l} isSales={isSales} docType={docType} batches={batchCache[l.productId]} t={t} onChange={(patch) => updateLine(l.key, patch)} />
                             <LocationControls line={l} branches={branches} t={t} onChange={(patch) => updateLine(l.key, patch)} />
                           </td>
-                          <td><input ref={setRowRef(l.key, "qty")} onKeyDown={(e) => rowKeyDown(e, l.key, "qty")}
-                            className="field num !px-2 !py-1.5" type="number" min="0" step="0.001" value={l.qty}
-                            onChange={(e) => updateLine(l.key, { qty: e.target.value })} /></td>
                           <td><UnitPicker line={l} t={t} onUnit={(u) => changeLineUnit(l.key, u)} /></td>
+                          <td><input ref={setRowRef(l.key, "qty")} onKeyDown={(e) => rowKeyDown(e, l.key, "qty")}
+                            className="field num !w-20 !px-1 !py-1 text-[13px]" type="number" min="0" step="0.001" value={l.qty}
+                            onChange={(e) => updateLine(l.key, { qty: e.target.value })} /></td>
                           <td><input ref={setRowRef(l.key, "rate")} onKeyDown={(e) => rowKeyDown(e, l.key, "rate")}
-                            className="field num !px-2 !py-1.5" type="number" min="0" step={isForeign ? "any" : "0.01"} placeholder="0.00" value={l.rate}
-                            onChange={(e) => updateLine(l.key, { rate: e.target.value })} />
-                            {l.productId && lastRates[l.productId] != null && (
-                              <p className="px-1 pt-0.5 text-[11px] text-muted-foreground">
-                                {t("docform.lastRate", { amt: lastRateDisplay(l.productId) })}
-                              </p>
-                            )}
-                          </td>
+                            className="field num !w-24 !px-1 !py-1 text-[13px]" type="number" min="0" step={isForeign ? "any" : "0.01"} placeholder="0.00" value={l.rate}
+                            onChange={(e) => updateLine(l.key, { rate: e.target.value })} /></td>
                           <td><input ref={setRowRef(l.key, "discount")} onKeyDown={(e) => rowKeyDown(e, l.key, "discount")}
-                            className="field num !px-2 !py-1.5" type="number" min="0" step={isForeign ? "any" : "0.01"} placeholder="0.00" value={l.discount}
+                            className="field num !w-16 !px-1 !py-1 text-[13px]" type="number" min="0" step={isForeign ? "any" : "0.01"} placeholder="0.00" value={l.discount}
                             onChange={(e) => updateLine(l.key, { discount: e.target.value })} />
-                            {/* Module 22: blanket discount from the matrix — applied by the server on top of the typed discount */}
                             {isSales && l.productId && (matrixBps[l.productId] ?? 0) > 0 && (
-                              <p className="px-1 pt-0.5 text-[11px] font-semibold text-primary">
+                              <span className="block px-0.5 pt-0.5 text-[10px] font-semibold text-primary">
                                 {t("pricing.matrixBadge", { pct: String(matrixBps[l.productId]! / 100) })}
-                              </p>
+                              </span>
                             )}</td>
                           <td><input ref={setRowRef(l.key, "tax")} onKeyDown={(e) => rowKeyDown(e, l.key, "tax")}
-                            className="field num !px-2 !py-1.5" type="number" min="0" max="100" step="0.01" placeholder="0" value={l.taxPct}
+                            className="field num !w-14 !px-1 !py-1 text-[13px]" type="number" min="0" max="100" step="0.01" placeholder="0" value={l.taxPct}
                             aria-label={t("docform.colTax")}
                             onChange={(e) => updateLine(l.key, { taxPct: e.target.value })} /></td>
-                          <td className="num whitespace-nowrap text-sm font-extrabold">
+                          <td className="num whitespace-nowrap text-[13px] font-extrabold">
                             {fmtFx(c.total)}
                             {c.tax > 0n && (
-                              <span className="block text-[11px] font-normal text-muted-foreground">{t("docform.inclTax", { amt: fmtFx(c.tax) })}</span>
+                              <span className="block text-[10px] font-normal text-muted-foreground">{t("docform.inclTax", { amt: fmtFx(c.tax) })}</span>
                             )}
                           </td>
-                          <td>
-                            <button type="button" onClick={() => removeLine(l.key)} className="grid h-11 w-11 shrink-0 place-items-center rounded-xl text-danger hover:bg-danger-soft" aria-label={t("docform.removeItem")}>
-                              <Trash2 size={16} />
+                          <td className="!px-1">
+                            <button type="button" onClick={() => removeLine(l.key)}
+                              className="grid h-8 w-8 place-items-center rounded-lg text-danger hover:bg-danger-soft"
+                              aria-label={t("docform.removeItem")}>
+                              <Trash2 size={14} />
                             </button>
+                          </td>
+                          <td className="text-center">
+                            {l.productId && lastRates[l.productId] != null ? (
+                              <span className="inline-flex flex-col items-center text-muted-foreground"
+                                title={t("docform.lastRate", { amt: lastRateDisplay(l.productId) })}>
+                                <Eye size={14} />
+                                <span className="whitespace-nowrap text-[10px] tabular-nums">{lastRateDisplay(l.productId)}</span>
+                              </span>
+                            ) : (
+                              <span className="text-muted-foreground/30"><Eye size={14} /></span>
+                            )}
                           </td>
                         </tr>
                       );
                     })}
                   </tbody>
                 </table>
-                <button type="button" className="btn btn-ghost mt-3 text-sm" onClick={() => addCustomLine()}><Plus size={15} /> {t("docform.addCustomLine")}</button>
               </div>
 
-              {/* Mobile: stacked cards */}
+{/* Mobile: stacked cards */}
               <div className="space-y-3 sm:hidden">
                 {lines.map((l, idx) => {
                   const c = computed[idx];
@@ -1391,129 +1547,74 @@ export function DocForm({ mode }: { mode: "SALES" | "PURCHASE" }) {
                 })}
                 <button type="button" className="btn btn-ghost w-full text-sm" onClick={() => addCustomLine()}><Plus size={15} /> {t("docform.addCustomLine")}</button>
               </div>
+            
+              <button type="button" className="mt-2 text-[13px] font-bold text-primary hover:underline"
+                onClick={() => addCustomLine()}>
+                + Add More
+              </button>
             </>
           )}
-        </div>
 
-        {!isSales && docType === "BILL" && (
-          <div className="card rise p-5 sm:p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <h3 className="font-extrabold">{t("docform.extraTitle")}</h3>
-                <p className="text-xs text-muted-foreground">{t("docform.extraHint")}</p>
-              </div>
-              <button type="button" className="btn btn-ghost !px-3 !py-1.5 text-xs" onClick={addExtraCost}>
-                <Plus size={14} /> {t("docform.extraAdd")}
-              </button>
-            </div>
-            {extraCosts.length > 0 && (
-              <div className="mt-3 space-y-2">
-                {extraCosts.map((c) => (
-                  <div key={c.key} className="flex items-center gap-2">
-                    <input className="field flex-1" placeholder={t("docform.freight")} value={c.label}
-                      onChange={(e) => updateExtraCost(c.key, { label: e.target.value })} />
-                    <input className="field num !w-32" type="number" min="0" step="0.01" placeholder={t("docform.extraAmountPh")}
-                      value={c.amount} onChange={(e) => updateExtraCost(c.key, { amount: e.target.value })} />
-                    <button type="button" onClick={() => removeExtraCost(c.key)}
-                      className="grid h-11 w-11 shrink-0 place-items-center rounded-xl text-danger hover:bg-danger-soft" aria-label={t("docform.removeExtra")}>
-                      <Trash2 size={16} />
-                    </button>
-                  </div>
-                ))}
-                <div className="flex flex-wrap items-center gap-3 pt-1">
-                  <label className="flex items-center gap-1.5 text-xs font-semibold">
-                    <input type="radio" name="extraPaidFrom" checked={extraPaidFrom === "CASH"}
-                      onChange={() => setExtraPaidFrom("CASH")} /> {t("docform.paidFrom")}
-                  </label>
-                  {extraPaidFrom === "CASH" ? (
-                    <select className="field !w-auto !py-1.5 text-xs" value={extraAccountId}
-                      onChange={(e) => setExtraAccountId(e.target.value)}>
-                      <option value="">{t("docform.defaultCash")}</option>
-                      {bankAccounts.map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}
-                    </select>
-                  ) : null}
-                  <label className="flex items-center gap-1.5 text-xs font-semibold">
-                    <input type="radio" name="extraPaidFrom" checked={extraPaidFrom === "SUPPLIER"}
-                      onChange={() => setExtraPaidFrom("SUPPLIER")} /> {t("docform.addToSupplierBill")}
-                  </label>
-                </div>
-              </div>
-            )}
-          </div>
-        )}
-
-        {((isSales && docType === "INVOICE") || (!isSales && docType === "BILL")) && (
-          <div className="card rise p-5 sm:p-6">
+          <div className="mt-4 grid gap-4 lg:grid-cols-2">
             <div>
-              <h3 className="font-extrabold">{isSales ? t("docform.addReceipt") : t("docform.addPaymentTitle")}</h3>
-              <p className="text-xs text-muted-foreground">{t("docform.addReceiptHint")}</p>
+              <span className="mb-1 block text-xs font-semibold text-foreground/90">Notes</span>
+              <textarea className="field min-h-20 !py-1.5 text-[13px]" value={notes}
+                onChange={(e) => setNotes(e.target.value)} placeholder={t("docform.notesPlaceholder")} />
             </div>
-            <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-              <Field label={t("payform.date")}>
-                <input type="date" className="field" value={rcptDate} onChange={(e) => setRcptDate(e.target.value)} />
-              </Field>
-              <Field label={t("payform.account")}>
-                <select className="field" value={rcptAccountId} onChange={(e) => setRcptAccountId(e.target.value)}>
-                  <option value="">{t("payform.selectAccount")}</option>
-                  {bankAccounts.map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}
-                </select>
-              </Field>
-              <Field label={t("docform.rcptRef")}>
-                <input className="field" value={rcptRef} maxLength={60}
-                  onChange={(e) => setRcptRef(e.target.value)} placeholder={t("docform.rcptRefPlaceholder")} />
-              </Field>
-              <Field label={t("payform.amount")}>
-                <input type="number" min="0" step="0.01" className="field num" placeholder="0.00"
-                  value={rcptAmount} onChange={(e) => setRcptAmount(e.target.value)} />
-              </Field>
-            </div>
-          </div>
-        )}
-
-        <div className="grid gap-5 lg:grid-cols-2">
-          <div className="card rise rise-1 h-fit p-5 sm:p-6">
-            <Field label={t("docform.notes")}>
-              <textarea className="field min-h-20" value={notes} onChange={(e) => setNotes(e.target.value)} placeholder={t("docform.notesPlaceholder")} />
-            </Field>
-          </div>
-          <div className="card p-5 sm:p-6">
-            <div className="space-y-2.5 text-sm">
-              <div className="flex justify-between"><span className="text-muted-foreground">{t("docform.subtotal")}</span><span className="font-bold">{fmtFx(subtotal)}</span></div>
-              {itemDiscTotal > 0n && (
-                <div className="flex justify-between"><span className="text-muted-foreground">{t("docform.itemDiscounts")}</span><span className="font-bold">−{fmtFx(itemDiscTotal)}</span></div>
-              )}
-              <div className="flex items-center justify-between gap-4">
-                <span className="text-muted-foreground">{t("docform.billDiscount")}</span>
-                <input className="field num !w-32 !py-1.5" type="number" min="0" step={isForeign ? "any" : "0.01"} placeholder="0.00" value={discountTotal}
-                  onChange={(e) => setDiscountTotal(e.target.value)} />
+            <div className="space-y-1.5">
+              <div className="flex items-center justify-between gap-3">
+                <span className="text-muted-foreground">Sub Total</span>
+                <span className="font-bold tabular-nums">{fmtFx(subtotal)}</span>
               </div>
-              <div className="flex justify-between"><span className="text-muted-foreground">{t("docform.taxTotal")}</span><span className="font-bold">{fmtFx(taxTotal)}</span></div>
+              {itemDiscTotal > 0n && (
+                <div className="flex items-center justify-between gap-3">
+                  <span className="text-muted-foreground">{t("docform.itemDiscounts")}</span>
+                  <span className="font-bold tabular-nums">\u2212{fmtFx(itemDiscTotal)}</span>
+                </div>
+              )}
+              <div className="flex items-center justify-between gap-3">
+                <span className="text-muted-foreground">Discount (%)</span>
+                <input className="field num !w-24 !py-1 text-[13px]" type="number" min="0" max="100" step="0.01"
+                  placeholder="0" value={discPct} onChange={(e) => onDiscPct(e.target.value)} />
+              </div>
+              <div className="flex items-center justify-between gap-3">
+                <span className="text-muted-foreground">Discount Amount</span>
+                <input className="field num !w-32 !py-1 text-[13px]" type="number" min="0"
+                  step={isForeign ? "any" : "0.01"} placeholder="0.00" value={discountTotal}
+                  onChange={(e) => { setDiscPct(""); setDiscountTotal(e.target.value); }} />
+              </div>
+              <div className="flex items-center justify-between gap-3">
+                <span className="text-muted-foreground">GST Rate</span>
+                <span className="text-xs text-muted-foreground" title={t("docform.gstPerLineHint")}>\u2014</span>
+              </div>
+              <div className="flex items-center justify-between gap-3">
+                <span className="text-muted-foreground">GST</span>
+                <span className="font-bold tabular-nums">{fmtFx(taxTotal)}</span>
+              </div>
               {freightDocTypes && (
-                <div className="flex items-center justify-between gap-4">
+                <div className="flex items-center justify-between gap-3">
                   <span className="text-muted-foreground">{t("docform.freightTotal")}</span>
-                  <input className="field num !w-32 !py-1.5" type="number" min="0" step={isForeign ? "any" : "0.01"} placeholder="0.00" value={freightTotal}
+                  <input className="field num !w-32 !py-1 text-[13px]" type="number" min="0"
+                    step={isForeign ? "any" : "0.01"} placeholder="0.00" value={freightTotal}
                     onChange={(e) => setFreightTotal(e.target.value)} />
                 </div>
               )}
               {isSales && (
-                <div className="flex items-center justify-between rounded-xl bg-success/10 px-3 py-2">
-                  <button
-                    type="button"
-                    onClick={() => setShowProfit((v) => !v)}
-                    className="flex items-center gap-2 text-sm font-bold text-success hover:opacity-80"
-                    title={showProfit ? t("docform.hideProfit") : t("docform.showProfit")}
-                  >
-                    {showProfit ? <EyeOff size={15} /> : <Eye size={15} />}
+                <div className="flex items-center justify-between rounded-lg bg-success/10 px-2.5 py-1.5">
+                  <button type="button" onClick={() => setShowProfit((v) => !v)}
+                    className="flex items-center gap-1.5 text-[13px] font-bold text-success hover:opacity-80"
+                    title={showProfit ? t("docform.hideProfit") : t("docform.showProfit")}>
+                    {showProfit ? <EyeOff size={14} /> : <Eye size={14} />}
                     {t("docform.profit")}
                   </button>
-                  <span className="font-extrabold text-success">
-                    {showProfit ? fmtFx(BigInt(Math.round(invoiceProfit * 100))) : "••••••"}
+                  <span className="text-[13px] font-extrabold text-success tabular-nums">
+                    {showProfit ? fmtFx(BigInt(Math.round(invoiceProfit * 100))) : "\u2022\u2022\u2022\u2022\u2022\u2022"}
                   </span>
                 </div>
               )}
-              <div className="flex justify-between border-t border-border pt-3 text-base">
-                <span className="font-extrabold">{t("docform.total")}</span>
-                <span className="text-xl font-extrabold text-primary">{fmtFx(grand)}</span>
+              <div className="flex items-center justify-between border-t border-border pt-2">
+                <span className="text-sm font-extrabold">Total</span>
+                <span className="text-lg font-extrabold tabular-nums text-primary">{fmtFx(grand)}</span>
               </div>
               {isForeign && fxRateScaled != null && (
                 <div className="space-y-1 border-t border-border/60 pt-2 text-xs text-muted-foreground">
@@ -1523,7 +1624,7 @@ export function DocForm({ mode }: { mode: "SALES" | "PURCHASE" }) {
                   </div>
                   <div className="flex justify-between gap-2">
                     <span>{t("docform.fxPkrApprox")}</span>
-                    <span className="font-bold text-foreground">≈ {fmtMoney(grandPkr ?? 0n)}</span>
+                    <span className="font-bold text-foreground">\u2248 {fmtMoney(grandPkr ?? 0n)}</span>
                   </div>
                 </div>
               )}
@@ -1531,15 +1632,127 @@ export function DocForm({ mode }: { mode: "SALES" | "PURCHASE" }) {
                 <p className="text-xs font-semibold text-warning">{t("docform.errNoFxRate", { code: currencyCode })}</p>
               )}
             </div>
-            <div className="mt-5 flex gap-2">
-              <button type="button" className="btn btn-ghost flex-1 !py-3.5 !text-base" disabled={saving}
-                onClick={(e) => submit(e, { printAfter: true })}>
-                <Printer size={17} /> {t("docform.saveAndPrint")}
-              </button>
-              <button className="btn btn-primary flex-1 !py-3.5 !text-base" disabled={saving}>
-                {saving ? t("docform.saving") : isSales ? bp.saveSale : t("docform.savePurchase")}
-              </button>
+          </div>
+        </SectionCard>
+
+        {/* ══════════ landed extra costs (purchase bills) ══════════ */}
+        {!isSales && docType === "BILL" && (
+          <SectionCard title={t("docform.extraTitle")} defaultOpen={extraCosts.length > 0}>
+            <p className="mb-2 text-xs text-muted-foreground">{t("docform.extraHint")}</p>
+            {extraCosts.length > 0 && (
+              <div className="space-y-2">
+                {extraCosts.map((c) => (
+                  <div key={c.key} className="flex items-center gap-2">
+                    <input className="field flex-1 !py-1.5 text-[13px]" placeholder={t("docform.freight")} value={c.label}
+                      onChange={(e) => updateExtraCost(c.key, { label: e.target.value })} />
+                    <input className="field num !w-28 !py-1.5 text-[13px]" type="number" min="0" step="0.01"
+                      placeholder={t("docform.extraAmountPh")}
+                      value={c.amount} onChange={(e) => updateExtraCost(c.key, { amount: e.target.value })} />
+                    <button type="button" onClick={() => removeExtraCost(c.key)}
+                      className="grid h-8 w-8 shrink-0 place-items-center rounded-lg text-danger hover:bg-danger-soft"
+                      aria-label={t("docform.removeExtra")}>
+                      <Trash2 size={14} />
+                    </button>
+                  </div>
+                ))}
+                <div className="flex flex-wrap items-center gap-3 pt-1">
+                  <label className="flex items-center gap-1.5 text-xs font-semibold">
+                    <input type="radio" name="extraPaidFrom" checked={extraPaidFrom === "CASH"}
+                      onChange={() => setExtraPaidFrom("CASH")} /> {t("docform.paidFrom")}
+                  </label>
+                  {extraPaidFrom === "CASH" && (
+                    <select className="field !w-auto !py-1 text-xs" value={extraAccountId}
+                      onChange={(e) => setExtraAccountId(e.target.value)}>
+                      <option value="">{t("docform.defaultCash")}</option>
+                      {bankAccounts.map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}
+                    </select>
+                  )}
+                  <label className="flex items-center gap-1.5 text-xs font-semibold">
+                    <input type="radio" name="extraPaidFrom" checked={extraPaidFrom === "SUPPLIER"}
+                      onChange={() => setExtraPaidFrom("SUPPLIER")} /> {t("docform.addToSupplierBill")}
+                  </label>
+                </div>
+              </div>
+            )}
+            <button type="button" className="btn btn-ghost mt-2 !px-3 !py-1.5 text-xs" onClick={addExtraCost}>
+              <Plus size={14} /> {t("docform.extraAdd")}
+            </button>
+          </SectionCard>
+        )}
+
+        {/* ══════════ 3 · Add Receipt / Add Payment ══════════ */}
+        {((isSales && docType === "INVOICE") || (!isSales && docType === "BILL")) && (
+          <SectionCard title={isSales ? "Add Receipt" : "Add Payment"}>
+            <div className="overflow-x-auto">
+              <table className="tbl-fa">
+                <thead><tr>
+                  <th>Date</th>
+                  <th>Bank</th>
+                  <th>Mode</th>
+                  <th>Ref. No.</th>
+                  <th className="num">Amount</th>
+                </tr></thead>
+                <tbody>
+                  <tr>
+                    <td>
+                      <input type="date" className="field !w-36 !py-1 text-[13px]" value={rcptDate}
+                        onChange={(e) => setRcptDate(e.target.value)} />
+                    </td>
+                    <td>
+                      <select className="field min-w-40 !py-1 text-[13px]" value={rcptAccountId}
+                        onChange={(e) => setRcptAccountId(e.target.value)}>
+                        <option value="">{t("payform.selectAccount")}</option>
+                        {bankAccounts.map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}
+                      </select>
+                    </td>
+                    <td><span className="text-[13px] font-bold text-muted-foreground">{rcptMode}</span></td>
+                    <td>
+                      <input className="field !py-1 text-[13px]" value={rcptRef} maxLength={60}
+                        onChange={(e) => setRcptRef(e.target.value)} placeholder={t("docform.rcptRefPlaceholder")} />
+                    </td>
+                    <td>
+                      <input type="number" min="0" step="0.01" className="field num !w-32 !py-1 text-[13px]"
+                        placeholder="0.00" value={rcptAmount}
+                        onChange={(e) => setRcptAmount(e.target.value)} />
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
             </div>
+            <p className="mt-1.5 text-[11px] text-muted-foreground">{t("docform.addReceiptHint")}</p>
+          </SectionCard>
+        )}
+
+        {/* ══════════ bottom action bar ══════════ */}
+        <div className="flex flex-wrap items-center justify-between gap-3 pb-4">
+          <button type="button" className="btn btn-ghost !py-2 text-sm" onClick={() => router.back()}>
+            Cancel
+          </button>
+          <div className="flex flex-wrap items-center gap-2">
+            <div className="relative" ref={printRef}>
+              <button type="button" className="btn btn-ghost !py-2 text-sm"
+                onClick={() => setPrintOpen((o) => !o)} aria-expanded={printOpen} aria-haspopup="menu">
+                <Printer size={15} /> Thermal Print <ChevronDown size={14} />
+              </button>
+              {printOpen && (
+                <div role="menu"
+                  className="absolute bottom-full end-0 z-30 mb-1 w-44 overflow-hidden rounded-xl border border-border bg-card py-1 shadow-xl">
+                  <button type="button" role="menuitem"
+                    className="flex w-full items-center gap-2 px-4 py-2 text-start text-[13px] font-semibold hover:bg-muted"
+                    onClick={(e) => { setPrintOpen(false); submit(e, { printAfter: true }); }}>
+                    <Printer size={14} /> Thermal Receipt
+                  </button>
+                </div>
+              )}
+            </div>
+            <button type="button" disabled={saving}
+              className="btn !py-2 text-sm font-bold text-white dark:text-[#052e16] bg-success hover:brightness-105 disabled:opacity-55"
+              onClick={(e) => submit(e, { printAfter: true })}>
+              <Printer size={15} /> Approve and Print
+            </button>
+            <button className="btn btn-primary !py-2 text-sm" disabled={saving}>
+              {saving ? t("docform.saving") : "Approve and Close"}
+            </button>
           </div>
         </div>
       </form>
@@ -1553,3 +1766,4 @@ export function DocForm({ mode }: { mode: "SALES" | "PURCHASE" }) {
     </div>
   );
 }
+
