@@ -83,7 +83,7 @@ export default function PaymentsPage({
   const hasFilter = (!lockedKind && kind !== "") || from !== "" || to !== "";
   // When the kind is locked, the clear button must not reset it.
   const clearFilters = () => { if (!lockedKind) setKind(""); setFrom(""); setTo(""); };
-  const newHref = `/payments/new?kind=${lockedKind ?? "PAYMENT"}`;
+  const newHref = lockedKind === "PAYMENT" ? "/bank/payments/new" : lockedKind === "RECEIPT" ? "/bank/receipts/new" : `/payments/new?kind=${lockedKind ?? "PAYMENT"}`;
 
   async function toggleDetail(id: string) {
     if (expanded === id) { setExpanded(null); return; }

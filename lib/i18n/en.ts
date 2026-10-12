@@ -4570,6 +4570,33 @@ export const en = {
     backupNone: "None yet",
     backupSchedule: "Daily at 02:00 UTC"
   },
+  bankvoucher: {
+    addPaymentTitle: "Add Bank Payments",
+    addReceiptTitle: "Add Bank Receipts",
+    addTransferTitle: "Add Transfers",
+    bank: "Bank",
+    selectBank: "Select bank…",
+    selectNominal: "Select account…",
+    colDate: "Date",
+    colRefNo: "Ref. No.",
+    colMode: "Mode",
+    colNominal: "Nominal Account",
+    colDetails: "Details",
+    colAmount: "Amount",
+    colFromBank: "From Bank",
+    colToBank: "To Bank",
+    total: "Total",
+    addMore: "Add More",
+    rowN: "Row {n}",
+    approveAndClose: "Approve and Close",
+    approveAndPrint: "Approve and Print",
+    approveAndAddAnother: "Approve and Add Another",
+    moreActions: "More actions",
+    errBank: "Please select a bank account.",
+    errRows: "Add at least one row with an account and an amount.",
+    trErrRows: "Add at least one row with both banks and an amount.",
+    errSave: "Could not save. Please try again.",
+  },
 } as const;
 
-export type EnDict = typeof en;
+export type EnDict = typeof en;  
