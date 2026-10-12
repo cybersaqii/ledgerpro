@@ -69,21 +69,22 @@ function PayStatusBadge({ d, t, nowMs }: { d: Doc; t: (k: string, v?: Record<str
 }
 
 /** Green "Add New ▾" split button (Fast Accounts style) with per-mode options. */
-function AddNewSplit({ isSales, t }: {
+function AddNewSplit({ isSales, t, newType }: {
   isSales: boolean;
   t: (k: string) => string;
+  newType?: string;
 }) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
   const options: { label: string; href: string }[] = isSales
     ? [
-        { label: t("docs.addOptInvoice"), href: "/sales/new" },
+        { label: t("docs.addOptInvoice"), href: newType ? `/sales/new?type=${newType}` : "/sales/new" },
         { label: t("docs.addOptCreditNote"), href: "/sales/notes/new" },
         { label: t("docs.addOptBatchInvoices"), href: "/sales/new" },
         { label: t("docs.addOptBulkInvoices"), href: "/sales/new" },
       ]
     : [
-        { label: t("docs.addOptBill"), href: "/purchases/new" },
+        { label: t("docs.addOptBill"), href: newType ? `/purchases/new?type=${newType}` : "/purchases/new" },
         { label: t("docs.addOptCreditNoteP"), href: "/purchases/notes/new" },
         { label: t("docs.addOptBatchBills"), href: "/purchases/new" },
       ];
@@ -316,7 +317,7 @@ export function DocList({ mode, initialDocType, lockedType, titleKey, subtitleKe
                 <Ship size={16} /> {t("landedCost.nav")}
               </Link>
             )}
-            <AddNewSplit isSales={isSales} t={t} />
+            <AddNewSplit isSales={isSales} t={t} newType={initialDocType} />
           </div>
         }
       />

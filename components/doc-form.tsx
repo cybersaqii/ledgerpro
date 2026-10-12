@@ -259,7 +259,7 @@ function CompactField({ label, children, required }: {
   );
 }
 
-export function DocForm({ mode }: { mode: "SALES" | "PURCHASE" }) {
+export function DocForm({ mode, initialType }: { mode: "SALES" | "PURCHASE"; initialType?: string }) {
   const bp = useBusinessProfile();
   const { t } = useLang();
   const router = useRouter();
@@ -271,7 +271,7 @@ export function DocForm({ mode }: { mode: "SALES" | "PURCHASE" }) {
   const [partyQ, setPartyQ] = useState("");
   const [showPartyList, setShowPartyList] = useState(false);
   const [date, setDate] = useState(fmtDateInput());
-  const [dueDate, setDueDate] = useState("");
+  const [dueDate, setDueDate] = useState(fmtDateInput());
   /** Term days: typing here auto-computes the due date from the invoice date. */
   const [termDays, setTermDays] = useState("");
   const [discountTotal, setDiscountTotal] = useState("");
@@ -288,7 +288,7 @@ export function DocForm({ mode }: { mode: "SALES" | "PURCHASE" }) {
   const [whtPct, setWhtPct] = useState("");
   /** Module 2.6: purchase returns deduct stock by default; off = pure-ledger return. */
   const [deductFromInventory, setDeductFromInventory] = useState(true);
-  const [docType, setDocType] = useState(isSales ? "INVOICE" : "BILL");
+  const [docType] = useState(initialType || (isSales ? "INVOICE" : "BILL"));
   const [lines, setLines] = useState<Line[]>([]);
   const [prodQ, setProdQ] = useState("");
   const [prodResults, setProdResults] = useState<Product[]>([]);
@@ -1145,7 +1145,7 @@ export function DocForm({ mode }: { mode: "SALES" | "PURCHASE" }) {
 
         {/* ══════════ 1 · Customer / Supplier Details ══════════ */}
         <SectionCard title={isSales ? "Customer Details" : "Supplier Details"}>
-          <div className="grid gap-x-2 gap-y-2 md:grid-cols-3">
+          <div className="grid gap-x-2 gap-y-2 sm:grid-cols-2 lg:grid-cols-4">
             {/* col 1: party + address */}
             <div className="space-y-2">
               <CompactField label={isSales ? "Customer" : "Supplier"} required>
@@ -1219,35 +1219,16 @@ export function DocForm({ mode }: { mode: "SALES" | "PURCHASE" }) {
               </CompactField>
               <div>
                 <span className="mb-0.5 block text-[11px] font-semibold text-foreground/90">Address</span>
-                <textarea readOnly rows={5} aria-label="Address"
+                <textarea readOnly rows={2} aria-label="Address"
                   className="field !bg-muted/40 !py-1.5 text-[13px]"
                   value={selectedParty?.address ?? ""} placeholder="\u2014" />
               </div>
             </div>
-            {/* col 2: dates + doc no + mobile */}
+            {/* col 2: dates */}
             <div className="space-y-2">
               <CompactField label="Date" required>
                 <input type="date" className="field !py-1.5 text-[13px]" required value={date}
                   onChange={(e) => onDateChange(e.target.value)} />
-              </CompactField>
-<CompactField label={t("docform.typeLabel")}>
-                <select className="field !py-1.5 text-[13px]" value={docType} onChange={(e) => setDocType(e.target.value)}>
-                  {isSales ? (
-                    <>
-                      <option value="INVOICE">{t("docform.optInvoice")}</option>
-                      <option value="RETURN">{t("docform.optSalesReturn")}</option>
-                      <option value="QUOTATION">{t("docform.optQuotation")}</option>
-                      <option value="ORDER">{t("docform.optOrder")}</option>
-                      <option value="CHALLAN">{t("docform.optChallan")}</option>
-                    </>
-                  ) : (
-                    <>
-                      <option value="BILL">{t("docform.optPurchaseBill")}</option>
-                      <option value="RETURN">{t("docform.optPurchaseReturn")}</option>
-                      <option value="ORDER">{t("docform.optOrder")}</option>
-                    </>
-                  )}
-                </select>
               </CompactField>
               <CompactField label="Term Days">
                 <input type="number" min="0" max="3650" className="field !py-1.5 text-[13px]" placeholder="0"
@@ -1257,6 +1238,9 @@ export function DocForm({ mode }: { mode: "SALES" | "PURCHASE" }) {
                 <input type="date" className="field !py-1.5 text-[13px]" value={dueDate}
                   onChange={(e) => { setDueDate(e.target.value); setTermDays(""); }} />
               </CompactField>
+            </div>
+            {/* col 3: doc no + mobile */}
+            <div className="space-y-2">
               <CompactField label="Doc No." required={!isSales && docType === "BILL"}>
                 <input className="field !py-1.5 text-[13px]" value={refNo} maxLength={60}
                   required={!isSales && docType === "BILL"}
@@ -1268,7 +1252,7 @@ export function DocForm({ mode }: { mode: "SALES" | "PURCHASE" }) {
                   value={selectedParty?.phone ?? ""} placeholder="\u2014" />
               </CompactField>
             </div>
-            {/* col 3: credit limit (editable) + balance (clickable -> party ledger) */}
+            {/* col 4: credit limit (editable) + balance (clickable -> party ledger) */}
             <div className="space-y-2">
               <div>
                 <span className="mb-0.5 block text-[11px] font-semibold text-foreground/90">Credit Limit</span>
@@ -1353,7 +1337,7 @@ export function DocForm({ mode }: { mode: "SALES" | "PURCHASE" }) {
           </div>
 
           {lines.length === 0 ? (
-            <div className="rounded-xl border border-dashed border-border px-6 py-8 text-center">
+            <div className="rounded-xl border border-dashed border-border px-6 py-4 text-center">
               <p className="text-[13px] font-semibold">{t("docform.noItems")}</p>
               <p className="mt-1 text-xs text-muted-foreground">{t("docform.noItemsHint")}</p>
               <button type="button" className="btn btn-ghost mt-3 !py-1.5 text-[13px]" onClick={() => addCustomLine()}>
