@@ -17,7 +17,7 @@ import { useBusinessProfile } from "@/components/business-type";
 import { useLang } from "@/components/lang-provider";
 
 type Party = { id: string; name: string; phone: string | null; address?: string | null; creditLimit?: string | null; paymentTerms?: string | null; whtCategory?: string | null; activeTaxPayer?: boolean | null; filerStatus?: string | null; priceListId?: string | null; category?: string | null };
-type Product = { id: string; sku: string; name: string; unit: string; salePrice: string; purchasePrice: string; totalQty: string; minSalePrice?: string | null; isBundle?: boolean };
+type Product = { id: string; sku: string; name: string; unit: string; salePrice: string; purchasePrice: string; wholesalePrice?: string | null; totalQty: string; minSalePrice?: string | null; isBundle?: boolean };
 
 type BatchOpt = { id: string; batchNo: string; expiryDate: string | null; qtyThousandths: string };
 
@@ -45,6 +45,12 @@ type Line = {
   batchId: string;
   /** sales: product cost (purchase price) at time of selection — for profit calc. */
   costPrice: string;
+  /** item code (SKU) for the ITEM CODE column. */
+  sku: string;
+  /** wholesale price for W/S toggle. */
+  wholesalePrice: string;
+  /** rate mode: RETAIL or WS (wholesale). */
+  rateMode: "RETAIL" | "WS";
   /** purchase bill: batch_no for this receipt. */
   batchNo: string;
   /** purchase bill: expiry date for this receipt (YYYY-MM-DD). */
@@ -784,6 +790,9 @@ export function DocForm({ mode, initialType }: { mode: "SALES" | "PURCHASE"; ini
       uoms: [],
       uomPrices: {},
       costPrice: (Number(BigInt(p.purchasePrice)) / 100).toString(),
+      sku: p.sku,
+      wholesalePrice: p.wholesalePrice ? (Number(BigInt(p.wholesalePrice)) / 100).toString() : "",
+      rateMode: "RETAIL",
     }]);
     loadBatches(p.id);
     loadLastRate(p.id);
@@ -823,9 +832,40 @@ export function DocForm({ mode, initialType }: { mode: "SALES" | "PURCHASE"; ini
   function addCustomLine(desc = "") {
     keyRef.current += 1;
     const key = keyRef.current;
-    setLines((ls) => [...ls, { key, productId: "", description: desc, productName: "", unit: "", qty: "1", rate: "", discount: "", taxPct: "", availQty: null, isBundle: false, batchId: "", batchNo: "", expiryDate: "", branchId: "", lineUnit: "", uoms: [], uomPrices: {}, costPrice: "" }]);
+    setLines((ls) => [...ls, { key, productId: "", description: desc, productName: "", unit: "", qty: "1", rate: "", discount: "", taxPct: "", availQty: null, isBundle: false, batchId: "", batchNo: "", expiryDate: "", branchId: "", lineUnit: "", uoms: [], uomPrices: {}, costPrice: "", sku: "", wholesalePrice: "", rateMode: "RETAIL" as const }]);
     flashRow(key);
     setTimeout(() => lineFieldRefs.current.get(key)?.desc?.focus(), 60);
+  }
+
+  /** Toggle W/S (wholesale) vs Retail rate for a line. */
+  function toggleRateMode(key: number) {
+    setLines((ls) => ls.map((l) => {
+      if (l.key !== key) return l;
+      const toWS = l.rateMode !== "WS";
+      const wsPrice = l.wholesalePrice;
+      // fall back to current rate if no wholesale price set
+      const newRate = toWS && wsPrice ? wsPrice : l.rate;
+      // when switching back to retail, restore from product cache
+      let retailRate = l.rate;
+      const cached = productCache.current.get(l.productId);
+      if (!toWS && cached) {
+        const price = isSales ? cached.salePrice : cached.purchasePrice;
+        try { retailRate = (Number(BigInt(price)) / 100).toString(); } catch { /* keep */ }
+      }
+      return { ...l, rateMode: toWS ? "WS" as const : "RETAIL" as const, rate: toWS ? newRate : retailRate };
+    }));
+  }
+
+  /** Step quantity up/down by 1. */
+  function stepQty(key: number, dir: 1 | -1) {
+    setLines((ls) => ls.map((l) => {
+      if (l.key !== key) return l;
+      const cur = parseFloat(l.qty || "0") || 0;
+      const next = Math.max(0, cur + dir);
+      // keep clean integers when possible
+      const str = Number.isInteger(next) ? String(next) : next.toFixed(3).replace(/0+$/, "").replace(/\.$/, "");
+      return { ...l, qty: str };
+    }));
   }
 
   function updateLine(key: number, patch: Partial<Line>) {
@@ -1280,14 +1320,15 @@ export function DocForm({ mode, initialType }: { mode: "SALES" | "PURCHASE"; ini
 
         {/* ══════════ 2 · Products Details ══════════ */}
         <SectionCard title="Products Details">
-          <div className="mb-3">
-<div className="relative" ref={prodBoxRef}>
+          <div className="mb-2 flex flex-wrap items-center gap-2 rounded-lg border border-border bg-muted/40 px-3 py-2">
+            <span className="text-[11px] font-extrabold uppercase tracking-wide text-muted-foreground">{t("docform.addProductsTitle")}</span>
+            <div className="relative min-w-0 flex-1" ref={prodBoxRef}>
               <div className="relative">
-                <Search size={16} className="absolute start-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
+                <Search size={15} className="absolute start-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
                 <input
                   ref={searchInputRef}
-                  className="field !ps-9 sm:w-72"
-                  placeholder={t("docform.searchProduct", { product: bp.productOne.toLowerCase() })}
+                  className="field !ps-9 !py-1.5 text-[13px]"
+                  placeholder={t("docform.searchScanPlaceholder")}
                   value={prodQ}
                   onChange={(e) => { setProdQ(e.target.value); setShowProdList(true); setActiveIdx(-1); }}
                   onFocus={() => setShowProdList(true)}
@@ -1299,7 +1340,6 @@ export function DocForm({ mode, initialType }: { mode: "SALES" | "PURCHASE"; ini
                   autoComplete="off"
                 />
               </div>
-              <p className="mt-1 hidden text-[11px] text-muted-foreground sm:block">{t("docform.searchKbdHint")}</p>
               {showProdList && (
                 <ul id="docform-product-listbox" role="listbox" className="absolute z-20 mt-1 max-h-64 w-full overflow-y-auto rounded-xl border border-border bg-card py-1 shadow-xl sm:w-80">
                   {prodResults.map((p, i) => (
@@ -1309,11 +1349,14 @@ export function DocForm({ mode, initialType }: { mode: "SALES" | "PURCHASE"; ini
                         className={`flex w-full items-center justify-between px-4 py-2.5 text-start ${i === activeIdx ? "bg-muted" : "hover:bg-muted"}`}
                         onMouseEnter={() => setActiveIdx(i)}
                         onClick={() => addLine(p, { focusQty: true })}>
-                        <span>
-                          <span className="block text-sm font-bold">{p.name}</span>
-                          <span className="block text-xs text-muted-foreground">{p.sku} · {fmtMoney(isSales ? p.salePrice : p.purchasePrice)}</span>
+                        <span className="min-w-0 flex-1">
+                          <span className="block truncate text-sm font-bold">{p.name}</span>
+                          <span className="block text-xs text-muted-foreground">{p.sku} · {t("docform.stockQty", { qty: (Number(BigInt(p.totalQty)) / 1000).toLocaleString() })} {p.unit}</span>
                         </span>
-                        <Plus size={16} className="text-primary" />
+                        <span className="shrink-0 text-end">
+                          <span className="block text-[11px] text-muted-foreground">{t("docform.buyPrice", { amt: fmtMoney(p.purchasePrice) })}</span>
+                          <span className="block text-sm font-extrabold">{fmtMoney(p.salePrice)}</span>
+                        </span>
                       </button>
                     </li>
                   ))}
@@ -1334,6 +1377,17 @@ export function DocForm({ mode, initialType }: { mode: "SALES" | "PURCHASE"; ini
                 </ul>
               )}
             </div>
+            <span className="hidden items-center gap-1 text-[11px] font-semibold text-emerald-600 md:inline-flex">
+              <span className="inline-block h-2 w-2 rounded-full bg-emerald-500" /> {t("docform.scannerActive")}
+            </span>
+            <button type="button" onClick={() => router.push("/products/new")}
+              className="btn btn-ghost !py-1.5 text-xs font-bold">
+              <Plus size={14} /> {t("docform.newItem")}
+            </button>
+            <button type="button" onClick={() => addCustomLine()}
+              className="btn btn-ghost !py-1.5 text-xs font-bold">
+              <Plus size={14} /> {t("docform.nonStockItem")}
+            </button>
           </div>
 
           {lines.length === 0 ? (
@@ -1350,16 +1404,16 @@ export function DocForm({ mode, initialType }: { mode: "SALES" | "PURCHASE"; ini
               <div className="hidden overflow-x-auto sm:block">
                 <table className="tbl-fa">
                   <thead><tr>
-                    <th>Product / Services</th>
-                    <th>Description</th>
-                    <th>Unit</th>
-                    <th className="num">Qty</th>
-                    <th className="num">Rate</th>
-                    <th className="num">Disc</th>
-                    <th className="num">Tax</th>
-                    <th className="num">Amount</th>
+                    <th className="!px-2">#</th>
+                    <th>{t("docform.colItemCode")}</th>
+                    <th>{t("docform.colItemName")}</th>
+                    <th className="num">{t("docform.colPurchasePrice")}</th>
+                    <th className="num">{t("docform.colRate")}</th>
+                    <th className="num">{t("docform.colQty")}</th>
+                    <th className="num">{t("docform.colSalePrice")}</th>
+                    <th className="num">{t("docform.colDisc")}</th>
+                    <th className="num">{t("docform.colLineTotal")}</th>
                     <th className="!px-1"></th>
-                    <th>Last Rate</th>
                   </tr></thead>
                   <tbody>
                     {lines.map((l, idx) => {
@@ -1367,28 +1421,40 @@ export function DocForm({ mode, initialType }: { mode: "SALES" | "PURCHASE"; ini
                       const prodName = l.productId ? (l.productName || l.description) : t("docform.customLine");
                       return (
                         <tr key={l.key} className={flashKey === l.key ? "row-flash" : ""}>
-                          <td className="min-w-32">
+                          <td className="!px-2 text-[13px] font-bold text-muted-foreground">{idx + 1}</td>
+                          <td className="whitespace-nowrap text-[12px] font-semibold text-muted-foreground">{l.sku || "—"}</td>
+                          <td className="min-w-40">
                             <span className="block text-[13px] font-semibold leading-tight">{prodName}</span>
                             {l.availQty !== null && (
                               <span className="block text-[11px] text-muted-foreground">
                                 {t("docform.inStock", { qty: (Number(BigInt(l.availQty)) / 1000).toLocaleString(), unit: l.unit })}
                               </span>
                             )}
-                          </td>
-                          <td className="min-w-40">
-                            <input
-                              ref={setRowRef(l.key, "desc")}
-                              onKeyDown={(e) => rowKeyDown(e, l.key, "desc")}
-                              className="field !border-transparent !bg-transparent !px-1 !py-1 text-[13px] font-medium hover:!border-border focus:!border-primary focus:!bg-card"
-                              placeholder={t("docform.itemPlaceholder")} value={l.description}
-                              onChange={(e) => updateLine(l.key, { description: e.target.value })} />
                             <BatchControls line={l} isSales={isSales} docType={docType} batches={batchCache[l.productId]} t={t} onChange={(patch) => updateLine(l.key, patch)} />
                             <LocationControls line={l} branches={branches} t={t} onChange={(patch) => updateLine(l.key, patch)} />
                           </td>
-                          <td><UnitPicker line={l} t={t} onUnit={(u) => changeLineUnit(l.key, u)} /></td>
-                          <td><input ref={setRowRef(l.key, "qty")} onKeyDown={(e) => rowKeyDown(e, l.key, "qty")}
-                            className="field num !w-20 !px-1 !py-1 text-[13px]" type="number" min="0" step="0.001" value={l.qty}
-                            onChange={(e) => updateLine(l.key, { qty: e.target.value })} /></td>
+                          <td className="num whitespace-nowrap text-[13px] tabular-nums text-muted-foreground">{l.costPrice ? fmtMoney(BigInt(Math.round(parseFloat(l.costPrice) * 100))) : "—"}</td>
+                          <td>
+                            <div className="flex overflow-hidden rounded-lg border border-border text-[11px] font-bold">
+                              <button type="button" onClick={() => l.rateMode !== "WS" && toggleRateMode(l.key)}
+                                className={`px-2 py-1 ${l.rateMode === "WS" ? "bg-primary text-white" : "text-muted-foreground hover:bg-muted"}`}
+                                title={t("docform.wholesale")}>W/S</button>
+                              <button type="button" onClick={() => l.rateMode !== "RETAIL" && toggleRateMode(l.key)}
+                                className={`px-2 py-1 ${l.rateMode === "RETAIL" ? "bg-foreground text-background" : "text-muted-foreground hover:bg-muted"}`}
+                                title={t("docform.retail")}>{t("docform.retailShort")}</button>
+                            </div>
+                          </td>
+                          <td>
+                            <div className="flex items-center gap-1">
+                              <button type="button" onClick={() => stepQty(l.key, -1)}
+                                className="grid h-7 w-7 place-items-center rounded-lg border border-border text-sm font-bold text-muted-foreground hover:bg-muted" aria-label="-">−</button>
+                              <input ref={setRowRef(l.key, "qty")} onKeyDown={(e) => rowKeyDown(e, l.key, "qty")}
+                                className="field num !w-14 !px-1 !py-1 text-center text-[13px]" type="number" min="0" step="0.001" value={l.qty}
+                                onChange={(e) => updateLine(l.key, { qty: e.target.value })} />
+                              <button type="button" onClick={() => stepQty(l.key, 1)}
+                                className="grid h-7 w-7 place-items-center rounded-lg border border-border text-sm font-bold text-muted-foreground hover:bg-muted" aria-label="+">+</button>
+                            </div>
+                          </td>
                           <td><input ref={setRowRef(l.key, "rate")} onKeyDown={(e) => rowKeyDown(e, l.key, "rate")}
                             className="field num !w-24 !px-1 !py-1 text-[13px]" type="number" min="0" step={isForeign ? "any" : "0.01"} placeholder="0.00" value={l.rate}
                             onChange={(e) => updateLine(l.key, { rate: e.target.value })} /></td>
@@ -1400,10 +1466,7 @@ export function DocForm({ mode, initialType }: { mode: "SALES" | "PURCHASE"; ini
                                 {t("pricing.matrixBadge", { pct: String(matrixBps[l.productId]! / 100) })}
                               </span>
                             )}</td>
-                          <td><input ref={setRowRef(l.key, "tax")} onKeyDown={(e) => rowKeyDown(e, l.key, "tax")}
-                            className="field num !w-14 !px-1 !py-1 text-[13px]" type="number" min="0" max="100" step="0.01" placeholder="0" value={l.taxPct}
-                            aria-label={t("docform.colTax")}
-                            onChange={(e) => updateLine(l.key, { taxPct: e.target.value })} /></td>
+
                           <td className="num whitespace-nowrap text-[13px] font-extrabold">
                             {fmtFx(c.total)}
                             {c.tax > 0n && (
@@ -1417,17 +1480,7 @@ export function DocForm({ mode, initialType }: { mode: "SALES" | "PURCHASE"; ini
                               <Trash2 size={14} />
                             </button>
                           </td>
-                          <td className="text-center">
-                            {l.productId && lastRates[l.productId] != null ? (
-                              <span className="inline-flex flex-col items-center text-muted-foreground"
-                                title={t("docform.lastRate", { amt: lastRateDisplay(l.productId) })}>
-                                <Eye size={14} />
-                                <span className="whitespace-nowrap text-[10px] tabular-nums">{lastRateDisplay(l.productId)}</span>
-                              </span>
-                            ) : (
-                              <span className="text-muted-foreground/30"><Eye size={14} /></span>
-                            )}
-                          </td>
+
                         </tr>
                       );
                     })}
