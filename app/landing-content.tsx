@@ -87,7 +87,7 @@ export default function LandingContent() {
             <a href="#how" className="transition hover:text-white">{L("navHow")}</a>
             <a href="#pricing" className="transition hover:text-white">{L("navPricing")}</a>
             <a href="#faq" className="transition hover:text-white">{L("navFaq")}</a>
-            <Link href="/about" className="transition hover:text-white">{L("about.title")}</Link>
+            <Link href="/about" className="transition hover:text-white">{t("about.title")}</Link>
           </nav>
           <div className="flex items-center gap-1 sm:gap-2">
             <LangToggle />
@@ -561,13 +561,13 @@ export default function LandingContent() {
               {footLinks.map(([lk, h]) => (
                 <li key={h}><Link href={h} className="text-white/75 transition hover:text-white">{L(lk)}</Link></li>
               ))}
-              <li><Link href="/about" className="text-white/75 transition hover:text-white">{L("about.title")}</Link></li>
+              <li><Link href="/about" className="text-white/75 transition hover:text-white">{t("about.title")}</Link></li>
             </ul>
           </div>
         </div>
         <div className="relative border-t border-white/10">
           <div className="mx-auto flex max-w-[1200px] flex-col items-center justify-between gap-2 px-4 py-5 text-xs text-white/70 sm:flex-row sm:px-8">
-            <p>© 2026 {b}. {L("footRights")} <span className="text-white/40">·</span> <Link href="/about" className="font-semibold text-white/80 transition hover:text-white">{L("footBuiltBy")}</Link></p>
+            <p>© 2026 {b}. {L("footRights")} <span className="text-white/40">·</span> <Link href="/about" className="font-semibold text-white/80 transition hover:text-white">{t("footBuiltBy")}</Link></p>
             <p className="flex items-center gap-4">
               <Link href="/terms" className="transition hover:text-white">{L("footTerms")}</Link>
               <Link href="/privacy" className="transition hover:text-white">{L("footPrivacy")}</Link>
