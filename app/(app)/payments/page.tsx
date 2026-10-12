@@ -1,15 +1,15 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useState, Fragment } from "react";
-import { Plus, CalendarDays, Wallet, ArrowLeftRight, Landmark, HandCoins, FileSpreadsheet } from "lucide-react";
+import { useCallback, useEffect, useRef, useState, Fragment } from "react";
+import { Plus, CalendarDays, Wallet, ArrowLeftRight, Landmark, HandCoins, FileSpreadsheet, ChevronDown } from "lucide-react";
 import { PageHeader, EmptyState, FilterBar, SummaryChips, Pagination, SortableTh, useSort} from "@/components/ui";
 import { api, fmtMoney, fmtDate, toBig } from "@/lib/format";
 import { useLang } from "@/components/lang-provider";
 
 type Pay = {
   id: string; kind: string; date: number; amount: string; method: string;
-  reference: string | null; partyName: string | null; bankName: string | null;
+  reference: string | null; partyName: string | null; partyId: string | null; bankName: string | null;
   docNo: string | null;
 };
 
@@ -24,7 +24,64 @@ type PayDetail = {
   partyName: string | null; bankName: string | null; allocations: AllocRow[];
 };
 
-const PER_PAGE = 20;
+const PER_PAGE_DEFAULT = 25;
+const PER_PAGE_OPTIONS = [10, 25, 50, 100, 200, 300, 400, 500];
+
+/** Green "Add New ▾" split button for locked receipt/payment pages (Fast Accounts style). */
+function PayAddNewSplit({ lockedKind, t }: {
+  lockedKind: "PAYMENT" | "RECEIPT";
+  t: (k: string) => string;
+}) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+  // FA labels: Receipts (SR), Payment (SCP) on the receipts page;
+  // Payments (VP), Receipt (VCR) on the payments page. Return types omitted (not supported).
+  const options: { label: string; href: string }[] = lockedKind === "RECEIPT"
+    ? [
+        { label: t("payments.addOptReceipt"), href: "/bank/receipts/new" },
+        { label: t("payments.addOptPayment"), href: "/bank/payments/new" },
+      ]
+    : [
+        { label: t("payments.addOptPayPayment"), href: "/bank/payments/new" },
+        { label: t("payments.addOptPayReceipt"), href: "/bank/receipts/new" },
+      ];
+  useEffect(() => {
+    if (!open) return;
+    const fn = (e: MouseEvent) => { if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false); };
+    document.addEventListener("mousedown", fn);
+    return () => document.removeEventListener("mousedown", fn);
+  }, [open ]);
+  return (
+    <div className="relative" ref={ref}>
+      <div className="flex">
+        <Link href={options[0].href} className="btn btn-primary !rounded-e-none text-sm">
+          <Plus size={16} /> {t("common.addNew")}
+        </Link>
+        <button
+          type="button"
+          onClick={() => setOpen((o) => !o)}
+          aria-expanded={open}
+          aria-haspopup="menu"
+          aria-label={t("docs.addNewOptions")}
+          className="btn btn-primary !rounded-s-none !px-2 text-sm border-s border-white/25"
+        >
+          <ChevronDown size={16} className={`transition-transform ${open ? "rotate-180" : ""}`} />
+        </button>
+      </div>
+      {open && (
+        <div role="menu" className="modal-pop absolute end-0 z-40 mt-1.5 w-52 overflow-hidden rounded-xl border border-border bg-card p-1 shadow-xl">
+          {options.map((o) => (
+            <Link key={o.label} href={o.href} role="menuitem"
+              onClick={() => setOpen(false)}
+              className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-semibold transition hover:bg-muted">
+              {o.label}
+            </Link>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
 
 export default function PaymentsPage({
   lockedKind,
@@ -40,6 +97,8 @@ export default function PaymentsPage({
   const [from, setFrom] = useState("");
   const [to, setTo] = useState("");
   const [page, setPage] = useState(1);
+  const [perPage, setPerPage] = useState(PER_PAGE_DEFAULT);
+  const [selected, setSelected] = useState<Set<string>>(new Set());
   const [rows, setRows] = useState<Pay[]>([]);
   const [sort, onSort, sortedRows] = useSort(rows, (p, key) => {
     switch (key) {
@@ -61,7 +120,7 @@ export default function PaymentsPage({
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const params = new URLSearchParams({ page: String(page), perPage: String(PER_PAGE) });
+      const params = new URLSearchParams({ page: String(page), perPage: String(perPage) });
       if (kind) params.set("kind", kind);
       if (from) params.set("from", from);
       if (to) params.set("to", to);
@@ -73,12 +132,20 @@ export default function PaymentsPage({
       setSumR(String(d.sumReceipt ?? "0"));
       setSumP(String(d.sumPayment ?? "0"));
     } catch { setRows([]); } finally { setLoading(false); }
-  }, [kind, from, to, page]);
+  }, [kind, from, to, page, perPage]);
 
   // eslint-disable-next-line react-hooks/set-state-in-effect -- data fetch on filter/mount change
   useEffect(() => { load(); }, [load]);
   // eslint-disable-next-line react-hooks/set-state-in-effect -- reset to first page when filters change
-  useEffect(() => { setPage(1); }, [kind, from, to]);
+  useEffect(() => { setPage(1); }, [kind, from, to, perPage]);
+  // eslint-disable-next-line react-hooks/set-state-in-effect -- selection belongs to the old page
+  useEffect(() => { setSelected(new Set()); }, [page, perPage, kind, from, to]);
+
+  const toggleSelect = (id: string) =>
+    setSelected((s) => { const n = new Set(s); if (n.has(id)) n.delete(id); else n.add(id); return n; });
+  const allSelected = sortedRows.length > 0 && sortedRows.every((p) => selected.has(p.id));
+  const toggleSelectAll = () =>
+    setSelected(allSelected ? new Set() : new Set(sortedRows.map((p) => p.id)));
 
   const hasFilter = (!lockedKind && kind !== "") || from !== "" || to !== "";
   // When the kind is locked, the clear button must not reset it.
@@ -105,7 +172,7 @@ export default function PaymentsPage({
         icon={<Wallet size={20} />}
         actions={
           lockedKind ? (
-            <Link href={newHref} className="btn btn-primary text-sm"><Plus size={16} /> {t("common.addNew")}</Link>
+            <PayAddNewSplit lockedKind={lockedKind} t={t} />
           ) : (
           <>
             <Link href="/payments/transfers" className="btn btn-ghost text-sm"><ArrowLeftRight size={16} /> {t("payments.transfers")}</Link>
@@ -143,6 +210,17 @@ export default function PaymentsPage({
             {t("payments.clearFilters")}
           </button>
         )}
+        <label className="ms-auto flex items-center gap-1.5 text-xs font-semibold text-muted-foreground">
+          {t("docs.showEntries")}
+          <select
+            value={perPage}
+            onChange={(e) => setPerPage(Number(e.target.value))}
+            className="field !w-auto !py-1.5 !px-2 text-xs font-bold"
+            aria-label={t("docs.showEntries")}
+          >
+            {PER_PAGE_OPTIONS.map((n) => <option key={n} value={n}>{n}</option>)}
+          </select>
+        </label>
       </FilterBar>
 
       {!loading && (
@@ -168,41 +246,73 @@ export default function PaymentsPage({
             action={!hasFilter ? <Link href={newHref} className="btn btn-primary text-sm"><Plus size={16} /> {t("payments.recordNow")}</Link> : undefined} />
         ) : (
           <div className="overflow-x-auto">
-            <table className="tbl">
+            <table className="tbl tbl-fa">
               <thead><tr>
-                <SortableTh label={t("payments.colVoucher")} sortKey="docNo" sort={sort} onSort={onSort} />
-                <th>{t("payments.colType")}</th>
+                <th className="w-8">
+                  <input
+                    type="checkbox"
+                    checked={allSelected}
+                    onChange={toggleSelectAll}
+                    aria-label={t("docs.selectAll")}
+                    className="h-4 w-4 accent-primary"
+                  />
+                </th>
+                <SortableTh label={t("payments.colVoucher")} sortKey="docNo" sort={sort} onSort={onSort} className="whitespace-nowrap" />
+                <SortableTh label={t("payments.colDate")} sortKey="date" sort={sort} onSort={onSort} className="whitespace-nowrap" />
                 <SortableTh label={t("payments.colParty")} sortKey="party" sort={sort} onSort={onSort} />
-                <th>{t("payments.colAccount")}</th>
-                <SortableTh label={t("payments.colDate")} sortKey="date" sort={sort} onSort={onSort} />
-                <th>{t("payments.colMethod")}</th>
+                <th className="whitespace-nowrap">{t("payments.colRefNo")}</th>
+                <th>{t("payments.colType")}</th>
                 <SortableTh label={t("payments.colAmount")} sortKey="amount" sort={sort} onSort={onSort} className="num" />
-                <th />
+                <th className="text-end">{t("docs.colAction")}</th>
               </tr></thead>
               <tbody>
                 {sortedRows.map((p) => (
                   <Fragment key={p.id}>
                     <tr>
+                      <td className="w-8">
+                        <input
+                          type="checkbox"
+                          checked={selected.has(p.id)}
+                          onChange={() => toggleSelect(p.id)}
+                          aria-label={p.docNo ?? p.id}
+                          className="h-4 w-4 accent-primary"
+                        />
+                      </td>
                       <td className="whitespace-nowrap">
                         <Link href={`/payments/${p.id}`} className="font-bold text-primary hover:underline">
                           {p.docNo ?? "—"}
                         </Link>
                       </td>
+                      <td className="whitespace-nowrap text-muted-foreground">{fmtDate(p.date)}</td>
+                      <td className="max-w-44 truncate font-bold" title={p.partyName ?? ""}>
+                        {p.partyId ? (
+                          <Link href={`/reports/party-ledger?party=${p.partyId}`} className="text-primary hover:underline">
+                            {p.partyName ?? "—"}
+                          </Link>
+                        ) : (p.partyName ?? "—")}
+                      </td>
+                      <td className="whitespace-nowrap text-muted-foreground">{p.reference ?? "—"}</td>
                       <td>
-                        <span className={`badge ${p.kind === "RECEIPT" ? "bg-primary-soft text-primary" : "bg-accent-soft text-accent"}`}>
+                        <span className={`badge whitespace-nowrap ${p.kind === "RECEIPT" ? "bg-primary-soft text-primary" : "bg-accent-soft text-accent"}`}>
                           {p.kind === "RECEIPT" ? t("payments.typeReceived") : t("payments.typePaid")}
                         </span>
                       </td>
-                      <td className="font-bold">{p.partyName ?? "—"}</td>
-                      <td className="text-muted-foreground">{p.bankName ?? "—"}</td>
-                      <td className="whitespace-nowrap text-muted-foreground">{fmtDate(p.date)}</td>
-                      <td className="text-muted-foreground">{p.method}{p.reference ? ` · ${p.reference}` : ""}</td>
-                      <td className={`num font-extrabold ${p.kind === "RECEIPT" ? "text-primary" : "text-accent"}`}>{fmtMoney(p.amount)}</td>
+                      <td className={`num whitespace-nowrap font-extrabold ${p.kind === "RECEIPT" ? "text-primary" : "text-accent"}`}>{fmtMoney(p.amount)}</td>
                       <td className="text-end">
-                        <button className="btn btn-ghost !px-2.5 !py-1.5 text-xs font-bold text-primary"
-                          onClick={() => toggleDetail(p.id)}>
-                          {expanded === p.id ? t("payments.hideAllocations") : t("payments.viewAllocations")}
-                        </button>
+                        <div className="flex items-center justify-end gap-0.5">
+                          <Link href={`/payments/${p.id}`} className="font-bold text-primary hover:underline text-[0.82rem] whitespace-nowrap">
+                            {t("payments.viewDetail")}
+                          </Link>
+                          <button
+                            type="button"
+                            onClick={() => toggleDetail(p.id)}
+                            aria-expanded={expanded === p.id}
+                            aria-label={t("payments.viewAllocations")}
+                            className="grid h-7 w-7 place-items-center rounded-lg text-muted-foreground hover:bg-muted hover:text-foreground"
+                          >
+                            <ChevronDown size={14} className={`transition-transform ${expanded === p.id ? "rotate-180" : ""}`} />
+                          </button>
+                        </div>
                       </td>
                     </tr>
                     {expanded === p.id && (
@@ -228,7 +338,7 @@ export default function PaymentsPage({
         )}
       </div>
 
-      <Pagination page={page} perPage={PER_PAGE} total={total} onPage={setPage} />
+      <Pagination page={page} perPage={perPage} total={total} onPage={setPage} />
     </div>
   );
 }
