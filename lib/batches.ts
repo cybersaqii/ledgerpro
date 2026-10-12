@@ -12,6 +12,8 @@ export type BatchRow = {
   expiryDate: string | null;
   /** Remaining quantity, milli-units (bigint). */
   qtyThousandths: bigint;
+  /** Purchase rate per base unit (paisa, bigint) — NULL when unknown. */
+  unitCost?: bigint | null;
 };
 
 /** Validate an expiry input. Returns normalized YYYY-MM-DD or null (blank).
@@ -74,7 +76,8 @@ export async function addBatchStock(
   productId: string,
   batchNoRaw: string,
   expiryRaw: string | null | undefined,
-  qtyMilli: bigint
+  qtyMilli: bigint,
+  unitCostPaisa?: bigint | null
 ): Promise<string | null> {
   if (qtyMilli <= 0n) return null;
   const batchNo = batchNoRaw.trim().slice(0, 40);
@@ -98,6 +101,18 @@ export async function addBatchStock(
       .set({
         qtyThousandths: existing.qtyThousandths + qtyMilli,
         ...(existing.expiryDate == null && expiryDate != null ? { expiryDate } : {}),
+        // Keep unit_cost as weighted average when topping up with a different rate
+        ...(unitCostPaisa != null ? {
+          unitCost: (() => {
+            try {
+              const oldQty = existing.qtyThousandths as unknown as bigint;
+              const oldCost = (existing.unitCost as unknown as bigint | null) ?? unitCostPaisa;
+              const totalQty = oldQty + qtyMilli;
+              if (totalQty <= 0n) return unitCostPaisa;
+              return (oldCost * oldQty + unitCostPaisa * qtyMilli + totalQty / 2n) / totalQty;
+            } catch { return unitCostPaisa; }
+          })(),
+        } : {}),
       })
       .where(eq(productBatches.id, existing.id));
     return existing.id;
@@ -110,6 +125,7 @@ export async function addBatchStock(
       batchNo,
       expiryDate,
       qtyThousandths: qtyMilli,
+      unitCost: unitCostPaisa ?? null,
     });
     return batchId;
   }
@@ -345,6 +361,7 @@ export async function getProductBatches(
       batchNo: productBatches.batchNo,
       expiryDate: productBatches.expiryDate,
       qtyThousandths: productBatches.qtyThousandths,
+      unitCost: productBatches.unitCost,
     })
     .from(productBatches)
     .where(and(eq(productBatches.companyId, companyId), eq(productBatches.productId, productId)));

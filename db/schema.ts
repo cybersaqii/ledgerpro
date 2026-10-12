@@ -323,6 +323,7 @@ export const productBatches = sqliteTable(
     batchNo: text("batch_no").notNull(),
     expiryDate: text("expiry_date"), // YYYY-MM-DD or NULL
     qtyThousandths: qty("qty_thousandths"), // remaining, milli-units
+    unitCost: numeric("unit_cost", { mode: "bigint" }), // purchase rate per base unit (paisa) — for multi-price selling, NULL = unknown
     createdAt: createdAt(),
   },
   (t) => [

@@ -621,13 +621,18 @@ export async function postPurchaseDoc(tx: DbTx, input: PostPurchaseInput): Promi
   //   lineage (pre-migration docs) fall back to an explicitly chosen batch.
   // GRN-sourced bills and pure-ledger returns (Module 2) never touch batches:
   // the GRN already created them, and a ledger-only return moves no stock.
-  for (const i of input.items) {
+  for (let bIdx = 0; bIdx < input.items.length; bIdx++) {
+    const i = input.items[bIdx]!;
+    const idx = bIdx;
     if (!i.productId || !i.trackStock) continue;
     if (fromGrn) continue;
     if (input.docType === "RETURN" && !deductStock) continue;
     if (input.docType === "BILL") {
       if (i.batchNo && i.batchNo.trim()) {
-        const newBatchId = await addBatchStock(tx, input.companyId, i.productId, i.batchNo, i.expiryDate ?? null, i.qtyMilli);
+        const net = i.taxablePaisa + (landedByItem.get(idx) ?? 0n);
+        const qtyBase = i.qtyMilli / 1000n;
+        const batchUnitCost = qtyBase > 0n ? (net + qtyBase / 2n) / qtyBase : 0n;
+        const newBatchId = await addBatchStock(tx, input.companyId, i.productId, i.batchNo, i.expiryDate ?? null, i.qtyMilli, batchUnitCost);
         if (newBatchId) {
           await recordBatchUsage(tx, input.companyId, input.docId, i.productId, newBatchId, i.qtyMilli);
         }

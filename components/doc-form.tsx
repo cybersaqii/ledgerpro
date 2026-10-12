@@ -20,7 +20,7 @@ import { NumericDateInput } from "@/components/numeric-date-input";
 type Party = { id: string; name: string; phone: string | null; address?: string | null; creditLimit?: string | null; paymentTerms?: string | null; whtCategory?: string | null; activeTaxPayer?: boolean | null; filerStatus?: string | null; priceListId?: string | null; category?: string | null };
 type Product = { id: string; sku: string; name: string; unit: string; salePrice: string; purchasePrice: string; wholesalePrice?: string | null; totalQty: string; minSalePrice?: string | null; isBundle?: boolean };
 
-type BatchOpt = { id: string; batchNo: string; expiryDate: string | null; qtyThousandths: string };
+type BatchOpt = { id: string; batchNo: string; expiryDate: string | null; qtyThousandths: string; unitCost?: string | null };
 
 /** Module 10: currency row from GET /api/currencies (minorUnits = decimal scale). */
 type FxCurrency = {
@@ -115,11 +115,14 @@ function BatchControls({ line, isSales, docType, batches, t, onChange }: {
   }
 
   if (batches === undefined || batches.length === 0) return null;
-  const batchOption = (b: BatchOpt) => (
-    <option key={b.id} value={b.id}>
-      {b.batchNo} · {fmtQty(b.qtyThousandths, line.unit)}{b.expiryDate ? ` · ${fmtDate(b.expiryDate)}` : ""}
-    </option>
-  );
+  const batchOption = (b: BatchOpt) => {
+    const cost = b.unitCost ? fmtMoney(b.unitCost) : null;
+    return (
+      <option key={b.id} value={b.id}>
+        {b.batchNo} · {fmtQty(b.qtyThousandths, line.unit)}{cost ? ` · Buy ${cost}` : ""}{b.expiryDate ? ` · ${fmtDate(b.expiryDate)}` : ""}
+      </option>
+    );
+  };
 
   if (isSales && docType === "RETURN") {
     // restoring: the batch must be chosen explicitly
@@ -138,20 +141,21 @@ function BatchControls({ line, isSales, docType, batches, t, onChange }: {
     );
   }
 
-  // INVOICE + purchase RETURN: deduct, FIFO default
+  // INVOICE + purchase RETURN: deduct, FIFO default — user picks the batch (multi-price)
   const avail = batches.filter((b) => { try { return BigInt(b.qtyThousandths) > 0n; } catch { return false; } });
   if (avail.length === 0) return null;
   return (
-    <div className="mt-1">
+    <div className="mt-1 flex items-center gap-1.5">
+      <span className="shrink-0 text-[11px] font-bold text-primary">{t("batches.sellFrom")}</span>
       <select
-        className="field !w-auto !max-w-full !py-1 !text-xs"
-        value={line.batchId}
+        className={`field !w-auto !max-w-full !py-1 !text-xs font-semibold ${line.batchId ? "!border-primary" : "!border-warning"}`}
+        value={line.batchId || "__AUTO__"}
         aria-label={t("batches.selectBatch")}
-        title={t("batches.autoFifoHint")}
-        onChange={(e) => onChange({ batchId: e.target.value })}
+        title={t("batches.sellFromHint")}
+        onChange={(e) => onChange({ batchId: e.target.value === "__AUTO__" ? "" : e.target.value })}
       >
-        <option value="">{t("batches.autoFifo")}</option>
         {avail.map(batchOption)}
+        <option value="__AUTO__">{t("batches.autoFifo")}</option>
       </select>
     </div>
   );
@@ -1418,8 +1422,18 @@ export function DocForm({ mode, initialType }: { mode: "SALES" | "PURCHASE"; ini
                     {lines.map((l, idx) => {
                       const c = computed[idx];
                       const prodName = l.productId ? (l.productName || l.description) : t("docform.customLine");
+                      // Red alert: sale rate below purchase cost (batch cost or line cost)
+                      const batchCost = (() => {
+                        if (!isSales || !l.batchId) return null;
+                        const b = (batchCache[l.productId] ?? []).find((x) => x.id === l.batchId);
+                        return b?.unitCost ? parseFloat((Number(BigInt(b.unitCost)) / 100).toFixed(2)) : null;
+                      })();
+                      const lineCost = batchCost ?? (l.costPrice ? parseFloat(l.costPrice) : null);
+                      const saleRate = parseFloat(l.rate || "0");
+                      const belowCost = isSales && lineCost != null && lineCost > 0 && saleRate > 0 && saleRate < lineCost;
                       return (
-                        <tr key={l.key} className={flashKey === l.key ? "row-flash" : ""}>
+                        <tr key={l.key} className={`${flashKey === l.key ? "row-flash" : ""} ${belowCost ? "!bg-danger-soft/60" : ""}`}
+                          title={belowCost ? t("docform.belowCostAlert") : undefined}>
                           <td className="!px-2 text-[13px] font-bold text-muted-foreground">{idx + 1}</td>
                           <td className="whitespace-nowrap text-[12px] font-semibold text-muted-foreground">{l.sku || "—"}</td>
                           <td className="min-w-40">
@@ -1491,8 +1505,16 @@ export function DocForm({ mode, initialType }: { mode: "SALES" | "PURCHASE"; ini
               <div className="space-y-2 sm:hidden">
                 {lines.map((l, idx) => {
                   const c = computed[idx];
+                  const mBatchCost = (() => {
+                    if (!isSales || !l.batchId) return null;
+                    const b = (batchCache[l.productId] ?? []).find((x) => x.id === l.batchId);
+                    return b?.unitCost ? parseFloat((Number(BigInt(b.unitCost)) / 100).toFixed(2)) : null;
+                  })();
+                  const mLineCost = mBatchCost ?? (l.costPrice ? parseFloat(l.costPrice) : null);
+                  const mSaleRate = parseFloat(l.rate || "0");
+                  const mBelowCost = isSales && mLineCost != null && mLineCost > 0 && mSaleRate > 0 && mSaleRate < mLineCost;
                   return (
-                    <div key={l.key} className={`rounded border border-border bg-muted/40 p-2 ${flashKey === l.key ? "row-flash" : ""}`}>
+                    <div key={l.key} className={`rounded border p-2 ${mBelowCost ? "!border-danger !bg-danger-soft/60" : "border-border bg-muted/40"} ${flashKey === l.key ? "row-flash" : ""}`}>
                       <div className="flex items-start justify-between gap-2">
                         <p className="text-xs font-bold text-muted-foreground">{t("docform.itemCard", { n: idx + 1 })}</p>
                         <button type="button" onClick={() => removeLine(l.key)} className="grid h-8 w-8 shrink-0 place-items-center rounded text-danger hover:bg-danger-soft" aria-label={t("docform.removeItem")}>

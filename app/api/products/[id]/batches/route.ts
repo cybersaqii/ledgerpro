@@ -25,6 +25,7 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
       batchNo: b.batchNo,
       expiryDate: b.expiryDate,
       qtyThousandths: b.qtyThousandths.toString(),
+      unitCost: b.unitCost != null ? (b.unitCost as unknown as bigint).toString() : null,
       productName: p.name,
       unit: p.unit,
     })),
