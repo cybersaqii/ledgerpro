@@ -430,6 +430,9 @@ function postSaleJournal(sale, docId, partyId, items, grossSales, discountTotal,
 }
 
 function convertSale(sale) {
+  // Net-zero sales (voided in source: items cancel out) carry no financial movement.
+  const netTotal = paisa(sale.netTotal);
+  if (netTotal <= 0n) { skip(`Zero/net-negative sale ${sale.invoiceNumber} (${sale.date}) — no financial movement.`); return null; }
   const docId = uuid();
   const partyId = partyBySourceId[sale.customerId];
   if (!partyId) throw new Error(`Sale ${sale.invoiceNumber} references unknown customer ${sale.customerId}`);
@@ -440,7 +443,7 @@ function convertSale(sale) {
   const grossSales = items.reduce((a, it) => a + it.lineTotal, 0n);
   const discountTotal = paisa(sale.discountTotal);
   const taxTotal = paisa(sale.taxTotal);
-  const grandTotal = paisa(sale.netTotal);
+  const grandTotal = netTotal;
   const cogsNet = sale.items.reduce(
     (a, it) => a + mulDivRound(milli(it.quantity), paisa(it.costPrice ?? 0)), 0n);
 
@@ -465,6 +468,7 @@ function convertSale(sale) {
 
 for (const s of src.sales) {
   if (s.status === "Cancelled") { skip(`Cancelled sale ${s.invoiceNumber} (${s.date}) — not converted.`); continue; }
+  if (s.isCreditNote) { skip(`Credit-note sale ${s.invoiceNumber} (${s.date}) — handled via creditNotes section.`); continue; }
   convertSale(s);
 }
 
@@ -950,6 +954,9 @@ const payload = {
   salesDocs, salesDocItems, purchaseDocs, purchaseDocItems,
   payments, paymentAllocations, expenses,
   journalEntries, journalLines, stockLevels, numberSequences,
+  // Empty sections the restore validator expects (converter predates these modules).
+  creditHoldEvents: [], recurringTemplates: [], recurringRuns: [],
+  ipAllowlist: [], loginAttempts: [],
 };
 
 report.counts = {
