@@ -1,9 +1,9 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import { ArrowLeftRight } from "lucide-react";
-import { Breadcrumb, PageHeader, EmptyState } from "@/components/ui";
+import { ArrowLeftRight, ChevronDown, Plus } from "lucide-react";
+import { PageHeader, EmptyState } from "@/components/ui";
 import { api, fmtMoney, fmtDate, toBig } from "@/lib/format";
 import { useLang } from "@/components/lang-provider";
 
@@ -19,6 +19,46 @@ type Row = {
 };
 
 const PER_PAGE = 50;
+
+
+function AddNewSales({ t }: { t: (k: string) => string }) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+  const options = [
+    { label: t("docs.addOptInvoice"), href: "/sales/new" },
+    { label: t("docs.addOptQuotation"), href: "/sales/new?type=QUOTATION" },
+    { label: t("docs.addOptOrder"), href: "/sales/new?type=ORDER" },
+    { label: t("docs.addOptCreditNote"), href: "/sales/notes/new" },
+  ];
+  useEffect(() => {
+    if (!open) return;
+    const fn = (e: MouseEvent) => { if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false); };
+    document.addEventListener("mousedown", fn);
+    return () => document.removeEventListener("mousedown", fn);
+  }, [open]);
+  return (
+    <div className="relative" ref={ref}>
+      <div className="flex">
+        <Link href="/sales/new" className="btn btn-primary !rounded-e-none text-sm">
+          <Plus size={16} /> {t("common.addNew")}
+        </Link>
+        <button type="button" onClick={() => setOpen((o) => !o)} aria-expanded={open} aria-haspopup="menu"
+          className="btn btn-primary !rounded-s-none !px-2 text-sm border-s border-white/25">
+          <ChevronDown size={16} />
+        </button>
+      </div>
+      {open && (
+        <div className="absolute end-0 z-20 mt-1 w-48 rounded-xl border border-border bg-card py-1 shadow-xl" role="menu">
+          {options.map((o) => (
+            <Link key={o.href + o.label} href={o.href} className="block px-4 py-2 text-sm hover:bg-muted" role="menuitem" onClick={() => setOpen(false)}>
+              {o.label}
+            </Link>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
 
 export default function SalesAllPage() {
   const { t } = useLang();
@@ -72,20 +112,11 @@ export default function SalesAllPage() {
 
   return (
     <div>
-      <Breadcrumb
-        items={[
-          { label: t("nav.home"), href: "/dashboard" },
-          { label: t("nav.groupSales") },
-          { label: t("nav.salesAll") },
-        ]}
-      />
       <PageHeader
         title={t("nav.salesAll")}
         icon={<ArrowLeftRight size={20} />}
         actions={
-          <Link href="/sales/new" className="btn btn-primary text-sm">
-            {t("nav.invoices")}
-          </Link>
+          <AddNewSales t={t} />
         }
       />
       {loading ? (
@@ -94,7 +125,7 @@ export default function SalesAllPage() {
         <EmptyState title={t("common.noResults")} />
       ) : (
         <div className="card overflow-x-auto">
-          <table className="table">
+          <table className="tbl tbl-fa">
             <thead>
               <tr>
                 <th>{t("docs.colDate")}</th>

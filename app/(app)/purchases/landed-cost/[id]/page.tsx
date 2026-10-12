@@ -122,7 +122,7 @@ export default function LandedCostDetailPage() {
 
           <div className="card p-5">
             <p className="mb-3 text-sm font-bold">{t("landedCost.heads")}</p>
-            <table className="table">
+            <table className="tbl tbl-fa">
               <thead>
                 <tr>
                   <th>{t("landedCost.head")}</th>
@@ -145,7 +145,7 @@ export default function LandedCostDetailPage() {
           <div className="card p-5">
             <p className="mb-3 text-sm font-bold">{t("landedCost.allocation")}</p>
             <div className="overflow-x-auto">
-              <table className="table">
+              <table className="tbl tbl-fa">
                 <thead>
                   <tr>
                     <th>{t("landedCost.product")}</th>

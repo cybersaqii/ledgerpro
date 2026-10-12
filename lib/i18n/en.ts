@@ -352,6 +352,8 @@ export const en = {
     makePayment: "Make payment",
     addNewOptions: "More add options",
     addOptInvoice: "Invoices (SI)",
+    addOptQuotation: "Quotation",
+    addOptOrder: "Order",
     addOptCreditNote: "Credit Note (SC)",
     addOptBatchInvoices: "Batch Invoices (SI)",
     addOptBulkInvoices: "Bulk Invoices (SI)",

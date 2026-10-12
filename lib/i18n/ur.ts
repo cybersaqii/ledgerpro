@@ -357,6 +357,8 @@ export const ur: DeepPartial<EnDict> = {
     makePayment: "ادائیگی کریں",
     addNewOptions: "مزید اختیارات",
     addOptInvoice: "انوائسز (SI)",
+    addOptQuotation: "کوٹیشن",
+    addOptOrder: "آرڈر",
     addOptCreditNote: "کریڈٹ نوٹ (SC)",
     addOptBatchInvoices: "بیچ انوائسز (SI)",
     addOptBulkInvoices: "بلک انوائسز (SI)",

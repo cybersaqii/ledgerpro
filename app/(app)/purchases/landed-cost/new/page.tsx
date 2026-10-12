@@ -378,7 +378,7 @@ export default function LandedCostNewPage() {
           </div>
 
           <div className="overflow-x-auto rounded-xl border border-border">
-            <table className="table">
+            <table className="tbl tbl-fa">
               <thead>
                 <tr>
                   <th>{t("landedCost.product")}</th>

@@ -89,7 +89,7 @@ export default function LandedCostPage() {
 
       <div className="card overflow-hidden">
         <div className="overflow-x-auto">
-          <table className="table">
+          <table className="tbl tbl-fa">
             <thead>
               <tr>
                 <th>{t("landedCost.sheetNo")}</th>
