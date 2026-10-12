@@ -82,9 +82,10 @@ export default function LandingContent() {
           </Link>
           <nav className="hidden items-center gap-7 text-sm font-semibold text-white/80 lg:flex">
             <a href="#features" className="transition hover:text-white">{L("navFeatures")}</a>
-                        <a href="#how" className="transition hover:text-white">{L("navHow")}</a>
+            <a href="#how" className="transition hover:text-white">{L("navHow")}</a>
             <a href="#pricing" className="transition hover:text-white">{L("navPricing")}</a>
             <a href="#faq" className="transition hover:text-white">{L("navFaq")}</a>
+            <Link href="/about" className="transition hover:text-white">{L("about.title")}</Link>
           </nav>
           <div className="flex items-center gap-1 sm:gap-2">
             <LangToggle />
