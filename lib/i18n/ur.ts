@@ -1562,7 +1562,8 @@ export const ur: DeepPartial<EnDict> = {
     footPrivacy: "پرائیویسی",
     footSupport: "سپورٹ",
     footChangelog: "چینج لاگ",
-    footTagline: "ہر کاروبار کے لیے مکمل حساب کتاب۔"
+    footTagline: "ہر کاروبار کے لیے مکمل حساب کتاب۔",
+    footBuiltBy: "ٹیک سول کی پروڈکٹ",
   },
   balances: {
     outstanding: "کل بقایا:",

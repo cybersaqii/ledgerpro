@@ -542,7 +542,7 @@ export default function LandingContent() {
         </div>
         <div className="relative border-t border-white/10">
           <div className="mx-auto flex max-w-[1200px] flex-col items-center justify-between gap-2 px-4 py-5 text-xs text-white/70 sm:flex-row sm:px-8">
-            <p>© 2026 {b}. {L("footRights")}</p>
+            <p>© 2026 {b}. {L("footRights")} <span className="text-white/40">·</span> <a href="https://techsol.business" target="_blank" rel="noopener" className="font-semibold text-white/80 transition hover:text-white">{L("footBuiltBy")}</a></p>
             <p className="flex items-center gap-4">
               <Link href="/terms" className="transition hover:text-white">{L("footTerms")}</Link>
               <Link href="/privacy" className="transition hover:text-white">{L("footPrivacy")}</Link>

@@ -1562,7 +1562,8 @@ export const en = {
     footPrivacy: "Privacy",
     footSupport: "Support",
     footChangelog: "Changelog",
-    footTagline: "Complete hisaab-kitab for every business."
+    footTagline: "Complete hisaab-kitab for every business.",
+    footBuiltBy: "A TechSol product",
   },
   balances: {
     outstanding: "Total outstanding:",
