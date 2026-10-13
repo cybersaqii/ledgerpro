@@ -55,6 +55,7 @@ export default function AdminBillingPage() {
   const [rejectNote, setRejectNote] = useState<Record<string, string>>({});
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
+  const [tab, setTab] = useState<"payments" | "users" | "settings">("payments");
 
   async function load(status: string) {
     setError(null);
@@ -149,20 +150,38 @@ export default function AdminBillingPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <PageHeader title={t("adminbilling.title")} subtitle={t("adminbilling.subtitle")} icon={<ShieldCheck size={22} />} />
-        <Link href="/admin/coupons" className="btn btn-secondary">
-          <Tag size={15} /> Coupons
-        </Link>
-      </div>
-      <PageHeader title={t("adminbilling.title")} subtitle={t("adminbilling.subtitle2")} icon={<ShieldCheck size={22} />} />
+      <PageHeader
+        title={t("adminbilling.title")}
+        subtitle={t("adminbilling.subtitle")}
+        icon={<ShieldCheck size={22} />}
+        actions={
+          <Link href="/admin/coupons" className="btn btn-secondary">
+            <Tag size={15} /> {t("adminbilling.coupons")}
+          </Link>
+        }
+      />
       <ErrorNote message={error} />
+
+      {/* Tabs */}
+      <div className="flex gap-1 rounded-2xl bg-muted p-1.5">
+        {([
+          ["payments", t("adminbilling.tabPayments")],
+          ["users", t("adminbilling.tabUsers")],
+          ["settings", t("adminbilling.tabSettings")],
+        ] as const).map(([v, l]) => (
+          <button key={v} onClick={() => setTab(v)}
+            className={`flex-1 rounded-xl px-4 py-2.5 text-sm font-bold transition ${tab === v ? "bg-card text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}`}>
+            {l}
+          </button>
+        ))}
+      </div>
+
       <Link href="/admin/support" className="card flex items-center justify-between p-4 transition hover:-translate-y-0.5">
         <span className="font-bold">{t("adminbilling.supportInbox")}</span>
         <span className="text-sm font-bold text-primary">{t("adminbilling.open")}</span>
       </Link>
 
-      {/* Payments */}
+      {tab === "payments" && (
       <div className="card p-5">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <p className="font-bold">{t("adminbilling.paymentsTitle")}</p>
@@ -222,7 +241,9 @@ export default function AdminBillingPage() {
         )}
       </div>
 
-      {/* Settings */}
+      )}
+
+      {tab === "settings" && (
       <div className="card space-y-4 p-5">
         <p className="font-bold">{t("adminbilling.settingsTitle")}</p>
         <div className="grid gap-4 sm:grid-cols-2">
@@ -269,6 +290,193 @@ export default function AdminBillingPage() {
           {saving ? t("adminbilling.saving") : t("adminbilling.saveSettings")}
         </button>
       </div>
+      )}
+
+      {tab === "users" && <UsersTab t={t} />}
+    </div>
+  );
+}
+
+type Company = {
+  id: string; name: string; email: string | null; phone: string | null;
+  plan: string; level: string; trialDaysLeft: number; proDaysLeft: number;
+  trialEndsAt: string | null; proExpiresAt: string | null;
+  createdAt: string | null; ownerName: string | null; ownerEmail: string | null;
+  userCount: number;
+};
+
+function UsersTab({ t }: { t: (k: string) => string }) {
+  const [companies, setCompanies] = useState<Company[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [filter, setFilter] = useState<"ALL" | "TRIAL" | "PRO" | "FREE" | "EXPIRED">("ALL");
+  const [search, setSearch] = useState("");
+  const [extending, setExtending] = useState<Company | null>(null);
+  const [plan, setPlan] = useState("PROFESSIONAL");
+  const [months, setMonths] = useState("12");
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState("");
+
+  const load = () => {
+    setLoading(true);
+    api<{ data: Company[] }>("/api/admin/billing/companies")
+      .then((d) => setCompanies(d.data))
+      .catch((e) => setErr(e instanceof Error ? e.message : "Failed"))
+      .finally(() => setLoading(false));
+  };
+  useEffect(() => { load(); }, []);
+
+  const doExtend = async () => {
+    if (!extending) return;
+    setBusy(true); setErr("");
+    try {
+      await api("/api/admin/billing/companies", {
+        method: "POST",
+        body: JSON.stringify({ companyId: extending.id, plan, months: Number(months) }),
+      });
+      setExtending(null);
+      load();
+    } catch (e) { setErr(e instanceof Error ? e.message : "Failed"); }
+    finally { setBusy(false); }
+  };
+
+  const filtered = companies.filter((c) => {
+    if (filter !== "ALL") {
+      if (filter === "EXPIRED") {
+        if (!(c.level === "FREE" && c.trialDaysLeft <= 0 && c.proDaysLeft <= 0)) return false;
+      } else if (c.level !== filter) return false;
+    }
+    if (search) {
+      const q = search.toLowerCase();
+      if (!`${c.name} ${c.ownerName} ${c.ownerEmail} ${c.email}`.toLowerCase().includes(q)) return false;
+    }
+    return true;
+  });
+
+  const counts = {
+    ALL: companies.length,
+    TRIAL: companies.filter((c) => c.level === "TRIAL").length,
+    PRO: companies.filter((c) => c.level === "PRO").length,
+    FREE: companies.filter((c) => c.level === "FREE").length,
+  };
+
+  const levelBadge = (c: Company) => {
+    const styles: Record<string, string> = {
+      TRIAL: "bg-warning-soft text-warning",
+      PRO: "bg-success-soft text-success",
+      FREE: "bg-muted text-muted-foreground",
+    };
+    return <span className={`badge ${styles[c.level] ?? styles.FREE}`}>{c.level}</span>;
+  };
+
+  const subInfo = (c: Company) => {
+    if (c.level === "TRIAL") return t("adminbilling.trialDays").replace("{n}", String(c.trialDaysLeft));
+    if (c.level === "PRO") return t("adminbilling.proDays").replace("{n}", String(c.proDaysLeft));
+    return t("adminbilling.expired");
+  };
+
+  return (
+    <div className="space-y-4">
+      <ErrorNote message={err} />
+
+      {/* Stats */}
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+        {([["ALL", t("adminbilling.allUsers")], ["TRIAL", t("adminbilling.trial")], ["PRO", t("adminbilling.pro")], ["FREE", t("adminbilling.free")]] as const).map(([v, l]) => (
+          <button key={v} onClick={() => setFilter(v)}
+            className={`card p-4 text-start transition ${filter === v ? "ring-2 ring-primary" : "hover:-translate-y-0.5"}`}>
+            <p className="text-2xl font-extrabold">{counts[v]}</p>
+            <p className="text-xs font-bold text-muted-foreground">{l}</p>
+          </button>
+        ))}
+      </div>
+
+      {/* Search */}
+      <input
+        className="field"
+        placeholder={t("adminbilling.searchUsers")}
+        value={search}
+        onChange={(e) => setSearch(e.target.value)}
+      />
+
+      {/* Table */}
+      <div className="card overflow-x-auto">
+        {loading ? (
+          <p className="p-8 text-center text-muted-foreground">{t("common.loading")}</p>
+        ) : filtered.length === 0 ? (
+          <EmptyState title={t("adminbilling.noUsers")} />
+        ) : (
+          <table className="tbl tbl-fa">
+            <thead><tr>
+              <th>{t("adminbilling.company")}</th>
+              <th>{t("adminbilling.owner")}</th>
+              <th>{t("adminbilling.plan")}</th>
+              <th>{t("adminbilling.subscription")}</th>
+              <th className="num">{t("adminbilling.users")}</th>
+              <th></th>
+            </tr></thead>
+            <tbody>
+              {filtered.map((c) => (
+                <tr key={c.id}>
+                  <td>
+                    <p className="font-bold">{c.name}</p>
+                    <p className="text-xs text-muted-foreground">{c.email ?? "—"}</p>
+                  </td>
+                  <td>
+                    <p className="text-sm font-semibold">{c.ownerName ?? "—"}</p>
+                    <p className="text-xs text-muted-foreground">{c.ownerEmail ?? ""}</p>
+                  </td>
+                  <td><span className="badge bg-muted text-muted-foreground">{c.plan}</span></td>
+                  <td>
+                    {levelBadge(c)}
+                    <p className="mt-0.5 text-xs text-muted-foreground">{subInfo(c)}</p>
+                  </td>
+                  <td className="num">{c.userCount}</td>
+                  <td className="whitespace-nowrap">
+                    <button className="btn btn-ghost !py-1.5 text-xs font-bold text-primary" onClick={() => setExtending(c)}>
+                      {t("adminbilling.extendRenew")}
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+      </div>
+
+      {/* Extend dialog */}
+      {extending && (
+        <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/60 p-4 backdrop-blur-sm sm:items-center" onClick={() => setExtending(null)}>
+          <div className="w-full max-w-md rounded-3xl border border-border/60 bg-card p-6 shadow-2xl" onClick={(e) => e.stopPropagation()}>
+            <h2 className="font-display text-lg font-extrabold">
+              {t("adminbilling.extendTitle").replace("{name}", extending.name)}
+            </h2>
+            <p className="mt-1 text-sm text-muted-foreground">
+              {t("adminbilling.currentSub")}: {levelBadge(extending)} {subInfo(extending)}
+            </p>
+            <div className="mt-4 space-y-4">
+              <Field label={t("adminbilling.selectPlan")} required>
+                <select className="field" value={plan} onChange={(e) => setPlan(e.target.value)}>
+                  <option value="STARTER">Starter</option>
+                  <option value="PROFESSIONAL">Professional</option>
+                  <option value="ENTERPRISE">Enterprise</option>
+                </select>
+              </Field>
+              <Field label={t("adminbilling.months")} required>
+                <select className="field" value={months} onChange={(e) => setMonths(e.target.value)}>
+                  {[1, 3, 6, 12, 24, 36].map((m) => (
+                    <option key={m} value={String(m)}>{t("adminbilling.monthsCount").replace("{n}", String(m))}</option>
+                  ))}
+                </select>
+              </Field>
+            </div>
+            <div className="mt-6 flex justify-end gap-2.5 border-t border-border/60 pt-5">
+              <button className="btn btn-ghost !rounded-xl" onClick={() => setExtending(null)}>{t("common.cancel")}</button>
+              <button className="btn btn-primary !rounded-xl" disabled={busy} onClick={doExtend}>
+                {busy ? "…" : t("adminbilling.confirmExtend")}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
