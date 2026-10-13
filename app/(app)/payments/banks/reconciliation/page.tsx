@@ -8,6 +8,7 @@ import { useLang } from "@/components/lang-provider";
 import { usePermissions } from "@/components/permissions";
 import { api, fmtMoney, fmtDate, fmtDateInput } from "@/lib/format";
 import { StatementDetail } from "@/components/statement-detail";
+import { NumericDateInput } from "@/components/numeric-date-input";
 
 type Statement = { id: string; fileName: string; lineCount: number; createdAt: number };
 
@@ -209,7 +210,7 @@ export default function ReconciliationPage() {
           {uncleared.length > 0 && (
             <div className="card mb-4 flex flex-wrap items-end gap-3 p-4">
               <Field label={t("fix4.recon.clearedDate")}>
-                <input type="date" className="field" value={clearedAt} onChange={(e) => setClearedAt(e.target.value)} />
+                <NumericDateInput className="field" value={clearedAt} onChange={(v) => setClearedAt(v)} />
               </Field>
               <button className="btn btn-primary text-sm" disabled={busy || selected.size === 0} onClick={() => run("clear")}>
                 <CheckCheck size={15} /> {busy ? t("fix4.recon.working") : t("fix4.recon.markCleared", { count: selected.size })}

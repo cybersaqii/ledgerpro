@@ -8,6 +8,7 @@ import { ProjectSelect } from "@/components/project-select";
 import { api, fmtMoney, fmtDate, fmtDateInput, toBig } from "@/lib/format";
 import { useLang } from "@/components/lang-provider";
 import { usePermissions } from "@/components/permissions";
+import { NumericDateInput } from "@/components/numeric-date-input";
 
 type Expense = {
   id: string; date: number; amount: string; taxAmount: string; notes: string | null;
@@ -106,8 +107,8 @@ export default function ExpensesPage() {
     } finally { setSaving(false); }
   }
 
-  const set = (k: keyof typeof form) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) =>
-    setForm((f) => ({ ...f, [k]: e.target.value }));
+  const set = (k: keyof typeof form) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement> | string) =>
+    setForm((f) => ({ ...f, [k]: typeof e === "string" ? e : e.target.value }));
 
   async function doVoid(e: React.FormEvent) {
     e.preventDefault();
@@ -141,9 +142,19 @@ export default function ExpensesPage() {
         </select>
         <div className="flex items-center gap-2">
           <CalendarDays size={15} className="shrink-0 text-muted-foreground" />
-          <input type="date" className="field !w-auto !py-2 text-xs" value={from} onChange={(e) => setFrom(e.target.value)} aria-label={t("payments.fromDate")} />
+          <NumericDateInput
+            className="field !w-auto !py-2 text-xs"
+            value={from}
+            onChange={(v) => setFrom(v)}
+            aria-label={t("payments.fromDate")}
+          />
           <span className="text-xs text-muted-foreground">{t("payments.toWord")}</span>
-          <input type="date" className="field !w-auto !py-2 text-xs" value={to} onChange={(e) => setTo(e.target.value)} aria-label={t("payments.toDate")} />
+          <NumericDateInput
+            className="field !w-auto !py-2 text-xs"
+            value={to}
+            onChange={(v) => setTo(v)}
+            aria-label={t("payments.toDate")}
+          />
         </div>
         {hasFilter && (
           <button className="text-xs font-bold text-danger hover:underline"
@@ -218,7 +229,12 @@ export default function ExpensesPage() {
                   {banks.map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}
                 </select>
               </Field>
-              <Field label={t("expenses.date")}><input type="date" className="field" required value={form.date} onChange={set("date")} /></Field>
+              <Field label={t("expenses.date")}><NumericDateInput
+                className="field"
+                value={form.date}
+                onChange={set("date")}
+                required
+              /></Field>
               <Field label={t("expenses.amount")}><input className="field num" type="number" min="0" step="0.01" required value={form.amount} onChange={set("amount")} placeholder="0.00" /></Field>
               <Field label={f("fix3.taxAmount")} hint={f("fix3.taxAmountHint")}>
                 <input className="field num" type="number" min="0" step="0.01" value={form.taxAmount} onChange={set("taxAmount")} placeholder="0.00" />

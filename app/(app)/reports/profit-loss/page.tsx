@@ -6,6 +6,7 @@ import { PageHeader, Field, ExportCsv } from "@/components/ui";
 import { csvMoney } from "@/lib/csv";
 import { api, fmtMoney, fmtDateInput } from "@/lib/format";
 import { useLang } from "@/components/lang-provider";
+import { NumericDateInput } from "@/components/numeric-date-input";
 
 type Line = { label: string; amount: string; bold?: boolean; total?: boolean; sign?: number };
 
@@ -56,8 +57,8 @@ export default function ProfitLossPage() {
         ]} />}
       />
       <div className="card mb-4 flex flex-wrap items-end gap-3 p-4">
-        <Field label={t("pl.from")}><input type="date" className="field" value={from} onChange={(e) => setFrom(e.target.value)} /></Field>
-        <Field label={t("pl.to")}><input type="date" className="field" value={to} onChange={(e) => setTo(e.target.value)} /></Field>
+        <Field label={t("pl.from")}><NumericDateInput className="field" value={from} onChange={(v) => setFrom(v)} /></Field>
+        <Field label={t("pl.to")}><NumericDateInput className="field" value={to} onChange={(v) => setTo(v)} /></Field>
       </div>
       <div className="card mx-auto max-w-2xl p-6 sm:p-8">
         {loading ? (

@@ -6,6 +6,7 @@ import { ReceiptText, TriangleAlert } from "lucide-react";
 import { PageHeader, Field } from "@/components/ui";
 import { useLang } from "@/components/lang-provider";
 import { api, fmtDateInput } from "@/lib/format";
+import { NumericDateInput } from "@/components/numeric-date-input";
 
 type Opt = { id: string; name: string };
 type Account = { id: string; name: string; code: string };
@@ -107,7 +108,12 @@ export function NoteForm({ kind }: { kind: "CREDIT" | "DEBIT" }) {
         </Field>
         <div className="grid gap-4 sm:grid-cols-2">
           <Field label={t("fix4.note.date")}>
-            <input type="date" className="field" value={date} onChange={(e) => setDate(e.target.value)} required />
+            <NumericDateInput
+              className="field"
+              value={date}
+              onChange={(v) => setDate(v)}
+              required
+            />
           </Field>
           <Field label={t("fix4.note.amount")}>
             <input

@@ -11,6 +11,7 @@ import { paisaToRupees } from "@/lib/pos";
 import { useBusinessProfile } from "@/components/business-type";
 import { ProductImage } from "@/components/product-image";
 import { useLang } from "@/components/lang-provider";
+import { NumericDateInput } from "@/components/numeric-date-input";
 
 type Product = {
   id: string; sku: string; name: string; unit: string; category: string | null;
@@ -906,7 +907,7 @@ export default function ProductsPage() {
                     <div className="grid gap-4 sm:grid-cols-4">
                       <Field label={t("m4.openingQty")}><input className="field" type="number" min="0" step="0.001" placeholder="0" value={opening.qty} onChange={(e) => setOpening((o) => ({ ...o, qty: e.target.value }))} /></Field>
                       <Field label={t("m4.openingCost")}><input className="field" type="number" min="0" step="0.01" placeholder="0.00" value={opening.cost} onChange={(e) => setOpening((o) => ({ ...o, cost: e.target.value }))} /></Field>
-                      <Field label={t("m4.openingDate")}><input className="field" type="date" value={opening.date} onChange={(e) => setOpening((o) => ({ ...o, date: e.target.value }))} /></Field>
+                      <Field label={t("m4.openingDate")}><NumericDateInput className="field" value={opening.date} onChange={(v) => setOpening((o) => ({ ...o, date: v }))} /></Field>
                       <Field label={t("docform.lineLocation")}>
                         <select className="field" value={opening.branchId} onChange={(e) => setOpening((o) => ({ ...o, branchId: e.target.value }))}>
                           <option value="">{t("docform.lineLocationDoc")}</option>

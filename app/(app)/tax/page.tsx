@@ -11,6 +11,7 @@ import { useLang } from "@/components/lang-provider";
 import { useCan } from "@/components/permissions";
 import { api, fmtDate, fmtDateInput } from "@/lib/format";
 import { WHT_SECTIONS } from "@/lib/wht";
+import { NumericDateInput } from "@/components/numeric-date-input";
 
 type Tab = "fbr" | "wht" | "annex";
 
@@ -297,8 +298,18 @@ function WhtTab() {
       </div>
 
       <FilterBar>
-        <input type="date" className="input w-auto" value={from} onChange={(e) => setFrom(e.target.value)} aria-label={t("tax.from")} />
-        <input type="date" className="input w-auto" value={to} onChange={(e) => setTo(e.target.value)} aria-label={t("tax.to")} />
+        <NumericDateInput
+          className="input w-auto"
+          value={from}
+          onChange={(v) => setFrom(v)}
+          aria-label={t("tax.from")}
+        />
+        <NumericDateInput
+          className="input w-auto"
+          value={to}
+          onChange={(v) => setTo(v)}
+          aria-label={t("tax.to")}
+        />
         <select className="input w-auto" value={section} onChange={(e) => setSection(e.target.value)} aria-label={t("tax.filterSection")}>
           <option value="">{t("tax.filterSection")}: {t("tax.all")}</option>
           {WHT_SECTIONS.map((s) => <option key={s.code} value={s.code}>{s.code}</option>)}
@@ -448,8 +459,18 @@ function AnnexTab() {
       </div>
 
       <FilterBar>
-        <input type="date" className="input w-auto" value={from} onChange={(e) => setFrom(e.target.value)} aria-label={t("tax.from")} />
-        <input type="date" className="input w-auto" value={to} onChange={(e) => setTo(e.target.value)} aria-label={t("tax.to")} />
+        <NumericDateInput
+          className="input w-auto"
+          value={from}
+          onChange={(v) => setFrom(v)}
+          aria-label={t("tax.from")}
+        />
+        <NumericDateInput
+          className="input w-auto"
+          value={to}
+          onChange={(v) => setTo(v)}
+          aria-label={t("tax.to")}
+        />
         <a href={csvHref} className="btn-primary inline-flex items-center gap-2 !px-4 !py-2 text-xs font-bold" download>
           <Download className="h-4 w-4" /> {t("tax.exportCsv")}
         </a>

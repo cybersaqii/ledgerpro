@@ -11,6 +11,7 @@ import { WHT_SECTIONS, whtSectionRateBps } from "@/lib/wht";
 import { useBusinessProfile } from "@/components/business-type";
 import { useLang } from "@/components/lang-provider";
 import { ProjectSelect } from "@/components/project-select";
+import { NumericDateInput } from "@/components/numeric-date-input";
 
 type Party = { id: string; name: string; filerStatus?: "FILER" | "NON_FILER" | null; activeTaxPayer?: boolean | null; whtCategory?: string | null; ntn?: string | null };
 type Bank = { id: string; name: string; kind: string };
@@ -307,7 +308,12 @@ function PaymentFormInner() {
                 {banks.map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}
               </select>
             </Field>
-            <Field label={t("payform.date")}><input type="date" className="field" required value={date} onChange={(e) => setDate(e.target.value)} /></Field>
+            <Field label={t("payform.date")}><NumericDateInput
+              className="field"
+              value={date}
+              onChange={(v) => setDate(v)}
+              required
+            /></Field>
             <Field label={t("payform.amount")}>
               <input className="field num text-lg font-extrabold" type="number" min="0" step="0.01" required
                 placeholder="0.00" value={amount} onChange={(e) => setAmount(e.target.value)} />

@@ -6,6 +6,7 @@ import { PageHeader, Field, ErrorNote, EmptyState } from "@/components/ui";
 import { useLang } from "@/components/lang-provider";
 import { useCan } from "@/components/permissions";
 import { api, fmtMoney, fmtDate } from "@/lib/format";
+import { NumericDateInput } from "@/components/numeric-date-input";
 
 type Partner = {
   id: string;
@@ -426,10 +427,10 @@ function DistributeDialog({ onClose, onDone, t }: {
 
           <div className="grid grid-cols-2 gap-3">
             <Field label={t("partners.periodStart")} required>
-              <input type="date" className="input !rounded-xl !border-2 !border-border bg-background" value={periodStart} onChange={(e) => { setPeriodStart(e.target.value); setPreview(null); }} />
+              <NumericDateInput className="input !rounded-xl !border-2 !border-border bg-background" value={periodStart} onChange={(v) => { setPeriodStart(v); setPreview(null); }} />
             </Field>
             <Field label={t("partners.periodEnd")} required>
-              <input type="date" className="input !rounded-xl !border-2 !border-border bg-background" value={periodEnd} onChange={(e) => { setPeriodEnd(e.target.value); setPreview(null); }} />
+              <NumericDateInput className="input !rounded-xl !border-2 !border-border bg-background" value={periodEnd} onChange={(v) => { setPeriodEnd(v); setPreview(null); }} />
             </Field>
           </div>
 
@@ -590,7 +591,7 @@ function DistributionPaymentsDialog({ distId, cashAccounts, onClose, onDone, t }
               </Field>
             </div>
             <Field label={t("partners.date")} required>
-              <input type="date" className="input !rounded-xl !border-2 !border-border bg-background" value={date} onChange={(e) => setDate(e.target.value)} />
+              <NumericDateInput className="input !rounded-xl !border-2 !border-border bg-background" value={date} onChange={(v) => setDate(v)} />
             </Field>
             <div className="mt-3 flex justify-end gap-2">
               <button className="btn btn-ghost !rounded-xl" onClick={() => setPaying(null)}>{t("common.cancel")}</button>

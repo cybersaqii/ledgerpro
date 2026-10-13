@@ -7,6 +7,7 @@ import { csvMoney } from "@/lib/csv";
 import { useLang } from "@/components/lang-provider";
 import { api, fmtMoney, fmtDate, fmtDateInput } from "@/lib/format";
 import { DocRefLink } from "@/components/doc-link";
+import { NumericDateInput } from "@/components/numeric-date-input";
 
 type Bank = { id: string; name: string; kind: string };
 type Entry = { date: number | string; memo: string; reference: string | null; source: string; sourceId: string | null; partyName: string | null; accountName: string | null; debit: string; credit: string; balance: string };
@@ -99,8 +100,8 @@ export default function BankBookPage() {
             </select>
           </Field>
         </div>
-        <Field label={t("bankbook.from")}><input type="date" className="field" value={from} onChange={(e) => setFrom(e.target.value)} /></Field>
-        <Field label={t("bankbook.to")}><input type="date" className="field" value={to} onChange={(e) => setTo(e.target.value)} /></Field>
+        <Field label={t("bankbook.from")}><NumericDateInput className="field" value={from} onChange={(v) => setFrom(v)} /></Field>
+        <Field label={t("bankbook.to")}><NumericDateInput className="field" value={to} onChange={(v) => setTo(v)} /></Field>
       </div>
 
       {loadError ? (

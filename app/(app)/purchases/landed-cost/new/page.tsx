@@ -8,6 +8,7 @@ import { PageHeader, ErrorNote, Field } from "@/components/ui";
 import { api, fmtMoney, fmtQty, fmtDate, fmtDateInput } from "@/lib/format";
 import { localizedApiError } from "@/lib/api-errors";
 import { useLang } from "@/components/lang-provider";
+import { NumericDateInput } from "@/components/numeric-date-input";
 
 type Basis = "VALUE" | "QTY" | "WEIGHT";
 type HeadKind = "FREIGHT" | "DUTY" | "CLEARING" | "OTHER";
@@ -187,8 +188,12 @@ export default function LandedCostNewPage() {
       {step === 1 && (
         <div className="card space-y-5 p-5">
           <Field label={t("landedCost.date")}>
-            <input type="date" className="field" value={date} max={fmtDateInput(new Date())}
-              onChange={(e) => setDate(e.target.value)} />
+            <NumericDateInput
+              className="field"
+              value={date}
+              onChange={(v) => setDate(v)}
+              max={fmtDateInput(new Date())}
+            />
           </Field>
 
           <div>

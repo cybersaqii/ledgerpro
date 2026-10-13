@@ -6,6 +6,7 @@ import { Ship, Plus, CalendarDays } from "lucide-react";
 import { PageHeader, EmptyState, FilterBar, Pagination, StatusPill, ErrorNote } from "@/components/ui";
 import { api, fmtMoney, fmtDate, fmtDateInput } from "@/lib/format";
 import { useLang } from "@/components/lang-provider";
+import { NumericDateInput } from "@/components/numeric-date-input";
 
 type Sheet = {
   id: string;
@@ -77,11 +78,21 @@ export default function LandedCostPage() {
         </div>
         <div className="flex items-center gap-2 text-sm">
           <CalendarDays size={15} className="text-muted-foreground" />
-          <input type="date" className="field !w-auto !py-1.5 text-sm" value={from}
-            max={fmtDateInput(new Date())} onChange={(e) => setFrom(e.target.value)} aria-label={t("common.from")} />
+          <NumericDateInput
+            className="field !w-auto !py-1.5 text-sm"
+            value={from}
+            onChange={(v) => setFrom(v)}
+            aria-label={t("common.from")}
+            max={fmtDateInput(new Date())}
+          />
           <span className="text-muted-foreground">–</span>
-          <input type="date" className="field !w-auto !py-1.5 text-sm" value={to}
-            max={fmtDateInput(new Date())} onChange={(e) => setTo(e.target.value)} aria-label={t("common.to")} />
+          <NumericDateInput
+            className="field !w-auto !py-1.5 text-sm"
+            value={to}
+            onChange={(v) => setTo(v)}
+            aria-label={t("common.to")}
+            max={fmtDateInput(new Date())}
+          />
         </div>
       </FilterBar>
 

@@ -9,6 +9,7 @@ import { paymentStatusOf } from "@/lib/payment-status";
 import { useBusinessProfile } from "@/components/business-type";
 import { useLang } from "@/components/lang-provider";
 import { useCan } from "@/components/permissions";
+import { NumericDateInput } from "@/components/numeric-date-input";
 
 type Doc = {
   id: string; docNo: string; docType: string; date: number; status: string;
@@ -339,9 +340,21 @@ export function DocList({ mode, initialDocType, lockedType, titleKey, subtitleKe
         </div>
         <div className="flex items-center gap-2">
           <CalendarDays size={15} className="shrink-0 text-muted-foreground" />
-          <input type="date" className="field !w-auto !py-2 text-xs" value={from} onChange={(e) => setFrom(e.target.value)} aria-label={t("docs.fromDate")} title={t("docs.dateFormatHint")} />
+          <NumericDateInput
+            className="field !w-auto !py-2 text-xs"
+            value={from}
+            onChange={(v) => setFrom(v)}
+            aria-label={t("docs.fromDate")}
+            title={t("docs.dateFormatHint")}
+          />
           <span className="text-xs text-muted-foreground">{t("docs.toWord")}</span>
-          <input type="date" className="field !w-auto !py-2 text-xs" value={to} onChange={(e) => setTo(e.target.value)} aria-label={t("docs.toDate")} title={t("docs.dateFormatHint")} />
+          <NumericDateInput
+            className="field !w-auto !py-2 text-xs"
+            value={to}
+            onChange={(v) => setTo(v)}
+            aria-label={t("docs.toDate")}
+            title={t("docs.dateFormatHint")}
+          />
         </div>
         {hasFilter && (
           <button className="text-xs font-bold text-danger hover:underline"

@@ -7,6 +7,7 @@ import { csvMoney } from "@/lib/csv";
 import { useLang } from "@/components/lang-provider";
 import { api, fmtMoney, fmtDate, fmtDateInput } from "@/lib/format";
 import { DocRefLink } from "@/components/doc-link";
+import { NumericDateInput } from "@/components/numeric-date-input";
 
 type Line = { accountCode: string; accountName: string; partyName: string | null; debit: string; credit: string };
 type Voucher = { id: string; date: number | string; memo: string; reference: string | null; source: string; sourceId: string | null; lines: Line[] };
@@ -54,7 +55,7 @@ export default function DayBookPage() {
         }
       />
       <div className="card mb-4 flex flex-wrap items-end gap-3 p-4">
-        <Field label={t("daybook.date")}><input type="date" className="field" value={date} onChange={(e) => setDate(e.target.value)} /></Field>
+        <Field label={t("daybook.date")}><NumericDateInput className="field" value={date} onChange={(v) => setDate(v)} /></Field>
         <p className="pb-2.5 text-sm text-muted-foreground">{t("daybook.count", { n: entries.length })}</p>
       </div>
 

@@ -8,6 +8,7 @@ import { Modal } from "@/components/modal";
 import { api, fmtMoney, fmtDate, fmtDateInput, toBig } from "@/lib/format";
 import { useLang } from "@/components/lang-provider";
 import { usePermissions } from "@/components/permissions";
+import { NumericDateInput } from "@/components/numeric-date-input";
 
 type Pdc = {
   id: string; kind: string; partyId: string; chequeNo: string; bankName: string | null;
@@ -109,9 +110,19 @@ export default function PdcRegisterPage() {
         </button>
         <div className="flex items-center gap-2">
           <CalendarDays size={15} className="shrink-0 text-muted-foreground" />
-          <input type="date" className="field !w-auto !py-2 text-xs" value={from} onChange={(e) => setFrom(e.target.value)} aria-label={t("pdc.fromDate")} />
+          <NumericDateInput
+            className="field !w-auto !py-2 text-xs"
+            value={from}
+            onChange={(v) => setFrom(v)}
+            aria-label={t("pdc.fromDate")}
+          />
           <span className="text-xs text-muted-foreground">{t("pdc.toWord")}</span>
-          <input type="date" className="field !w-auto !py-2 text-xs" value={to} onChange={(e) => setTo(e.target.value)} aria-label={t("pdc.toDate")} />
+          <NumericDateInput
+            className="field !w-auto !py-2 text-xs"
+            value={to}
+            onChange={(v) => setTo(v)}
+            aria-label={t("pdc.toDate")}
+          />
         </div>
         {hasFilter && (
           <button className="text-xs font-bold text-danger hover:underline"
@@ -255,7 +266,12 @@ function PdcActionDialog({ target, onClose, onDone }: {
           </Field>
         )}
         <Field label={t("pdc.actionDate")}>
-          <input type="date" className="field" required value={date} onChange={(e) => setDate(e.target.value)} />
+          <NumericDateInput
+            className="field"
+            value={date}
+            onChange={(v) => setDate(v)}
+            required
+          />
         </Field>
         {action !== "clear" && (
           <Field label={t("pdc.reasonLabel")}>

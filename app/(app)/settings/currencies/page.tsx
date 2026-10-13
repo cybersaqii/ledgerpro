@@ -7,6 +7,7 @@ import { PageHeader, ErrorNote } from "@/components/ui";
 import { api } from "@/lib/format";
 import { useLang } from "@/components/lang-provider";
 import { usePermissions } from "@/components/permissions";
+import { NumericDateInput } from "@/components/numeric-date-input";
 
 type Currency = {
   code: string;
@@ -278,9 +279,13 @@ export default function CurrenciesPage() {
               </label>
               <label className="text-xs font-bold">
                 {t("settingscurrencies.dateLabel")}
-                <input type="date" value={rateDate} max={todayLabel()}
-                  onChange={(e) => setRateDate(e.target.value)} required
-                  className="input mt-1 w-full" />
+                <NumericDateInput
+                  className="input mt-1 w-full"
+                  value={rateDate}
+                  onChange={(v) => setRateDate(v)}
+                  required
+                  max={todayLabel()}
+                />
               </label>
               <div className="flex items-end">
                 <button className="btn btn-primary text-sm" disabled={savingRate || !rateCode}>

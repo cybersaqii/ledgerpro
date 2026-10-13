@@ -7,6 +7,7 @@ import { PageHeader, ErrorNote, Field } from "@/components/ui";
 import { api, fmtMoney } from "@/lib/format";
 import { useLang } from "@/components/lang-provider";
 import { ProjectSelect } from "@/components/project-select";
+import { NumericDateInput } from "@/components/numeric-date-input";
 
 type Account = { id: string; code: string; name: string; type: string; isActive: boolean };
 type Party = { id: string; name: string; kind: string };
@@ -95,7 +96,7 @@ export default function NewJournalVoucherPage() {
       <div className="card rise rise-1 mb-4 p-4">
         <div className="grid gap-3 sm:grid-cols-3">
           <Field label={t("jv.date")} required>
-            <input type="date" className="input" value={date} onChange={(e) => setDate(e.target.value)} />
+            <NumericDateInput className="input" value={date} onChange={(v) => setDate(v)} />
           </Field>
           <div className="sm:col-span-2">
             <Field label={t("jv.memo")} required hint={t("jv.memoHint")}>

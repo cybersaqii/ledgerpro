@@ -7,6 +7,7 @@ import { PageHeader } from "@/components/ui";
 import { useLang } from "@/components/lang-provider";
 import { useCan } from "@/components/permissions";
 import { api, fmtMoney } from "@/lib/format";
+import { NumericDateInput } from "@/components/numeric-date-input";
 
 type PresetMeta = {
   key: string;
@@ -185,7 +186,12 @@ export default function ReportBuilder() {
     const v = vals[f] ?? "";
     const set = (nv: string) => setVals((o) => ({ ...o, [f]: nv }));
     if (f === "from" || f === "to")
-      return <input type="date" className="field" value={v} onChange={(e) => set(e.target.value)} aria-label={fieldLabel(f)} />;
+      return <NumericDateInput
+        className="field"
+        value={v}
+        onChange={set}
+        aria-label={fieldLabel(f)}
+      />;
     if (f === "bucket")
       return (
         <select className="field" value={v || "none"} onChange={(e) => set(e.target.value)} aria-label={fieldLabel(f)}>

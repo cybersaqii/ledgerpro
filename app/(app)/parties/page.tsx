@@ -11,6 +11,7 @@ import { paisaToRupees } from "@/lib/pos";
 import { useBusinessProfile } from "@/components/business-type";
 import { useLang } from "@/components/lang-provider";
 import { useCan } from "@/components/permissions";
+import { NumericDateInput } from "@/components/numeric-date-input";
 
 type Party = {
   id: string; kind: string; name: string; phone: string | null; email: string | null; city: string | null;
@@ -211,8 +212,8 @@ export default function PartiesPage({ defaultKind }: { defaultKind?: "CUSTOMER" 
     } finally { setSaving(false); }
   }
 
-  const set = (k: keyof typeof emptyForm) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) =>
-    setForm((f) => ({ ...f, [k]: e.target.value }));
+  const set = (k: keyof typeof emptyForm) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement> | string) =>
+    setForm((f) => ({ ...f, [k]: typeof e === "string" ? e : e.target.value }));
 
   const partyWord = kind === "CUSTOMER" ? bp.partyOne.toLowerCase() : t("docs.supplier").toLowerCase();
   const partyMany = kind === "CUSTOMER" ? bp.partyMany : t("parties.suppliersTitle");
@@ -401,7 +402,7 @@ export default function PartiesPage({ defaultKind }: { defaultKind?: "CUSTOMER" 
                     <input className="field" type="number" min="0" step="0.01" placeholder="0.00" value={form.openingBalance} onChange={set("openingBalance")} />
                   </Field>
                   <Field label={t("parties.openingDate")} hint={t("parties.openingDateHint")}>
-                    <input className="field" type="date" value={form.openingBalanceDate} onChange={set("openingBalanceDate")} />
+                    <NumericDateInput className="field" value={form.openingBalanceDate} onChange={set("openingBalanceDate")} />
                   </Field>
                 </div>
               </div>

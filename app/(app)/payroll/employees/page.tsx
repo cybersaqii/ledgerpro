@@ -8,6 +8,7 @@ import { PageHeader, Field, ErrorNote, EmptyState } from "@/components/ui";
 import { useLang } from "@/components/lang-provider";
 import { useCan } from "@/components/permissions";
 import { api, fmtMoney, fmtDate, fmtDateInput } from "@/lib/format";
+import { NumericDateInput } from "@/components/numeric-date-input";
 
 type Employee = {
   id: string; code: string; fullName: string; cnic: string | null; email: string | null;
@@ -227,7 +228,7 @@ export default function EmployeesPage() {
               <Field label={t("payroll.email")}><input className="input" value={empForm.email} onChange={(e) => setEmpForm({ ...empForm, email: e.target.value })} /></Field>
               <Field label={t("payroll.department")}><input className="input" value={empForm.department} onChange={(e) => setEmpForm({ ...empForm, department: e.target.value })} /></Field>
               <Field label={t("payroll.designation")}><input className="input" value={empForm.designation} onChange={(e) => setEmpForm({ ...empForm, designation: e.target.value })} /></Field>
-              {!editing && <Field label={t("payroll.joiningDate")} required><input type="date" className="input" value={empForm.joiningDate} onChange={(e) => setEmpForm({ ...empForm, joiningDate: e.target.value })} /></Field>}
+              {!editing && <Field label={t("payroll.joiningDate")} required><NumericDateInput className="input" value={empForm.joiningDate} onChange={(v) => setEmpForm({ ...empForm, joiningDate: v })} /></Field>}
               <Field label={t("payroll.employmentType")}>
                 <select className="input" value={empForm.employmentType} onChange={(e) => setEmpForm({ ...empForm, employmentType: e.target.value })}>
                   <option value="PERMANENT">{t("payroll.permanent")}</option>
@@ -277,7 +278,7 @@ export default function EmployeesPage() {
                 <input type="number" min="0" className="input" value={advForm.amount} onChange={(e) => setAdvForm({ ...advForm, amount: e.target.value })} />
               </Field>
               <Field label={t("payroll.date")} required>
-                <input type="date" className="input" value={advForm.date} onChange={(e) => setAdvForm({ ...advForm, date: e.target.value })} />
+                <NumericDateInput className="input" value={advForm.date} onChange={(v) => setAdvForm({ ...advForm, date: v })} />
               </Field>
               <Field label={t("payroll.bankAccount")} required>
                 <select className="input" value={advForm.bankAccountId} onChange={(e) => setAdvForm({ ...advForm, bankAccountId: e.target.value })}>

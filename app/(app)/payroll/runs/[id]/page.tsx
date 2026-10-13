@@ -10,6 +10,7 @@ import { PageHeader, Field, ErrorNote, StatusPill, SummaryChips } from "@/compon
 import { useLang } from "@/components/lang-provider";
 import { useCan } from "@/components/permissions";
 import { api, fmtMoney, fmtDateInput } from "@/lib/format";
+import { NumericDateInput } from "@/components/numeric-date-input";
 
 type Slip = {
   id: string; employeeCode: string; employeeName: string;
@@ -189,7 +190,7 @@ export default function RunDetailPage() {
                 </select>
               </Field>
               <Field label={t("payroll.date")} required>
-                <input type="date" className="input" value={disbDate} onChange={(e) => setDisbDate(e.target.value)} />
+                <NumericDateInput className="input" value={disbDate} onChange={(v) => setDisbDate(v)} />
               </Field>
             </div>
             <div className="mt-4 flex justify-end gap-2">

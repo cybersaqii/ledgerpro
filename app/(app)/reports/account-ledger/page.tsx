@@ -7,6 +7,7 @@ import { PageHeader, ErrorNote, ExportCsv, Field } from "@/components/ui";
 import { csvMoney } from "@/lib/csv";
 import { api, fmtMoney, fmtDate } from "@/lib/format";
 import { useLang } from "@/components/lang-provider";
+import { NumericDateInput } from "@/components/numeric-date-input";
 
 type Account = { id: string; code: string; name: string; type: string };
 type Entry = { date: number | string; memo: string; reference: string | null; docNo: string | null; source: string; debit: string; credit: string; balance: string };
@@ -79,10 +80,10 @@ export default function AccountLedgerPage() {
             </select>
           </Field>
           <Field label={t("acledger.from")}>
-            <input type="date" className="input" value={from} onChange={(e) => setFrom(e.target.value)} />
+            <NumericDateInput className="input" value={from} onChange={(v) => setFrom(v)} />
           </Field>
           <Field label={t("acledger.to")}>
-            <input type="date" className="input" value={to} onChange={(e) => setTo(e.target.value)} />
+            <NumericDateInput className="input" value={to} onChange={(v) => setTo(v)} />
           </Field>
           <div className="flex items-end">
             <button className="btn btn-primary w-full" onClick={load} disabled={loading || !accountId}>

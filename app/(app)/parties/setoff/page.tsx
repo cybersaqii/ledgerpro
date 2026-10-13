@@ -6,6 +6,7 @@ import { ArrowLeftRight, CheckCircle2 } from "lucide-react";
 import { PageHeader, ErrorNote, Field } from "@/components/ui";
 import { api, fmtMoney, fmtDate } from "@/lib/format";
 import { useLang } from "@/components/lang-provider";
+import { NumericDateInput } from "@/components/numeric-date-input";
 
 type Party = { id: string; name: string; balance: string };
 type OpenDoc = { id: string; docNo: string; date: number | string; dueDate: number | string | null; outstanding: string };
@@ -179,7 +180,7 @@ export default function ContraWizardPage() {
                     <input className="input num" inputMode="decimal" value={amount} onChange={(e) => setAmount(e.target.value)} placeholder="0.00" />
                   </Field>
                   <Field label={t("setoff.date")} required>
-                    <input type="date" className="input" value={date} onChange={(e) => setDate(e.target.value)} />
+                    <NumericDateInput className="input" value={date} onChange={(v) => setDate(v)} />
                   </Field>
                   <Field label={t("common.notes")}>
                     <input className="input" value={notes} onChange={(e) => setNotes(e.target.value)} maxLength={200} placeholder={t("setoff.notesPh")} />

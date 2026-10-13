@@ -7,6 +7,7 @@ import { PageHeader, ErrorNote } from "@/components/ui";
 import { api, fmtDateInput } from "@/lib/format";
 import { useLang } from "@/components/lang-provider";
 import { useDismiss } from "@/components/use-dismiss";
+import { NumericDateInput } from "@/components/numeric-date-input";
 
 /** Backend has no mode field for transfers — shown for FA parity, folded into notes. */
 const MODES = [
@@ -136,8 +137,12 @@ export function TransferVoucherForm() {
             {rows.map((r) => (
               <tr key={r.key}>
                 <td className="!w-36">
-                  <input type="date" className="field !py-1" required value={r.date}
-                    onChange={(e) => updateRow(r.key, { date: e.target.value })} />
+                  <NumericDateInput
+                    className="field !py-1"
+                    value={r.date}
+                    onChange={(v) => updateRow(r.key, { date: v })}
+                    required
+                  />
                 </td>
                 <td className="min-w-40">
                   <select className="field !py-1" required value={r.fromBankId}
@@ -205,8 +210,12 @@ export function TransferVoucherForm() {
               </button>
             </div>
             <div className="mt-1 grid grid-cols-2 gap-2">
-              <input type="date" className="field" aria-label={t("bankvoucher.colDate")} value={r.date}
-                onChange={(e) => updateRow(r.key, { date: e.target.value })} />
+              <NumericDateInput
+                className="field"
+                value={r.date}
+                onChange={(v) => updateRow(r.key, { date: v })}
+                aria-label={t("bankvoucher.colDate")}
+              />
               <select className="field" aria-label={t("bankvoucher.colMode")} value={r.mode}
                 onChange={(e) => updateRow(r.key, { mode: e.target.value })}>
                 {MODES.map((m) => <option key={m.value} value={m.value}>{modeLabel(m)}</option>)}

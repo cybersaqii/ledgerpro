@@ -8,6 +8,7 @@ import { Modal } from "@/components/modal";
 import { api, fmtMoney, fmtDate, fmtDateInput } from "@/lib/format";
 import { useLang } from "@/components/lang-provider";
 import { usePermissions } from "@/components/permissions";
+import { NumericDateInput } from "@/components/numeric-date-input";
 
 type Receipt = {
   id: string; docNo: string; date: number; amount: string; notes: string | null;
@@ -101,8 +102,8 @@ export default function SundryReceiptsPage() {
     } finally { setVoiding(false); }
   }
 
-  const set = (k: keyof typeof form) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) =>
-    setForm((f) => ({ ...f, [k]: e.target.value }));
+  const set = (k: keyof typeof form) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement> | string) =>
+    setForm((f) => ({ ...f, [k]: typeof e === "string" ? e : e.target.value }));
 
   return (
     <div>
@@ -195,7 +196,12 @@ export default function SundryReceiptsPage() {
                 </select>
               </Field>
               <Field label={m("colDate")}>
-                <input type="date" className="field" required value={form.date} onChange={set("date")} />
+                <NumericDateInput
+                  className="field"
+                  value={form.date}
+                  onChange={set("date")}
+                  required
+                />
               </Field>
             </div>
             <Field label={m("colAmount")}>

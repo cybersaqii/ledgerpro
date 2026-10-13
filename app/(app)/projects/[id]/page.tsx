@@ -9,6 +9,7 @@ import { PageHeader, Field, ErrorNote, EmptyState, Stat, StatusPill } from "@/co
 import { useLang } from "@/components/lang-provider";
 import { useCan } from "@/components/permissions";
 import { api, fmtMoney, fmtDate } from "@/lib/format";
+import { NumericDateInput } from "@/components/numeric-date-input";
 
 type Project = {
   id: string; code: string; name: string;
@@ -164,10 +165,10 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
           {/* Date range */}
           <div className="mt-4 flex flex-wrap items-end gap-3 rounded-2xl border border-border bg-card p-4">
             <Field label={t("projects.fromDate")}>
-              <input type="date" value={from} onChange={(e) => setFrom(e.target.value)} className="rounded-xl border border-border bg-background px-3 py-2 text-sm" />
+              <NumericDateInput className="rounded-xl border border-border bg-background px-3 py-2 text-sm" value={from} onChange={(v) => setFrom(v)} />
             </Field>
             <Field label={t("projects.toDate")}>
-              <input type="date" value={to} onChange={(e) => setTo(e.target.value)} className="rounded-xl border border-border bg-background px-3 py-2 text-sm" />
+              <NumericDateInput className="rounded-xl border border-border bg-background px-3 py-2 text-sm" value={to} onChange={(v) => setTo(v)} />
             </Field>
             {(from || to) && (
               <button

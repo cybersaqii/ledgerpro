@@ -7,6 +7,7 @@ import { PageHeader, Field, ExportCsv } from "@/components/ui";
 import { csvMoney } from "@/lib/csv";
 import { useLang } from "@/components/lang-provider";
 import { api, fmtMoney, fmtQty, fmtDate, fmtDateInput } from "@/lib/format";
+import { NumericDateInput } from "@/components/numeric-date-input";
 
 type DocRef = { id: string; docNo: string; date: number; docType: string };
 type Row = {
@@ -150,8 +151,8 @@ export default function ProductSalesPage() {
         actions={<ExportCsv filename="product-sales" disabled={loading || !report || report.rows.length === 0} rows={csvRows} />}
       />
       <div className="card mb-4 flex flex-wrap items-end gap-3 p-4">
-        <Field label={t("fix4.psr.from")}><input type="date" className="field" value={from} onChange={(e) => setFrom(e.target.value)} /></Field>
-        <Field label={t("fix4.psr.to")}><input type="date" className="field" value={to} onChange={(e) => setTo(e.target.value)} /></Field>
+        <Field label={t("fix4.psr.from")}><NumericDateInput className="field" value={from} onChange={(v) => setFrom(v)} /></Field>
+        <Field label={t("fix4.psr.to")}><NumericDateInput className="field" value={to} onChange={(v) => setTo(v)} /></Field>
         <Field label={t("fix4.psr.product")}>
           <select className="field min-w-44" value={productId} onChange={(e) => setProductId(e.target.value)}>
             <option value="">{t("fix4.psr.allProducts")}</option>

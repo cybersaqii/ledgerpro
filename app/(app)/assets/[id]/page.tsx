@@ -9,6 +9,7 @@ import { PageHeader, Field, ErrorNote, StatusPill, SummaryChips } from "@/compon
 import { useLang } from "@/components/lang-provider";
 import { useCan } from "@/components/permissions";
 import { api, fmtMoney, fmtDateInput } from "@/lib/format";
+import { NumericDateInput } from "@/components/numeric-date-input";
 
 type Asset = {
   id: string; code: string; description: string; serialNumber: string | null;
@@ -217,7 +218,7 @@ export default function AssetDetailPage() {
                     </select>
                   </Field>
                   <Field label={t("assets.soldOn")}>
-                    <input type="date" className="input" value={sellDate} onChange={(e) => setSellDate(e.target.value)} />
+                    <NumericDateInput className="input" value={sellDate} onChange={(v) => setSellDate(v)} />
                   </Field>
                 </>
               )}

@@ -5,6 +5,7 @@ import { Modal } from "@/components/modal";
 import { Field, ErrorNote } from "@/components/ui";
 import { api, fmtMoney, fmtDateInput } from "@/lib/format";
 import { useLang } from "@/components/lang-provider";
+import { NumericDateInput } from "@/components/numeric-date-input";
 
 type Account = { id: string; name: string; code: string };
 
@@ -64,8 +65,8 @@ export function WriteOffModal({
     }
   }
 
-  const set = (k: keyof typeof form) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) =>
-    setForm((x) => ({ ...x, [k]: e.target.value }));
+  const set = (k: keyof typeof form) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement> | string) =>
+    setForm((x) => ({ ...x, [k]: typeof e === "string" ? e : e.target.value }));
 
   return (
     <Modal title={f("fix3.woTitle")} onClose={onClose}>
@@ -76,7 +77,12 @@ export function WriteOffModal({
         </p>
         <div className="grid gap-4 sm:grid-cols-2">
           <Field label={f("fix3.woDate")}>
-            <input type="date" className="field" required value={form.date} onChange={set("date")} />
+            <NumericDateInput
+              className="field"
+              value={form.date}
+              onChange={set("date")}
+              required
+            />
           </Field>
           <Field label={f("fix3.woAmount")}>
             <input className="field num" type="number" min="0" step="0.01" required

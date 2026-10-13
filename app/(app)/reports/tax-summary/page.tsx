@@ -6,6 +6,7 @@ import { PageHeader, Field, ExportCsv } from "@/components/ui";
 import { csvMoney } from "@/lib/csv";
 import { useLang } from "@/components/lang-provider";
 import { api, fmtMoney, fmtDateInput } from "@/lib/format";
+import { NumericDateInput } from "@/components/numeric-date-input";
 
 type Side = { account: { code: string; name: string } | null; debit: string; credit: string; net: string };
 
@@ -59,8 +60,8 @@ export default function TaxSummaryPage() {
         }
       />
       <div className="card mb-4 flex flex-wrap items-end gap-3 p-4">
-        <Field label={t("taxsummary.from")}><input type="date" className="field" value={from} onChange={(e) => setFrom(e.target.value)} /></Field>
-        <Field label={t("taxsummary.to")}><input type="date" className="field" value={to} onChange={(e) => setTo(e.target.value)} /></Field>
+        <Field label={t("taxsummary.from")}><NumericDateInput className="field" value={from} onChange={(v) => setFrom(v)} /></Field>
+        <Field label={t("taxsummary.to")}><NumericDateInput className="field" value={to} onChange={(v) => setTo(v)} /></Field>
       </div>
 
       {loadError ? (

@@ -6,6 +6,7 @@ import { PageHeader, ExportCsv, SummaryChips, EmptyState } from "@/components/ui
 import { api, fmtMoney, fmtDateInput } from "@/lib/format";
 import { csvMoney } from "@/lib/csv";
 import { useLang } from "@/components/lang-provider";
+import { NumericDateInput } from "@/components/numeric-date-input";
 
 type Bucket = { count: number; total: string };
 type Data = {
@@ -75,7 +76,12 @@ export default function DayClosePage() {
       <div className="card mb-4 flex flex-wrap items-end gap-3 p-4">
         <label className="text-sm font-semibold">
           <span className="mb-1 block text-xs uppercase tracking-wider text-muted-foreground">{t("dayclose.date")}</span>
-          <input type="date" className="field" value={date} max={fmtDateInput()} onChange={(e) => e.target.value && setDate(e.target.value)} />
+          <NumericDateInput
+            className="field"
+            value={date}
+            onChange={(v) => v && setDate(v)}
+            max={fmtDateInput()}
+          />
         </label>
       </div>
 

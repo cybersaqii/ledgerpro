@@ -314,7 +314,7 @@ type Company = {
 function UsersTab({ t }: { t: (k: string) => string }) {
   const [companies, setCompanies] = useState<Company[]>([]);
   const [loading, setLoading] = useState(true);
-  const [filter, setFilter] = useState<"ALL" | "TRIAL" | "PRO" | "FREE" | "EXPIRED">("ALL");
+  const [filter, setFilter] = useState<"ALL" | "TRIAL" | "PLAN" | "FREE" | "EXPIRED">("ALL");
   const [search, setSearch] = useState("");
   const [extending, setExtending] = useState<Company | null>(null);
   const [plan, setPlan] = useState("PROFESSIONAL");
@@ -361,22 +361,25 @@ function UsersTab({ t }: { t: (k: string) => string }) {
   const counts = {
     ALL: companies.length,
     TRIAL: companies.filter((c) => c.level === "TRIAL").length,
-    PRO: companies.filter((c) => c.level === "PRO").length,
+    PLAN: companies.filter((c) => c.level === "PLAN").length,
     FREE: companies.filter((c) => c.level === "FREE").length,
   };
 
   const levelBadge = (c: Company) => {
     const styles: Record<string, string> = {
       TRIAL: "bg-warning-soft text-warning",
-      PRO: "bg-success-soft text-success",
+      PLAN: "bg-success-soft text-success",
       FREE: "bg-muted text-muted-foreground",
     };
-    return <span className={`badge ${styles[c.level] ?? styles.FREE}`}>{c.level}</span>;
+    // Paid companies show their actual tier (STARTER / PROFESSIONAL / ENTERPRISE),
+    // not the raw access-level word.
+    const label = c.level === "PLAN" ? c.plan : c.level;
+    return <span className={`badge ${styles[c.level] ?? styles.FREE}`}>{label}</span>;
   };
 
   const subInfo = (c: Company) => {
     if (c.level === "TRIAL") return t("adminbilling.trialDays").replace("{n}", String(c.trialDaysLeft));
-    if (c.level === "PRO") return t("adminbilling.proDays").replace("{n}", String(c.proDaysLeft));
+    if (c.level === "PLAN") return t("adminbilling.proDays").replace("{n}", String(c.proDaysLeft));
     return t("adminbilling.expired");
   };
 
@@ -386,7 +389,7 @@ function UsersTab({ t }: { t: (k: string) => string }) {
 
       {/* Stats */}
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-        {([["ALL", t("adminbilling.allUsers")], ["TRIAL", t("adminbilling.trial")], ["PRO", t("adminbilling.pro")], ["FREE", t("adminbilling.free")]] as const).map(([v, l]) => (
+        {([["ALL", t("adminbilling.allUsers")], ["TRIAL", t("adminbilling.trial")], ["PLAN", t("adminbilling.pro")], ["FREE", t("adminbilling.free")]] as const).map(([v, l]) => (
           <button key={v} onClick={() => setFilter(v)}
             className={`card p-4 text-start transition ${filter === v ? "ring-2 ring-primary" : "hover:-translate-y-0.5"}`}>
             <p className="text-2xl font-extrabold">{counts[v]}</p>

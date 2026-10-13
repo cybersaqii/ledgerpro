@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { api, fmtQty } from "@/lib/format";
 import { Field, ErrorNote } from "@/components/ui";
 import { useLang } from "@/components/lang-provider";
+import { NumericDateInput } from "@/components/numeric-date-input";
 
 type SummaryLine = { itemId: string; ordered: string; received: string; damaged: string; open: string };
 type DocItem = { id: string; description: string };
@@ -144,9 +145,12 @@ export function GrnReceiveDialog({
                         onChange={(e) => setBatchNo((m) => ({ ...m, [l.itemId]: e.target.value }))} />
                     </Field>
                     <Field label={t("grn.expiry")}>
-                      <input className="field !py-1.5 text-sm" type="date" dir="ltr"
-                        value={expiry[l.itemId] ?? ""} disabled={busy}
-                        onChange={(e) => setExpiry((m) => ({ ...m, [l.itemId]: e.target.value }))} />
+                      <NumericDateInput
+                        className="field !py-1.5 text-sm"
+                        value={expiry[l.itemId] ?? ""}
+                        onChange={(v) => setExpiry((m) => ({ ...m, [l.itemId]: v }))}
+                        disabled={busy}
+                      />
                     </Field>
                   </div>
                 </div>
@@ -155,8 +159,13 @@ export function GrnReceiveDialog({
           )}
           <div className="mt-4 grid gap-4 sm:grid-cols-2">
             <Field label={t("docform.date")}>
-              <input type="date" className="field" value={date} disabled={busy}
-                onChange={(e) => setDate(e.target.value)} required />
+              <NumericDateInput
+                className="field"
+                value={date}
+                onChange={(v) => setDate(v)}
+                required
+                disabled={busy}
+              />
             </Field>
             <Field label={t("common.notes")}>
               <input className="field" value={notes} disabled={busy}

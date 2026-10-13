@@ -6,6 +6,7 @@ import { ErrorNote, Field } from "@/components/ui";
 import { Modal } from "@/components/modal";
 import { useLang } from "@/components/lang-provider";
 import { api, fmtMoney, fmtDate, fmtDateInput } from "@/lib/format";
+import { NumericDateInput } from "@/components/numeric-date-input";
 
 export type StmtLine = {
   id: string; date: number; description: string; reference: string | null;
@@ -481,8 +482,8 @@ function SpawnModal({
     }
   }
 
-  const set = (k: keyof typeof form) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) =>
-    setForm((f) => ({ ...f, [k]: e.target.value }));
+  const set = (k: keyof typeof form) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement> | string) =>
+    setForm((f) => ({ ...f, [k]: typeof e === "string" ? e : e.target.value }));
 
   return (
     <Modal title={title} onClose={onClose}>
@@ -512,7 +513,12 @@ function SpawnModal({
         )}
         <div className="grid gap-4 sm:grid-cols-2">
           <Field label={m("colDate")}>
-            <input type="date" className="field" required value={form.date} onChange={set("date")} />
+            <NumericDateInput
+              className="field"
+              value={form.date}
+              onChange={set("date")}
+              required
+            />
           </Field>
           <Field label={m("colAmount")}>
             <input className="field num" type="number" min="0" step="0.01" required
@@ -599,8 +605,12 @@ export function AdjustmentModal({
         </div>
         <div className="grid gap-4 sm:grid-cols-2">
           <Field label={m("adjDate")}>
-            <input type="date" className="field" required value={form.date}
-              onChange={(e) => setForm((f) => ({ ...f, date: e.target.value }))} />
+            <NumericDateInput
+              className="field"
+              value={form.date}
+              onChange={(v) => setForm((f) => ({ ...f, date: v }))}
+              required
+            />
           </Field>
           <Field label={m("adjAmount")}>
             <input className="field num" type="number" min="0" step="0.01" required value={form.amount}

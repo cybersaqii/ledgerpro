@@ -5,6 +5,7 @@ import { Repeat, Plus, Pencil, Trash2, Pause, Play, SkipForward, History, X, Sea
 import { PageHeader, EmptyState, ErrorNote, Field } from "@/components/ui";
 import { api, fmtMoney, fmtDate } from "@/lib/format";
 import { useLang } from "@/components/lang-provider";
+import { NumericDateInput } from "@/components/numeric-date-input";
 
 type TemplateItem = { productId: string; qty: number; ratePaisa: string };
 
@@ -297,10 +298,15 @@ export default function RecurringPage() {
                 </select>
               </Field>
               <Field label={t("recurring.startDate")}>
-                <input className="field" type="date" value={form.startDate} onChange={(e) => setForm({ ...form, startDate: e.target.value })} required />
+                <NumericDateInput
+                  className="field"
+                  value={form.startDate}
+                  onChange={(v) => setForm({ ...form, startDate: v })}
+                  required
+                />
               </Field>
               <Field label={t("recurring.endDate")}>
-                <input className="field" type="date" value={form.endDate} onChange={(e) => setForm({ ...form, endDate: e.target.value })} />
+                <NumericDateInput className="field" value={form.endDate} onChange={(v) => setForm({ ...form, endDate: v })} />
               </Field>
               <Field label={t("recurring.terms")}>
                 <input className="field" value={form.terms} onChange={(e) => setForm({ ...form, terms: e.target.value })} maxLength={500} placeholder={t("recurring.termsPh")} />

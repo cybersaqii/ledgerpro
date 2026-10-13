@@ -5,6 +5,7 @@ import { FileText, ClipboardList, Wallet, ScrollText, Plus, Trash2, Printer, Shi
 import { EmptyState, ErrorNote, Field } from "@/components/ui";
 import { useLang } from "@/components/lang-provider";
 import { api, fmtMoney, fmtDate } from "@/lib/format";
+import { NumericDateInput } from "@/components/numeric-date-input";
 
 type Ctx = {
  companyName: string; companyPhone: string | null; companyEmail: string | null;
@@ -443,8 +444,8 @@ export function PortalClient({ token, ctx }: { token: string; ctx: Ctx }) {
  {tab === "statement" && (
  <div className="mt-4">
  <div className="no-print grid grid-cols-[1fr_1fr_auto] items-end gap-2 rounded-2xl border border-border bg-card p-4 dark:bg-card">
- <Field label={t("portal.statementFrom")}><input className="field" type="date" value={from} onChange={(e) => setFrom(e.target.value)} /></Field>
- <Field label={t("portal.statementTo")}><input className="field" type="date" value={to} onChange={(e) => setTo(e.target.value)} /></Field>
+ <Field label={t("portal.statementFrom")}><NumericDateInput className="field" value={from} onChange={(v) => setFrom(v)} /></Field>
+ <Field label={t("portal.statementTo")}><NumericDateInput className="field" value={to} onChange={(v) => setTo(v)} /></Field>
  <button className="btn btn-primary" disabled={stmtBusy || !from || !to} onClick={loadStatement}>{t("portal.statementShow")}</button>
  </div>
  {stmt && (

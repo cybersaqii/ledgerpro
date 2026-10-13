@@ -8,6 +8,7 @@ import { Modal } from "@/components/modal";
 import { api, fmtDate, fmtDateInput } from "@/lib/format";
 import { useLang } from "@/components/lang-provider";
 import { usePermissions } from "@/components/permissions";
+import { NumericDateInput } from "@/components/numeric-date-input";
 
 type AdjRow = {
   id: string; docNo: string; date: number; reason: string;
@@ -271,11 +272,21 @@ export default function StockAdjustmentsPage() {
           </div>
           <div>
             <label className="mb-1 block text-xs font-bold text-muted-foreground" htmlFor="adjflt-from">{f("fix3.adjDateFrom")}</label>
-            <input id="adjflt-from" type="date" className="field !w-auto !py-2 text-sm" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} />
+            <NumericDateInput
+              className="field !w-auto !py-2 text-sm"
+              value={dateFrom}
+              onChange={(v) => setDateFrom(v)}
+              id="adjflt-from"
+            />
           </div>
           <div>
             <label className="mb-1 block text-xs font-bold text-muted-foreground" htmlFor="adjflt-to">{f("fix3.adjDateTo")}</label>
-            <input id="adjflt-to" type="date" className="field !w-auto !py-2 text-sm" value={dateTo} onChange={(e) => setDateTo(e.target.value)} />
+            <NumericDateInput
+              className="field !w-auto !py-2 text-sm"
+              value={dateTo}
+              onChange={(v) => setDateTo(v)}
+              id="adjflt-to"
+            />
           </div>
           {(reasonFilter !== "ALL" || dateFrom !== "" || dateTo !== "") && (
             <button
@@ -338,7 +349,12 @@ export default function StockAdjustmentsPage() {
             <ErrorNote message={error} />
             <div className="grid gap-4 sm:grid-cols-3">
               <Field label={f("fix3.adjDate")}>
-                <input type="date" className="field" required value={form.date} onChange={(e) => setForm({ ...form, date: e.target.value })} />
+                <NumericDateInput
+                  className="field"
+                  value={form.date}
+                  onChange={(v) => setForm({ ...form, date: v })}
+                  required
+                />
               </Field>
               <Field label={f("fix3.adjReason")}>
                 <select className="field" value={form.reason} onChange={(e) => onReason(e.target.value)}>

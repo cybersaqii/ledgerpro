@@ -6,6 +6,7 @@ import { PageHeader, EmptyState, Field, ErrorNote } from "@/components/ui";
 import { Modal } from "@/components/modal";
 import { api } from "@/lib/format";
 import { useLang } from "@/components/lang-provider";
+import { NumericDateInput } from "@/components/numeric-date-input";
 
 type Doc = {
   id: string; docNo: string; date: string | null; status: string;
@@ -192,7 +193,12 @@ export default function StockTransfersPage() {
               </Field>
             </div>
             <div className="grid gap-4 sm:grid-cols-2">
-              <Field label={t("m4.colDate")}><input className="field" type="date" required value={date} onChange={(e) => setDate(e.target.value)} /></Field>
+              <Field label={t("m4.colDate")}><NumericDateInput
+                className="field"
+                value={date}
+                onChange={(v) => setDate(v)}
+                required
+              /></Field>
               <Field label={t("common.notes")}><input className="field" value={notes} maxLength={500} onChange={(e) => setNotes(e.target.value)} /></Field>
             </div>
 

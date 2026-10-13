@@ -6,6 +6,7 @@ import { History, Search } from "lucide-react";
 import { PageHeader, EmptyState, Field } from "@/components/ui";
 import { api } from "@/lib/format";
 import { useLang } from "@/components/lang-provider";
+import { NumericDateInput } from "@/components/numeric-date-input";
 
 type Row = {
   id: string; date: string | null; txnType: string; docId: string | null; docNo: string | null;
@@ -129,8 +130,8 @@ export default function StockMovementsPage() {
               {branches.map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}
             </select>
           </Field>
-          <Field label={t("m4.movementFrom")}><input className="field" type="date" value={from} onChange={(e) => setFrom(e.target.value)} /></Field>
-          <Field label={t("m4.movementTo")}><input className="field" type="date" value={to} onChange={(e) => setTo(e.target.value)} /></Field>
+          <Field label={t("m4.movementFrom")}><NumericDateInput className="field" value={from} onChange={(v) => setFrom(v)} /></Field>
+          <Field label={t("m4.movementTo")}><NumericDateInput className="field" value={to} onChange={(v) => setTo(v)} /></Field>
         </div>
       </div>
 

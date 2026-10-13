@@ -13,6 +13,7 @@ import { AUDIT_LOG_RETENTION_YEARS } from "@/lib/audit";
 import { PERMISSION_GROUPS } from "@/lib/permission-keys";
 import { usePermissions } from "@/components/permissions";
 import { ApprovalRulesCard } from "@/components/approval-rules-card";
+import { NumericDateInput } from "@/components/numeric-date-input";
 
 type Company = {
   name: string; tradeName: string | null; email: string | null; phone: string | null; address: string | null;
@@ -1514,8 +1515,12 @@ function PeriodLockCard() {
           {isOwner ? (
             <div className="mt-4 flex flex-wrap items-end gap-3">
               <Field label={t("settingslock.lockLabel")}>
-                <input type="date" className="field !w-auto" value={date} max={new Date().toISOString().slice(0, 10)}
-                  onChange={(e) => setDate(e.target.value)} />
+                <NumericDateInput
+                  className="field !w-auto"
+                  value={date}
+                  onChange={(v) => setDate(v)}
+                  max={new Date().toISOString().slice(0, 10)}
+                />
               </Field>
               <button className="btn btn-primary text-sm" disabled={busy || !date} onClick={() => save(date)}>
                 {busy ? t("settingslock.saving") : t("settingslock.lockPeriod")}

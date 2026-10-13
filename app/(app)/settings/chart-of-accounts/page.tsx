@@ -6,6 +6,7 @@ import { PageHeader, ErrorNote, Field } from "@/components/ui";
 import { api, fmtMoney } from "@/lib/format";
 import { useLang } from "@/components/lang-provider";
 import { useCan } from "@/components/permissions";
+import { NumericDateInput } from "@/components/numeric-date-input";
 
 type Node = {
   id: string; code: string; name: string; type: string; parentId: string | null;
@@ -233,7 +234,7 @@ function AccountDialog({ dialog, flat, onClose, onSaved }: {
                 <input className="input" inputMode="decimal" value={opening} onChange={(e) => setOpening(e.target.value)} placeholder="0.00" />
               </Field>
               <Field label={t("coa.openingDate")}>
-                <input type="date" className="input" value={openingDate} onChange={(e) => setOpeningDate(e.target.value)} />
+                <NumericDateInput className="input" value={openingDate} onChange={(v) => setOpeningDate(v)} />
               </Field>
             </>
           )}

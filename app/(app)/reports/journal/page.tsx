@@ -9,6 +9,7 @@ import { api, fmtMoney, fmtDate } from "@/lib/format";
 import { DocRefLink } from "@/components/doc-link";
 import { useLang } from "@/components/lang-provider";
 import { useCan } from "@/components/permissions";
+import { NumericDateInput } from "@/components/numeric-date-input";
 
 type JLine = { accountCode: string; accountName: string; partyName: string | null; debit: string; credit: string };
 type Entry = { id: string; date: number | string; memo: string; reference: string | null; docNo: string | null; source: string; sourceId: string | null; lines: JLine[] };
@@ -97,8 +98,8 @@ export default function JournalPage() {
             value={q} onChange={(e) => setQ(e.target.value)}
             onKeyDown={(e) => { if (e.key === "Enter") applyFilters(); }} />
         </div>
-        <label className="text-sm">{t("journal.from")} <input type="date" className="field !w-auto" value={from} onChange={(e) => setFrom(e.target.value)} /></label>
-        <label className="text-sm">{t("journal.to")} <input type="date" className="field !w-auto" value={to} onChange={(e) => setTo(e.target.value)} /></label>
+        <label className="text-sm">{t("journal.from")} <NumericDateInput className="field !w-auto" value={from} onChange={(v) => setFrom(v)} /></label>
+        <label className="text-sm">{t("journal.to")} <NumericDateInput className="field !w-auto" value={to} onChange={(v) => setTo(v)} /></label>
         <button className="btn btn-primary text-sm" onClick={applyFilters}>{t("journal.apply")}</button>
       </div>
 

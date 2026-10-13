@@ -8,6 +8,7 @@ import { PageHeader, Field, ErrorNote, EmptyState, StatusPill, FilterBar } from 
 import { useLang } from "@/components/lang-provider";
 import { useCan } from "@/components/permissions";
 import { api, fmtMoney } from "@/lib/format";
+import { NumericDateInput } from "@/components/numeric-date-input";
 
 type Project = {
   id: string; code: string; name: string;
@@ -68,8 +69,8 @@ export default function ProjectsPage() {
 
   if (!can) return <PageHeader title={t("projects.title")} icon={<FolderKanban size={20} />} />;
 
-  const set = (k: string) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) =>
-    setF((p) => ({ ...p, [k]: e.target.value }));
+  const set = (k: string) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement> | string) =>
+    setF((p) => ({ ...p, [k]: typeof e === "string" ? e : e.target.value }));
 
   const create = async () => {
     if (!f.name.trim()) { setFormErr(t("projects.createError")); return; }
@@ -205,10 +206,10 @@ export default function ProjectsPage() {
               </Field>
               <div className="grid grid-cols-2 gap-3">
                 <Field label={t("projects.startDate")}>
-                  <input type="date" value={f.startDate} onChange={set("startDate")} className="w-full rounded-xl border border-border bg-background px-3 py-2 text-sm" />
+                  <NumericDateInput className="w-full rounded-xl border border-border bg-background px-3 py-2 text-sm" value={f.startDate} onChange={set("startDate")} />
                 </Field>
                 <Field label={t("projects.endDate")}>
-                  <input type="date" value={f.endDate} onChange={set("endDate")} className="w-full rounded-xl border border-border bg-background px-3 py-2 text-sm" />
+                  <NumericDateInput className="w-full rounded-xl border border-border bg-background px-3 py-2 text-sm" value={f.endDate} onChange={set("endDate")} />
                 </Field>
               </div>
               <div className="grid grid-cols-2 gap-3">

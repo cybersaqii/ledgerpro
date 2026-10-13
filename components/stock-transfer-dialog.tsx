@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { ArrowRightLeft, X } from "lucide-react";
 import { api } from "@/lib/format";
 import { useLang } from "@/components/lang-provider";
+import { NumericDateInput } from "@/components/numeric-date-input";
 
 type ProductPick = { id: string; name: string; sku: string; unit: string };
 type BranchPick = { id: string; name: string; isDefault: boolean };
@@ -141,7 +142,7 @@ export default function StockTransferDialog({ onClose, onSaved }: {
             </div>
             <div>
               <label className="mb-1 block text-xs font-bold">{t("stocktransfer.date")}</label>
-              <input type="date" className="field" value={date} onChange={(e) => setDate(e.target.value)} />
+              <NumericDateInput className="field" value={date} onChange={(v) => setDate(v)} />
             </div>
           </div>
 

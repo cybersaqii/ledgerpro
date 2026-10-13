@@ -8,6 +8,7 @@ import { useDismiss } from "@/components/use-dismiss";
 import { api, fmtDateInput } from "@/lib/format";
 import { useBusinessProfile } from "@/components/business-type";
 import { useLang } from "@/components/lang-provider";
+import { NumericDateInput } from "@/components/numeric-date-input";
 
 type Party = { id: string; name: string };
 
@@ -125,7 +126,12 @@ function RecordPdcFormInner() {
                 placeholder="0.00" value={amount} onChange={(e) => setAmount(e.target.value)} />
             </Field>
             <Field label={t("pdcform.chequeDate")}>
-              <input type="date" className="field" required value={chequeDate} onChange={(e) => setChequeDate(e.target.value)} />
+              <NumericDateInput
+                className="field"
+                value={chequeDate}
+                onChange={(v) => setChequeDate(v)}
+                required
+              />
             </Field>
             <Field label={t("pdcform.refNo")}>
               <input className="field" value={refNo} onChange={(e) => setRefNo(e.target.value)}

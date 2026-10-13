@@ -102,13 +102,12 @@ function BatchControls({ line, isSales, docType, batches, t, onChange }: {
           maxLength={40}
           onChange={(e) => onChange({ batchNo: e.target.value })}
         />
-        <input
+        <NumericDateInput
           className="field !w-36 !py-1 !text-xs"
-          type="date"
           value={line.expiryDate}
+          onChange={(v) => onChange({ expiryDate: v })}
           aria-label={t("batches.purchaseExpiry")}
           title={t("batches.purchaseExpiry")}
-          onChange={(e) => onChange({ expiryDate: e.target.value })}
         />
       </div>
     );
@@ -1725,8 +1724,7 @@ export function DocForm({ mode, initialType }: { mode: "SALES" | "PURCHASE"; ini
                 <tbody>
                   <tr>
                     <td>
-                      <input type="date" className="field !w-36 !py-1 text-[13px]" value={rcptDate}
-                        onChange={(e) => setRcptDate(e.target.value)} />
+                      <NumericDateInput className="field !w-36 !py-1 text-[13px]" value={rcptDate} onChange={(v) => setRcptDate(v)} />
                     </td>
                     <td>
                       <select className="field min-w-40 !py-1 text-[13px]" value={rcptAccountId}

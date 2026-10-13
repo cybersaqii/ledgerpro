@@ -10,6 +10,7 @@ import { PageHeader, Field, ErrorNote, EmptyState, StatusPill, FilterBar } from 
 import { useLang } from "@/components/lang-provider";
 import { useCan } from "@/components/permissions";
 import { api, fmtMoney, fmtDateInput } from "@/lib/format";
+import { NumericDateInput } from "@/components/numeric-date-input";
 
 type Asset = {
   id: string; code: string; description: string; assetClass: string;
@@ -83,8 +84,8 @@ export default function AssetsPage() {
   if (!can) return <PageHeader title={t("assets.title")} icon={<Factory size={20} />} />;
 
   const filtered = status ? list.filter((a) => a.status === status) : list;
-  const set = (k: string) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) =>
-    setF((p) => ({ ...p, [k]: e.target.value }));
+  const set = (k: string) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement> | string) =>
+    setF((p) => ({ ...p, [k]: typeof e === "string" ? e : e.target.value }));
 
   const create = async () => {
     setBusy(true);
@@ -206,7 +207,7 @@ export default function AssetsPage() {
                     <input inputMode="decimal" className="input !rounded-xl !border-2 !border-border bg-background text-lg font-bold tabular-nums" value={f.purchaseCost} onChange={set("purchaseCost")} placeholder="0.00" />
                   </Field>
                   <Field label={t("assets.purchaseDate")} required>
-                    <input type="date" className="input !rounded-xl !border-2 !border-border bg-background" value={f.purchaseDate} onChange={set("purchaseDate")} />
+                    <NumericDateInput className="input !rounded-xl !border-2 !border-border bg-background" value={f.purchaseDate} onChange={set("purchaseDate")} />
                   </Field>
                 </div>
               </div>

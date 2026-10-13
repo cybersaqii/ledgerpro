@@ -6,6 +6,7 @@ import Link from "next/link";
 import { PageHeader, Field, ErrorNote, EmptyState } from "@/components/ui";
 import { api, fmtMoney } from "@/lib/format";
 import { useLang } from "@/components/lang-provider";
+import { NumericDateInput } from "@/components/numeric-date-input";
 
 type Coupon = {
   id: string; code: string; kind: "PERCENT" | "FIXED"; value: number;
@@ -126,10 +127,10 @@ export default function AdminCouponsPage() {
               <input className="field" inputMode="numeric" value={maxUses} onChange={(e) => setMaxUses(e.target.value.replace(/[^0-9]/g, ""))} placeholder={t("adminCoupons.unlimited")} />
             </Field>
             <Field label={t("adminCoupons.validFrom")}>
-              <input type="date" className="field" value={validFrom} onChange={(e) => setValidFrom(e.target.value)} />
+              <NumericDateInput className="field" value={validFrom} onChange={(v) => setValidFrom(v)} />
             </Field>
             <Field label={t("adminCoupons.validTo")}>
-              <input type="date" className="field" value={validTo} onChange={(e) => setValidTo(e.target.value)} />
+              <NumericDateInput className="field" value={validTo} onChange={(v) => setValidTo(v)} />
             </Field>
           </div>
           <ErrorNote message={error} />

@@ -11,6 +11,7 @@ import { useBusinessProfile } from "@/components/business-type";
 import { useLang } from "@/components/lang-provider";
 import { api, fmtMoney, fmtDate, fmtDateInput } from "@/lib/format";
 import { DocRefLink } from "@/components/doc-link";
+import { NumericDateInput } from "@/components/numeric-date-input";
 
 type Party = { id: string; name: string; kind: string };
 type Entry = { date: number | string; memo: string; reference: string | null; source: string; sourceId: string | null; debit: string; credit: string; balance: string };
@@ -157,8 +158,8 @@ function StatementsInner() {
             </div>
           </Field>
         </div>
-        <Field label={t("statements.from")}><input type="date" className="field" value={from} onChange={(e) => setFrom(e.target.value)} /></Field>
-        <Field label={t("statements.to")}><input type="date" className="field" value={to} onChange={(e) => setTo(e.target.value)} /></Field>
+        <Field label={t("statements.from")}><NumericDateInput className="field" value={from} onChange={(v) => setFrom(v)} /></Field>
+        <Field label={t("statements.to")}><NumericDateInput className="field" value={to} onChange={(v) => setTo(v)} /></Field>
       </div>
 
       {!partyId ? (
