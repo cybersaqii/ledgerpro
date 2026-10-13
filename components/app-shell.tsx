@@ -301,11 +301,20 @@ export function AppShell({ children, initialBusinessType }: { children: ReactNod
     return () => document.removeEventListener("mousedown", fn);
   }, []);
 
+  const [loggingOut, setLoggingOut] = useState(false);
   async function logout() {
-    await fetch("/api/auth/logout", { method: "POST" }).catch(() => {});
-    clearMeCache();
-    router.push("/login");
-    router.refresh();
+    if (loggingOut) return;
+    setLoggingOut(true);
+    try {
+      await fetch("/api/auth/logout", { method: "POST" }).catch(() => {});
+      clearMeCache();
+      // Small delay so the animation is visible
+      await new Promise((r) => setTimeout(r, 600));
+      router.push("/login");
+      router.refresh();
+    } finally {
+      // Keep the overlay until navigation completes
+    }
   }
 
   const isActiveNav = (n: NavItem) => {
@@ -460,6 +469,13 @@ export function AppShell({ children, initialBusinessType }: { children: ReactNod
   return (
     <BusinessTypeProvider businessType={businessType}>
     <div className="flex min-h-screen overflow-x-clip bg-background">
+      {/* Logout overlay */}
+      {loggingOut && (
+        <div className="fixed inset-0 z-[100] flex flex-col items-center justify-center gap-4 bg-background/80 backdrop-blur-sm">
+          <div className="h-12 w-12 animate-spin rounded-full border-4 border-primary/20 border-t-primary" />
+          <p className="text-sm font-bold text-muted-foreground">{t("header.loggingOut")}</p>
+        </div>
+      )}
       {/* Desktop sidebar */}
       <aside className="sticky top-0 hidden h-screen w-64 shrink-0 flex-col border-e border-border bg-sidebar lg:flex">
         <div className="flex h-16 items-center border-b border-border px-5">
@@ -499,8 +515,8 @@ export function AppShell({ children, initialBusinessType }: { children: ReactNod
               <LangToggle />
               <SupportButton />
               <WhatsAppSupport />
-              <button onClick={logout} className="grid h-11 w-11 place-items-center rounded-xl border border-border bg-card text-muted-foreground transition hover:text-danger" aria-label={t("header.logout")}>
-                <LogOut size={17} />
+              <button onClick={logout} disabled={loggingOut} className="grid h-11 w-11 place-items-center rounded-xl border border-border bg-card text-muted-foreground transition hover:text-danger disabled:opacity-50" aria-label={t("header.logout")}>
+                {loggingOut ? <span className="h-4 w-4 animate-spin rounded-full border-2 border-muted-foreground/30 border-t-muted-foreground" /> : <LogOut size={17} />}
               </button>
             </div>
           </aside>
@@ -553,8 +569,8 @@ export function AppShell({ children, initialBusinessType }: { children: ReactNod
             <span className="shrink-0"><NotificationBell /></span>
             <span className="hidden shrink-0 sm:contents"><SupportButton /></span>
             <span className="hidden shrink-0 sm:contents"><WhatsAppSupport /></span>
-            <button onClick={logout} className="hidden h-11 w-11 shrink-0 place-items-center rounded-xl border border-border bg-card transition hover:-translate-y-0.5 hover:shadow-md hover:text-danger sm:grid" title={t("header.logout")} aria-label={t("header.logout")}>
-              <LogOut size={17} />
+            <button onClick={logout} disabled={loggingOut} className="hidden h-11 w-11 shrink-0 place-items-center rounded-xl border border-border bg-card transition hover:-translate-y-0.5 hover:shadow-md hover:text-danger disabled:opacity-50 sm:grid" title={t("header.logout")} aria-label={t("header.logout")}>
+              {loggingOut ? <span className="h-4 w-4 animate-spin rounded-full border-2 border-muted-foreground/30 border-t-muted-foreground" /> : <LogOut size={17} />}
             </button>
           </div>
         </header>

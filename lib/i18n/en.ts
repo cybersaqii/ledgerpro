@@ -198,6 +198,7 @@ export const en = {
     cashAccount: "Cash / bank account",
   },
   header: {
+    loggingOut: "Logging out...",
     contactSupport: "Contact support",
     supportSubject: "Subject",
     supportSubjectPh: "e.g. Invoice not printing",

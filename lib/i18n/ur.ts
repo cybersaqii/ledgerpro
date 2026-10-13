@@ -203,6 +203,7 @@ export const ur: DeepPartial<EnDict> = {
     cashAccount: "Cash / bank khata",
   },
   header: {
+    loggingOut: "لاگ آؤٹ ہو رہا ہے...",
     contactSupport: "سپورٹ سے رابطہ",
     supportSubject: "موضوع",
     supportSubjectPh: "مثلاً انوائس پرنٹ نہیں ہو رہی",
