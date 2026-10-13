@@ -1447,9 +1447,15 @@ export const supportRequests = sqliteTable(
     subject: text("subject").notNull(),
     message: text("message").notNull(),
     status: text("status").notNull().default("OPEN"), // OPEN | RESOLVED
+    /** Null for public (logged-out) submissions. */
+    companyId: text("company_id"),
+    userId: text("user_id"),
     createdAt: createdAt(),
   },
-  (t) => [index("support_requests_status").on(t.status, t.createdAt)]
+  (t) => [
+    index("support_requests_status").on(t.status, t.createdAt),
+    index("support_requests_company").on(t.companyId, t.createdAt),
+  ]
 );
 
 // ─── Scheduled backups + sample-data manifest ───────────────────

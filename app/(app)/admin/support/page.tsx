@@ -8,7 +8,7 @@ import { useLang } from "@/components/lang-provider";
 
 type Request = {
   id: string; name: string; email: string; subject: string;
-  message: string; status: string; createdAt: string;
+  message: string; status: string; createdAt: string; companyName?: string | null;
 };
 
 const FILTER_KEYS: Record<string, string> = {
@@ -111,6 +111,7 @@ export default function AdminSupportPage() {
                     <p className="font-bold">{r.subject}</p>
                     <p className="text-sm text-muted-foreground">
                       {r.name} · <a className="font-semibold text-primary hover:underline" href={`mailto:${r.email}`}>{r.email}</a>
+                      {r.companyName && <span className="badge bg-primary/10 text-primary ml-2">{r.companyName}</span>}
                     </p>
                     <p className="text-xs text-muted-foreground">{r.createdAt.slice(0, 16).replace("T", " ")}</p>
                   </div>

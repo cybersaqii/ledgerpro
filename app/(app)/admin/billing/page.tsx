@@ -311,7 +311,7 @@ type Company = {
   userCount: number;
 };
 
-function UsersTab({ t }: { t: (k: string) => string }) {
+function UsersTab({ t }: { t: (k: string, vars?: Record<string, string | number>) => string }) {
   const [companies, setCompanies] = useState<Company[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<"ALL" | "TRIAL" | "PLAN" | "FREE" | "EXPIRED">("ALL");
@@ -378,7 +378,7 @@ function UsersTab({ t }: { t: (k: string) => string }) {
   };
 
   const subInfo = (c: Company) => {
-    if (c.level === "TRIAL") return t("adminbilling.trialDays").replace("{n}", String(c.trialDaysLeft));
+    if (c.level === "TRIAL") return t("adminbilling.trialDays", { n: c.trialDaysLeft });
     if (c.level === "PLAN") return t("adminbilling.proDays").replace("{n}", String(c.proDaysLeft));
     return t("adminbilling.expired");
   };
@@ -456,7 +456,7 @@ function UsersTab({ t }: { t: (k: string) => string }) {
         <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/60 p-4 backdrop-blur-sm sm:items-center" onClick={() => setExtending(null)}>
           <div className="w-full max-w-md rounded-3xl border border-border/60 bg-card p-6 shadow-2xl" onClick={(e) => e.stopPropagation()}>
             <h2 className="font-display text-lg font-extrabold">
-              {t("adminbilling.extendTitle").replace("{name}", extending.name)}
+              {t("adminbilling.extendTitle", { name: extending.name })}
             </h2>
             <p className="mt-1 text-sm text-muted-foreground">
               {t("adminbilling.currentSub")}: {levelBadge(extending)} {subInfo(extending)}
@@ -472,7 +472,7 @@ function UsersTab({ t }: { t: (k: string) => string }) {
               <Field label={t("adminbilling.months")} required>
                 <select className="field" value={months} onChange={(e) => setMonths(e.target.value)}>
                   {[1, 3, 6, 12, 24, 36].map((m) => (
-                    <option key={m} value={String(m)}>{t("adminbilling.monthsCount").replace("{n}", String(m))}</option>
+                    <option key={m} value={String(m)}>{t("adminbilling.monthsCount", { n: m })}</option>
                   ))}
                 </select>
               </Field>

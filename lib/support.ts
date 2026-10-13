@@ -38,7 +38,10 @@ export function validateSupportInput(input: Partial<SupportInput>): SupportInput
 }
 
 /** Persist a support request. Returns the new row id. */
-export async function createSupportRequest(dbc: Db | DbTx, input: SupportInput): Promise<string> {
+export async function createSupportRequest(
+  dbc: Db | DbTx,
+  input: SupportInput & { companyId?: string | null; userId?: string | null }
+): Promise<string> {
   const id = crypto.randomUUID();
   await dbc.insert(supportRequests).values({
     id,
@@ -47,6 +50,8 @@ export async function createSupportRequest(dbc: Db | DbTx, input: SupportInput):
     subject: input.subject,
     message: input.message,
     status: "OPEN",
+    companyId: input.companyId ?? null,
+    userId: input.userId ?? null,
     createdAt: new Date(),
   });
   return id;

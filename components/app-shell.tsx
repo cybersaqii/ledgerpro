@@ -16,6 +16,7 @@ import type { LucideIcon } from "lucide-react";
 import { Logo, ThemeToggle, LangToggle, Breadcrumb } from "./ui";
 import { NotificationBell } from "./notification-bell";
 import { whatsappLink } from "@/lib/brand";
+import { api } from "@/lib/format";
 
 /** WhatsApp support button — opens chat with pre-filled issue report (current page included). */
 function WhatsAppSupport() {
@@ -37,7 +38,82 @@ function WhatsAppSupport() {
     </a>
   );
 }
-import { api } from "@/lib/format";
+
+/** In-app support button — quick dialog to message the admin inbox. */
+function SupportButton() {
+  const { t } = useLang();
+  const pathname = usePathname();
+  const [open, setOpen] = useState(false);
+  const [subject, setSubject] = useState("");
+  const [message, setMessage] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [done, setDone] = useState(false);
+  const [err, setErr] = useState("");
+
+  const send = async () => {
+    if (!subject.trim() || message.trim().length < 10) return;
+    setBusy(true); setErr("");
+    try {
+      await api("/api/support/mine", {
+        method: "POST",
+        body: JSON.stringify({
+          subject: `${subject.trim()} (Page: ${pathname || "/"})`,
+          message: message.trim(),
+        }),
+      });
+      setDone(true);
+      setSubject(""); setMessage("");
+      setTimeout(() => { setOpen(false); setDone(false); }, 2000);
+    } catch (e) { setErr(e instanceof Error ? e.message : "Failed"); }
+    finally { setBusy(false); }
+  };
+
+  return (
+    <>
+      <button
+        onClick={() => setOpen(true)}
+        className="grid h-11 w-11 place-items-center rounded-xl border border-border bg-card text-primary transition hover:-translate-y-0.5 hover:shadow-md"
+        title={t("header.contactSupport")}
+        aria-label={t("header.contactSupport")}
+      >
+        <LifeBuoy size={17} />
+      </button>
+      {open && (
+        <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/60 p-4 backdrop-blur-sm sm:items-center" onClick={() => setOpen(false)}>
+          <div className="w-full max-w-md rounded-3xl border border-border/60 bg-card p-6 shadow-2xl" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-start justify-between">
+              <h2 className="font-display text-lg font-extrabold">{t("header.contactSupport")}</h2>
+              <button className="btn btn-ghost !p-2 !rounded-xl" onClick={() => setOpen(false)}><X size={16} /></button>
+            </div>
+            {done ? (
+              <p className="py-8 text-center font-bold text-success">{t("header.supportSent")}</p>
+            ) : (
+              <>
+                {err && <p className="mt-2 text-sm font-semibold text-danger">{err}</p>}
+                <div className="mt-4 space-y-4">
+                  <div>
+                    <label className="mb-1.5 block text-sm font-bold">{t("header.supportSubject")}</label>
+                    <input className="field" value={subject} onChange={(e) => setSubject(e.target.value)} placeholder={t("header.supportSubjectPh")} maxLength={120} />
+                  </div>
+                  <div>
+                    <label className="mb-1.5 block text-sm font-bold">{t("header.supportMessage")}</label>
+                    <textarea className="field min-h-28" value={message} onChange={(e) => setMessage(e.target.value)} placeholder={t("header.supportMessagePh")} maxLength={4000} />
+                  </div>
+                </div>
+                <div className="mt-6 flex justify-end gap-2.5">
+                  <button className="btn btn-ghost !rounded-xl" onClick={() => setOpen(false)}>{t("common.cancel")}</button>
+                  <button className="btn btn-primary !rounded-xl" disabled={busy || !subject.trim() || message.trim().length < 10} onClick={send}>
+                    {busy ? "…" : t("header.sendSupport")}
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+      )}
+    </>
+  );
+}
 import { CompanySwitcher } from "@/components/company-switcher";
 import { BusinessTypeProvider, getTranslatedProfile } from "./business-type";
 import type { BusinessFeatures } from "@/lib/business-types";
@@ -184,6 +260,7 @@ export function AppShell({ children, initialBusinessType }: { children: ReactNod
     { href: "/payroll", label: t("nav.payroll"), icon: Briefcase, perm: "payroll", feature: null, group: "setup" as NavGroup },
     { href: "/assets", label: t("nav.assets"), icon: Factory, perm: "assets", feature: null, group: "setup" as NavGroup },
     { href: "/partners", label: t("nav.partners"), icon: Handshake, perm: "partners", feature: null, group: "setup" as NavGroup },
+    { href: "/support", label: t("nav.support"), icon: LifeBuoy, perm: "", feature: null, group: "setup" as NavGroup },
     { href: "/approvals", label: t("nav.approvals"), icon: Stamp, perm: "approvals", feature: null, group: "setup" as NavGroup },
     { href: "/manufacturing", label: t("nav.manufacturing"), icon: Cog, perm: "manufacturing", feature: null, group: "setup" as NavGroup },
     { href: "/projects", label: t("nav.projects"), icon: FolderKanban, perm: "projects", feature: null, group: "setup" as NavGroup },
@@ -420,6 +497,7 @@ export function AppShell({ children, initialBusinessType }: { children: ReactNod
             <div className="flex items-center justify-around border-t border-border p-3 lg:hidden">
               <ThemeToggle />
               <LangToggle />
+              <SupportButton />
               <WhatsAppSupport />
               <button onClick={logout} className="grid h-11 w-11 place-items-center rounded-xl border border-border bg-card text-muted-foreground transition hover:text-danger" aria-label={t("header.logout")}>
                 <LogOut size={17} />
@@ -473,6 +551,7 @@ export function AppShell({ children, initialBusinessType }: { children: ReactNod
             <span className="hidden shrink-0 sm:contents"><ThemeToggle /></span>
             <span className="hidden shrink-0 sm:contents"><LangToggle /></span>
             <span className="shrink-0"><NotificationBell /></span>
+            <span className="hidden shrink-0 sm:contents"><SupportButton /></span>
             <span className="hidden shrink-0 sm:contents"><WhatsAppSupport /></span>
             <button onClick={logout} className="hidden h-11 w-11 shrink-0 place-items-center rounded-xl border border-border bg-card transition hover:-translate-y-0.5 hover:shadow-md hover:text-danger sm:grid" title={t("header.logout")} aria-label={t("header.logout")}>
               <LogOut size={17} />
