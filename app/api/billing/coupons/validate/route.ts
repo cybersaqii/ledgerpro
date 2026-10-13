@@ -17,7 +17,7 @@ export async function POST(req: NextRequest) {
     const months = Number(body?.months);
     if (months !== 1 && months !== 12) return err("Choose a plan first.", 422);
     const settings = await getPlatformSettings();
-    const amountPaisa = priceForPlan(settings, months);
+    const amountPaisa = priceForPlan(settings, "PROFESSIONAL", months);
     const quote = await quoteCoupon(db, { code, companyId, amountPaisa });
     return json({
       data: {

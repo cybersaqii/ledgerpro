@@ -2536,6 +2536,13 @@ export const en = {
       password_reset: "Staff password reset"
     },
     billing: {
+    tierStarter: "Starter",
+    tierProfessional: "Professional",
+    tierEnterprise: "Enterprise",
+    tierStarterFeatures: "Sales & purchase entry|Parties & products|Payments & expenses|Basic reports",
+    tierProfessionalFeatures: "Everything in Starter|POS checkout|Team accounts|Advanced reports|Import & export|Period lock",
+    tierEnterpriseFeatures: "Everything in Professional|Multi-company|Offline sync|Priority support",
+    mostPopular: "Most popular",
       payment_submitted: "PRO payment submitted",
       payment_approved: "PRO subscription activated",
       payment_rejected: "PRO payment rejected"
@@ -2677,6 +2684,12 @@ export const en = {
     settingsTitle: "Pricing & payment details",
     labels: {
       monthlyPrice: "Monthly price (paisa)",
+    starterMonthly: "Starter monthly (paisa)",
+    starterYearly: "Starter yearly (paisa)",
+    professionalMonthly: "Professional monthly (paisa)",
+    professionalYearly: "Professional yearly (paisa)",
+    enterpriseMonthly: "Enterprise monthly (paisa)",
+    enterpriseYearly: "Enterprise yearly (paisa)",
       yearlyPrice: "Yearly price (paisa)",
       bankDetails: "Bank details",
       jazzcash: "JazzCash",

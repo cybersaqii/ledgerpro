@@ -1,6 +1,6 @@
 import { requireCompany } from "@/lib/route-helpers";
 import { json, err } from "@/lib/api";
-import { billingStatusFor, getPlatformSettings, isPlatformAdminEmail } from "@/lib/billing-guards";
+import { billingStatusFor, getPlatformSettings, isPlatformAdminEmail, allTierPrices } from "@/lib/billing-guards";
 
 // GET /api/billing/status — current plan, trial countdown, payment instructions & prices.
 export async function GET() {
@@ -18,6 +18,7 @@ export async function GET() {
         monthlyPaisa: parseInt(settings["billing.monthly_price_paisa"] || "150000", 10),
         yearlyPaisa: parseInt(settings["billing.yearly_price_paisa"] || "1500000", 10),
       },
+      tierPrices: allTierPrices(settings),
       paymentDetails: {
         bank: settings["billing.bank_details"] || "",
         jazzcash: settings["billing.jazzcash"] || "",

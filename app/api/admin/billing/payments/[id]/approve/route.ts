@@ -25,7 +25,7 @@ export async function POST(_req: NextRequest, { params }: { params: Promise<{ id
     // activatePro, a retry would extend PRO a second time.
     const now = new Date();
     const expires = await db.transaction(async (tx) => {
-      const exp = await activatePro(tx, p.companyId, p.months);
+      const exp = await activatePro(tx, p.companyId, p.months, p.plan ?? "PROFESSIONAL");
       await tx
         .update(billingPayments)
         .set({ status: "APPROVED", reviewedBy: session.email, reviewedAt: now })
@@ -45,7 +45,7 @@ export async function POST(_req: NextRequest, { params }: { params: Promise<{ id
       action: "billing.payment_approved",
       entity: "billing_payment",
       entityId: id,
-      detail: `PRO activated for ${p.months} month(s) — ${fmtMoney(p.amountPaisa)} via ${p.method}, ref ${p.reference}. Expires ${expires.toISOString().slice(0, 10)}.`,
+      detail: `${p.plan ?? "PROFESSIONAL"} activated for ${p.months} month(s) — ${fmtMoney(p.amountPaisa)} via ${p.method}, ref ${p.reference}. Expires ${expires.toISOString().slice(0, 10)}.`,
     });
     return json({ data: { proExpiresAt: expires.toISOString() } });
   } catch (e) {

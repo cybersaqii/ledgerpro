@@ -15,6 +15,7 @@ type Status = {
   plan: string;
   isOwner: boolean;
   prices: { monthlyPaisa: number; yearlyPaisa: number };
+  tierPrices: Record<string, { monthly: number; yearly: number }>;
   paymentDetails: { bank: string; jazzcash: string; easypaisa: string; instructions: string };
 };
 
@@ -38,6 +39,7 @@ export default function BillingPage() {
   const [payments, setPayments] = useState<Payment[]>([]);
   const [loading, setLoading] = useState(true);
   const [months, setMonths] = useState<1 | 12>(1);
+  const [selectedPlan, setSelectedPlan] = useState("PROFESSIONAL");
   const [method, setMethod] = useState("BANK");
   const [reference, setReference] = useState("");
   const [submitting, setSubmitting] = useState(false);
@@ -92,7 +94,7 @@ export default function BillingPage() {
     try {
       await api("/api/billing/payments", {
         method: "POST",
-        body: JSON.stringify({ months, method, reference: reference.trim(), coupon: couponQuote ? coupon.trim() : undefined }),
+        body: JSON.stringify({ months, plan: selectedPlan, method, reference: reference.trim(), coupon: couponQuote ? coupon.trim() : undefined }),
       });
       setDone(true); setReference("");
       const d = await api<{ data: Payment[] }>("/api/billing/payments");
@@ -114,7 +116,8 @@ export default function BillingPage() {
   if (!status) return <PageHeader title={t("billing.title")} subtitle={t("billing.subtitle")} icon={<Crown size={22} />} />;
 
   const planName = status.level === "TRIAL" ? t("billing.freeTrial") : status.level === "PLAN" ? status.plan : t("billing.free");
-  const price = months === 12 ? status.prices.yearlyPaisa : status.prices.monthlyPaisa;
+  const tierPrice = status.tierPrices?.[selectedPlan] ?? { monthly: status.prices.monthlyPaisa, yearly: status.prices.yearlyPaisa };
+  const price = months === 12 ? tierPrice.yearly : tierPrice.monthly;
 
   return (
     <div className="space-y-6">
@@ -155,49 +158,63 @@ export default function BillingPage() {
 
       {status.isOwner && (
         <>
-          {/* Plans */}
-          <div className="rise rise-2 grid gap-4 sm:grid-cols-2">
+          {/* Plan tiers */}
+          <div className="rise rise-2 grid gap-4 sm:grid-cols-3">
+            {(["STARTER", "PROFESSIONAL", "ENTERPRISE"] as const).map((tier) => {
+              const tp = status.tierPrices?.[tier] ?? { monthly: status.prices.monthlyPaisa, yearly: status.prices.yearlyPaisa };
+              const paisa = months === 12 ? tp.yearly : tp.monthly;
+              const isSel = selectedPlan === tier;
+              return (
+                <button
+                  key={tier}
+                  onClick={() => {
+                    setSelectedPlan(tier);
+                    setCouponQuote(null);
+                    setCouponError(null);
+                  }}
+                  aria-pressed={isSel}
+                  className={`card card-lift relative overflow-hidden p-5 text-start sm:p-6 ${isSel ? "card-selected" : ""}`}
+                >
+                  {tier === "PROFESSIONAL" && (
+                    <span className="absolute end-4 top-4 rounded-full bg-accent px-2.5 py-1 text-[0.68rem] font-extrabold uppercase tracking-wide text-accent-foreground shadow-sm">
+                      {t("billing.mostPopular")}
+                    </span>
+                  )}
+                  <div className="flex items-center justify-between">
+                    <p className="text-lg font-extrabold tracking-tight">{t(`billing.tier${tier.charAt(0) + tier.slice(1).toLowerCase()}`)}</p>
+                    {isSel && <span className="tile tile-primary h-6 w-6 !rounded-full"><Check size={14} strokeWidth={3} /></span>}
+                  </div>
+                  <p className="text-gradient mt-2 text-3xl font-extrabold tabular-nums sm:text-4xl">{fmtMoney(paisa)}</p>
+                  <p className="mt-1 text-sm text-muted-foreground">{months === 12 ? t("billing.billedYearly") : t("billing.billedMonthly")}</p>
+                  <ul className="mt-3 space-y-1.5 text-xs text-muted-foreground">
+                    {(t(`billing.tier${tier.charAt(0) + tier.slice(1).toLowerCase()}Features`) as unknown as string).split("|").map((f: string) => (
+                      <li key={f} className="flex items-center gap-1.5"><Check size={12} className="text-success" />{f.trim()}</li>
+                    ))}
+                  </ul>
+                </button>
+              );
+            })}
+          </div>
+
+          {/* Billing period */}
+          <div className="rise rise-2 flex gap-2">
             {([
-              { m: 1 as const, name: t("billing.monthly"), paisa: status.prices.monthlyPaisa, hint: t("billing.billedMonthly"), tag: null as string | null },
-              { m: 12 as const, name: t("billing.yearly"), paisa: status.prices.yearlyPaisa, hint: t("billing.billedYearly"), tag: t("billing.save17") },
+              { m: 1 as const, name: t("billing.monthly") },
+              { m: 12 as const, name: t("billing.yearly"), tag: t("billing.save17") },
             ]).map((p) => (
               <button
                 key={p.m}
                 onClick={() => {
                   setMonths(p.m);
-                  // A quoted coupon belongs to the plan it was quoted for.
                   setCouponQuote(null);
                   setCouponError(null);
                 }}
                 aria-pressed={months === p.m}
-                className={`card card-lift relative overflow-hidden p-5 text-start sm:p-6 ${months === p.m ? "card-selected" : ""}`}
+                className={`flex-1 rounded-2xl border p-4 text-center font-bold transition ${months === p.m ? "border-primary bg-primary/5 text-primary" : "border-border text-muted-foreground hover:border-primary/40"}`}
               >
-                {p.tag && (
-                  <span className="absolute end-4 top-4 rounded-full bg-accent px-2.5 py-1 text-[0.68rem] font-extrabold uppercase tracking-wide text-accent-foreground shadow-sm">
-                    {p.tag}
-                  </span>
-                )}
-                <div className="flex items-center justify-between">
-                  <p className="text-lg font-extrabold tracking-tight">{p.name}</p>
-                  {months === p.m && <span className="tile tile-primary h-6 w-6 !rounded-full"><Check size={14} strokeWidth={3} /></span>}
-                </div>
-                <p className="text-gradient mt-2 text-3xl font-extrabold tabular-nums sm:text-4xl">{fmtMoney(p.paisa)}</p>
-                <p className="mt-1 text-sm text-muted-foreground">{p.hint}</p>
+                {p.name} {p.tag && <span className="ml-1 text-xs text-accent">({p.tag})</span>}
               </button>
             ))}
-          </div>
-
-          {/* What's in PRO */}
-          <div className="card rise rise-3 p-5 sm:p-6">
-            <p className="text-base font-extrabold tracking-tight">{t("billing.proTitle")}</p>
-            <ul className="mt-3 grid gap-2.5 text-sm sm:grid-cols-2">
-              {PRO_POINTS.map((pt) => (
-                <li key={pt} className="flex items-center gap-2.5 text-muted-foreground">
-                  <span className="tile tile-primary h-6 w-6 shrink-0 !rounded-lg"><Check size={13} strokeWidth={3} /></span>
-                  <span className="font-medium text-foreground/80">{pt}</span>
-                </li>
-              ))}
-            </ul>
           </div>
 
           {/* Pay + submit */}

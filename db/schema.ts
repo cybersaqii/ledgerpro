@@ -1364,6 +1364,8 @@ export const billingPayments = sqliteTable(
     method: text("method").notNull(), // BANK | JAZZCASH | EASYPAISA
     reference: text("reference").notNull(),
     months: integer("months").notNull().default(1),
+    /** STARTER | PROFESSIONAL | ENTERPRISE — which tier this payment buys. */
+    plan: text("plan").notNull().default("PROFESSIONAL"),
     status: text("status").notNull().default("PENDING"), // PENDING | APPROVED | REJECTED
     note: text("note"),
     couponId: text("coupon_id"), // applied coupon (migration 0029)

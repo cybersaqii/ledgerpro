@@ -48,6 +48,8 @@ export async function POST(req: NextRequest) {
     const method = String(body?.method || "").toUpperCase();
     const reference = String(body?.reference || "").trim();
     const couponCode = String(body?.coupon || "").trim();
+    const planRaw = String(body?.plan || "PROFESSIONAL").toUpperCase();
+    const plan = ["STARTER", "PROFESSIONAL", "ENTERPRISE"].includes(planRaw) ? planRaw : "PROFESSIONAL";
     if (months !== 1 && months !== 12) return err("Choose a plan: monthly or yearly.", 422);
     if (!(METHODS as readonly string[]).includes(method)) return err("Choose a payment method.", 422);
     if (reference.length < 4 || reference.length > 60) return err("Enter the transaction reference.", 422);
@@ -59,7 +61,7 @@ export async function POST(req: NextRequest) {
     // serializes the write transaction, so two racing POSTs cannot both
     // pass the check and mint duplicate PENDING payments.
     const settings = await getPlatformSettings();
-    const amountPaisa = priceForPlan(settings, months);
+    const amountPaisa = priceForPlan(settings, plan, months);
     const couponCodeNorm = couponCode ? normalizeCouponCode(couponCode) : "";
 
     const id = await db.transaction(async (tx) => {
@@ -77,7 +79,7 @@ export async function POST(req: NextRequest) {
         discountPaisa = quote.discountPaisa;
       }
       const pid = await createBillingPayment(
-        { companyId, userId: session.uid, amountPaisa, method, reference, months, couponId, discountPaisa },
+        { companyId, userId: session.uid, amountPaisa, method, reference, months, plan, couponId, discountPaisa },
         tx
       );
       if (couponId) {

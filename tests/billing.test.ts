@@ -125,9 +125,9 @@ describe("billing DB flow", () => {
       id, name: "Pro Co", businessType: "WHOLESALE",
       trialEndsAt: new Date(Date.now() - 40 * DAY),
     });
-    const first = await activatePro(db, id, 1, NOW);
+    const first = await activatePro(db, id, 1, "PROFESSIONAL", NOW);
     expect(first.getTime()).toBe(NOW.getTime() + 30 * DAY);
-    const second = await activatePro(db, id, 12, NOW);
+    const second = await activatePro(db, id, 12, "PROFESSIONAL", NOW);
     // 12 months stack on top of the existing future expiry
     expect(second.getTime()).toBe(first.getTime() + 12 * 30 * DAY);
     const rows = await db.select({ plan: s.companies.plan }).from(s.companies).where(eq(s.companies.id, id));
@@ -145,7 +145,7 @@ describe("billing DB flow", () => {
     const before = await billingStatusFor(id, db);
     expect(before?.level).toBe("TRIAL");
 
-    await activatePro(db, id, 12, NOW);
+    await activatePro(db, id, 12, "PROFESSIONAL", NOW);
 
     const rows = await db
       .select({ plan: s.companies.plan, trialEndsAt: s.companies.trialEndsAt, proExpiresAt: s.companies.proExpiresAt })
@@ -208,8 +208,12 @@ describe("platform admin + pricing", () => {
   });
   it("priceForPlan picks monthly vs yearly", () => {
     const settings = { "billing.monthly_price_paisa": "150000", "billing.yearly_price_paisa": "1500000" };
-    expect(priceForPlan(settings, 1)).toBe(150000);
-    expect(priceForPlan(settings, 12)).toBe(1500000);
-    expect(priceForPlan(settings, 3)).toBe(450000);
+    expect(priceForPlan(settings, "PROFESSIONAL", 1)).toBe(150000);
+    expect(priceForPlan(settings, "PROFESSIONAL", 12)).toBe(1500000);
+    expect(priceForPlan(settings, "PROFESSIONAL", 3)).toBe(450000);
+    // Per-tier override
+    const tiered = { ...settings, "billing.starter_monthly_price_paisa": "50000" };
+    expect(priceForPlan(tiered, "STARTER", 1)).toBe(50000);
+    expect(priceForPlan(tiered, "PROFESSIONAL", 1)).toBe(150000);
   });
 });

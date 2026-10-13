@@ -177,10 +177,28 @@ export const SECURITY_SETTING_KEYS = [
 /** Every platform_settings key the admin console may read/write. */
 export const PLATFORM_SETTING_KEYS = [...BILLING_SETTING_KEYS, ...SUPPORT_SETTING_KEYS, ...SECURITY_SETTING_KEYS] as const;
 
-export function priceForPlan(settings: Record<string, string>, months: number): number {
-  const monthly = parseInt(settings["billing.monthly_price_paisa"] || "150000", 10);
-  const yearly = parseInt(settings["billing.yearly_price_paisa"] || "1500000", 10);
+/** Per-tier pricing: billing.<tier>_monthly_price_paisa / billing.<tier>_yearly_price_paisa.
+ *  Falls back to the legacy billing.monthly_price_paisa / billing.yearly_price_paisa. */
+export function priceForPlan(settings: Record<string, string>, plan: string, months: number): number {
+  const tier = plan.toLowerCase();
+  const monthlyKey = `billing.${tier}_monthly_price_paisa`;
+  const yearlyKey = `billing.${tier}_yearly_price_paisa`;
+  const monthly = parseInt(settings[monthlyKey] || settings["billing.monthly_price_paisa"] || "150000", 10);
+  const yearly = parseInt(settings[yearlyKey] || settings["billing.yearly_price_paisa"] || "1500000", 10);
   return months >= 12 ? yearly : monthly * months;
+}
+
+/** All tier prices for the billing page. */
+export function allTierPrices(settings: Record<string, string>): Record<string, { monthly: number; yearly: number }> {
+  const tiers = ["STARTER", "PROFESSIONAL", "ENTERPRISE"];
+  const out: Record<string, { monthly: number; yearly: number }> = {};
+  for (const t of tiers) {
+    out[t] = {
+      monthly: priceForPlan(settings, t, 1),
+      yearly: priceForPlan(settings, t, 12),
+    };
+  }
+  return out;
 }
 
 /**
@@ -253,9 +271,10 @@ export async function activatePro(
   dbc: Db | DbTx,
   companyId: string,
   months: number,
+  plan: string = "PROFESSIONAL",
   now: Date = new Date()
 ): Promise<Date> {
-  return activatePlan(dbc, companyId, "PROFESSIONAL", months, now);
+  return activatePlan(dbc, companyId, normalizePlan(plan), months, now);
 }
 
 /** Create a pending manual payment submission. */
@@ -267,6 +286,7 @@ export async function createBillingPayment(
     method: string;
     reference: string;
     months: number;
+    plan?: string;
     couponId?: string | null;
     discountPaisa?: number;
   },
@@ -281,6 +301,7 @@ export async function createBillingPayment(
     method: input.method,
     reference: input.reference,
     months: input.months,
+    plan: input.plan ?? "PROFESSIONAL",
     couponId: input.couponId ?? null,
     discountPaisa: input.discountPaisa ?? 0,
     status: "PENDING",

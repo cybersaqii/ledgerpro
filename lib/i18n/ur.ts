@@ -2536,6 +2536,13 @@ export const ur: DeepPartial<EnDict> = {
       password_reset: "اسٹاف پاس ورڈ ری سیٹ ہوا"
     },
     billing: {
+    tierStarter: "اسٹارٹر",
+    tierProfessional: "پروفیشنل",
+    tierEnterprise: "انٹرپرائز",
+    tierStarterFeatures: "سیلز اور خریداری|پارٹیاں اور مصنوعات|ادائیگیاں اور اخراجات|بنیادی رپورٹس",
+    tierProfessionalFeatures: "اسٹارٹر میں سب کچھ|POS|ٹیم اکاؤنٹس|جدید رپورٹس|امپورٹ اور ایکسپورٹ|پیریڈ لاک",
+    tierEnterpriseFeatures: "پروفیشنل میں سب کچھ|ملٹی کمپنی|آف لائن سنک|ترجیحی سپورٹ",
+    mostPopular: "مقبول ترین",
       payment_submitted: "PRO ادائیگی جمع ہوئی",
       payment_approved: "PRO سبسکرپشن فعال ہوئی",
       payment_rejected: "PRO ادائیگی مسترد ہوئی"
@@ -2677,6 +2684,12 @@ export const ur: DeepPartial<EnDict> = {
     settingsTitle: "قیمت اور ادائیگی کی تفصیلات",
     labels: {
       monthlyPrice: "ماہانہ قیمت (پیسہ)",
+    starterMonthly: "اسٹارٹر ماہانہ (پیسہ)",
+    starterYearly: "اسٹارٹر سالانہ (پیسہ)",
+    professionalMonthly: "پروفیشنل ماہانہ (پیسہ)",
+    professionalYearly: "پروفیشنل سالانہ (پیسہ)",
+    enterpriseMonthly: "انٹرپرائز ماہانہ (پیسہ)",
+    enterpriseYearly: "انٹرپرائز سالانہ (پیسہ)",
       yearlyPrice: "سالانہ قیمت (پیسہ)",
       bankDetails: "بینک تفصیلات",
       jazzcash: "JazzCash",

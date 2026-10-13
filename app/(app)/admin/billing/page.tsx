@@ -21,6 +21,12 @@ type Settings = Record<string, string>;
 const LABEL_KEYS: Record<string, string> = {
   "billing.monthly_price_paisa": "adminbilling.labels.monthlyPrice",
   "billing.yearly_price_paisa": "adminbilling.labels.yearlyPrice",
+  "billing.starter_monthly_price_paisa": "adminbilling.labels.starterMonthly",
+  "billing.starter_yearly_price_paisa": "adminbilling.labels.starterYearly",
+  "billing.professional_monthly_price_paisa": "adminbilling.labels.professionalMonthly",
+  "billing.professional_yearly_price_paisa": "adminbilling.labels.professionalYearly",
+  "billing.enterprise_monthly_price_paisa": "adminbilling.labels.enterpriseMonthly",
+  "billing.enterprise_yearly_price_paisa": "adminbilling.labels.enterpriseYearly",
   "billing.bank_details": "adminbilling.labels.bankDetails",
   "billing.jazzcash": "adminbilling.labels.jazzcash",
   "billing.easypaisa": "adminbilling.labels.easypaisa",
