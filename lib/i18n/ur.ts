@@ -771,6 +771,7 @@ export const ur: DeepPartial<EnDict> = {
     categoryPlaceholder: "مثلاً گروسری",
     unit: "یونٹ",
     buyPrice: "خرید قیمت (روپے)",
+    wholesalePrice: "ہول سیل قیمت (روپے)",
     salePrice: "فروخت قیمت (روپے)",
     wholesalePrice: "ہول سیل ریٹ (روپے)",
     minSalePrice: "کم از کم فروخت قیمت (روپے)",
@@ -2047,6 +2048,12 @@ export const ur: DeepPartial<EnDict> = {
     }
   },
   settings: {
+    secProductView: "پروڈکٹ ویو",
+    productViewHint: "منتخب کریں کہ انوائس میں پروڈکٹ شامل کرتے وقت ڈراپ ڈاؤن میں کیا نظر آئے۔",
+    pvSku: "SKU / آئٹم کوڈ",
+    pvPurchase: "خریداری قیمت",
+    pvRetail: "ریٹیل قیمت",
+    pvWholesale: "ہول سیل قیمت",
     navAria: "سیٹنگز کے حصے",
     navCompany: "کمپنی",
     navData: "ڈیٹا",

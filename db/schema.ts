@@ -43,6 +43,11 @@ export const companies = sqliteTable("companies", {
   invoiceTerms: text("invoice_terms"), // terms & conditions (migration 0056)
   invoiceShowPaid: flag("invoice_show_paid", true), // show paid/balance section (migration 0056)
   invoiceHeaderNote: text("invoice_header_note"), // custom note under header (migration 0056)
+  /** Product dropdown view in invoices: show/hide SKU and price columns (migration 0061). */
+  pvShowSku: flag("pv_show_sku", true),
+  pvShowPurchase: flag("pv_show_purchase", true),
+  pvShowRetail: flag("pv_show_retail", true),
+  pvShowWholesale: flag("pv_show_wholesale", false),
   logoUrl: text("logo_url"),
   businessType: text("business_type").notNull().default("WHOLESALE"),
   currency: text("currency").notNull().default("PKR"),

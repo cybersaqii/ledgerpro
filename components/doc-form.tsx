@@ -396,6 +396,19 @@ export function DocForm({ mode, initialType }: { mode: "SALES" | "PURCHASE"; ini
       .catch(() => {});
   }, []);
 
+  // Product view settings: what shows in the product dropdown
+  const [pv, setPv] = useState({ showSku: true, showPurchase: true, showRetail: true, showWholesale: false });
+  useEffect(() => {
+    api<{ data: { pvShowSku: boolean; pvShowPurchase: boolean; pvShowRetail: boolean; pvShowWholesale: boolean } }>("/api/company")
+      .then((d) => setPv({
+        showSku: d.data.pvShowSku ?? true,
+        showPurchase: d.data.pvShowPurchase ?? true,
+        showRetail: d.data.pvShowRetail ?? true,
+        showWholesale: d.data.pvShowWholesale ?? false,
+      }))
+      .catch(() => {});
+  }, []);
+
   // Resolve the rate in force for (currencyCode, date): latest rate on or
   // before the doc date. The server re-resolves authoritatively at save.
   useEffect(() => {
@@ -1353,11 +1366,21 @@ export function DocForm({ mode, initialType }: { mode: "SALES" | "PURCHASE"; ini
                         onClick={() => addLine(p, { focusQty: true })}>
                         <span className="min-w-0 flex-1">
                           <span className="block truncate text-sm font-bold">{p.name}</span>
-                          <span className="block text-xs text-muted-foreground">{p.sku} · {t("docform.stockQty", { qty: (Number(BigInt(p.totalQty)) / 1000).toLocaleString() })} {p.unit}</span>
+                          <span className="block text-xs text-muted-foreground">
+                            {pv.showSku && <>{p.sku} · </>}
+                            {t("docform.stockQty", { qty: (Number(BigInt(p.totalQty)) / 1000).toLocaleString() })} {p.unit}
+                          </span>
                         </span>
                         <span className="shrink-0 text-end">
-                          <span className="block text-[11px] text-muted-foreground">{t("docform.buyPrice", { amt: fmtMoney(p.purchasePrice) })}</span>
-                          <span className="block text-sm font-extrabold">{fmtMoney(p.salePrice)}</span>
+                          {pv.showPurchase && (
+                            <span className="block text-[11px] text-muted-foreground">{t("docform.buyPrice", { amt: fmtMoney(p.purchasePrice) })}</span>
+                          )}
+                          {pv.showWholesale && p.wholesalePrice && (
+                            <span className="block text-[11px] text-muted-foreground">{t("docform.wholesalePrice", { amt: fmtMoney(p.wholesalePrice) })}</span>
+                          )}
+                          {pv.showRetail && (
+                            <span className="block text-sm font-extrabold">{fmtMoney(p.salePrice)}</span>
+                          )}
                         </span>
                       </button>
                     </li>

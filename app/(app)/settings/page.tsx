@@ -20,11 +20,13 @@ type Company = {
   city: string | null; ntn: string | null; strn: string | null; bankInfo: string | null; invoiceFooter: string | null;
   businessType: string; defaultInvoiceFormat: string; fiscalYearStart: string;
   invoiceTitle: string | null; invoiceShowLogo: boolean; invoiceTerms: string | null;
+  pvShowSku: boolean; pvShowPurchase: boolean; pvShowRetail: boolean; pvShowWholesale: boolean;
   invoiceShowPaid: boolean; invoiceHeaderNote: string | null;
 };
 
 const empty: Company = { name: "", tradeName: "", email: "", phone: "", address: "", city: "", ntn: "", strn: "", bankInfo: "", invoiceFooter: "", businessType: "WHOLESALE", defaultInvoiceFormat: "80mm", fiscalYearStart: "07-01",
-  invoiceTitle: "", invoiceShowLogo: true, invoiceTerms: "", invoiceShowPaid: true, invoiceHeaderNote: "" };
+  invoiceTitle: "", invoiceShowLogo: true, invoiceTerms: "", invoiceShowPaid: true, invoiceHeaderNote: "",
+  pvShowSku: true, pvShowPurchase: true, pvShowRetail: true, pvShowWholesale: false };
 
 const SECTIONS = [
   "sec-company",
@@ -154,6 +156,8 @@ export default function SettingsPage() {
         address: d.data.address ?? "", city: d.data.city ?? "", ntn: d.data.ntn ?? "", strn: d.data.strn ?? "",
         bankInfo: d.data.bankInfo ?? "", invoiceFooter: d.data.invoiceFooter ?? "",
         invoiceTitle: d.data.invoiceTitle ?? "", invoiceShowLogo: d.data.invoiceShowLogo ?? true,
+        pvShowSku: d.data.pvShowSku ?? true, pvShowPurchase: d.data.pvShowPurchase ?? true,
+        pvShowRetail: d.data.pvShowRetail ?? true, pvShowWholesale: d.data.pvShowWholesale ?? false,
         invoiceTerms: d.data.invoiceTerms ?? "", invoiceShowPaid: d.data.invoiceShowPaid ?? true,
         invoiceHeaderNote: d.data.invoiceHeaderNote ?? "",
         businessType: d.data.businessType ?? "WHOLESALE",
@@ -316,6 +320,25 @@ export default function SettingsPage() {
                   <input type="checkbox" className="toggle" checked={form.invoiceShowPaid} onChange={(e) => setForm({ ...form, invoiceShowPaid: e.target.checked })} />
                 </label>
               </div>
+            </div>
+            {/* ── Product view (invoice product dropdown) ───────────── */}
+            <div className="mb-6 mt-9 flex items-center gap-4">
+              <h3 className="shrink-0 text-xs font-extrabold uppercase tracking-[0.14em] text-muted-foreground">{t("settings.secProductView")}</h3>
+              <div className="h-px flex-1 bg-border" />
+            </div>
+            <p className="mb-4 text-sm text-muted-foreground">{t("settings.productViewHint")}</p>
+            <div className="grid gap-3 sm:grid-cols-2">
+              {([
+                ["pvShowSku", t("settings.pvSku")],
+                ["pvShowPurchase", t("settings.pvPurchase")],
+                ["pvShowRetail", t("settings.pvRetail")],
+                ["pvShowWholesale", t("settings.pvWholesale")],
+              ] as const).map(([key, label]) => (
+                <label key={key} className="flex cursor-pointer items-center justify-between rounded-xl border border-border bg-card px-4 py-3">
+                  <span className="text-sm font-semibold">{label}</span>
+                  <input type="checkbox" className="toggle" checked={form[key]} onChange={(e) => setForm({ ...form, [key]: e.target.checked })} />
+                </label>
+              ))}
             </div>
             <div className="mt-8 flex items-center justify-end gap-3 border-t border-border pt-6">
               {saved && <span className="text-sm font-semibold text-primary">{t("settings.saved")}</span>}

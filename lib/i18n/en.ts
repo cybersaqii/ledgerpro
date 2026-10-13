@@ -765,6 +765,7 @@ export const en = {
     categoryPlaceholder: "e.g. Grocery",
     unit: "Unit",
     buyPrice: "Buy price (Rs)",
+    wholesalePrice: "W/S price (Rs)",
     salePrice: "Sale price (Rs)",
     wholesalePrice: "Wholesale rate (Rs)",
     minSalePrice: "Min. sale price (Rs)",
@@ -2047,6 +2048,12 @@ export const en = {
     }
   },
   settings: {
+    secProductView: "Product view",
+    productViewHint: "Choose what shows in the product dropdown when adding products to invoices.",
+    pvSku: "SKU / Item code",
+    pvPurchase: "Purchase price",
+    pvRetail: "Retail price",
+    pvWholesale: "Wholesale price",
     navAria: "Settings sections",
     navCompany: "Company",
     navData: "Data",

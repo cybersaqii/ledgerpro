@@ -32,6 +32,10 @@ const companySchema = z.object({
   invoiceTerms: z.string().trim().max(1000).optional().or(z.literal("")),
   invoiceShowPaid: z.boolean().default(true),
   invoiceHeaderNote: z.string().trim().max(300).optional().or(z.literal("")),
+  pvShowSku: z.boolean().default(true),
+  pvShowPurchase: z.boolean().default(true),
+  pvShowRetail: z.boolean().default(true),
+  pvShowWholesale: z.boolean().default(false),
   // Module 6.1: the month-day the fiscal year starts on (drives year-end
   // close labels). Stored in the company settings table.
   fiscalYearStart: z.string().regex(FISCAL_START_RE, "Use MM-DD, e.g. 07-01.").default("07-01"),
@@ -62,6 +66,10 @@ export async function GET() {
       invoiceTitle: c.invoiceTitle, invoiceShowLogo: c.invoiceShowLogo,
       invoiceTerms: c.invoiceTerms, invoiceShowPaid: c.invoiceShowPaid,
       invoiceHeaderNote: c.invoiceHeaderNote,
+      pvShowSku: c.pvShowSku ?? true,
+      pvShowPurchase: c.pvShowPurchase ?? true,
+      pvShowRetail: c.pvShowRetail ?? true,
+      pvShowWholesale: c.pvShowWholesale ?? false,
       fiscalYearStart: fyRows[0]?.value || "07-01",
       lockedUntil: c.lockedUntil ? c.lockedUntil.toISOString().slice(0, 10) : null,
     },
@@ -93,6 +101,10 @@ export async function PUT(req: NextRequest) {
     invoiceTerms: d.invoiceTerms || null,
     invoiceShowPaid: d.invoiceShowPaid,
     invoiceHeaderNote: d.invoiceHeaderNote || null,
+    pvShowSku: d.pvShowSku,
+    pvShowPurchase: d.pvShowPurchase,
+    pvShowRetail: d.pvShowRetail,
+    pvShowWholesale: d.pvShowWholesale,
     businessType: d.businessType,
     updatedAt: new Date(),
   }).where(eq(companies.id, gate.companyId));
