@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { ReceiptText, TriangleAlert } from "lucide-react";
+import { ReceiptText, TriangleAlert, ChevronDown } from "lucide-react";
 import { PageHeader, Field } from "@/components/ui";
 import { useLang } from "@/components/lang-provider";
 import { api, fmtDateInput } from "@/lib/format";
@@ -32,6 +32,7 @@ export function NoteForm({ kind }: { kind: "CREDIT" | "DEBIT" }) {
   const [notes, setNotes] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [showAdvanced, setShowAdvanced] = useState(false);
 
   useEffect(() => {
     api<{ data: Opt[] }>(`/api/parties?kind=${isCredit ? "CUSTOMER" : "SUPPLIER"}&perPage=200`)
@@ -126,15 +127,6 @@ export function NoteForm({ kind }: { kind: "CREDIT" | "DEBIT" }) {
             />
           </Field>
         </div>
-        <Field label={t("fix4.note.account")}>
-          <select className="field" value={accountId} onChange={(e) => setAccountId(e.target.value)} required>
-            <option value="">{t("fix4.note.selectAccount")}</option>
-            {accounts.map((a) => (
-              <option key={a.id} value={a.id}>{a.name} ({a.code})</option>
-            ))}
-          </select>
-          <p className="mt-1 text-xs text-muted-foreground">{t("fix4.note.accountHint")}</p>
-        </Field>
         <Field label={t("fix4.note.sourceDoc")}>
           <select className="field" value={sourceDocId} onChange={(e) => setSourceDocId(e.target.value)}>
             <option value="">{t("fix4.note.noSourceDoc")}</option>
@@ -144,6 +136,29 @@ export function NoteForm({ kind }: { kind: "CREDIT" | "DEBIT" }) {
           </select>
           <p className="mt-1 text-xs text-muted-foreground">{t("fix4.note.sourceDocHint")}</p>
         </Field>
+        {/* ── Advanced (collapsible) ── */}
+        <button
+          type="button"
+          onClick={() => setShowAdvanced((v) => !v)}
+          aria-expanded={showAdvanced}
+          className="flex w-full items-center justify-between rounded-xl border border-border bg-muted/40 px-4 py-3 text-sm font-bold text-foreground transition hover:border-primary/40"
+        >
+          <span>{t("common.advanced")}</span>
+          <ChevronDown size={18} className={`transition-transform ${showAdvanced ? "rotate-180" : ""}`} />
+        </button>
+        {showAdvanced && (
+          <div className="space-y-4 rounded-xl border border-border p-4">
+            <Field label={t("fix4.note.account")}>
+              <select className="field" value={accountId} onChange={(e) => setAccountId(e.target.value)} required>
+                <option value="">{t("fix4.note.selectAccount")}</option>
+                {accounts.map((a) => (
+                  <option key={a.id} value={a.id}>{a.name} ({a.code})</option>
+                ))}
+              </select>
+              <p className="mt-1 text-xs text-muted-foreground">{t("fix4.note.accountHint")}</p>
+            </Field>
+          </div>
+        )}
         <Field label={t("fix4.note.notes")}>
           <textarea className="field min-h-20" value={notes} onChange={(e) => setNotes(e.target.value)} />
         </Field>

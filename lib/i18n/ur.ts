@@ -10,6 +10,7 @@ export type UrDict = DeepPartial<EnDict>;
 
 export const ur: DeepPartial<EnDict> = {
   common: {
+    advanced: "ایڈوانسڈ",
     save: "محفوظ کریں",
     saving: "محفوظ ہو رہا ہے…",
     adding: "شامل ہو رہا ہے…",
@@ -437,7 +438,7 @@ export const ur: DeepPartial<EnDict> = {
     posting: "پوسٹ ہو رہا ہے…",
     postGrn: "GRN پوسٹ کریں",
     postError: "GRN پوسٹ نہیں ہو سکی۔",
-    damagedHint: "خراب اشیاء ریکارڈ ہوتی ہیں لیکن اسٹاک یا GRN اکروئل میں پوسٹ نہیں ہوتیں۔",
+    damagedHint: "خراب مال صرف ریکارڈ کے لیے لکھا جاتا ہے، اسٹاک میں شامل نہیں ہوتا۔",
   },
   docform: {
     profit: "Munafa",
@@ -3237,7 +3238,7 @@ export const ur: DeepPartial<EnDict> = {
     errBothSides: "ایک لائن میں ڈیبٹ اور کریڈٹ دونوں نہیں ہو سکتے۔"
   },
   setoff: {
-    title: "کانٹرا سیٹ آف",
+    title: "آپس میں حساب برابر",
     subtitle: "گاہک کی وصولی کو سپلائر کی ادائیگی کے مقابل طے کریں",
     customer: "گاہک",
     supplier: "سپلائر",
@@ -3627,7 +3628,7 @@ export const ur: DeepPartial<EnDict> = {
     voided: "منسوخ شدہ",
     voiding: "منسوخ ہو رہا ہے…",
     woAccount: "ناقابلِ وصول اخراجات کا کھاتہ",
-    woAccountHint: "وہ اخراجی کھاتہ جو نقصان برداشت کرے گا۔ پہلے سے طے شدہ: عمومی اخراجات۔",
+    woAccountHint: "یہ رقم خرچے میں ڈال دی جائے گی اور گاہک کے کھاتے سے کم ہو جائے گی۔ (ڈیفالٹ: General Expenses)",
     woAmount: "معافی کی رقم",
     woButton: "ناقابلِ وصول قرار دیں",
     woColAmount: "رقم",
@@ -3647,7 +3648,7 @@ export const ur: DeepPartial<EnDict> = {
     woRecoverConfirm: "کیا یہ معافی واپس لی جائے؟ وصول شدہ بقایا اور پارٹی کا بیلنس بحال ہو جائے گا۔",
     woRecovered: "بحال شدہ",
     woSave: "ناقابلِ وصول قرار دیں",
-    woTitle: "ناقابلِ وصول رقم",
+    woTitle: "نہ ملنے والی رقم",
     trDayCloseCard: "بینک اور نقد رقم کی منتقلیاں",
     trView: "منتقلیاں دیکھیں"
   },
@@ -3670,10 +3671,10 @@ export const ur: DeepPartial<EnDict> = {
       listCreditTitle: "کریڈٹ نوٹس",
       listDebitTitle: "ڈیبٹ نوٹس",
       listSubtitle: "پارٹیوں کے خلاف رقم کی ایڈجسٹمنٹس۔",
-      newCreditTitle: "نیا کریڈٹ نوٹ",
-      newDebitTitle: "نیا ڈیبٹ نوٹ",
+      newCreditTitle: "گاہک کو رعایت/واپسی",
+      newDebitTitle: "سپلائر سے رعایت/واپسی",
       newNote: "نیا نوٹ",
-      newSubtitle: "کسی پارٹی کے خلاف رقم کی ایڈجسٹمنٹ پوسٹ کریں۔",
+      newSubtitle: "یہ رقم پارٹی کے کھاتے میں ایڈجسٹ ہو جائے گی۔",
       noSourceDoc: "کوئی متعلقہ دستاویز نہیں",
       notes: "نوٹس",
       postNote: "نوٹ پوسٹ کریں",

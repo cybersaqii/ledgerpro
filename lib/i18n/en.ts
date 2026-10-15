@@ -5,6 +5,7 @@
  */
 export const en = {
   common: {
+    advanced: "Advanced",
     save: "Save",
     saving: "Saving…",
     adding: "Adding…",
@@ -432,7 +433,7 @@ export const en = {
     posting: "Posting…",
     postGrn: "Post GRN",
     postError: "Could not post the GRN.",
-    damagedHint: "Damaged items are recorded but never post to stock or the GRN accrual.",
+    damagedHint: "Damaged items are recorded for reference but don't add to stock.",
   },
   docform: {
     profit: "Profit",
@@ -3237,7 +3238,7 @@ export const en = {
     errBothSides: "A line cannot have both a debit and a credit."
   },
   setoff: {
-    title: "Contra set-off",
+    title: "Aapas mein hisaab barabar",
     subtitle: "Settle a customer's receivable against a supplier's payable",
     customer: "Customer",
     supplier: "Supplier",
@@ -3627,7 +3628,7 @@ export const en = {
     voided: "Voided",
     voiding: "Voiding…",
     woAccount: "Bad-debts account",
-    woAccountHint: "The expense account that absorbs the loss. Defaults to General Expenses.",
+    woAccountHint: "Ye raqam kharchay mein daal di jayegi aur customer ke khaate se kam ho jayegi. (Default: General Expenses)",
     woAmount: "Write-off amount",
     woButton: "Write off",
     woColAmount: "Amount",
@@ -3647,7 +3648,7 @@ export const en = {
     woRecoverConfirm: "Reverse this write-off? The collectible balance and party balance will be restored.",
     woRecovered: "Recovered",
     woSave: "Write off",
-    woTitle: "Bad-debt write-off",
+    woTitle: "Naa-milne wali raqam",
     trDayCloseCard: "Bank & cash transfers",
     trView: "View transfers"
   },
@@ -3670,10 +3671,10 @@ export const en = {
       listCreditTitle: "Credit notes",
       listDebitTitle: "Debit notes",
       listSubtitle: "Amount-only adjustments posted against parties.",
-      newCreditTitle: "New Credit Note",
-      newDebitTitle: "New Debit Note",
+      newCreditTitle: "Customer ko discount/waapsi",
+      newDebitTitle: "Supplier se discount/waapsi",
       newNote: "New note",
-      newSubtitle: "Post an amount-only adjustment against a party.",
+      newSubtitle: "Ye raqam party ke khaate mein adjust ho jayegi.",
       noSourceDoc: "No linked document",
       notes: "Notes",
       postNote: "Post note",
