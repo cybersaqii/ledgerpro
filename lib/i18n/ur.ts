@@ -400,6 +400,7 @@ export const ur: DeepPartial<EnDict> = {
     addOptBatchInvoices: "بیچ انوائسز (SI)",
     addOptBulkInvoices: "بلک انوائسز (SI)",
     addOptBill: "بلز (VI)",
+    addOptPurchaseOrder: "پرچیز آرڈر",
     addOptCreditNoteP: "کریڈٹ نوٹ (VC)",
     addOptBatchBills: "بیچ بلز (VI)",
     showEntries: "دکھائیں",

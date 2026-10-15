@@ -85,7 +85,7 @@ function AddNewSplit({ isSales, t, newType }: {
         { label: t("docs.addOptBulkInvoices"), href: "/sales/new" },
       ]
     : [
-        { label: t("docs.addOptBill"), href: newType ? `/purchases/new?type=${newType}` : "/purchases/new" },
+        { label: newType === "ORDER" ? t("docs.addOptPurchaseOrder") : t("docs.addOptBill"), href: newType ? `/purchases/new?type=${newType}` : "/purchases/new" },
         { label: t("docs.addOptCreditNoteP"), href: "/purchases/notes/new" },
         { label: t("docs.addOptBatchBills"), href: "/purchases/new" },
       ];
@@ -318,7 +318,7 @@ export function DocList({ mode, initialDocType, lockedType, titleKey, subtitleKe
                 <Ship size={16} /> {t("landedCost.nav")}
               </Link>
             )}
-            <AddNewSplit isSales={isSales} t={t} newType={initialDocType} />
+            <AddNewSplit isSales={isSales} t={t} newType={initialDocType ?? lockedType} />
           </div>
         }
       />
@@ -390,7 +390,7 @@ export function DocList({ mode, initialDocType, lockedType, titleKey, subtitleKe
         ) : rows.length === 0 ? (
           <EmptyState title={docType === "ORDER" ? t("docs.noOrders") : isSales ? t("docs.noSales", { sales: bp.salesNav.toLowerCase() }) : t("docs.noPurchases")}
             hint={hasFilter ? t("docs.filterHint") : isSales ? t("docs.createFirstSale", { thing: bp.salesNav.toLowerCase() }) : t("docs.createFirstPurchase")}
-            action={!hasFilter ? <Link href={isSales ? "/sales/new" : "/purchases/new"} className="btn btn-primary text-sm"><Plus size={16} /> {t("docs.createNow")}</Link> : undefined} />
+            action={!hasFilter ? <Link href={isSales ? (lockedType ? `/sales/new?type=${lockedType}` : "/sales/new") : (lockedType ? `/purchases/new?type=${lockedType}` : "/purchases/new")} className="btn btn-primary text-sm"><Plus size={16} /> {t("docs.createNow")}</Link> : undefined} />
         ) : (
           <div className="overflow-x-auto">
             <table className="tbl tbl-fa">

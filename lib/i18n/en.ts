@@ -395,6 +395,7 @@ export const en = {
     addOptBatchInvoices: "Batch Invoices (SI)",
     addOptBulkInvoices: "Bulk Invoices (SI)",
     addOptBill: "Bills (VI)",
+    addOptPurchaseOrder: "Purchase Order",
     addOptCreditNoteP: "Credit Note (VC)",
     addOptBatchBills: "Batch Bills (VI)",
     showEntries: "Show",

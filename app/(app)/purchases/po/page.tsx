@@ -1,8 +1,5 @@
-"use client";
-import { ComingSoon } from "@/components/coming-soon";
-import { useLang } from "@/components/lang-provider";
+import { DocList } from "@/components/doc-list";
 
 export default function PurchaseOrdersPage() {
-  const { t } = useLang();
-  return <ComingSoon section={t("nav.groupPurchases")} title={t("nav.po")} />;
+  return <DocList mode="PURCHASE" lockedType="ORDER" titleKey="nav.po" />;
 }
