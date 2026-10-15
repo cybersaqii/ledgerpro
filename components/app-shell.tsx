@@ -347,7 +347,11 @@ export function AppShell({ children, initialBusinessType }: { children: ReactNod
   }
 
   // Auto-expand the group holding the current page (runs on navigation).
-  useEffect(() => {
+  // Adjusted during render (not in an effect): the official React pattern for
+  // syncing state to a prop change — no cascading render pass needed.
+  const [prevPathname, setPrevPathname] = useState(pathname);
+  if (prevPathname !== pathname) {
+    setPrevPathname(pathname);
     if (activeGroup) {
       setCollapsed((s) => {
         if (!s.has(activeGroup)) return s;
@@ -356,8 +360,7 @@ export function AppShell({ children, initialBusinessType }: { children: ReactNod
         return next;
       });
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [pathname]);
+  }
 
   // When the route changes, auto-expand the group holding the new page — but
   // a manual collapse is respected afterwards. (Previously the active group

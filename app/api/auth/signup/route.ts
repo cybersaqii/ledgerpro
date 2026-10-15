@@ -5,7 +5,7 @@ import { eq } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { users, companies } from "@/db/schema";
 import { TRIAL_DAYS } from "@/lib/entitlements";
-import { hashPassword, createSession, verifyEmailVerificationToken } from "@/lib/auth";
+import { hashPassword, createSession, verifyEmailVerificationToken, ensureUserCompanyLink } from "@/lib/auth";
 import { setupCompany } from "@/lib/setup";
 import { signupSchema } from "@/lib/validators";
 import { json, err } from "@/lib/api";
@@ -71,6 +71,13 @@ export async function POST(req: NextRequest) {
     if (googleSub) {
       await db.update(users).set({ googleSub }).where(eq(users.id, u.id));
     }
+    // Safety net: pre-0057 users were backfilled, but never let a session
+    // exist without its company link (getSession() would 401 every call).
+    await ensureUserCompanyLink(db, {
+      userId: u.id,
+      companyId: u.companyId,
+      role: u.role as "OWNER" | "STAFF",
+    });
     await createSession({ uid: u.id, cid: u.companyId, name: u.name, email: emailLc, role: u.role as "OWNER" | "STAFF", v: u.tokenVersion ?? 0 });
     await db.update(users).set({ lastActivityAt: new Date() }).where(eq(users.id, u.id));
     if (gCookie) jar.delete(GOOGLE_SIGNUP_COOKIE);
@@ -102,15 +109,22 @@ export async function POST(req: NextRequest) {
     trialEndsAt: new Date(Date.now() + TRIAL_DAYS * 86_400_000), // 30-day free trial
   });
   const userId = crypto.randomUUID();
-  await db.insert(users).values({
-    id: userId,
-    companyId,
-    name,
-    email: emailLc,
-    passwordHash,
-    role: "OWNER",
-    emailVerifiedAt: emailVerified ? new Date() : null,
-    googleSub,
+  // The user_companies link MUST be created atomically with the user row:
+  // getSession() rejects any session without an active link, so a missing
+  // link means "logged in but every API call 401s". (Google signups funnel
+  // through this same insert via the gCookie path above.)
+  await db.transaction(async (tx) => {
+    await tx.insert(users).values({
+      id: userId,
+      companyId,
+      name,
+      email: emailLc,
+      passwordHash,
+      role: "OWNER",
+      emailVerifiedAt: emailVerified ? new Date() : null,
+      googleSub,
+    });
+    await ensureUserCompanyLink(tx, { userId, companyId, role: "OWNER" });
   });
 
   try {

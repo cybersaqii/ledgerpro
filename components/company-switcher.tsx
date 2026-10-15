@@ -37,6 +37,7 @@ export function CompanySwitcher() {
     setBusy(true);
     try {
       await api("/api/companies/switch", { method: "POST", body: JSON.stringify({ companyId: id }) });
+      // eslint-disable-next-line react-hooks/immutability -- intentional hard reload: the session cookie changed server-side, so a full reload is required
       window.location.href = "/dashboard";
     } catch {
       setBusy(false);
@@ -49,6 +50,7 @@ export function CompanySwitcher() {
     setBusy(true);
     try {
       await api("/api/companies", { method: "POST", body: JSON.stringify({ name }) });
+      // eslint-disable-next-line react-hooks/immutability -- intentional hard reload: the session cookie changed server-side, so a full reload is required
       window.location.href = "/dashboard";
     } catch {
       setBusy(false);

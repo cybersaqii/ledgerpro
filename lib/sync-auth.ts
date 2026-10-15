@@ -122,7 +122,7 @@ export async function requireDevice(req: NextRequest): Promise<DeviceGate> {
   if (proGate) return { ok: false, ds: null, response: proGate };
 
   const isOwner = u.role === "OWNER";
-  const grants = isOwner ? [...PERMISSIONS] : await getUserPermissions(db, u.id);
+  const grants = isOwner ? [...PERMISSIONS] : await getUserPermissions(db, u.id, tok.companyId);
 
   // Throttled last-used touch (15-min cadence, like session activity). Never breaks sync.
   try {

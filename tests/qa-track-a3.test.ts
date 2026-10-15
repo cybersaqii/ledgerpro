@@ -55,6 +55,9 @@ beforeAll(async () => {
     role: "OWNER",
     isActive: true,
   });
+  await db.insert(s.userCompanies).values({
+    id: crypto.randomUUID(), userId, companyId, role: "OWNER", isActive: true,
+  });
   const cash = await addBankAccount(db, companyId, { name: "QAA3 Cash", kind: "CASH", openingBalance: 100000n });
   const bank = await addBankAccount(db, companyId, { name: "QAA3 Bank", kind: "BANK", bankName: "Test Bank", openingBalance: 500000n });
   cashId = cash.id;
@@ -237,29 +240,32 @@ describe("staff permissions gating (lib/permissions)", () => {
       id: staffId, companyId, name: "QAA3 Staff", email: "qaa3-staff@test.local",
       passwordHash: await hashPassword("staff-pass-123"), role: "STAFF", isActive: true,
     });
+    await db.insert(s.userCompanies).values({
+      id: crypto.randomUUID(), userId: staffId, companyId, role: "STAFF", isActive: true,
+    });
   });
 
   it("owner holds every permission implicitly", async () => {
-    expect(await userHasPermission(db, userId, "reports_basic")).toBe(true);
-    expect(await userHasPermission(db, userId, "settings")).toBe(true);
+    expect(await userHasPermission(db, userId, "reports_basic", companyId)).toBe(true);
+    expect(await userHasPermission(db, userId, "settings", companyId)).toBe(true);
   });
 
   it("grant → allowed, revoke → denied, instantly (live DB re-read)", async () => {
-    expect(await userHasPermission(db, staffId, "reports_basic")).toBe(false);
+    expect(await userHasPermission(db, staffId, "reports_basic", companyId)).toBe(false);
     await setUserPermissions(db, { companyId, userId: staffId, permissions: ["reports_basic"] });
-    expect(await getUserPermissions(db, staffId)).toContain("reports_basic");
-    expect(await userHasPermission(db, staffId, "reports_basic")).toBe(true);
-    expect(await userHasPermission(db, staffId, "settings")).toBe(false);
+    expect(await getUserPermissions(db, staffId, companyId)).toContain("reports_basic");
+    expect(await userHasPermission(db, staffId, "reports_basic", companyId)).toBe(true);
+    expect(await userHasPermission(db, staffId, "settings", companyId)).toBe(false);
     await setUserPermissions(db, { companyId, userId: staffId, permissions: [] });
-    expect(await userHasPermission(db, staffId, "reports_basic")).toBe(false);
+    expect(await userHasPermission(db, staffId, "reports_basic", companyId)).toBe(false);
   });
 
   it("inactive staff and unknown permission are denied", async () => {
     await setUserPermissions(db, { companyId, userId: staffId, permissions: ["reports_basic"] });
     await db.update(s.users).set({ isActive: false }).where(eq(s.users.id, staffId));
-    expect(await userHasPermission(db, staffId, "reports_basic")).toBe(false);
+    expect(await userHasPermission(db, staffId, "reports_basic", companyId)).toBe(false);
     await db.update(s.users).set({ isActive: true }).where(eq(s.users.id, staffId));
-    expect(await userHasPermission(db, staffId, "nope" as never)).toBe(false);
+    expect(await userHasPermission(db, staffId, "nope" as never, companyId)).toBe(false);
   });
 
   it("isPermission rejects junk; defaults are sane", () => {

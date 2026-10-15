@@ -33,8 +33,10 @@ export default function PartnersPage() {
   const [selectedDist, setSelectedDist] = useState<string | null>(null);
   const [err, setErr] = useState("");
 
-  const load = () => {
-    setLoading(true);
+  // The fetch itself never touches state synchronously, so the mount effect
+  // can call it directly (react-hooks/set-state-in-effect). `load` adds the
+  // spinner for user-triggered reloads.
+  const fetchAll = () => {
     Promise.all([
       api<{ data: Partner[] }>("/api/partners"),
       api<{ data: CashAccount[] }>("/api/accounts?type=ASSET"),
@@ -49,7 +51,11 @@ export default function PartnersPage() {
       .catch((e) => setErr(e.message))
       .finally(() => setLoading(false));
   };
-  useEffect(load, []);
+  const load = () => {
+    setLoading(true);
+    fetchAll();
+  };
+  useEffect(() => { fetchAll(); }, []);
 
   if (!can) return <PageHeader title={t("partners.title")} icon={<Handshake size={20} />} />;
 
@@ -506,14 +512,17 @@ function DistributionPaymentsDialog({ distId, cashAccounts, onClose, onDone, t }
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
 
-  const loadStatus = () => {
-    setLoading(true);
+  const fetchStatus = () => {
     api<{ data: PayStatus[] }>(`/api/partners/distributions/${distId}/payments`)
       .then((d) => setStatus(d.data))
       .catch(() => setStatus([]))
       .finally(() => setLoading(false));
   };
-  useEffect(() => { loadStatus(); }, [distId]);
+  const loadStatus = () => {
+    setLoading(true);
+    fetchStatus();
+  };
+  useEffect(() => { fetchStatus(); }, [distId]);
 
   const doPay = async () => {
     if (!paying || !amount || !accountId) return;

@@ -4,6 +4,7 @@ import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { eq, and } from "drizzle-orm";
 import { db } from "./db";
+import type { Db, DbTx } from "./db";
 import { users, userCompanies } from "@/db/schema";
 import { SESSION_COOKIE, verifySessionToken as verifyTokenEdge } from "./edge-auth";
 import { getIdleTimeoutMs, isIdleExpired, shouldTouchActivity } from "./security";
@@ -104,6 +105,37 @@ export async function getSession(): Promise<Session | null> {
 export async function destroySession(): Promise<void> {
   const jar = await cookies();
   jar.delete(SESSION_COOKIE);
+}
+
+/**
+ * Multi-company (migration 0057): getSession() rejects any session whose
+ * (uid, cid) has no ACTIVE user_companies row, so every user-creation path
+ * must insert that link — otherwise the new user can log in but every API
+ * call 401s. Inserts the link when missing; never duplicates, never touches
+ * existing rows. Safe to call inside a transaction via the dbc param.
+ */
+export async function ensureUserCompanyLink(
+  dbc: Db | DbTx,
+  args: { userId: string; companyId: string; role: "OWNER" | "STAFF" }
+): Promise<void> {
+  const [existing] = await dbc
+    .select({ id: userCompanies.id })
+    .from(userCompanies)
+    .where(
+      and(
+        eq(userCompanies.userId, args.userId),
+        eq(userCompanies.companyId, args.companyId)
+      )
+    )
+    .limit(1);
+  if (existing) return;
+  await dbc.insert(userCompanies).values({
+    id: crypto.randomUUID(),
+    userId: args.userId,
+    companyId: args.companyId,
+    role: args.role,
+    isActive: true,
+  });
 }
 
 /** Verify JWT signature only (for proxy.ts / edge — no DB access). */

@@ -135,7 +135,7 @@ export async function POST(req: NextRequest) {
   // A payment moves money, so paying with the bill needs the payments
   // permission on top of the purchases permission.
   if (b.receipt && b.docType === "BILL") {
-    const canPay = await userHasPermission(db, session.uid, "payments");
+    const canPay = await userHasPermission(db, session.uid, "payments", companyId);
     if (!canPay) return err("You don't have permission to record payments.", 403);
   }
 

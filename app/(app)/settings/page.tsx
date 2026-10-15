@@ -1202,13 +1202,13 @@ function MfaCard() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const load = useCallback(async () => {
-    try {
-      const r = await api<{ mfaEnabled: boolean }>("/api/auth/mfa/status");
-      setStatus({ mfaEnabled: !!r.mfaEnabled });
-    } catch { /* ignore */ }
+  // Fetch-on-mount with setState only in the async continuation, so the
+  // effect never setStates synchronously (react-hooks/set-state-in-effect).
+  useEffect(() => {
+    api<{ mfaEnabled: boolean }>("/api/auth/mfa/status")
+      .then((r) => setStatus({ mfaEnabled: !!r.mfaEnabled }))
+      .catch(() => { /* ignore */ });
   }, []);
-  useEffect(() => { load(); }, [load]);
 
   async function startSetup() {
     setError(null); setBusy(true);
@@ -1253,7 +1253,7 @@ function MfaCard() {
         <ShieldCheck size={16} /> Two-factor authentication (2FA)
       </h3>
       <p className="text-sm text-muted-foreground">
-        Add an extra layer of security. After your password, you'll enter a 6-digit code from an authenticator app (Google Authenticator, Authy, 1Password).
+        Add an extra layer of security. After your password, you&apos;ll enter a 6-digit code from an authenticator app (Google Authenticator, Authy, 1Password).
       </p>
       <ErrorNote message={error} />
 
@@ -1298,7 +1298,7 @@ function MfaCard() {
             ))}
           </div>
           <button className="btn btn-ghost text-sm" onClick={() => { setStep("idle"); setBackupCodes([]); }}>
-            I've saved them — Done
+            I&apos;ve saved them — Done
           </button>
         </div>
       )}

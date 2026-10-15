@@ -1,6 +1,6 @@
 import { eq, and } from "drizzle-orm";
 import { headers } from "next/headers";
-import { branches, users } from "@/db/schema";
+import { branches, users, userCompanies } from "@/db/schema";
 import { requireAuth, err, json } from "./api";
 import type { Session } from "./auth";
 import type { Db, DbTx } from "./db";
@@ -91,20 +91,29 @@ export async function requireCompany(): Promise<
 }
 
 /** Auth + OWNER role + company scoping for API routes (settings, team).
- *  The role is re-read from the database so a demoted owner loses access
- *  immediately instead of keeping it until their JWT expires. */
+ *  The role is re-read from the user's ACTIVE company-membership row
+ *  (user_companies) for the session company — not from the single-company
+ *  users.role column — so an owner of a second company is correctly
+ *  recognized there, and a demoted owner loses access immediately instead
+ *  of keeping it until their JWT expires. */
 export async function requireOwner(): Promise<
   | { ok: true; session: Session; companyId: string; response: null }
   | { ok: false; session: null; companyId: null; response: NextResponse }
 > {
   const gate = await requireCompany();
   if (!gate.ok) return gate;
-  const [u] = await db
-    .select({ role: users.role, isActive: users.isActive, companyId: users.companyId })
-    .from(users)
-    .where(eq(users.id, gate.session.uid))
+  const [link] = await db
+    .select({ role: userCompanies.role })
+    .from(userCompanies)
+    .where(
+      and(
+        eq(userCompanies.userId, gate.session.uid),
+        eq(userCompanies.companyId, gate.companyId),
+        eq(userCompanies.isActive, true)
+      )
+    )
     .limit(1);
-  if (!u || !u.isActive || u.companyId !== gate.companyId || u.role !== "OWNER") {
+  if (!link || link.role !== "OWNER") {
     return { ok: false, session: null, companyId: null, response: err("Only the owner can do this.", 403) };
   }
   return gate;
@@ -124,7 +133,7 @@ export async function requirePermission(
 > {
   const gate = await requireCompany();
   if (!gate.ok) return gate;
-  const allowed = await userHasPermission(db, gate.session.uid, permission);
+  const allowed = await userHasPermission(db, gate.session.uid, permission, gate.companyId);
   if (!allowed) {
     return {
       ok: false,

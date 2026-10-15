@@ -17,7 +17,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
 
   const existing = await findApprovalRequest(db, companyId, id);
   if (!existing) return err("Approval request not found.", 404);
-  const role = await liveUserRole(db, session.uid);
+  const role = await liveUserRole(db, session.uid, companyId);
   const isOwner = role === "OWNER";
   if (existing.requestedById !== session.uid && !isOwner)
     return err("Only the requester or the owner can cancel this request.", 403);

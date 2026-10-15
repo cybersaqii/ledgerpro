@@ -41,8 +41,12 @@ export default function ReportsHub() {
     api<{ data: { level: string } }>("/api/billing/status")
       .then((d) => setIsFree(d.data.level === "FREE"))
       .catch(() => {});
+    // Read from storage in an effect (not lazy init): localStorage does not
+    // exist during SSR, and lazy init would hydrate stored favorites against
+    // the server-rendered empty list.
     try {
       const raw = localStorage.getItem(FAV_KEY);
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- hydrate saved favorites after mount
       if (raw) setFavorites(JSON.parse(raw) as string[]);
     } catch {
       /* corrupted favorites — start empty */

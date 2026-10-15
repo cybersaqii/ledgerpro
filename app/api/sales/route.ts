@@ -149,7 +149,7 @@ export async function POST(req: NextRequest) {
   // A receipt moves money, so recording one with the invoice needs the
   // payments permission on top of the sales permission.
   if (b.receipt && b.docType === "INVOICE") {
-    const canPay = await userHasPermission(db, session.uid, "payments");
+    const canPay = await userHasPermission(db, session.uid, "payments", companyId);
     if (!canPay) return err("You don't have permission to record receipts.", 403);
   }
 

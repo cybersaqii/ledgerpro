@@ -1,11 +1,11 @@
 import { NextRequest } from "next/server";
-import { eq } from "drizzle-orm";
-import { users } from "@/db/schema";
+import { eq, and } from "drizzle-orm";
+import { users, userCompanies } from "@/db/schema";
 import { json, err } from "@/lib/api";
 import { requirePermission, db } from "@/lib/route-helpers";
 import { requirePro } from "@/lib/billing-guards";
 
-import { hashPassword } from "@/lib/auth";
+import { hashPassword, ensureUserCompanyLink } from "@/lib/auth";
 import { logAudit } from "@/lib/audit";
 import {
   STAFF_DEFAULT_PERMISSIONS,
@@ -22,13 +22,29 @@ export async function GET() {
   const { companyId } = gate;
   const pro = await requirePro("team");
   if (!pro.ok) return pro.response;
+  // Multi-company: the team list is everyone with an ACTIVE membership row
+  // for this company (not just users whose primary users.companyId matches),
+  // and each member's role comes from that membership row.
   const rows = await db
-    .select({ id: users.id, name: users.name, email: users.email, role: users.role, isActive: users.isActive, lastLoginAt: users.lastLoginAt })
-    .from(users)
-    .where(eq(users.companyId, companyId));
+    .select({
+      id: users.id,
+      name: users.name,
+      email: users.email,
+      role: userCompanies.role,
+      isActive: users.isActive,
+      lastLoginAt: users.lastLoginAt,
+    })
+    .from(userCompanies)
+    .innerJoin(users, eq(users.id, userCompanies.userId))
+    .where(
+      and(
+        eq(userCompanies.companyId, companyId),
+        eq(userCompanies.isActive, true)
+      )
+    );
   const data = [];
   for (const u of rows) {
-    data.push({ ...u, permissions: u.role === "OWNER" ? "ALL" : await getUserPermissions(db, u.id) });
+    data.push({ ...u, permissions: u.role === "OWNER" ? "ALL" : await getUserPermissions(db, u.id, companyId) });
   }
   return json({ data });
 }
@@ -53,7 +69,7 @@ export async function POST(req: NextRequest) {
   const existing = await db.select({ id: users.id }).from(users).where(eq(users.email, email)).limit(1);
   if (existing[0]) return err("This email is already registered.", 409);
 
-  const callerRole = await liveUserRole(db, session.uid);
+  const callerRole = await liveUserRole(db, session.uid, companyId);
   let permissions = [...STAFF_DEFAULT_PERMISSIONS];
   if (Array.isArray(body?.permissions)) {
     if (callerRole !== "OWNER") return err("Only the owner can set custom permissions.", 403);
@@ -73,6 +89,10 @@ export async function POST(req: NextRequest) {
       role: "STAFF",
       isActive: true,
     });
+    // The new staff member needs an active user_companies link for this
+    // company, or their session passes login but getSession() 401s every
+    // API call (migration 0057 multi-company requirement).
+    await ensureUserCompanyLink(tx, { userId, companyId, role: "STAFF" });
     await setUserPermissions(tx, { companyId, userId, permissions });
   });
   await logAudit(db, {

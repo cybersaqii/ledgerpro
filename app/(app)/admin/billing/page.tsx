@@ -322,14 +322,20 @@ function UsersTab({ t }: { t: (k: string, vars?: Record<string, string | number>
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
 
-  const load = () => {
-    setLoading(true);
+  // The fetch itself never touches state synchronously, so the mount effect
+  // can call it directly (react-hooks/set-state-in-effect). `load` adds the
+  // spinner for user-triggered reloads.
+  const fetchCompanies = () => {
     api<{ data: Company[] }>("/api/admin/billing/companies")
       .then((d) => setCompanies(d.data))
       .catch((e) => setErr(e instanceof Error ? e.message : "Failed"))
       .finally(() => setLoading(false));
   };
-  useEffect(() => { load(); }, []);
+  const load = () => {
+    setLoading(true);
+    fetchCompanies();
+  };
+  useEffect(() => { fetchCompanies(); }, []);
 
   const doExtend = async () => {
     if (!extending) return;

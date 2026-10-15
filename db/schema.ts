@@ -131,7 +131,9 @@ export const userPermissions = sqliteTable(
     grantedAt: ts("granted_at").notNull(),
   },
   (t) => [
-    primaryKey({ columns: [t.userId, t.permission] }),
+    // Migration 0063: PK scoped per company — a user can hold the same
+    // permission in two different companies (old PK blocked that).
+    primaryKey({ columns: [t.userId, t.companyId, t.permission] }),
     index("user_permissions_company").on(t.companyId),
   ]
 );
