@@ -98,6 +98,9 @@ export default function ReportsHub() {
     { key: "asset-register", num: "030", bucket: "catAccounting", href: "/reports/asset-register", title: t("reportsindex.assetRegister") },
     { key: "depreciation", num: "031", bucket: "catAccounting", href: "/reports/depreciation", title: t("reportsindex.depreciation") },
     { key: "budget-vs-actual", num: "032", bucket: "catAccounting", href: "/reports/budget-vs-actual", title: t("reportsindex.budgetVsActual") },
+    { key: "sales-data", num: "033", bucket: "catSales", href: "/reports/sales-data", title: t("reportsindex.salesData") },
+    { key: "purchase-data", num: "034", bucket: "catPurchases", href: "/reports/purchase-data", title: t("reportsindex.purchaseData") },
+    { key: "recovery-data", num: "035", bucket: "catSales", href: "/reports/recovery-data", title: t("reportsindex.recoveryData") },
 
   ];
 
