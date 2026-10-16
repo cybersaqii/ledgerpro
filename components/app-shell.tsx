@@ -260,7 +260,7 @@ export function AppShell({ children, initialBusinessType }: { children: ReactNod
     { href: "/payroll", label: t("nav.payroll"), icon: Briefcase, perm: "payroll", feature: null, group: "setup" as NavGroup },
     { href: "/assets", label: t("nav.assets"), icon: Factory, perm: "assets", feature: null, group: "setup" as NavGroup },
     { href: "/partners", label: t("nav.partners"), icon: Handshake, perm: "partners", feature: null, group: "setup" as NavGroup },
-    { href: "/support", label: t("nav.support"), icon: LifeBuoy, perm: "", feature: null, group: "setup" as NavGroup },
+    { href: "/help", label: t("nav.support"), icon: LifeBuoy, perm: "", feature: null, group: "setup" as NavGroup },
     { href: "/approvals", label: t("nav.approvals"), icon: Stamp, perm: "approvals", feature: null, group: "setup" as NavGroup },
     { href: "/manufacturing", label: t("nav.manufacturing"), icon: Cog, perm: "manufacturing", feature: null, group: "setup" as NavGroup },
     { href: "/projects", label: t("nav.projects"), icon: FolderKanban, perm: "projects", feature: null, group: "setup" as NavGroup },
