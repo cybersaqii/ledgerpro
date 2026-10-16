@@ -85,6 +85,17 @@ export default function ReportsHub() {
     { key: "statements", num: "017", bucket: "catParties", href: "/reports/statements", title: t("reportsindex.statements", { party: bp.partyOne }) },
     { key: "stock", num: "018", bucket: "catInventory", href: "/stock", title: t("reportsindex.stockTitle", { stock: bp.stock }) },
     { key: "tax-summary", num: "019", bucket: "catTaxPayroll", href: "/reports/tax-summary", title: t("reportsindex.taxSummary") },
+    { key: "out-of-stock", num: "020", bucket: "catInventory", href: "/reports/out-of-stock", title: t("reportsindex.outOfStock") },
+    { key: "stock-movement", num: "021", bucket: "catInventory", href: "/reports/stock-movement", title: t("reportsindex.stockMovement") },
+    { key: "bank-activity", num: "022", bucket: "catCashBank", href: "/reports/bank-activity", title: t("reportsindex.bankActivity") },
+    { key: "sale-orders", num: "023", bucket: "catSales", href: "/reports/sale-orders", title: t("reportsindex.saleOrders") },
+    { key: "quotations", num: "024", bucket: "catSales", href: "/reports/quotations", title: t("reportsindex.quotations") },
+    { key: "unpaid-invoices", num: "025", bucket: "catSales", href: "/reports/unpaid-invoices", title: t("reportsindex.unpaidInvoices") },
+    { key: "sale-recovery", num: "026", bucket: "catSales", href: "/reports/sale-recovery", title: t("reportsindex.saleRecovery") },
+    { key: "supplier-payments", num: "027", bucket: "catPurchases", href: "/reports/supplier-payments", title: t("reportsindex.supplierPayments") },
+    { key: "unpaid-invoices", num: "023", bucket: "catSales", href: "/reports/unpaid-invoices", title: t("reportsindex.unpaidInvoices") },
+    { key: "sale-recovery", num: "024", bucket: "catSales", href: "/reports/sale-recovery", title: t("reportsindex.saleRecovery") },
+    { key: "supplier-payments", num: "025", bucket: "catPurchases", href: "/reports/supplier-payments", title: t("reportsindex.supplierPayments") },
   ];
 
   const visible = reports.filter((r) => canAccounting || !PRO_HREFS.has(r.href));
