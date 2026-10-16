@@ -93,9 +93,12 @@ export default function ReportsHub() {
     { key: "unpaid-invoices", num: "025", bucket: "catSales", href: "/reports/unpaid-invoices", title: t("reportsindex.unpaidInvoices") },
     { key: "sale-recovery", num: "026", bucket: "catSales", href: "/reports/sale-recovery", title: t("reportsindex.saleRecovery") },
     { key: "supplier-payments", num: "027", bucket: "catPurchases", href: "/reports/supplier-payments", title: t("reportsindex.supplierPayments") },
-    { key: "unpaid-invoices", num: "023", bucket: "catSales", href: "/reports/unpaid-invoices", title: t("reportsindex.unpaidInvoices") },
-    { key: "sale-recovery", num: "024", bucket: "catSales", href: "/reports/sale-recovery", title: t("reportsindex.saleRecovery") },
-    { key: "supplier-payments", num: "025", bucket: "catPurchases", href: "/reports/supplier-payments", title: t("reportsindex.supplierPayments") },
+    { key: "purchase-orders", num: "028", bucket: "catPurchases", href: "/reports/purchase-orders", title: t("reportsindex.purchaseOrders") },
+    { key: "grn", num: "029", bucket: "catPurchases", href: "/reports/grn", title: t("reportsindex.grnReport") },
+    { key: "asset-register", num: "030", bucket: "catAccounting", href: "/reports/asset-register", title: t("reportsindex.assetRegister") },
+    { key: "depreciation", num: "031", bucket: "catAccounting", href: "/reports/depreciation", title: t("reportsindex.depreciation") },
+    { key: "budget-vs-actual", num: "032", bucket: "catAccounting", href: "/reports/budget-vs-actual", title: t("reportsindex.budgetVsActual") },
+
   ];
 
   const visible = reports.filter((r) => canAccounting || !PRO_HREFS.has(r.href));
