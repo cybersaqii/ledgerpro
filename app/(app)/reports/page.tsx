@@ -101,6 +101,13 @@ export default function ReportsHub() {
     { key: "sales-data", num: "033", bucket: "catSales", href: "/reports/sales-data", title: t("reportsindex.salesData") },
     { key: "purchase-data", num: "034", bucket: "catPurchases", href: "/reports/purchase-data", title: t("reportsindex.purchaseData") },
     { key: "recovery-data", num: "035", bucket: "catSales", href: "/reports/recovery-data", title: t("reportsindex.recoveryData") },
+    { key: "delivery-notes", num: "036", bucket: "catSales", href: "/reports/delivery-notes", title: t("reportsindex.deliveryNotes") },
+    { key: "profit-loss-cash", num: "037", bucket: "catAccounting", href: "/reports/profit-loss-cash", title: t("reportsindex.profitLossCash") },
+    { key: "balance-sheet-cash", num: "038", bucket: "catAccounting", href: "/reports/balance-sheet-cash", title: t("reportsindex.balanceSheetCash") },
+    { key: "customer-outstanding", num: "041", bucket: "catSales", href: "/reports/customer-outstanding", title: t("reportsindex.customerOutstanding") },
+    { key: "supplier-outstanding", num: "042", bucket: "catPurchases", href: "/reports/supplier-outstanding", title: t("reportsindex.supplierOutstanding") },
+    { key: "wht-deductions", num: "039", bucket: "catTaxPayroll", href: "/reports/wht-deductions", title: t("reportsindex.whtDeductions") },
+    { key: "wht-payments", num: "040", bucket: "catTaxPayroll", href: "/reports/wht-payments", title: t("reportsindex.whtPayments") },
 
   ];
 
