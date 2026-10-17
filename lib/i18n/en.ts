@@ -77,6 +77,7 @@ export const en = {
     active: "Active",
     inactive: "Inactive",
     settings: "Settings",
+    importData: "Import Data",
     help: "Help",
     language: "Language",
     currencyNote: "Rs"

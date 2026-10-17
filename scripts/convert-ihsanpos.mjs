@@ -232,6 +232,8 @@ for (const c of src.customers) addParty(c.id, "CUSTOMER", c);
 for (const s of src.suppliers) addParty(s.id, "SUPPLIER", s);
 const WALKIN_ID = partyBySourceId["cust-walkin"];
 if (!WALKIN_ID) throw new Error("Walk-in customer (cust-walkin) not found in source.");
+// Synthetic walk-in supplier for purchases with empty supplierId (e.g. "Walk-in supplier")
+const WALKIN_SUP_ID = addParty("supp-walkin", "SUPPLIER", { name: "Walk-in Supplier", phone: "", address: "", currentBalance: 0 });
 
 // ─── Products ────────────────────────────────────────────────────────────────
 // Duplicate SKUs exist in the source (bulk-import artifacts, e.g. ITEM-3146 on
@@ -591,7 +593,7 @@ function buildPurchaseItems(p, docId) {
 
 function convertPurchaseBill(p, { docNo, items: rawItems, isReturn, billDiscount, billTax, billSubtotal, billNet }) {
   const docId = uuid();
-  const partyId = partyBySourceId[p.supplierId];
+  const partyId = partyBySourceId[p.supplierId] || (p.supplierName === "Walk-in supplier" ? WALKIN_SUP_ID : null);
   if (!partyId) throw new Error(`Purchase ${p.purchaseNumber} references unknown supplier ${p.supplierId}`);
   const date = isoDay(p.date);
   const createdAt = isoInstant(p.createdAt, date);
@@ -670,7 +672,8 @@ for (const p of src.purchases) {
   if (p.status === "Cancelled") continue;
   const paid = paisa(p.paidAmount);
   if (paid <= 0n) continue;
-  const partyId = partyBySourceId[p.supplierId];
+  const partyId = partyBySourceId[p.supplierId] || (p.supplierName === "Walk-in supplier" ? WALKIN_SUP_ID : null);
+  if (!partyId) throw new Error(`Purchase payment ${p.purchaseNumber} references unknown supplier ${p.supplierId}`);
   const bankId = resolveBankAccount(p.accountName, `purchase payment ${p.purchaseNumber}`);
   const date = isoDay(p.date);
   const entryId = addJournal({
@@ -740,6 +743,83 @@ for (const v of src.paymentVouchers) {
     });
     bumpBank(bankId, -amount);
     expenseCount++;
+  } else if (v.type === "CASH_OUT_SUPPLIER") {
+    if (amount <= 0n) { skip(`Zero-amount supplier payment ${v.voucherNumber} — not converted.`); continue; }
+    // Match supplier by name since partyId may be empty
+    let partyId = partyBySourceId[v.partyId];
+    if (!partyId && v.partyName) {
+      const match = parties.find(p => p.kind === "SUPPLIER" && p.name.toLowerCase() === String(v.partyName).toLowerCase());
+      if (match) partyId = match.id;
+    }
+    if (!partyId) throw new Error(`Supplier payment ${v.voucherNumber} references unknown supplier ${v.partyName}`);
+    const bankId = resolveBankAccount(v.accountName, `voucher ${v.voucherNumber}`);
+    const entryId = addJournal({
+      date, memo: `Supplier payment ${v.voucherNumber}`, reference: v.voucherNumber,
+      source: "PAYMENT", sourceId: null,
+      lines: [
+        { gl: GL.AP, debit: amount, credit: 0n, partyId },
+        { gl: bankGlCode(bankId), debit: 0n, credit: amount },
+      ],
+    });
+    const id = uuid();
+    payments.push({
+      id, companyId: CID, branchId: BRANCH, kind: "PAYMENT", date, partyId,
+      bankAccountId: bankId, amount, method: mapMethod(v.paymentMethod, v.voucherNumber),
+      reference: v.voucherNumber, notes: [v.reason, v.notes].filter(Boolean).join(" | ") || null,
+      journalEntryId: entryId, createdById: CREATED_BY, createdAt,
+    });
+    bumpBank(bankId, -amount);
+    apOpen[partyId] -= amount;
+    note(`Supplier payment ${v.voucherNumber}: ${v.amount} to ${v.partyName}.`);
+  } else if (v.type === "ACCOUNT_TRANSFER") {
+    if (amount <= 0n) { skip(`Zero-amount transfer ${v.voucherNumber} — not converted.`); continue; }
+    const fromId = resolveBankAccount(v.accountName, `transfer ${v.voucherNumber} from`);
+    const toId = resolveBankAccount(v.toAccountName, `transfer ${v.voucherNumber} to`);
+    if (fromId === toId) { skip(`Transfer ${v.voucherNumber} from/to same account — not converted.`); continue; }
+    addJournal({
+      date, memo: `Transfer ${v.voucherNumber}`, reference: v.voucherNumber,
+      source: "TRANSFER", sourceId: null,
+      lines: [
+        { gl: bankGlCode(toId), debit: amount, credit: 0n },
+        { gl: bankGlCode(fromId), debit: 0n, credit: amount },
+      ],
+    });
+    bumpBank(fromId, -amount);
+    bumpBank(toId, amount);
+    note(`Bank transfer ${v.voucherNumber}: ${v.amount} from ${v.accountName} to ${v.toAccountName}.`);
+  } else if (v.type === "PARTNER_IN") {
+    if (amount <= 0n) { skip(`Zero-amount partner contribution ${v.voucherNumber} — not converted.`); continue; }
+    const bankId = resolveBankAccount(v.accountName, `voucher ${v.voucherNumber}`);
+    addJournal({
+      date, memo: `Partner capital in — ${v.partyName}`, reference: v.voucherNumber,
+      source: "JOURNAL", sourceId: null,
+      lines: [
+        { gl: bankGlCode(bankId), debit: amount, credit: 0n },
+        { gl: SYS.CAPITAL, debit: 0n, credit: amount },
+      ],
+    });
+    bumpBank(bankId, amount);
+    note(`Partner capital ${v.voucherNumber}: ${v.amount} from ${v.partyName}.`);
+  } else if (v.type === "CONTRA_SETTLEMENT") {
+    if (amount <= 0n) { skip(`Zero-amount contra ${v.voucherNumber} — not converted.`); continue; }
+    // No cash moved — set AR against AP for the party
+    let partyId = partyBySourceId[v.partyId];
+    if (!partyId && v.partyName) {
+      const match = parties.find(p => p.name.toLowerCase() === String(v.partyName).toLowerCase());
+      if (match) partyId = match.id;
+    }
+    if (!partyId) throw new Error(`Contra ${v.voucherNumber} references unknown party ${v.partyName}`);
+    addJournal({
+      date, memo: `Contra settlement ${v.voucherNumber}`, reference: v.voucherNumber,
+      source: "JOURNAL", sourceId: null,
+      lines: [
+        { gl: GL.AP, debit: amount, credit: 0n, partyId },
+        { gl: GL.AR, debit: 0n, credit: amount, partyId },
+      ],
+    });
+    arOpen[partyId] -= amount;
+    apOpen[partyId] -= amount;
+    note(`Contra settlement ${v.voucherNumber}: ${v.amount} for ${v.partyName} (no cash moved).`);
   } else {
     skip(`Unknown voucher type "${v.type}" on ${v.voucherNumber} — not converted.`);
   }

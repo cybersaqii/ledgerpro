@@ -82,6 +82,7 @@ export const ur: DeepPartial<EnDict> = {
     active: "فعال",
     inactive: "غیر فعال",
     settings: "ترتیبات",
+    importData: "ڈیٹا امپورٹ کریں",
     help: "مدد",
     language: "زبان",
     currencyNote: "روپے"

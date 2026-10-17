@@ -227,7 +227,7 @@ export function AppShell({ children, initialBusinessType }: { children: ReactNod
     { href: "/bank/receipts", label: t("nav.bankReceipts"), icon: ArrowDownToLine, perm: "payments", feature: null, group: "bank" as NavGroup, match: ["/payments/receipts"] },
     { href: "/bank/transfers", label: t("nav.transfers"), icon: ArrowLeftRight, perm: "payments", feature: null, group: "bank" as NavGroup, match: ["/payments/transfers"] },
     { href: "/bank/reconciliation", label: t("nav.reconciliation"), icon: ClipboardCheck, perm: "payments", feature: null, group: "bank" as NavGroup },
-    { href: "/bank/import", label: t("nav.importStatement"), icon: FileUp, perm: "payments", feature: null, group: "bank" as NavGroup, match: ["/settings/import"] },
+    { href: "/bank/import", label: t("nav.importStatement"), icon: FileUp, perm: "payments", feature: null, group: "bank" as NavGroup },
     { href: "/bank/1bill", label: t("nav.oneBill"), icon: Receipt, perm: "payments", feature: null, group: "bank" as NavGroup },
     // Sales
     { href: "/sales/invoices", label: t("nav.invoices"), icon: FileText, perm: "sales", feature: null, group: "sales" as NavGroup, match: ["/sales"] },
@@ -253,6 +253,7 @@ export function AppShell({ children, initialBusinessType }: { children: ReactNod
     { href: "/analytical-reports", label: t("nav.analyticalReports"), icon: TrendingUp, perm: "reports_basic", feature: null, group: "analytical" as NavGroup },
     // Setup — settings plus modules not covered by the Fast Accounts groups
     { href: "/settings", label: t("nav.settings"), icon: Settings, perm: "", feature: null, group: "setup" as NavGroup },
+    { href: "/settings/import", label: t("nav.importData"), icon: FileUp, perm: "import_export", feature: null, group: "setup" as NavGroup },
     { href: "/expenses", label: t("nav.expenses"), icon: ReceiptText, perm: "expenses", feature: null, group: "setup" as NavGroup },
     { href: "/sales/recurring", label: t("nav.recurring"), icon: Repeat, perm: "sales", feature: null, group: "setup" as NavGroup },
     { href: "/settings/credit-rules", label: t("nav.creditRules"), icon: ShieldAlert, perm: "settings", feature: null, group: "setup" as NavGroup },
