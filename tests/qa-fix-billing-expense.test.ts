@@ -359,6 +359,13 @@ describe("route-level — admin coupons + expense PATCH wiring", () => {
       { id: otherUid, companyId: adminCompany, name: "QA Other", email: OTHER_EMAIL, passwordHash: "x", role: "OWNER" },
       { id: routeUserId, companyId: adminCompany, name: "QA Owner", email: "qa-owner@ledgerpro.test", passwordHash: "x", role: "OWNER" },
     ]);
+    // Per-company links (migration 0063): userHasPermission requires a
+    // userCompanies row — the users.role column alone no longer grants access.
+    await seed.insert(s.userCompanies).values([
+      { id: crypto.randomUUID(), userId: adminUid, companyId: adminCompany, role: "OWNER", isActive: true },
+      { id: crypto.randomUUID(), userId: otherUid, companyId: adminCompany, role: "OWNER", isActive: true },
+      { id: crypto.randomUUID(), userId: routeUserId, companyId: adminCompany, role: "OWNER", isActive: true },
+    ]);
 
     // Expense fixtures for the PATCH wiring test (real requirePermission gate,
     // OWNER bypasses via the mocked session).

@@ -135,7 +135,10 @@ describe("company deletion", () => {
     // global tables must NOT be wiped
     expect(tables).not.toContain(s.platformSettings);
     expect(tables).not.toContain(s.rateLimits);
-    expect(tables).not.toContain(s.supportRequests);
+    // NOTE: supportRequests IS company-scoped since migration 0062 added
+    // company_id (logged-in users' tickets link to their company). Company
+    // deletion wipes only that company's rows — public submissions (NULL
+    // company_id) survive because deleteWhereCompany matches on equality.
   });
 
   it("removes every row of the company in one transaction and leaves others alone", async () => {
