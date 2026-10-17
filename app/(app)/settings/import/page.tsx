@@ -211,7 +211,7 @@ export default function ImportWizardPage() {
             <FileUp size={32} className="text-muted-foreground" />
             <span className="text-sm font-bold">{file ? file.name : t("imp.chooseFile")}</span>
             <span className="text-xs text-muted-foreground">{t("imp.csvOnly")}</span>
-            <input ref={fileRef} type="file" accept=".csv,text/csv" className="hidden"
+            <input ref={fileRef} type="file" accept=".csv,text/csv" className="sr-only"
               onChange={(e) => { onFile(e.target.files?.[0]); e.target.value = ""; }} />
           </label>
           <div className="mt-6 flex gap-2">

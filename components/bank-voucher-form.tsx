@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { Plus, Trash2, ChevronDown } from "lucide-react";
 import { PageHeader, ErrorNote } from "@/components/ui";
 import { api, fmtDateInput } from "@/lib/format";
@@ -50,6 +51,7 @@ export function BankVoucherForm({ kind }: { kind: "PAYMENT" | "RECEIPT" }) {
   const [banks, setBanks] = useState<Bank[]>([]);
   const [bankId, setBankId] = useState("");
   const [nominals, setNominals] = useState<Nominal[]>([]);
+  const [nominalsLoaded, setNominalsLoaded] = useState(false);
   const [rows, setRows] = useState<Row[]>([newRow()]);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -66,7 +68,8 @@ export function BankVoucherForm({ kind }: { kind: "PAYMENT" | "RECEIPT" }) {
     }).catch(() => {});
     api<{ data: Nominal[] }>(`/api/accounts?type=${isPayment ? "EXPENSE" : "INCOME"}`)
       .then((d) => setNominals(d.data.filter((n) => !n.isSystem)))
-      .catch(() => {});
+      .catch(() => {})
+      .finally(() => setNominalsLoaded(true));
   }, [isPayment]);
 
   const updateRow = (key: string, patch: Partial<Row>) =>
@@ -133,6 +136,12 @@ export function BankVoucherForm({ kind }: { kind: "PAYMENT" | "RECEIPT" }) {
       </div>
 
       {/* Desktop table */}
+      {nominalsLoaded && nominals.length === 0 && (
+        <p className="mb-2 rounded-xl bg-warning-soft px-3 py-2 text-xs font-semibold text-warning">
+          {t("bankvoucher.noNominals")}{" "}
+          <Link href="/settings/chart-of-accounts" className="underline">{t("nav.chartOfAccounts")}</Link>
+        </p>
+      )}
       <div className="hidden overflow-x-auto sm:block">
         <table className="tbl-fa">
           <thead>

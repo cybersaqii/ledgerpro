@@ -650,6 +650,7 @@ export const en = {
     deductFromInventoryHint: "Untick for a pure-ledger debit note (no stock movement).",
     // Module 2: purchase order lifecycle + GRN + bill void
     issueOrder: "Issue order",
+    poConfirmTitle: "Order {docNo}",
     issueOrderConfirm: "Issue order {docNo}? The supplier is expected to deliver these goods.",
     receiveGoods: "Receive goods",
     closeOrder: "Close order",
@@ -5515,6 +5516,7 @@ export const en = {
     bank: "Bank",
     selectBank: "Select bank…",
     selectNominal: "Select account…",
+    noNominals: "No nominal accounts yet — create one in Chart of Accounts first.",
     colDate: "Date",
     colRefNo: "Ref. No.",
     colMode: "Mode",

@@ -932,6 +932,9 @@ function DocActions({ doc, isSales, onChanged }: { doc: Doc; isSales: boolean; o
   const [deductStock, setDeductStock] = useState(true);
   // Module 2.2/2.3: purchase order actions + GRN receiving dialog.
   const [showGrn, setShowGrn] = useState(false);
+  // PO lifecycle confirm step (replaces window.confirm — native dialogs are
+  // unreliable in mobile browsers and automation).
+  const [pendingPoAction, setPendingPoAction] = useState<null | "issue" | "cancel" | "close">(null);
   // Module 2.4: order/GRN -> bill needs the vendor's bill reference (+ optional WHT).
   const [showBillConvert, setShowBillConvert] = useState<null | "ORDER" | "GRN">(null);
   const [billRefNo, setBillRefNo] = useState("");
@@ -1141,9 +1144,8 @@ function DocActions({ doc, isSales, onChanged }: { doc: Doc; isSales: boolean; o
 
   async function runPurchaseOrderAction(action: "issue" | "cancel" | "close") {
     if (busy) return;
-    const confirmKey = action === "issue" ? "docdetail.issueOrderConfirm" : action === "cancel" ? "docdetail.cancelOrderConfirm" : "docdetail.closeOrderConfirm";
-    if (!window.confirm(t(confirmKey, { docNo: doc.docNo }))) return;
     setBusy(true); setError(null);
+    setPendingPoAction(null);
     try {
       await api(`/api/purchases/${doc.id}/convert`, {
         method: "POST",
@@ -1225,7 +1227,7 @@ function DocActions({ doc, isSales, onChanged }: { doc: Doc; isSales: boolean; o
       )}
       {/* ── Module 2: purchase order lifecycle ── */}
       {canIssueOrder && (
-        <button className="btn btn-primary text-sm" disabled={busy} onClick={() => runPurchaseOrderAction("issue")}>
+        <button className="btn btn-primary text-sm" disabled={busy} onClick={() => setPendingPoAction("issue")}>
           <ArrowRightLeft size={15} /> {t("docdetail.issueOrder")}
         </button>
       )}
@@ -1245,12 +1247,12 @@ function DocActions({ doc, isSales, onChanged }: { doc: Doc; isSales: boolean; o
         </button>
       )}
       {canCancelPurchaseOrder && (
-        <button className="btn btn-ghost text-sm text-danger" disabled={busy} onClick={() => runPurchaseOrderAction("cancel")}>
+        <button className="btn btn-ghost text-sm text-danger" disabled={busy} onClick={() => setPendingPoAction("cancel")}>
           <Ban size={15} /> {t("docdetail.cancelOrder")}
         </button>
       )}
       {canClosePurchaseOrder && (
-        <button className="btn btn-ghost text-sm" disabled={busy} onClick={() => runPurchaseOrderAction("close")}>
+        <button className="btn btn-ghost text-sm" disabled={busy} onClick={() => setPendingPoAction("close")}>
           <Ban size={15} /> {t("docdetail.closeOrder")}
         </button>
       )}
@@ -1411,6 +1413,26 @@ function DocActions({ doc, isSales, onChanged }: { doc: Doc; isSales: boolean; o
               </button>
               <button className="btn flex-1 bg-danger text-white hover:brightness-95" disabled={busy} onClick={submitVoid}>
                 {busy ? t("docdetail.posting") : t("docdetail.voidConfirm")}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      {/* PO lifecycle confirm (issue / cancel / close) — in-app dialog, not window.confirm */}
+      {pendingPoAction && doc && (
+        <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/50 p-0 sm:items-center sm:p-4" onClick={() => !busy && setPendingPoAction(null)}>
+          <div role="dialog" aria-modal="true" aria-label={t("docdetail.poConfirmTitle", { docNo: doc.docNo })}
+            className="w-full max-w-md rounded-t-2xl bg-card p-5 shadow-xl sm:rounded-2xl" onClick={(e) => e.stopPropagation()}>
+            <h3 className={`text-base font-bold ${pendingPoAction === "cancel" ? "text-danger" : ""}`}>{t("docdetail.poConfirmTitle", { docNo: doc.docNo })}</h3>
+            <p className="mt-1 text-sm text-muted-foreground">{t(pendingPoAction === "issue" ? "docdetail.issueOrderConfirm" : pendingPoAction === "cancel" ? "docdetail.cancelOrderConfirm" : "docdetail.closeOrderConfirm", { docNo: doc.docNo })}</p>
+            {error && <p className="mt-3 text-xs font-semibold text-danger">{error}</p>}
+            <div className="mt-4 flex gap-2">
+              <button className="btn btn-ghost flex-1" disabled={busy} onClick={() => setPendingPoAction(null)}>
+                {t("common.cancel")}
+              </button>
+              <button className={`btn flex-1 ${pendingPoAction === "cancel" ? "bg-danger text-white hover:brightness-95" : "btn-primary"}`}
+                disabled={busy} onClick={() => runPurchaseOrderAction(pendingPoAction)}>
+                {busy ? t("docdetail.posting") : t(pendingPoAction === "issue" ? "docdetail.issueOrder" : pendingPoAction === "cancel" ? "docdetail.cancelOrder" : "docdetail.closeOrder")}
               </button>
             </div>
           </div>

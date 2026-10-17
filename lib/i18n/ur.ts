@@ -656,6 +656,7 @@ export const ur: DeepPartial<EnDict> = {
     deductFromInventoryHint: "صرف لیجر ڈیبٹ نوٹ کے لیے ان ٹک کریں (اسٹاک میں کوئی تبدیلی نہیں)۔",
     // Module 2: purchase order lifecycle + GRN + bill void
     issueOrder: "آرڈر جاری کریں",
+    poConfirmTitle: "آرڈر {docNo}",
     issueOrderConfirm: "آرڈر {docNo} جاری کریں؟ سپلائر سے ان اشیاء کی ترسیل متوقع ہے۔",
     receiveGoods: "سامان وصول کریں",
     closeOrder: "آرڈر بند کریں",
@@ -5505,6 +5506,7 @@ export const ur: DeepPartial<EnDict> = {
     bank: "بینک",
     selectBank: "بینک منتخب کریں…",
     selectNominal: "اکاؤنٹ منتخب کریں…",
+    noNominals: "ابھی کوئی نومینل اکاؤنٹ نہیں — پہلے چارٹ آف اکاؤنٹس میں بنائیں۔",
     colDate: "تاریخ",
     colRefNo: "حوالہ نمبر",
     colMode: "طریقہ",

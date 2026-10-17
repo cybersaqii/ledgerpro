@@ -21,10 +21,15 @@ export function Modal({ title, onClose, children, wide = false }: {
   const { t } = useLang();
   const titleId = useId();
   const panelRef = useRef<HTMLDivElement>(null);
+  // Latest onClose in a ref: the mount-only effect below must NOT re-run when
+  // the parent re-renders (inline onClose is a new function every render —
+  // re-running would yank focus out of whatever input the user is typing in).
+  const onCloseRef = useRef(onClose);
+  useEffect(() => { onCloseRef.current = onClose; });
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") { onClose(); return; }
+      if (e.key === "Escape") { onCloseRef.current(); return; }
       // Keep Tab cycling inside the dialog
       if (e.key === "Tab" && panelRef.current) {
         const focusables = panelRef.current.querySelectorAll<HTMLElement>(
@@ -47,7 +52,7 @@ export function Modal({ title, onClose, children, wide = false }: {
       if (--modalLocks === 0) document.body.style.overflow = "";
       clearTimeout(t);
     };
-  }, [onClose]);
+  }, []);
 
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-center sm:items-center sm:p-4">
