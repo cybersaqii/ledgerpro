@@ -5,9 +5,17 @@ const moneyStr = z.string().regex(/^-?\d{1,12}(\.\d{1,2})?$/, "Invalid amount");
 // Optional money that also tolerates "" from HTML form inputs; routes treat
 // "" as 0 via `p.field || "0"`.
 const optMoney = moneyStr.or(z.literal("")).optional().default("0");
-// Non-negative money (no leading "-"): used for product prices —
-// a negative price would corrupt stock valuation and margins.
-const priceStr = z.string().regex(/^\d{1,12}(\.\d{1,2})?$/, "Price cannot be negative");
+// Product forms submit "" for untouched optional numeric fields — treat as 0
+// instead of rejecting (the old strict regex 422'd every Add Product save
+// where wholesale/min-sale/reorder were left blank).
+const optPriceStr = z
+  .string()
+  .regex(/^(\d{1,12}(\.\d{1,2})?)?$/, "Price cannot be negative")
+  .transform((v) => (v === "" ? "0" : v));
+const optQtyStr = z
+  .string()
+  .regex(/^(-?\d{1,12}(\.\d{1,3})?)?$/, "Invalid quantity")
+  .transform((v) => (v === "" ? "0" : v));
 // Module 10: document line/rate amounts are entered in the DOCUMENT's currency
 // (up to 6 decimals on the wire); the server parses them at the currency's
 // own minor-unit scale and rejects excess precision per currency.
@@ -75,13 +83,13 @@ export const productSchema = z.object({
   barcode: z.string().trim().max(40).optional().or(z.literal("")),
   category: z.string().trim().max(60).optional().or(z.literal("")),
   unit: z.string().trim().max(12).default("PCS"),
-  purchasePrice: priceStr.default("0"),
-  salePrice: priceStr.default("0"),
+  purchasePrice: optPriceStr.default("0"),
+  salePrice: optPriceStr.default("0"),
   taxBps: z.coerce.number().int().min(0).max(10000).default(0),
   trackStock: z.boolean().default(true),
-  reorderLevel: qtyStr.default("0"),
-  minSalePrice: priceStr.default("0"),
-  wholesalePrice: priceStr.default("0"),
+  reorderLevel: optQtyStr.default("0"),
+  minSalePrice: optPriceStr.default("0"),
+  wholesalePrice: optPriceStr.default("0"),
   location: z.string().trim().max(60).optional().or(z.literal("")),
   imageUrl: z.string().trim().max(500).optional().or(z.literal("")),
   // Module 7: FBR PCT (Pakistan Customs Tariff) code — optional, printed on

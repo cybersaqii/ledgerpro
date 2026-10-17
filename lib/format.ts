@@ -86,7 +86,11 @@ export class ApiError extends Error {
 }
 
 export async function api<T>(url: string, init?: RequestInit): Promise<T> {
-  const res = await fetch(url, { ...init, headers: { "Content-Type": "application/json", ...(init?.headers || {}) } });
+  // FormData bodies must NOT get a manual Content-Type: the browser sets
+  // multipart/form-data with the boundary itself. Forcing application/json
+  // breaks server-side formData() parsing (every field reads as missing).
+  const isForm = typeof FormData !== "undefined" && init?.body instanceof FormData;
+  const res = await fetch(url, { ...init, headers: { ...(isForm ? {} : { "Content-Type": "application/json" }), ...(init?.headers || {}) } });
   const data = await res.json().catch(() => ({}));
   if (!res.ok) {
     const code = (data as { code?: string }).code;

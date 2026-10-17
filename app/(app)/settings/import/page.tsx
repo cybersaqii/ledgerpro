@@ -108,10 +108,11 @@ export default function ImportWizardPage() {
       const hs = firstLine.split(",").map((h) => h.trim().replace(/^"|"$/g, ""));
       setHeaders(hs.filter((h) => h.length > 0));
       // Seed the mapping with the server's auto-guess once the step opens.
+      // Normalized EXACT match (not substring): "purchase_price" must not
+      // match the "price" alias of salePrice, etc.
       const m: Record<string, string> = {};
       for (const f of FIELDS[kind]) {
-        const idx = hs.findIndex((h) => h.toLowerCase().includes(f.field.toLowerCase()) ||
-          aliasMatch(h, f.field));
+        const idx = hs.findIndex((h) => normHdr(h) === normHdr(f.field) || aliasMatch(h, f.field));
         if (idx >= 0) m[f.field] = String(idx);
       }
       setMapping(m);
@@ -364,8 +365,13 @@ export default function ImportWizardPage() {
   );
 }
 
+/** Normalize a CSV header/alias for comparison: lowercase, alphanumeric only. */
+function normHdr(s: string): string {
+  return s.toLowerCase().replace(/[^a-z0-9]/g, "");
+}
+
 function aliasMatch(header: string, field: string): boolean {
-  const h = header.toLowerCase();
+  const h = normHdr(header);
   const aliases: Record<string, string[]> = {
     sku: ["code", "item code", "product code"],
     name: ["product", "product name", "item", "item name", "party", "customer", "supplier"],
@@ -384,7 +390,7 @@ function aliasMatch(header: string, field: string): boolean {
     qty: ["quantity", "qnty", "stock"],
     rate: ["cost", "unit cost", "price"],
   };
-  return (aliases[field] ?? []).some((a) => h.includes(a));
+  return (aliases[field] ?? []).some((a) => h === normHdr(a));
 }
 
 function Stat({ label, value, tone }: { label: string; value: number; tone?: string }) {
