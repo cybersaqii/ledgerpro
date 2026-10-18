@@ -143,6 +143,15 @@ export default function ProductsPage() {
   const [menuPos, setMenuPos] = useState<{ top: number; left: number } | null>(null);
   const menuRef = useRef<HTMLDivElement>(null);
   const [rows, setRows] = useState<Product[]>([]);
+  // Existing categories for the add/edit form combobox (deduped, sorted).
+  const existingCategories = useMemo(() => {
+    const set = new Set<string>();
+    for (const r of rows) {
+      const cat = (r.category || "").trim();
+      if (cat) set.add(cat);
+    }
+    return [...set].sort((a, b) => a.localeCompare(b));
+  }, [rows]);
   const [sort, onSort, sortedRows] = useSort(rows, (p, key) => {
     switch (key) {
       case "name": return p.name;
@@ -728,7 +737,12 @@ export default function ProductsPage() {
             <Field label={t("products.productName", { product: productOne })}><input className="field" required value={form.name} onChange={set("name")} placeholder={t("products.namePlaceholder")} autoFocus /></Field>
             <div className="grid gap-4 sm:grid-cols-2">
               <Field label={t("products.skuCode")}><input className="field" required value={form.sku} onChange={set("sku")} placeholder={t("products.skuPlaceholder")} /></Field>
-              <Field label={t("products.category")}><input className="field" value={form.category} onChange={set("category")} placeholder={t("products.categoryPlaceholder")} /></Field>
+              <Field label={t("products.category")}>
+                <input className="field" value={form.category} onChange={set("category")} placeholder={t("products.categoryPlaceholder")} list="product-category-list" autoComplete="off" />
+                <datalist id="product-category-list">
+                  {existingCategories.map((cat) => <option key={cat} value={cat} />)}
+                </datalist>
+              </Field>
             </div>
             <div className="grid gap-4 sm:grid-cols-2">
               <Field label={t("products.unit")}>
