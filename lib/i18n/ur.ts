@@ -2555,13 +2555,6 @@ export const ur: DeepPartial<EnDict> = {
       password_reset: "اسٹاف پاس ورڈ ری سیٹ ہوا"
     },
     billing: {
-    tierStarter: "اسٹارٹر",
-    tierProfessional: "پروفیشنل",
-    tierEnterprise: "انٹرپرائز",
-    tierStarterFeatures: "سیلز اور خریداری|پارٹیاں اور مصنوعات|ادائیگیاں اور اخراجات|بنیادی رپورٹس",
-    tierProfessionalFeatures: "اسٹارٹر میں سب کچھ|POS|ٹیم اکاؤنٹس|جدید رپورٹس|امپورٹ اور ایکسپورٹ|پیریڈ لاک",
-    tierEnterpriseFeatures: "پروفیشنل میں سب کچھ|ملٹی کمپنی|آف لائن سنک|ترجیحی سپورٹ",
-    mostPopular: "مقبول ترین",
       payment_submitted: "PRO ادائیگی جمع ہوئی",
       payment_approved: "PRO سبسکرپشن فعال ہوئی",
       payment_rejected: "PRO ادائیگی مسترد ہوئی"
@@ -2588,6 +2581,13 @@ export const ur: DeepPartial<EnDict> = {
   billing: {
     title: "بلنگ",
     subtitle: "پلانز اور سبسکرپشن",
+    tierStarter: "اسٹارٹر",
+    tierProfessional: "پروفیشنل",
+    tierEnterprise: "انٹرپرائز",
+    tierStarterFeatures: "سیلز اور خریداری|پارٹیاں اور مصنوعات|ادائیگیاں اور اخراجات|بنیادی رپورٹس",
+    tierProfessionalFeatures: "اسٹارٹر میں سب کچھ|POS|ٹیم اکاؤنٹس|جدید رپورٹس|امپورٹ اور ایکسپورٹ|پیریڈ لاک",
+    tierEnterpriseFeatures: "پروفیشنل میں سب کچھ|ملٹی کمپنی|آف لائن سنک|ترجیحی سپورٹ",
+    mostPopular: "مقبول ترین",
     loadError: "بلنگ معلومات لوڈ نہیں ہو سکیں۔",
     currentPlan: "موجودہ پلان",
     freeTrial: "مفت ٹرائل",

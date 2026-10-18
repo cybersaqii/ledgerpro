@@ -28,6 +28,9 @@ export function BalancesPage({ kind }: { kind: "CUSTOMER" | "SUPPLIER" }) {
   const [total, setTotal] = useState("0");
   const [loading, setLoading] = useState(true);
   const [tab, setTab] = useState<"list" | "aging">("list");
+  // Aging tab computes its own total (docs-derived); the header must show the
+  // active tab's number, never a stale total from the other view.
+  const [agingTotal, setAgingTotal] = useState<string | null>(null);
   const [holdError, setHoldError] = useState<string | null>(null);
   const canHold = role === "OWNER" || permissions.includes("parties");
 
@@ -65,7 +68,7 @@ export function BalancesPage({ kind }: { kind: "CUSTOMER" | "SUPPLIER" }) {
     <div>
       <PageHeader
         title={isCustomer ? bp.receivables : t("balances.payables")}
-        subtitle={<>{t("balances.outstanding")} <span className="font-extrabold text-primary">{fmtMoney(total)}</span></>}
+        subtitle={<>{t("balances.outstanding")} <span className="font-extrabold text-primary">{fmtMoney(tab === "aging" && agingTotal !== null ? agingTotal : total)}</span></>}
         actions={<>
           <ExportCsv filename={isCustomer ? "receivables" : "payables"} disabled={loading || rows.length === 0} rows={() => [
             [t("balances.csvParty"), t("balances.csvPhone"), t("balances.csvCity"), t("balances.csvBalance"), t("balances.csvLimit"), t("balances.csvRisk"), t("balances.csvStatus")],
@@ -81,7 +84,7 @@ export function BalancesPage({ kind }: { kind: "CUSTOMER" | "SUPPLIER" }) {
         {(["list", "aging"] as const).map((tb) => (
           <button
             key={tb}
-            onClick={() => setTab(tb)}
+            onClick={() => { setTab(tb); if (tb === "list") setAgingTotal(null); }}
             className={`btn text-sm ${tab === tb ? "btn-primary" : "btn-ghost"}`}
           >
             {tb === "aging" && <Hourglass size={15} />}
@@ -90,7 +93,7 @@ export function BalancesPage({ kind }: { kind: "CUSTOMER" | "SUPPLIER" }) {
         ))}
       </div>
       {tab === "aging" ? (
-        <AgingView kind={kind} />
+        <AgingView kind={kind} onTotals={(v) => setAgingTotal(v)} />
       ) : (
       <>
       {holdError && <div className="mb-3"><ErrorNote message={holdError} /></div>}
@@ -189,7 +192,7 @@ type AgingInvoice = { docNo: string; date: number; dueDate: number | null; total
   oldestDays: number; invoices: AgingInvoice[];
 };
 
-function AgingView({ kind }: { kind: "CUSTOMER" | "SUPPLIER" }) {
+function AgingView({ kind, onTotals }: { kind: "CUSTOMER" | "SUPPLIER"; onTotals?: (total: string) => void }) {
   const { t } = useLang();
   const [rows, setRows] = useState<AgingRow[]>([]);
   const [totals, setTotals] = useState({ total: "0", notDue: "0", d30: "0", d60: "0", d90: "0", d90plus: "0" });
@@ -199,7 +202,7 @@ function AgingView({ kind }: { kind: "CUSTOMER" | "SUPPLIER" }) {
 
   useEffect(() => {
     api<{ data: AgingRow[]; totals: typeof totals }>(`/api/reports/aging?kind=${kind}`)
-      .then((d) => { setRows(d.data); setTotals(d.totals); })
+      .then((d) => { setRows(d.data); setTotals(d.totals); onTotals?.(d.totals.total); })
       .catch(() => {})
       .finally(() => setLoading(false));
     api<{ data: { name: string } }>("/api/company")

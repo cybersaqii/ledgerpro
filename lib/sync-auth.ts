@@ -14,7 +14,8 @@ import { json } from "./api";
 import { requireCompany } from "./route-helpers";
 import { getUserPermissions, type Permission } from "./permissions";
 import { PERMISSIONS } from "./permission-keys";
-import { billingStatusFor, type BillingStatus } from "./billing-guards";
+import { getCompanyBilling, type BillingStatus } from "./billing-guards";
+import { canAccess, effectivePlan, getAccessLevel, trialDaysLeft, proDaysLeft, type CompanyBilling } from "./entitlements";
 
 export type { BillingStatus };
 
@@ -46,22 +47,28 @@ export function deviceCan(ds: DeviceSession, p: Permission): boolean {
 }
 
 /**
- * PRO/Trial gate for the whole sync surface — same 403 UPGRADE_REQUIRED shape
- * as requirePro() so clients can redirect to /billing.
+ * Tier-aware gate for the whole sync surface — same 403 UPGRADE_REQUIRED shape
+ * as requirePro() so clients can redirect to /billing. Sync is Enterprise-only.
  */
-export function syncProGate(billing: BillingStatus): NextResponse | null {
-  if (billing.level === "FREE") {
-    return json(
-      {
-        error:
-          "Offline sync needs a PRO subscription. Your free trial has ended — upgrade on the Billing page to continue.",
-        code: "UPGRADE_REQUIRED",
-        feature: "sync",
-      },
-      { status: 403 }
-    );
-  }
-  return null;
+export function syncProGate(cb: CompanyBilling): NextResponse | null {
+  if (canAccess(cb, "sync")) return null;
+  const hadTrial = !!cb.trialEndsAt;
+  const plan = effectivePlan(cb);
+  const planName =
+    plan === "FREE" ? "Free" : plan === "TRIAL" ? "trial" : plan.charAt(0) + plan.slice(1).toLowerCase();
+  return json(
+    {
+      error:
+        plan === "FREE"
+          ? hadTrial
+            ? "Offline sync needs the Enterprise plan. Your free trial has ended — upgrade on the Billing page to continue."
+            : "Offline sync needs the Enterprise plan. Upgrade on the Billing page to continue."
+          : `Offline sync needs the Enterprise plan. You're on the ${planName} plan — upgrade on the Billing page to continue.`,
+      code: "UPGRADE_REQUIRED",
+      feature: "sync",
+    },
+    { status: 403 }
+  );
 }
 
 type DeviceGate =
@@ -114,12 +121,22 @@ export async function requireDevice(req: NextRequest): Promise<DeviceGate> {
       ),
     };
   }
-  const billing = await billingStatusFor(tok.companyId);
-  if (!billing) {
+  const cb = await getCompanyBilling(db, tok.companyId);
+  if (!cb) {
     return { ok: false, ds: null, response: json({ error: "Company not found." }, { status: 404 }) };
   }
-  const proGate = syncProGate(billing);
+  const proGate = syncProGate(cb);
   if (proGate) return { ok: false, ds: null, response: proGate };
+
+  const now = new Date();
+  const billing: BillingStatus = {
+    level: getAccessLevel(cb, now),
+    trialDaysLeft: trialDaysLeft(cb, now),
+    proDaysLeft: proDaysLeft(cb, now),
+    trialEndsAt: cb.trialEndsAt ? cb.trialEndsAt.toISOString() : null,
+    proExpiresAt: cb.proExpiresAt ? cb.proExpiresAt.toISOString() : null,
+    plan: cb.plan ?? "FREE",
+  };
 
   const isOwner = u.role === "OWNER";
   const grants = isOwner ? [...PERMISSIONS] : await getUserPermissions(db, u.id, tok.companyId);

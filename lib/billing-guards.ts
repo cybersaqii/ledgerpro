@@ -10,7 +10,9 @@ import { brand } from "@/lib/brand";
 import type { Db, DbTx } from "@/lib/db";
 import {
   canAccess,
+  effectivePlan,
   getAccessLevel,
+  minTierFor,
   trialDaysLeft,
   proDaysLeft,
   normalizePlan,
@@ -68,20 +70,27 @@ type ProGate =
   | { ok: false; session: null; companyId: null; billing: null; response: NextResponse };
 
 /**
- * Require an active trial or paid PRO plan to use a PRO feature.
- * Returns 403 with code UPGRADE_REQUIRED so the client can redirect to /billing.
+ * Require an active trial or a paid plan tier that includes the feature.
+ * Tier-aware: TRIAL passes everything; FREE and lower paid tiers get a 403
+ * with code UPGRADE_REQUIRED (naming the minimum tier) so the client can
+ * redirect to /billing.
  */
 export async function requirePro(feature: ProFeature): Promise<ProGate> {
   const { session, response } = await requireAuth();
   if (!session) return { ok: false, session: null, companyId: null, billing: null, response };
-  const billing = await billingStatusFor(session.cid);
-  if (!billing) {
+  const cb = await getCompanyBilling(db, session.cid);
+  if (!cb) {
     return { ok: false, session: null, companyId: null, billing: null, response: json({ error: "Company not found." }, { status: 404 }) };
   }
-  if (billing.level === "FREE") {
+  const now = new Date();
+  if (!canAccess(cb, feature, now)) {
     // Companies created before trials existed (trialEndsAt = null) never had
     // a trial — don't tell them it "ended".
-    const hadTrial = !!billing.trialEndsAt;
+    const hadTrial = !!cb.trialEndsAt;
+    const plan = effectivePlan(cb, now);
+    const need = minTierFor(feature);
+    const tierName = need ? need.charAt(0) + need.slice(1).toLowerCase() : "a higher";
+    const planName = plan === "FREE" ? "Free" : plan.charAt(0) + plan.slice(1).toLowerCase();
     return {
       ok: false,
       session: null,
@@ -89,9 +98,11 @@ export async function requirePro(feature: ProFeature): Promise<ProGate> {
       billing: null,
       response: json(
         {
-          error: hadTrial
-            ? `This feature needs a PRO subscription. Your free trial has ended — upgrade on the Billing page to continue.`
-            : `This feature needs a PRO subscription. Upgrade to PRO on the Billing page to continue.`,
+          error: plan === "FREE"
+            ? hadTrial
+              ? `This feature needs the ${tierName} plan or higher. Your free trial has ended — upgrade on the Billing page to continue.`
+              : `This feature needs the ${tierName} plan or higher. Upgrade on the Billing page to continue.`
+            : `This feature needs the ${tierName} plan or higher. You're on the ${planName} plan — upgrade on the Billing page to continue.`,
           code: "UPGRADE_REQUIRED",
           feature,
         },
@@ -99,6 +110,14 @@ export async function requirePro(feature: ProFeature): Promise<ProGate> {
       ),
     };
   }
+  const billing: BillingStatus = {
+    level: getAccessLevel(cb, now),
+    trialDaysLeft: trialDaysLeft(cb, now),
+    proDaysLeft: proDaysLeft(cb, now),
+    trialEndsAt: cb.trialEndsAt ? cb.trialEndsAt.toISOString() : null,
+    proExpiresAt: cb.proExpiresAt ? cb.proExpiresAt.toISOString() : null,
+    plan: cb.plan ?? "FREE",
+  };
   return { ok: true, session, companyId: session.cid, billing, response: null };
 }
 
@@ -178,13 +197,20 @@ export const SECURITY_SETTING_KEYS = [
 export const PLATFORM_SETTING_KEYS = [...BILLING_SETTING_KEYS, ...SUPPORT_SETTING_KEYS, ...SECURITY_SETTING_KEYS] as const;
 
 /** Per-tier pricing: billing.<tier>_monthly_price_paisa / billing.<tier>_yearly_price_paisa.
- *  Falls back to the legacy billing.monthly_price_paisa / billing.yearly_price_paisa. */
+ *  Falls back to the legacy billing.monthly_price_paisa / billing.yearly_price_paisa,
+ *  then to sensible per-tier defaults (admin can override all of these). */
+const TIER_DEFAULT_PRICES: Record<string, { monthly: number; yearly: number }> = {
+  starter: { monthly: 80000, yearly: 800000 },
+  professional: { monthly: 150000, yearly: 1500000 },
+  enterprise: { monthly: 300000, yearly: 3000000 },
+};
 export function priceForPlan(settings: Record<string, string>, plan: string, months: number): number {
   const tier = plan.toLowerCase();
   const monthlyKey = `billing.${tier}_monthly_price_paisa`;
   const yearlyKey = `billing.${tier}_yearly_price_paisa`;
-  const monthly = parseInt(settings[monthlyKey] || settings["billing.monthly_price_paisa"] || "150000", 10);
-  const yearly = parseInt(settings[yearlyKey] || settings["billing.yearly_price_paisa"] || "1500000", 10);
+  const def = TIER_DEFAULT_PRICES[tier] ?? TIER_DEFAULT_PRICES.professional;
+  const monthly = parseInt(settings[monthlyKey] || settings["billing.monthly_price_paisa"] || String(def.monthly), 10);
+  const yearly = parseInt(settings[yearlyKey] || settings["billing.yearly_price_paisa"] || String(def.yearly), 10);
   return months >= 12 ? yearly : monthly * months;
 }
 

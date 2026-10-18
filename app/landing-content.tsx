@@ -63,7 +63,7 @@ const enterpriseFeatures = ["ef0", "ef1", "ef2", "ef3"];
 const footLinks: [string, string][] = [["fl0", "#features"], ["fl2", "#how"], ["fl5", "#pricing"], ["fl3", "#faq"], ["fl4", "/login"]];
 
 export default function LandingContent() {
-  const { t } = useLang();
+  const { t, lang } = useLang();
   const b = brand.name;
   const [billing, setBilling] = useState<"m" | "y">("m");
   const [showStickyCta, setShowStickyCta] = useState(false);
@@ -75,7 +75,9 @@ export default function LandingContent() {
     return () => window.removeEventListener("scroll", onScroll);
   }, []);
   return (
-    <div className="min-h-screen overflow-x-clip bg-background">
+    // Public landing mirrors for Urdu (RTL). The accounting app itself stays
+    // LTR on purpose (lang-provider) so money/quantities/dates never flip.
+    <div dir={lang === "ur" ? "rtl" : "ltr"} className="min-h-screen overflow-x-clip bg-background">
       {/* Nav — floating pill, deep ink navy */}
       <header className="fixed inset-x-0 top-3 z-40 px-3 sm:top-4 sm:px-6">
         <div className="mx-auto flex h-14 max-w-[1600px] items-center justify-between gap-2 rounded-full border border-white/15 bg-[#101a2c]/85 py-1.5 pe-1.5 ps-4 shadow-2xl shadow-black/30 backdrop-blur-xl sm:h-16 sm:pe-2 sm:ps-5">
@@ -101,7 +103,7 @@ export default function LandingContent() {
       </header>
 
       {/* Hero — deep ink frame, floating collage */}
-      <section className="relative pt-20 sm:pt-24">
+      <section className="relative pt-24 sm:pt-28">
         <div className="px-3 sm:px-5">
           <div className="relative mx-auto max-w-[1600px] overflow-hidden rounded-[2rem] sm:rounded-[2.5rem]">
             <div className="absolute inset-0 bg-[#101a2c]" />
@@ -117,8 +119,8 @@ export default function LandingContent() {
               {L("heroBadge")}
             </div>
             <h1 className="rise rise-1 font-display mt-6 text-4xl font-extrabold leading-[1.06] tracking-tight text-white sm:text-6xl lg:text-[3.6rem]">
-              {L("heroTitleA")}{" "}
-              <span className="text-accent">{L("heroTitleMid")}</span>{" "}
+              {L("heroTitleA")}{" "}
+              <span className="text-accent">{L("heroTitleMid")}</span>
               {L("heroTitleB")}
             </h1>
             <p className="rise rise-2 mt-5 max-w-xl text-base text-white/85 sm:text-lg lg:mx-0">
@@ -567,7 +569,7 @@ export default function LandingContent() {
         </div>
         <div className="relative border-t border-white/10">
           <div className="mx-auto flex max-w-[1200px] flex-col items-center justify-between gap-2 px-4 py-5 text-xs text-white/70 sm:flex-row sm:px-8">
-            <p>© 2026 {b}. {L("footRights")} <span className="text-white/40">·</span> <Link href="/about" className="font-semibold text-white/80 transition hover:text-white">{t("footBuiltBy")}</Link></p>
+            <p>© 2026 {b}. {L("footRights")} <span className="text-white/40">·</span> <Link href="/about" className="font-semibold text-white/80 transition hover:text-white">{L("footBuiltBy")}</Link></p>
             <p className="flex items-center gap-4">
               <Link href="/terms" className="transition hover:text-white">{L("footTerms")}</Link>
               <Link href="/privacy" className="transition hover:text-white">{L("footPrivacy")}</Link>

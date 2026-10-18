@@ -4,6 +4,7 @@ import { createTestDb, type TestDb } from "./helpers";
 import {
   getAccessLevel,
   canAccess,
+  minTierFor,
   trialDaysLeft,
   proDaysLeft,
   isProFeature,
@@ -91,6 +92,44 @@ describe("canAccess", () => {
     const free = company({ trialEndsAt: new Date(NOW.getTime() - DAY) });
     expect(canAccess(free, "sales", NOW)).toBe(true);
     expect(canAccess(free, "dashboard", NOW)).toBe(true);
+  });
+  it("enforces tier ranks: STARTER cannot use Professional/Enterprise features", () => {
+    const starter = company({
+      trialEndsAt: new Date(NOW.getTime() - 40 * DAY),
+      plan: "STARTER",
+      proExpiresAt: new Date(NOW.getTime() + DAY),
+    });
+    expect(canAccess(starter, "team", NOW)).toBe(false); // Professional-only
+    expect(canAccess(starter, "pos", NOW)).toBe(false);
+    expect(canAccess(starter, "sync", NOW)).toBe(false); // Enterprise-only
+    expect(canAccess(starter, "multi_company", NOW)).toBe(false);
+    expect(canAccess(starter, "sales", NOW)).toBe(true); // core, always
+  });
+  it("PROFESSIONAL cannot use Enterprise features", () => {
+    const pro = company({
+      trialEndsAt: new Date(NOW.getTime() - 40 * DAY),
+      plan: "PROFESSIONAL",
+      proExpiresAt: new Date(NOW.getTime() + DAY),
+    });
+    expect(canAccess(pro, "team", NOW)).toBe(true);
+    expect(canAccess(pro, "sync", NOW)).toBe(false);
+    expect(canAccess(pro, "multi_company", NOW)).toBe(false);
+  });
+  it("ENTERPRISE can use everything", () => {
+    const ent = company({
+      trialEndsAt: new Date(NOW.getTime() - 40 * DAY),
+      plan: "ENTERPRISE",
+      proExpiresAt: new Date(NOW.getTime() + DAY),
+    });
+    for (const f of ["pos", "team", "period_lock", "import_export", "advanced_reports", "sync", "multi_company"]) {
+      expect(canAccess(ent, f, NOW)).toBe(true);
+    }
+  });
+  it("minTierFor names the lowest tier containing the feature", () => {
+    expect(minTierFor("team")).toBe("PROFESSIONAL");
+    expect(minTierFor("sync")).toBe("ENTERPRISE");
+    expect(minTierFor("multi_company")).toBe("ENTERPRISE");
+    expect(minTierFor("sales")).toBeNull();
   });
 });
 

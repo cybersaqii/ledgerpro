@@ -5,6 +5,7 @@ import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import { createClient, type Client } from "@libsql/client";
 import type { BillingStatus, DeviceSession } from "@/lib/sync-auth";
+import type { CompanyBilling } from "@/lib/entitlements";
 import type { Permission } from "@/lib/permissions";
 
 const MIGRATIONS_DIR = join(dirname(fileURLToPath(import.meta.url)), "..", "db", "migrations");
@@ -44,7 +45,18 @@ afterAll(() => {
   rmSync(dir, { recursive: true, force: true });
 });
 
-function billing(level: BillingStatus["level"]): BillingStatus {
+function billing(level: BillingStatus["level"]): CompanyBilling {
+  const future = new Date(Date.now() + 30 * 86_400_000);
+  if (level === "TRIAL") return { trialEndsAt: future, plan: "FREE", proExpiresAt: null };
+  if (level === "PLAN") return { trialEndsAt: null, plan: "PROFESSIONAL", proExpiresAt: future };
+  return { trialEndsAt: null, plan: "FREE", proExpiresAt: null };
+}
+
+function enterpriseBilling(): CompanyBilling {
+  return { trialEndsAt: null, plan: "ENTERPRISE", proExpiresAt: new Date(Date.now() + 30 * 86_400_000) };
+}
+
+function billingStatus(level: BillingStatus["level"]): BillingStatus {
   return {
     level,
     trialDaysLeft: level === "TRIAL" ? 12 : 0,
@@ -64,7 +76,7 @@ function session(isOwner: boolean, grants: Permission[]): DeviceSession {
     role: isOwner ? "OWNER" : "STAFF",
     isOwner,
     grants,
-    billing: billing("TRIAL"),
+    billing: billingStatus("TRIAL"),
   };
 }
 
@@ -95,9 +107,18 @@ describe("syncProGate", () => {
     expect(body.feature).toBe("sync");
   });
 
-  it("allows TRIAL and PLAN through", () => {
+  it("rejects PROFESSIONAL plan (sync is Enterprise-only)", async () => {
+    const res = syncAuth.syncProGate(billing("PLAN"));
+    expect(res).not.toBeNull();
+    expect(res!.status).toBe(403);
+    const body = await res!.json();
+    expect(body.code).toBe("UPGRADE_REQUIRED");
+    expect(body.error).toMatch(/Enterprise/);
+  });
+
+  it("allows TRIAL and ENTERPRISE through", () => {
     expect(syncAuth.syncProGate(billing("TRIAL"))).toBeNull();
-    expect(syncAuth.syncProGate(billing("PLAN"))).toBeNull();
+    expect(syncAuth.syncProGate(enterpriseBilling())).toBeNull();
   });
 });
 

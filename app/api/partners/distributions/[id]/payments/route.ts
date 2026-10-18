@@ -1,10 +1,18 @@
 import { NextRequest } from "next/server";
 import { z } from "zod";
 import { json, err } from "@/lib/api";
+import { toApiError } from "@/lib/errors";
 import { requirePermission, db, parseDateOnly } from "@/lib/route-helpers";
+import { periodLockError } from "@/lib/period";
 import { parseMoney } from "@/lib/money";
 import { recordDistributionPayment, getDistributionPaymentStatus } from "@/lib/partners";
+import { distributionPayments } from "@/db/schema";
+import {
+  extractIdempotencyKey,
+  isIdempotencyConflict,
+} from "@/lib/idempotency";
 import { logAudit } from "@/lib/audit";
+import { eq, and } from "drizzle-orm";
 
 const schema = z.object({
   partnerId: z.string().min(1),
@@ -28,6 +36,35 @@ export async function POST(
   const b = schema.safeParse(body);
   if (!b.success) return err("Invalid input.", 422);
 
+  // Idempotency: a retry of the same submission (same key) returns the
+  // already-created payment with 200 instead of double-posting.
+  let idemKey: string | undefined;
+  try {
+    idemKey = extractIdempotencyKey(req, body);
+  } catch (e) {
+    return toApiError(e, { route: "/api/partners/distributions/[id]/payments", companyId });
+  }
+  // distribution_payments has no doc_no column, so the shared
+  // findByIdempotencyKey helper (which selects docNo) can't be used here.
+  const findExisting = async () => {
+    if (!idemKey) return null;
+    const rows = await db
+      .select({ id: distributionPayments.id })
+      .from(distributionPayments)
+      .where(and(eq(distributionPayments.companyId, companyId), eq(distributionPayments.idempotencyKey, idemKey)))
+      .limit(1);
+    return rows[0] ?? null;
+  };
+  if (idemKey) {
+    const existing = await findExisting();
+    if (existing)
+      return json({ data: { id: existing.id, idempotentReplay: true } }, { status: 200 });
+  }
+
+  const date = parseDateOnly(b.data.date);
+  const lockErr = await periodLockError(db, companyId, date);
+  if (lockErr) return err(lockErr, 422, "PERIOD_LOCKED");
+
   try {
     const payId = await db.transaction(async (tx) => {
       return recordDistributionPayment(tx, {
@@ -36,9 +73,10 @@ export async function POST(
         partnerId: b.data.partnerId,
         amountPaisa: parseMoney(b.data.amount),
         accountId: b.data.accountId,
-        date: parseDateOnly(b.data.date),
+        date,
         memo: b.data.memo,
         createdById: session.uid,
+        ...(idemKey ? { idempotencyKey: idemKey } : {}),
       });
     });
     await logAudit(db, {
@@ -49,8 +87,15 @@ export async function POST(
       entityId: payId,
       detail: "Distribution payment recorded",
     });
-    return json({ data: { id: payId } });
+    return json({ data: { id: payId } }, { status: 201 });
   } catch (e) {
+    // Lost the idempotency race: a concurrent request already created the
+    // payment for this key — return it with 200 instead of an error.
+    if (idemKey && isIdempotencyConflict(e)) {
+      const existing = await findExisting();
+      if (existing)
+        return json({ data: { id: existing.id, idempotentReplay: true } }, { status: 200 });
+    }
     return err(e instanceof Error ? e.message : "Failed.", 422);
   }
 }

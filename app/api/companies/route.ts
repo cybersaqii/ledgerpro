@@ -5,6 +5,7 @@ import { json, err } from "@/lib/api";
 import { getSession, createSession } from "@/lib/auth";
 import { db } from "@/lib/route-helpers";
 import { setupCompany } from "@/lib/setup";
+import { requirePro } from "@/lib/billing-guards";
 
 // GET /api/companies — list companies this account can access.
 export async function GET() {
@@ -19,9 +20,11 @@ export async function GET() {
 }
 
 // POST /api/companies — create a new company under this account.
+// Enterprise-only (multi_company): extra companies are a paid-tier feature.
 export async function POST(req: NextRequest) {
-  const session = await getSession();
-  if (!session) return err("Please log in.", 401);
+  const gate = await requirePro("multi_company");
+  if (!gate.ok) return gate.response;
+  const session = gate.session;
   const body = await req.json().catch(() => null);
   const name = body?.name?.trim();
   if (!name || name.length > 120) return err("Company name is required.", 422);

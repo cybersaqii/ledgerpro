@@ -9,7 +9,7 @@ import { syncEnrollSchema } from "@/lib/validators";
 import { json, err } from "@/lib/api";
 import { rateLimitDb, clientIp } from "@/lib/rate-limit-db";
 import { logAudit } from "@/lib/audit";
-import { billingStatusFor } from "@/lib/billing-guards";
+import { getCompanyBilling } from "@/lib/billing-guards";
 import { mintDeviceToken, syncProGate } from "@/lib/sync-auth";
 
 export async function POST(req: NextRequest) {
@@ -30,9 +30,9 @@ export async function POST(req: NextRequest) {
   if (!user || !user.isActive) return err("Invalid email or password.", 401);
   if (!(await verifyPassword(password, user.passwordHash))) return err("Invalid email or password.", 401);
 
-  const billing = await billingStatusFor(user.companyId);
-  if (!billing) return err("Company not found.", 404);
-  const proGate = syncProGate(billing);
+  const cb = await getCompanyBilling(db, user.companyId);
+  if (!cb) return err("Company not found.", 404);
+  const proGate = syncProGate(cb);
   if (proGate) return proGate;
 
   const minted = mintDeviceToken();

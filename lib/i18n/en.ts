@@ -2555,13 +2555,6 @@ export const en = {
       password_reset: "Staff password reset"
     },
     billing: {
-    tierStarter: "Starter",
-    tierProfessional: "Professional",
-    tierEnterprise: "Enterprise",
-    tierStarterFeatures: "Sales & purchase entry|Parties & products|Payments & expenses|Basic reports",
-    tierProfessionalFeatures: "Everything in Starter|POS checkout|Team accounts|Advanced reports|Import & export|Period lock",
-    tierEnterpriseFeatures: "Everything in Professional|Multi-company|Offline sync|Priority support",
-    mostPopular: "Most popular",
       payment_submitted: "PRO payment submitted",
       payment_approved: "PRO subscription activated",
       payment_rejected: "PRO payment rejected"
@@ -2588,6 +2581,13 @@ export const en = {
   billing: {
     title: "Billing",
     subtitle: "Plans & subscription",
+    tierStarter: "Starter",
+    tierProfessional: "Professional",
+    tierEnterprise: "Enterprise",
+    tierStarterFeatures: "Sales & purchase entry|Parties & products|Payments & expenses|Basic reports",
+    tierProfessionalFeatures: "Everything in Starter|POS checkout|Team accounts|Advanced reports|Import & export|Period lock",
+    tierEnterpriseFeatures: "Everything in Professional|Multi-company|Offline sync|Priority support",
+    mostPopular: "Most popular",
     loadError: "Could not load billing info.",
     currentPlan: "Current plan",
     freeTrial: "Free trial",

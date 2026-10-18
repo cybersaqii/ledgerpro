@@ -545,6 +545,7 @@ export async function recordDistributionPayment(
     date: Date;
     memo?: string;
     createdById: string;
+    idempotencyKey?: string;
   }
 ): Promise<string> {
   if (input.amountPaisa <= 0n) throw new Error("Amount must be positive.");
@@ -618,6 +619,7 @@ export async function recordDistributionPayment(
     memo: input.memo ?? null,
     createdById: input.createdById,
     createdAt: now(),
+    idempotencyKey: input.idempotencyKey ?? null,
   });
   return payId;
 }

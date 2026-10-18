@@ -200,6 +200,7 @@ describe("idempotency keys + money-create rate limits", () => {
     expect(idxNames).toEqual([
       "approval_requests_idem_key", // Module 6: staged approval requests
       "bank_adjustments_idem_key", // Module 3
+      "distribution_payments_idem_key", // Migration 0064: partner distribution payments
       "expenses_idem_key",
       "journal_entries_idem_key", // Module 5: manual journal vouchers + set-off entries
       "lcs_idem_key", // Module 19: landed-cost sheets

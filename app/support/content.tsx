@@ -39,9 +39,9 @@ export default function SupportContent({ email, phone, hours }: { email: string;
               </span>
               <p className="mt-3 text-xs font-extrabold uppercase tracking-wider text-muted-foreground">{c.label}</p>
               {c.href ? (
-                <a href={c.href} className="mt-1 block break-words text-sm font-bold text-primary hover:underline">{c.value}</a>
+                <a href={c.href} title={c.value} className="mt-1 block truncate text-sm font-bold text-primary hover:underline">{c.value}</a>
               ) : (
-                <p className="mt-1 text-sm font-bold">{c.value}</p>
+                <p className="mt-1 truncate text-sm font-bold" title={c.value ?? undefined}>{c.value}</p>
               )}
             </div>
           ))}

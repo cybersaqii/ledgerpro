@@ -86,6 +86,14 @@ export function isProFeature(feature: string): feature is ProFeature {
   return (PRO_FEATURES as readonly string[]).includes(feature);
 }
 
+/** Lowest paid tier that includes the feature (for upgrade messaging). */
+export function minTierFor(feature: string): Exclude<Plan, "FREE"> | null {
+  for (const tier of ["STARTER", "PROFESSIONAL", "ENTERPRISE"] as const) {
+    if ((PLAN_FEATURES[tier] as readonly string[]).includes(feature)) return tier;
+  }
+  return null;
+}
+
 /** True when this company may use the feature right now. */
 export function canAccess(c: CompanyBilling, feature: string, now: Date = new Date()): boolean {
   if (!isProFeature(feature)) return true;

@@ -2717,6 +2717,8 @@ export const distributionPayments = sqliteTable(
     memo: text("memo"),
     createdById: text("created_by_id").notNull(),
     createdAt: createdAt(),
+    /** Double-submit protection (migration 0064). NULL = client didn't send one. */
+    idempotencyKey: text("idempotency_key"),
   },
   (t) => [
     index("dp_distribution").on(t.companyId, t.distributionId),
