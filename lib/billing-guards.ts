@@ -200,9 +200,9 @@ export const PLATFORM_SETTING_KEYS = [...BILLING_SETTING_KEYS, ...SUPPORT_SETTIN
  *  Falls back to the legacy billing.monthly_price_paisa / billing.yearly_price_paisa,
  *  then to sensible per-tier defaults (admin can override all of these). */
 const TIER_DEFAULT_PRICES: Record<string, { monthly: number; yearly: number }> = {
-  starter: { monthly: 80000, yearly: 800000 },
-  professional: { monthly: 150000, yearly: 1500000 },
-  enterprise: { monthly: 300000, yearly: 3000000 },
+  starter: { monthly: 150000, yearly: 1500000 },
+  professional: { monthly: 200000, yearly: 2000000 },
+  enterprise: { monthly: 350000, yearly: 3500000 },
 };
 export function priceForPlan(settings: Record<string, string>, plan: string, months: number): number {
   const tier = plan.toLowerCase();
