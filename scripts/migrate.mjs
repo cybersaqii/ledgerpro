@@ -19,6 +19,16 @@ function resolveDb() {
 
 const client = createClient(resolveDb());
 
+// Table-rebuild migrations (0023, 0065, 0066) DROP tables that other tables
+// still reference. With foreign-key enforcement on, DROP TABLE is treated
+// like deleting every parent row, so a restrict child blocks the drop even
+// though the rebuild preserves every row. This is the documented SQLite
+// rebuild procedure: disable enforcement for the run, re-enable after.
+// (Local clients run sequentially on one pooled connection, so the OFF
+// sticks for the whole run; over HTTP it is best-effort, where the server
+// default already leaves enforcement off for standalone statements.)
+await client.execute("PRAGMA foreign_keys=OFF");
+
 await client.execute(
   "CREATE TABLE IF NOT EXISTS schema_migrations (version TEXT PRIMARY KEY, applied_at INTEGER NOT NULL)"
 );
@@ -32,6 +42,7 @@ const files = readdirSync(dir)
   .sort();
 
 let count = 0;
+try {
 for (const f of files) {
   const version = f.replace(/\.sql$/, "");
   if (applied.has(version)) {
@@ -56,6 +67,11 @@ for (const f of files) {
   });
   console.log(`  applied ${version}`);
   count++;
+}
+} finally {
+  // Restore enforcement even when a migration fails midway, so a later
+  // app run never inherits the disabled state on this connection.
+  await client.execute("PRAGMA foreign_keys=ON").catch(() => undefined);
 }
 console.log(count === 0 ? "Database is up to date." : `Done. Applied ${count} migration(s).`);
 client.close();

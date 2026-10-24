@@ -89,7 +89,10 @@ export const userCompanies = sqliteTable(
     companyId: text("company_id").notNull(),
     role: text("role").notNull().default("OWNER"),
     isActive: flag("is_active", true),
-    createdAt: ts("created_at").default(new Date()),
+    // Migration 0066: per-row default via $defaultFn. The old
+    // .default(new Date()) was a fixed import-time timestamp, not a
+    // per-row value, and the 0057 DDL default was seconds-scale unixepoch().
+    createdAt: ts("created_at").$defaultFn(() => new Date()),
   }
 );
 
