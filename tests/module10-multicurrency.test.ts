@@ -265,9 +265,9 @@ describe("B. currency seed + SYS 4120/6040 on setupCompany", () => {
     const codes = curRows.map((c) => c.code).sort();
     expect(codes).toEqual(["AED", "CNY", "EUR", "GBP", "PKR", "SAR", "USD"]);
     const pkr = curRows.find((c) => c.code === "PKR")!;
-    expect(pkr.isBase).toBe(1);
+    expect(pkr.isBase).toBe(true);
     expect(pkr.minorUnits).toBe(2);
-    expect(curRows.every((c) => c.isActive === 1)).toBe(true);
+    expect(curRows.every((c) => c.isActive === true)).toBe(true);
 
     const ac = await sysAccounts();
     expect(ac[SYS.EXCHANGE_GAIN]).toBeTruthy();

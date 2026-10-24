@@ -40,8 +40,8 @@ export async function GET() {
           name: c.name,
           symbol: c.symbol,
           minorUnits: c.minorUnits,
-          isBase: c.isBase === 1,
-          isActive: c.isActive === 1,
+          isBase: c.isBase,
+          isActive: c.isActive,
           latestRate: latest
             ? {
                 rateScaled: latest.rateScaled.toString(),
@@ -97,8 +97,8 @@ export async function POST(req: NextRequest) {
         name: b.data.name,
         symbol: b.data.symbol || "",
         minorUnits: b.data.minorUnits ?? 2,
-        isBase: 0,
-        isActive: 1,
+        isBase: false,
+        isActive: true,
       })
       .returning();
     logAudit(db, {

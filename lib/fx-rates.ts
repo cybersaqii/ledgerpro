@@ -21,7 +21,7 @@ export async function getCurrency(
       and(
         eq(currencies.companyId, companyId),
         eq(currencies.code, code),
-        eq(currencies.isActive, 1)
+        eq(currencies.isActive, true)
       )
     )
     .limit(1);
@@ -33,7 +33,7 @@ export async function listCurrencies(tx: Db | DbTx, companyId: string): Promise<
   return tx
     .select()
     .from(currencies)
-    .where(and(eq(currencies.companyId, companyId), eq(currencies.isActive, 1)))
+    .where(and(eq(currencies.companyId, companyId), eq(currencies.isActive, true)))
     .orderBy(desc(currencies.isBase), currencies.code);
 }
 

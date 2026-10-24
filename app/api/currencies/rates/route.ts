@@ -99,7 +99,7 @@ export async function POST(req: NextRequest) {
       .from(currencies)
       .where(and(eq(currencies.companyId, companyId), eq(currencies.code, code)))
       .limit(1);
-    if (!cur || cur.isActive !== 1)
+    if (!cur || !cur.isActive)
       return err(`Currency ${code} is not enabled for this company.`, 422, "FX_UNKNOWN_CURRENCY");
 
     const [row] = await db

@@ -22,6 +22,22 @@ const qty = (name: string) => numeric(name, { mode: "bigint" }).notNull().defaul
 const flag = (name: string, def = true) =>
   integer(name, { mode: "boolean" }).notNull().default(def);
 
+// ─── Defaults constraint (Phase P3, item 5 — documented, not rebuilt) ───
+// id / created_at / updated_at are Drizzle $defaultFn values ONLY. The live
+// DDL carries NO database default for them (created_at is INTEGER NOT NULL
+// with no default), so any insert that bypasses Drizzle gets no id or
+// timestamp. That is a standing constraint, not an oversight to fix by
+// rebuilding ~100 tables: every app write path goes through Drizzle
+// (verified P3 — the only raw tx.run() statements are UPDATEs and SELECTs
+// in void/write-off paths, never INSERTs), and restore (lib/restore.ts)
+// inserts through Drizzle too: the backup payload carries id/created_at/
+// updated_at, and a row missing them falls back to $defaultFn. Any future
+// raw-SQL or bulk-load tooling MUST set id/created_at/updated_at itself.
+// The only DB-level timestamp defaults in the schema are the two
+// deliberate exceptions from migrations 0066 (user_companies.created_at)
+// and 0072 (stock_levels.created_at/updated_at), which use the
+// strftime('%s','now')*1000 pattern for raw-SQL inserts into those tables.
+
 // ─── Multi-tenancy ─────────────────────────────────────────────
 
 export const companies = sqliteTable("companies", {
@@ -780,8 +796,11 @@ export const currencies = sqliteTable(
     name: text("name").notNull(),
     symbol: text("symbol").notNull().default(""),
     minorUnits: integer("minor_units").notNull().default(2),
-    isBase: integer("is_base").notNull().default(0), // 1 = company base currency (PKR)
-    isActive: integer("is_active").notNull().default(1),
+    // Phase P3: flag() — storage is identical (INTEGER 0/1, NOT NULL,
+    // same defaults), so no migration was needed; readers now get real
+    // booleans instead of comparing against 1.
+    isBase: flag("is_base", false), // company base currency (PKR)
+    isActive: flag("is_active", true),
     createdAt: createdAt(),
     updatedAt: updatedAt(),
   },
@@ -1389,6 +1408,13 @@ export const posSessions = sqliteTable(
     openingCashPaisa: money("opening_cash_paisa"),
     closedById: text("closed_by_id"),
     closedAt: ts("closed_at"),
+    // Phase P3, documented nullable exception: these three stay nullable
+    // numeric (NOT money(), which is NOT NULL DEFAULT 0) on purpose. An
+    // OPEN session has no counts yet, and the API shape distinguishes that
+    // (null) from a closed shift (values) — lib/pos-sessions.ts reads them
+    // with `?? 0n` and the close route fills all three at once. Forcing
+    // NOT NULL DEFAULT 0 would turn every open shift's null into "0".
+    // They are still snapshot columns: close writes them once, never edits.
     countedCashPaisa: numeric("counted_cash_paisa", { mode: "bigint" }),
     expectedCashPaisa: numeric("expected_cash_paisa", { mode: "bigint" }),
     variancePaisa: numeric("variance_paisa", { mode: "bigint" }), // counted - expected (negative = shortage)
@@ -2588,6 +2614,13 @@ export const projects = sqliteTable(
     customerId: text("customer_id"), // parties.id (customer link, optional)
     startDate: ts("start_date"),
     endDate: ts("end_date"),
+    // Phase P3, accepted inconsistency (deliberately NOT renamed): the DB
+    // columns carry the _paisa suffix but the TS keys do not
+    // (contractValue, budget), and the API + frontend shapes use those
+    // same keys. Renaming the keys to contractValuePaisa/budgetPaisa
+    // would churn lib/projects.ts, both projects routes, the
+    // budget-vs-actual report route + page, the projects page and tests
+    // for zero runtime benefit — the DB names are already unambiguous.
     contractValue: money("contract_value_paisa"),
     budget: money("budget_paisa"),
     status: text("status").notNull().default("ACTIVE"), // ACTIVE | ON_HOLD | COMPLETED | CANCELLED
@@ -2889,7 +2922,9 @@ export const partnerTransactions = sqliteTable(
     /** CONTRIBUTION | DRAWING | CAPITAL_RETURN */
     kind: text("kind").notNull(),
     /** Paisa, always positive. */
-    amountPaisa: money("amount"),
+    // Phase P3 (migration 0073): DB column renamed amount -> amount_paisa.
+    // TS key and API shapes unchanged.
+    amountPaisa: money("amount_paisa"),
     /** Cash/bank account on the other side of the entry. */
     accountId: text("account_id").notNull(),
     journalEntryId: text("journal_entry_id"),
@@ -2911,7 +2946,9 @@ export const profitDistributions = sqliteTable(
     periodStart: ts("period_start").notNull(),
     periodEnd: ts("period_end").notNull(),
     /** Paisa, signed: +profit / -loss. */
-    totalAmountPaisa: money("total_amount"),
+    // Phase P3 (migration 0073): DB column renamed total_amount ->
+    // total_amount_paisa. TS key and API shapes unchanged.
+    totalAmountPaisa: money("total_amount_paisa"),
     /** DRAFT | POSTED | VOIDED */
     status: text("status").notNull().default("DRAFT"),
     journalEntryId: text("journal_entry_id"),
@@ -2931,7 +2968,9 @@ export const distributionEntries = sqliteTable(
     partnerId: text("partner_id").notNull(),
     shareBps: integer("share_bps").notNull(),
     /** Paisa, signed: +profit / -loss. */
-    amountPaisa: money("amount"),
+    // Phase P3 (migration 0073): DB column renamed amount -> amount_paisa.
+    // TS key and API shapes unchanged.
+    amountPaisa: money("amount_paisa"),
     createdAt: createdAt(),
   },
   (t) => [index("de_distribution").on(t.distributionId)]
@@ -2947,7 +2986,9 @@ export const distributionPayments = sqliteTable(
     distributionId: text("distribution_id").notNull(),
     partnerId: text("partner_id").notNull(),
     /** Paisa, always positive. */
-    amountPaisa: money("amount"),
+    // Phase P3 (migration 0073): DB column renamed amount -> amount_paisa.
+    // TS key and API shapes unchanged.
+    amountPaisa: money("amount_paisa"),
     /** Cash/bank account the money was paid from. */
     accountId: text("account_id").notNull(),
     journalEntryId: text("journal_entry_id"),

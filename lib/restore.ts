@@ -133,7 +133,12 @@ function convertRow(table: SQLiteTable, row: Record<string, unknown>, section: s
   const cols = getTableColumns(table);
   const out: Record<string, unknown> = {};
   for (const [key, col] of Object.entries(cols)) {
-    if (!(key in row)) continue; // absent → let the DB default apply
+    // Absent → Drizzle's $defaultFn applies on insert. There is NO DB
+    // default for id/created_at/updated_at (Phase P3, item 5: documented
+    // constraint in db/schema.ts), so "let the DB default apply" would
+    // silently insert NULL into a NOT NULL column — the $defaultFn is
+    // what actually fills these.
+    if (!(key in row)) continue;
     const v = row[key];
     if (v === null || v === undefined) {
       out[key] = null;

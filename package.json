@@ -9,6 +9,7 @@
     "lint": "eslint",
     "test": "vitest run",
     "db:migrate": "node scripts/migrate.mjs",
+    "db:verify-migrations": "node scripts/verify-migrations.mjs",
     "test:e2e": "playwright test"
   },
   "dependencies": {

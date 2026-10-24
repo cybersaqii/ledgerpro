@@ -300,8 +300,8 @@ export async function setupCompany(db: Db, companyId: string, opts: { defaultBra
           name: c.name,
           symbol: c.symbol,
           minorUnits: c.minorUnits,
-          isBase: c.isBase ? 1 : 0,
-          isActive: 1,
+          isBase: c.isBase,
+          isActive: true,
         }))
       );
     }
