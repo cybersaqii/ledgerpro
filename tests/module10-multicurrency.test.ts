@@ -63,6 +63,7 @@ const USD_RATE = 280_500_000n; // 280.5 PKR/USD
 
 beforeAll(async () => {
   ({ db, cleanup } = await createTestDb());
+  await db.insert(s.companies).values({ id: companyId, name: "M10 Test Co" });
   const res = await setupCompany(db, companyId);
   branchId = res.branchId;
   cashAccountId = (

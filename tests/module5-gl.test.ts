@@ -36,6 +36,7 @@ const userId = crypto.randomUUID();
 
 async function newCompany(): Promise<{ companyId: string; branchId: string; ac: Record<string, string> }> {
   const companyId = crypto.randomUUID();
+  await db.insert(s.companies).values({ id: companyId, name: "M5 Test Co" });
   const { branchId } = await setupCompany(db, companyId);
   const ac = await db.transaction((tx) => accountMap(tx, companyId));
   return { companyId, branchId, ac };

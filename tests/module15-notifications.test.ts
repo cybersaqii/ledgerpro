@@ -76,10 +76,12 @@ async function makeInvoice(opts: {
 
 beforeAll(async () => {
   ({ db, cleanup } = await createTestDb());
-  ({ branchId } = await setupCompany(db, companyId));
-  ({ branchId: otherBranchId } = await setupCompany(db, otherCompanyId));
+  // The companies rows must exist BEFORE setupCompany now that
+  // branches/bank accounts carry DB-level company FKs (P1, 0068).
   await db.insert(s.companies).values({ id: companyId, name: "T15 Test Co", email: "shop@example.com" });
   await db.insert(s.companies).values({ id: otherCompanyId, name: "T15 Other Co" });
+  ({ branchId } = await setupCompany(db, companyId));
+  ({ branchId: otherBranchId } = await setupCompany(db, otherCompanyId));
 
   await db.insert(s.parties).values({
     id: (customerId = crypto.randomUUID()),

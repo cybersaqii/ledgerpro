@@ -22,6 +22,7 @@ let billId = "";
 
 beforeAll(async () => {
   ({ db, cleanup } = await createTestDb());
+  await db.insert(s.companies).values({ id: companyId, name: "Posting Test Co" });
   const res = await setupCompany(db, companyId);
   branchId = res.branchId;
 
@@ -433,6 +434,7 @@ describe("journal invariants", () => {
 describe("tenant isolation", () => {
   it("a second company sees none of the first company's data", async () => {
     const c2 = crypto.randomUUID();
+    await db.insert(s.companies).values({ id: c2, name: "Posting Co 2" });
     const { branchId: b2 } = await setupCompany(db, c2);
     const parties2 = await db.select().from(s.parties).where(eq(s.parties.companyId, c2));
     expect(parties2).toHaveLength(0);
@@ -445,6 +447,7 @@ describe("tenant isolation", () => {
 describe("report account mappings", () => {
   it("setupCompany is idempotent and backfills new system accounts", async () => {
     const c3 = crypto.randomUUID();
+    await db.insert(s.companies).values({ id: c3, name: "Posting Co 3" });
     await setupCompany(db, c3);
     await setupCompany(db, c3); // second run must not duplicate anything
     const accs = await db.select().from(s.accounts).where(eq(s.accounts.companyId, c3));
@@ -471,6 +474,7 @@ describe("report account mappings", () => {
   it("P&L report maps system codes correctly (sales, COGS, discount, expenses)", async () => {
     const { glSums, netOf, sumByType } = await import("@/lib/reports");
     const c4 = crypto.randomUUID();
+    await db.insert(s.companies).values({ id: c4, name: "Posting Co 4" });
     const { branchId: b4 } = await setupCompany(db, c4);
     const sup = crypto.randomUUID();
     const cus = crypto.randomUUID();
@@ -572,6 +576,7 @@ describe("payment voucher numbers", () => {
   let cash2 = "";
 
   beforeAll(async () => {
+    await db.insert(s.companies).values({ id: c2, name: "Posting Voucher Co" });
     const res = await setupCompany(db, c2);
     br2 = res.branchId;
     cust2 = crypto.randomUUID();
@@ -655,6 +660,7 @@ describe("atomic invoice + receipt (mirrors POST /api/sales Add Receipt)", () =>
   let prod3 = "";
 
   beforeAll(async () => {
+    await db.insert(s.companies).values({ id: c3, name: "Posting Atomic Co" });
     const res = await setupCompany(db, c3);
     br3 = res.branchId;
     cust3 = crypto.randomUUID();

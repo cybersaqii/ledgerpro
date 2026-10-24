@@ -46,6 +46,7 @@ const to = new Date("2026-09-30T23:59:59Z");
 
 beforeAll(async () => {
   ({ db, cleanup } = await createTestDb());
+  await db.insert(s.companies).values({ id: companyId, name: "M7 Test Business", ntn: "9998888", strn: "STRN-1" });
   const res = await setupCompany(db, companyId);
   branchId = res.branchId;
 
@@ -512,11 +513,9 @@ describe("7.2 register list and certificate", () => {
   });
 
   it("builds certificate data with the company as deductor", async () => {
-    // the lib-level setupCompany doesn't create the companies row (signup
-    // does in production) — insert it so the deductor block is realistic
-    await db.insert(s.companies).values({
-      id: companyId, name: "M7 Test Business", ntn: "9998888", strn: "STRN-1",
-    }).onConflictDoNothing();
+    // The companies row (deductor block) is created in beforeAll,
+    // before setupCompany, since branches/bank accounts now carry
+    // DB-level company FKs (P1, 0068).
     const { rows } = await listWhtDeductions(db, companyId, { kind: "RECEIPT" });
     expect(rows.length).toBeGreaterThan(0);
     const cert = await getWhtCertificateData(db, companyId, rows[0].id);

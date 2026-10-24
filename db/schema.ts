@@ -1,5 +1,6 @@
 import { sql } from "drizzle-orm";
-import { sqliteTable, text, integer, numeric, index, uniqueIndex, primaryKey } from "drizzle-orm/sqlite-core";
+import { sqliteTable, text, integer, numeric, index, uniqueIndex, primaryKey, check } from "drizzle-orm/sqlite-core";
+import { relations } from "drizzle-orm/relations";
 
 const id = () =>
   text("id")
@@ -65,7 +66,10 @@ export const branches = sqliteTable(
   "branches",
   {
     id: id(),
-    companyId: text("company_id").notNull(),
+    // Migration 0068: DB-level FK to companies (DEFERRABLE INITIALLY DEFERRED).
+    companyId: text("company_id")
+      .notNull()
+      .references(() => companies.id),
     name: text("name").notNull(),
     address: text("address"),
     phone: text("phone"),
@@ -85,15 +89,28 @@ export const userCompanies = sqliteTable(
   "user_companies",
   {
     id: id(),
-    userId: text("user_id").notNull(),
-    companyId: text("company_id").notNull(),
+    // FKs live since migration 0057 (rebuilt 0065); declared here in P1
+    // so the schema mirrors the DB.
+    userId: text("user_id")
+      .notNull()
+      .references(() => users.id),
+    companyId: text("company_id")
+      .notNull()
+      .references(() => companies.id),
     role: text("role").notNull().default("OWNER"),
     isActive: flag("is_active", true),
     // Migration 0066: per-row default via $defaultFn. The old
     // .default(new Date()) was a fixed import-time timestamp, not a
     // per-row value, and the 0057 DDL default was seconds-scale unixepoch().
     createdAt: ts("created_at").$defaultFn(() => new Date()),
-  }
+  },
+  (t) => [
+    // (user_id, company_id) unique live since migration 0057; the two
+    // single-column indexes are the DB's idx_user_companies_* indexes.
+    uniqueIndex("user_companies_user_company").on(t.userId, t.companyId),
+    index("idx_user_companies_user").on(t.userId),
+    index("idx_user_companies_company").on(t.companyId),
+  ]
 );
 
 export const users = sqliteTable(
@@ -182,12 +199,15 @@ export const bankAccounts = sqliteTable(
   "bank_accounts",
   {
     id: id(),
-    companyId: text("company_id").notNull(),
+    // Migration 0068: DB-level FK to companies (DEFERRABLE INITIALLY DEFERRED).
+    companyId: text("company_id")
+      .notNull()
+      .references(() => companies.id),
     name: text("name").notNull(),
     bankName: text("bank_name"),
     accountNo: text("account_no"),
     iban: text("iban"), // Module 3: IBAN for bank accounts
-    kind: text("kind").notNull().default("BANK"), // BANK | CASH | WALLET
+    kind: text("kind").notNull().default("BANK"), // BANK | CASH | WALLET (migration 0068 CHECK)
     // Module 3: account type — CURRENT | SAVINGS | OVERDRAFT | PETTY_CASH
     // (meaningful for BANK kind; defaulted for cash/wallet too)
     accountType: text("account_type").notNull().default("CURRENT"),
@@ -197,7 +217,10 @@ export const bankAccounts = sqliteTable(
     isActive: flag("is_active", true),
     updatedAt: updatedAt(),
   },
-  (t) => [uniqueIndex("bank_company_name").on(t.companyId, t.name)]
+  (t) => [
+    uniqueIndex("bank_company_name").on(t.companyId, t.name),
+    check("bank_accounts_kind", sql`kind IN ('BANK', 'CASH', 'WALLET')`),
+  ]
 );
 
 // ─── Parties & products ────────────────────────────────────────
@@ -206,8 +229,11 @@ export const parties = sqliteTable(
   "parties",
   {
     id: id(),
-    companyId: text("company_id").notNull(),
-    kind: text("kind").notNull(), // CUSTOMER | SUPPLIER
+    // Migration 0068: DB-level FK to companies (DEFERRABLE INITIALLY DEFERRED).
+    companyId: text("company_id")
+      .notNull()
+      .references(() => companies.id),
+    kind: text("kind").notNull(), // CUSTOMER | SUPPLIER (migration 0068 CHECK)
     name: text("name").notNull(),
     phone: text("phone"),
     email: text("email"),
@@ -251,6 +277,7 @@ export const parties = sqliteTable(
     index("parties_company_kind").on(t.companyId, t.kind),
     index("parties_company_name").on(t.companyId, t.name),
     uniqueIndex("parties_idem_key").on(t.companyId, t.idempotencyKey).where(sql`idempotency_key IS NOT NULL`),
+    check("parties_kind", sql`kind IN ('CUSTOMER', 'SUPPLIER')`),
   ]
 );
 
@@ -258,7 +285,10 @@ export const products = sqliteTable(
   "products",
   {
     id: id(),
-    companyId: text("company_id").notNull(),
+    // Migration 0068: DB-level FK to companies (DEFERRABLE INITIALLY DEFERRED).
+    companyId: text("company_id")
+      .notNull()
+      .references(() => companies.id),
     sku: text("sku").notNull(),
     name: text("name").notNull(),
     barcode: text("barcode"),
@@ -303,8 +333,13 @@ export const stockLevels = sqliteTable(
   "stock_levels",
   {
     id: id(),
-    productId: text("product_id").notNull(),
-    branchId: text("branch_id").notNull(),
+    // Migration 0067: DB-level FKs (DEFERRABLE INITIALLY DEFERRED).
+    productId: text("product_id")
+      .notNull()
+      .references(() => products.id),
+    branchId: text("branch_id")
+      .notNull()
+      .references(() => branches.id),
     qty: qty("qty"), // milli-units
     avgCost: money("avg_cost"), // paisa per base unit, moving average
   },
@@ -390,6 +425,11 @@ export const setoffAllocations = sqliteTable(
   (t) => [
     index("setoff_allocations_entry").on(t.setoffEntryId),
     index("setoff_allocations_doc").on(t.salesDocId, t.purchaseDocId),
+    // Migration 0067: exactly one linked document.
+    check(
+      "setoff_allocations_one_doc",
+      sql`((sales_doc_id IS NOT NULL AND purchase_doc_id IS NULL) OR (sales_doc_id IS NULL AND purchase_doc_id IS NOT NULL))`
+    ),
   ]
 );
 
@@ -506,10 +546,13 @@ export const salesDocs = sqliteTable(
   "sales_docs",
   {
     id: id(),
-    companyId: text("company_id").notNull(),
+    // Migration 0068: DB-level FK to companies (DEFERRABLE INITIALLY DEFERRED).
+    companyId: text("company_id")
+      .notNull()
+      .references(() => companies.id),
     branchId: text("branch_id").notNull(),
     partyId: text("party_id").notNull(),
-    docType: text("doc_type").notNull(), // INVOICE | QUOTATION | ORDER | CHALLAN | RETURN
+    docType: text("doc_type").notNull(), // INVOICE | QUOTATION | ORDER | CHALLAN | RETURN (migration 0068 CHECK)
     docNo: text("doc_no").notNull(),
     refNo: text("ref_no"),
     terms: text("terms"),
@@ -559,12 +602,20 @@ export const salesDocs = sqliteTable(
     uniqueIndex("sales_docs_idem_key").on(t.companyId, t.idempotencyKey).where(sql`idempotency_key IS NOT NULL`),
     index("sales_docs_project").on(t.companyId, t.projectId),
     index("sales_docs_pos_session").on(t.companyId, t.posSessionId),
+    // Migration 0069: branch filter for branch-scoped doc lists.
+    index("sales_company_branch").on(t.companyId, t.branchId),
+    check("sales_docs_doc_type", sql`doc_type IN ('INVOICE', 'QUOTATION', 'ORDER', 'CHALLAN', 'RETURN')`),
   ]
 );
 
-export const salesDocItems = sqliteTable("sales_doc_items", {
-  id: id(),
-  docId: text("doc_id").notNull(),
+export const salesDocItems = sqliteTable(
+  "sales_doc_items",
+  {
+    id: id(),
+    // Migration 0067: DB-level FK (DEFERRABLE INITIALLY DEFERRED).
+    docId: text("doc_id")
+      .notNull()
+      .references(() => salesDocs.id),
   productId: text("product_id"),
   description: text("description").notNull(),
   qty: qty("qty"),
@@ -582,16 +633,22 @@ export const salesDocItems = sqliteTable("sales_doc_items", {
   unit: text("unit"),
   unitQty: numeric("unit_qty", { mode: "bigint" }),
   unitRate: numeric("unit_rate", { mode: "bigint" }),
-});
+  },
+  // DB index sales_items_doc live since migration 0001; declared here in P1.
+  (t) => [index("sales_items_doc").on(t.docId)]
+);
 
 export const purchaseDocs = sqliteTable(
   "purchase_docs",
   {
     id: id(),
-    companyId: text("company_id").notNull(),
+    // Migration 0068: DB-level FK to companies (DEFERRABLE INITIALLY DEFERRED).
+    companyId: text("company_id")
+      .notNull()
+      .references(() => companies.id),
     branchId: text("branch_id").notNull(),
     partyId: text("party_id").notNull(),
-    docType: text("doc_type").notNull(), // BILL | ORDER | GRN | RETURN
+    docType: text("doc_type").notNull(), // BILL | ORDER | GRN | RETURN (migration 0068 CHECK)
     docNo: text("doc_no").notNull(),
     refNo: text("ref_no"),
     terms: text("terms"),
@@ -634,12 +691,20 @@ export const purchaseDocs = sqliteTable(
     index("purch_company_party").on(t.companyId, t.partyId),
     uniqueIndex("purchase_docs_idem_key").on(t.companyId, t.idempotencyKey).where(sql`idempotency_key IS NOT NULL`),
     index("purchase_docs_project").on(t.companyId, t.projectId),
+    // Migration 0069: branch filter for branch-scoped doc lists.
+    index("purch_company_branch").on(t.companyId, t.branchId),
+    check("purchase_docs_doc_type", sql`doc_type IN ('BILL', 'ORDER', 'GRN', 'RETURN')`),
   ]
 );
 
-export const purchaseDocItems = sqliteTable("purchase_doc_items", {
-  id: id(),
-  docId: text("doc_id").notNull(),
+export const purchaseDocItems = sqliteTable(
+  "purchase_doc_items",
+  {
+    id: id(),
+    // Migration 0067: DB-level FK (DEFERRABLE INITIALLY DEFERRED).
+    docId: text("doc_id")
+      .notNull()
+      .references(() => purchaseDocs.id),
   productId: text("product_id"),
   description: text("description").notNull(),
   qty: qty("qty"),
@@ -661,7 +726,10 @@ export const purchaseDocItems = sqliteTable("purchase_doc_items", {
   unit: text("unit"),
   unitQty: numeric("unit_qty", { mode: "bigint" }),
   unitRate: numeric("unit_rate", { mode: "bigint" }),
-});
+  },
+  // DB index purch_items_doc live since migration 0001; declared here in P1.
+  (t) => [index("purch_items_doc").on(t.docId)]
+);
 
 // ─── Sales order fulfillment (Module 1, migration 0032) ──────────
 // Per-item fulfillment of a sales ORDER by challans/invoices created
@@ -729,9 +797,12 @@ export const payments = sqliteTable(
   "payments",
   {
     id: id(),
-    companyId: text("company_id").notNull(),
+    // Migration 0068: DB-level FK to companies (DEFERRABLE INITIALLY DEFERRED).
+    companyId: text("company_id")
+      .notNull()
+      .references(() => companies.id),
     branchId: text("branch_id").notNull(),
-    kind: text("kind").notNull(), // RECEIPT | PAYMENT
+    kind: text("kind").notNull(), // RECEIPT | PAYMENT (migration 0068 CHECK)
     docNo: text("doc_no"), // REC-0001 / PAY-0001 (migration 0022 backfills)
     date: ts("date").notNull(),
     partyId: text("party_id"),
@@ -768,18 +839,39 @@ export const payments = sqliteTable(
     index("payments_pos_session").on(t.companyId, t.posSessionId),
     // QA 2026-10-05: party-filtered payment lookups scan on party_id.
     index("payments_party").on(t.companyId, t.partyId),
+    // Migration 0069: branch/bank filters + doc-number unique (partial:
+    // doc_no is nullable, same shape as journal_entries docno).
+    index("payments_company_branch").on(t.companyId, t.branchId),
+    index("payments_company_bank").on(t.companyId, t.bankAccountId),
+    uniqueIndex("payments_company_docno").on(t.companyId, t.docNo).where(sql`doc_no IS NOT NULL`),
+    check("payments_kind", sql`kind IN ('RECEIPT', 'PAYMENT')`),
   ]
 );
 
-export const paymentAllocations = sqliteTable("payment_allocations", {
-  id: id(),
-  paymentId: text("payment_id").notNull(),
-  partyId: text("party_id").notNull(),
-  salesDocId: text("sales_doc_id"),
-  purchaseDocId: text("purchase_doc_id"),
-  amount: money("amount"),
-  createdAt: createdAt(),
-});
+export const paymentAllocations = sqliteTable(
+  "payment_allocations",
+  {
+    id: id(),
+    // Migration 0067: DB-level FK (DEFERRABLE INITIALLY DEFERRED).
+    paymentId: text("payment_id")
+      .notNull()
+      .references(() => payments.id),
+    partyId: text("party_id").notNull(),
+    salesDocId: text("sales_doc_id"),
+    purchaseDocId: text("purchase_doc_id"),
+    amount: money("amount"),
+    createdAt: createdAt(),
+  },
+  (t) => [
+    // DB index alloc_payment live since migration 0001; declared here in P1.
+    index("alloc_payment").on(t.paymentId),
+    // Migration 0067: exactly one linked document.
+    check(
+      "payment_allocations_one_doc",
+      sql`((sales_doc_id IS NOT NULL AND purchase_doc_id IS NULL) OR (sales_doc_id IS NULL AND purchase_doc_id IS NOT NULL))`
+    ),
+  ]
+);
 
 // ─── Taxation & Digital Compliance (Module 7, migration 0038) ─────
 // FBR POS configuration — one row per company. The token secret is
@@ -1043,7 +1135,10 @@ export const expenses = sqliteTable(
   "expenses",
   {
     id: id(),
-    companyId: text("company_id").notNull(),
+    // Migration 0068: DB-level FK to companies (DEFERRABLE INITIALLY DEFERRED).
+    companyId: text("company_id")
+      .notNull()
+      .references(() => companies.id),
     branchId: text("branch_id").notNull(),
     docNo: text("doc_no"), // EXP-0001 … (migration 0024 backfills)
     date: ts("date").notNull(),
@@ -1068,6 +1163,11 @@ export const expenses = sqliteTable(
     index("expenses_company_date").on(t.companyId, t.date),
     uniqueIndex("expenses_idem_key").on(t.companyId, t.idempotencyKey).where(sql`idempotency_key IS NOT NULL`),
     index("expenses_project").on(t.companyId, t.projectId),
+    // Migration 0069: branch/bank filters + doc-number unique (partial:
+    // doc_no is nullable, same shape as journal_entries docno).
+    index("expenses_company_branch").on(t.companyId, t.branchId),
+    index("expenses_company_bank").on(t.companyId, t.bankAccountId),
+    uniqueIndex("expenses_company_docno").on(t.companyId, t.docNo).where(sql`doc_no IS NOT NULL`),
   ]
 );
 
@@ -1077,7 +1177,10 @@ export const journalEntries = sqliteTable(
   "journal_entries",
   {
     id: id(),
-    companyId: text("company_id").notNull(),
+    // Migration 0068: DB-level FK to companies (DEFERRABLE INITIALLY DEFERRED).
+    companyId: text("company_id")
+      .notNull()
+      .references(() => companies.id),
     branchId: text("branch_id"),
     date: ts("date").notNull(),
     memo: text("memo").notNull(),
@@ -1104,8 +1207,13 @@ export const journalLines = sqliteTable(
   "journal_lines",
   {
     id: id(),
-    entryId: text("entry_id").notNull(),
-    accountId: text("account_id").notNull(),
+    // Migration 0067: DB-level FKs (DEFERRABLE INITIALLY DEFERRED).
+    entryId: text("entry_id")
+      .notNull()
+      .references(() => journalEntries.id),
+    accountId: text("account_id")
+      .notNull()
+      .references(() => accounts.id),
     debit: money("debit"),
     credit: money("credit"),
     partyId: text("party_id"),
@@ -1121,6 +1229,11 @@ export const journalLines = sqliteTable(
     // QA 2026-10-05: party-filtered ledger/bank-book queries scan on party_id
     // (tenant isolation comes from the join to journal_entries).
     index("jl_party").on(t.partyId),
+    // Migration 0067: exactly one side nonzero, neither side negative.
+    check(
+      "journal_lines_debit_xor_credit",
+      sql`debit >= 0 AND credit >= 0 AND ((debit > 0 AND credit = 0) OR (debit = 0 AND credit > 0))`
+    ),
   ]
 );
 
@@ -1557,19 +1670,31 @@ export const syncOperations = sqliteTable(
 // ─── QA wave: stock adjustments, transfers, write-offs (migration 0027) ──
 
 /** G1 — stock adjustment document (date, reason, affected expense account). */
-export const stockAdjustments = sqliteTable("stock_adjustments", {
-  id: id(),
-  companyId: text("company_id").notNull(),
-  branchId: text("branch_id").notNull(),
-  docNo: text("doc_no").notNull(), // ADJ-0001
-  date: ts("date").notNull(),
-  reason: text("reason").notNull(), // BREAKAGE | EXPIRED | THEFT | FOUND | CORRECTION
-  accountId: text("account_id").notNull(),
-  notes: text("notes"),
-  journalEntryId: text("journal_entry_id").unique(),
-  createdById: text("created_by_id").notNull(),
-  createdAt: createdAt(),
-});
+export const stockAdjustments = sqliteTable(
+  "stock_adjustments",
+  {
+    id: id(),
+    // Migration 0068: DB-level FK to companies (DEFERRABLE INITIALLY DEFERRED).
+    companyId: text("company_id")
+      .notNull()
+      .references(() => companies.id),
+    branchId: text("branch_id").notNull(),
+    docNo: text("doc_no").notNull(), // ADJ-0001
+    date: ts("date").notNull(),
+    reason: text("reason").notNull(), // BREAKAGE | EXPIRED | THEFT | FOUND | CORRECTION (migration 0068 CHECK)
+    accountId: text("account_id").notNull(),
+    notes: text("notes"),
+    journalEntryId: text("journal_entry_id").unique(),
+    createdById: text("created_by_id").notNull(),
+    createdAt: createdAt(),
+  },
+  (t) => [
+    // DB indexes live since migration 0027; declared here in P1.
+    uniqueIndex("stock_adj_company_no").on(t.companyId, t.docNo),
+    index("stock_adj_company_date").on(t.companyId, t.date),
+    check("stock_adjustments_reason", sql`reason IN ('BREAKAGE', 'EXPIRED', 'THEFT', 'FOUND', 'CORRECTION')`),
+  ]
+);
 
 export const stockAdjustmentLines = sqliteTable("stock_adjustment_lines", {
   id: id(),
@@ -1583,7 +1708,10 @@ export const stockAdjustmentLines = sqliteTable("stock_adjustment_lines", {
 /** G2 — bank <-> cash transfer between the company's own accounts. */
 export const transfers = sqliteTable("transfers", {
   id: id(),
-  companyId: text("company_id").notNull(),
+  // Migration 0068: DB-level FK to companies (DEFERRABLE INITIALLY DEFERRED).
+  companyId: text("company_id")
+    .notNull()
+    .references(() => companies.id),
   branchId: text("branch_id").notNull(),
   docNo: text("doc_no").notNull(), // TRF-0001
   date: ts("date").notNull(),
@@ -1600,6 +1728,13 @@ export const transfers = sqliteTable("transfers", {
   },
   (t) => [
     uniqueIndex("transfers_idem_key").on(t.companyId, t.idempotencyKey).where(sql`idempotency_key IS NOT NULL`),
+    // (company_id, doc_no) unique live in the DB as transfers_company_no
+    // since migration 0027; declared here in P1.
+    uniqueIndex("transfers_company_no").on(t.companyId, t.docNo),
+    // Migration 0069: branch / bank filters.
+    index("transfers_company_branch").on(t.companyId, t.branchId),
+    index("transfers_company_from_bank").on(t.companyId, t.fromBankAccountId),
+    index("transfers_company_to_bank").on(t.companyId, t.toBankAccountId),
   ]
 );
 
@@ -1627,6 +1762,8 @@ export const sundryReceipts = sqliteTable(
   },
   (t) => [
     uniqueIndex("sundry_receipts_idem_key").on(t.companyId, t.idempotencyKey).where(sql`idempotency_key IS NOT NULL`),
+    // Migration 0069: doc-number unique (doc_no is NOT NULL here).
+    uniqueIndex("sundry_receipts_company_docno").on(t.companyId, t.docNo),
   ]
 );
 
@@ -1883,7 +2020,10 @@ export const stockMovements = sqliteTable(
   "stock_movements",
   {
     id: id(),
-    companyId: text("company_id").notNull(),
+    // Migration 0068: DB-level FK to companies (DEFERRABLE INITIALLY DEFERRED).
+    companyId: text("company_id")
+      .notNull()
+      .references(() => companies.id),
     productId: text("product_id").notNull(),
     branchId: text("branch_id").notNull(),
     date: ts("date").notNull(), // source document date
@@ -2728,3 +2868,78 @@ export const distributionPayments = sqliteTable(
     index("dp_partner").on(t.companyId, t.partnerId, t.date),
   ]
 );
+
+// ─── Relations (Phase P1, item 6) ────────────────────────────────
+// Code-only in Drizzle: relations() changes no DDL and needs no
+// migration. Only the unambiguous hot-path pairs are declared here:
+//   salesDocs <-> salesDocItems, purchaseDocs <-> purchaseDocItems,
+//   journalEntries <-> journalLines, payments <-> paymentAllocations,
+//   products <-> stockLevels, plus the many-to-one links those pairs
+//   need (party, product, branch, account, entry, payment).
+// Deliberately NOT declared (hand-written joins stay the query path):
+//   * Polymorphic links with no single target table — journalEntries
+//     .sourceId (MANUAL/JOURNAL/INVOICE/BILL/PAYMENT/... per source),
+//     docBatchUsage.docId (any document), notes.sourceDocId (a sales OR
+//     a purchase doc), bankStatementLines.createdTxnId (EXPENSE /
+//     SUNDRY_RECEIPT / TRANSFER / BANK_ADJUSTMENT per createdTxnType),
+//     approvalRequests.docId, fbrSyncQueue.docId, whtDeductions.docId.
+//     A relations() entry must name one target table, so any of these
+//     would be wrong for most rows.
+//   * Multi-link pairs to one table (salesDocs.journalEntryId AND
+//     .voidJournalEntryId both -> journalEntries; payments, expenses,
+//     transfers, sundryReceipts .journalEntryId/.voidJournalEntryId/
+//     .statementLineId) — each would need a relationName and buys
+//     nothing: no query uses db.query today, and the void/statement
+//     links are audit trails, not traversal paths.
+//   * The remaining ~100 tables: declaring relations for tables no code
+//     traverses would be surface without a reader. Add a pair here when
+//     a db.query call site actually needs it, not speculatively.
+export const salesDocsRelations = relations(salesDocs, ({ one, many }) => ({
+  party: one(parties, { fields: [salesDocs.partyId], references: [parties.id] }),
+  items: many(salesDocItems),
+}));
+
+export const salesDocItemsRelations = relations(salesDocItems, ({ one }) => ({
+  doc: one(salesDocs, { fields: [salesDocItems.docId], references: [salesDocs.id] }),
+  product: one(products, { fields: [salesDocItems.productId], references: [products.id] }),
+}));
+
+export const purchaseDocsRelations = relations(purchaseDocs, ({ one, many }) => ({
+  party: one(parties, { fields: [purchaseDocs.partyId], references: [parties.id] }),
+  items: many(purchaseDocItems),
+}));
+
+export const purchaseDocItemsRelations = relations(purchaseDocItems, ({ one }) => ({
+  doc: one(purchaseDocs, { fields: [purchaseDocItems.docId], references: [purchaseDocs.id] }),
+  product: one(products, { fields: [purchaseDocItems.productId], references: [products.id] }),
+}));
+
+export const journalEntriesRelations = relations(journalEntries, ({ many }) => ({
+  lines: many(journalLines),
+}));
+
+export const journalLinesRelations = relations(journalLines, ({ one }) => ({
+  entry: one(journalEntries, { fields: [journalLines.entryId], references: [journalEntries.id] }),
+  account: one(accounts, { fields: [journalLines.accountId], references: [accounts.id] }),
+  party: one(parties, { fields: [journalLines.partyId], references: [parties.id] }),
+}));
+
+export const paymentsRelations = relations(payments, ({ one, many }) => ({
+  party: one(parties, { fields: [payments.partyId], references: [parties.id] }),
+  allocations: many(paymentAllocations),
+}));
+
+export const paymentAllocationsRelations = relations(paymentAllocations, ({ one }) => ({
+  payment: one(payments, { fields: [paymentAllocations.paymentId], references: [payments.id] }),
+  salesDoc: one(salesDocs, { fields: [paymentAllocations.salesDocId], references: [salesDocs.id] }),
+  purchaseDoc: one(purchaseDocs, { fields: [paymentAllocations.purchaseDocId], references: [purchaseDocs.id] }),
+}));
+
+export const productsRelations = relations(products, ({ many }) => ({
+  stockLevels: many(stockLevels),
+}));
+
+export const stockLevelsRelations = relations(stockLevels, ({ one }) => ({
+  product: one(products, { fields: [stockLevels.productId], references: [products.id] }),
+  branch: one(branches, { fields: [stockLevels.branchId], references: [branches.id] }),
+}));

@@ -84,6 +84,7 @@ async function postTaggedSale(projectId: string | null, amountRs: number, date =
 
 beforeAll(async () => {
   ({ db, cleanup } = await createTestDb());
+  await db.insert(s.companies).values({ id: companyId, name: "M13 Test Co" });
   ({ branchId } = await setupCompany(db, companyId));
   const ac = await accountMap(db, companyId);
   // expense GL + cash GL + bank
@@ -177,6 +178,7 @@ describe("tag validation", () => {
 
   it("rejects foreign-company projects and unknown ids", async () => {
     const otherCompany = crypto.randomUUID();
+    await db.insert(s.companies).values({ id: otherCompany, name: "M13 Foreign Co" });
     await setupCompany(db, otherCompany);
     const foreign = await db.transaction((tx) =>
       createProject(tx, { companyId: otherCompany, name: "Foreign", createdById: userId })

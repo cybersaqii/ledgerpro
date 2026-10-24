@@ -35,6 +35,7 @@ const R = (rs: number) => BigInt(rs) * 100n; // rupees → paisa
 
 beforeAll(async () => {
   ({ db, cleanup } = await createTestDb());
+  await db.insert(s.companies).values({ id: companyId, name: "M8 Test Co" });
   await setupCompany(db, companyId);
   const [ba] = await db.select().from(s.bankAccounts).where(eq(s.bankAccounts.companyId, companyId)).limit(1);
   bankId = ba.id;

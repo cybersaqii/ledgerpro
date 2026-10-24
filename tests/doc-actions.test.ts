@@ -21,6 +21,7 @@ let productId = "";
 
 beforeAll(async () => {
   ({ db, cleanup } = await createTestDb());
+  await db.insert(s.companies).values({ id: companyId, name: "Doc Actions Test Co" });
   const res = await setupCompany(db, companyId);
   branchId = res.branchId;
 

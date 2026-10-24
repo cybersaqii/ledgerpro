@@ -17,6 +17,7 @@ let rentAccountId = "";
 
 beforeAll(async () => {
   ({ db, cleanup } = await createTestDb());
+  await db.insert(s.companies).values({ id: companyId, name: "Net Profit Test Co" });
   const res = await setupCompany(db, companyId);
   branchId = res.branchId;
   rentAccountId = crypto.randomUUID();

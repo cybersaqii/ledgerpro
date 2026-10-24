@@ -21,6 +21,7 @@ let unlimitedId = ""; // limit 0 = unlimited
 
 beforeAll(async () => {
   ({ db, cleanup } = await createTestDb());
+  await db.insert(s.companies).values({ id: companyId, name: "Credit Test Co" });
   const res = await setupCompany(db, companyId);
   branchId = res.branchId;
   limitedId = crypto.randomUUID();

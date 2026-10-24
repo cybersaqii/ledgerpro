@@ -19,7 +19,7 @@ function resolveDb() {
 
 const client = createClient(resolveDb());
 
-// Table-rebuild migrations (0023, 0065, 0066) DROP tables that other tables
+// Table-rebuild migrations (0023, 0065, 0066, 0067, 0068) DROP tables that other tables
 // still reference. With foreign-key enforcement on, DROP TABLE is treated
 // like deleting every parent row, so a restrict child blocks the drop even
 // though the rebuild preserves every row. This is the documented SQLite

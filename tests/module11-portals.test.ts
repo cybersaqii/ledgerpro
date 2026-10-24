@@ -105,15 +105,15 @@ async function issueToken(opts: {
 
 beforeAll(async () => {
   ({ db, cleanup } = await createTestDb());
-  const res = await setupCompany(db, companyA);
-  branchId = res.branchId;
-  await setupCompany(db, companyB);
-  // setupCompany seeds branches/accounts; the companies row itself is created
-  // at signup in production — insert it here for both test companies.
+  // The companies rows must exist BEFORE setupCompany now that
+  // branches/bank accounts carry DB-level company FKs (P1, 0068).
   await db.insert(s.companies).values([
     { id: companyA, name: "M11 Company A", tradeName: "M11 Trade A" },
     { id: companyB, name: "M11 Company B" },
   ]);
+  const res = await setupCompany(db, companyA);
+  branchId = res.branchId;
+  await setupCompany(db, companyB);
   cashAccountId = (
     await db
       .select({ id: s.bankAccounts.id })

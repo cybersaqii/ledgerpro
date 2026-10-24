@@ -48,6 +48,7 @@ async function insertBill(partyId: string, rate: string, dateMs: number) {
 
 beforeAll(async () => {
   ({ db, cleanup } = await createTestDb());
+  await db.insert(s.companies).values({ id: companyId, name: "Last Rate Test Co" });
   const res = await setupCompany(db, companyId);
   branchId = res.branchId;
   await db.insert(s.parties).values([
@@ -107,6 +108,7 @@ describe("getLastRate", () => {
 
   it("keeps companies isolated", async () => {
     const other = crypto.randomUUID();
+    await db.insert(s.companies).values({ id: other, name: "Last Rate Other Co" });
     await setupCompany(db, other);
     expect(await getLastRate(db, other, prodA, "SALE", custA)).toBeNull();
   });

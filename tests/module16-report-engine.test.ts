@@ -217,8 +217,10 @@ let branchId = "";
 
 beforeAll(async () => {
   ({ db, cleanup } = await createTestDb());
+  await db.insert(s.companies).values({ id: companyId, name: "M16 Test Co" });
   const setup = await setupCompany(db, companyId);
   branchId = setup.branchId;
+  await db.insert(s.companies).values({ id: otherCompanyId, name: "M16 Other Co" });
   await setupCompany(db, otherCompanyId);
   ac = await db.transaction((tx) => accountMap(tx, companyId));
 

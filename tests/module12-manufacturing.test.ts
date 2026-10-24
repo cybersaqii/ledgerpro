@@ -103,6 +103,7 @@ async function expectUserError(p: Promise<unknown>, code: string) {
 
 beforeAll(async () => {
   ({ db, cleanup } = await createTestDb());
+  await db.insert(s.companies).values({ id: companyId, name: "M12 Test Co" });
   ({ branchId } = await setupCompany(db, companyId));
   finished = await makeProduct("Steel Chair", "FG-CHAIR");
   steel = await makeProduct("Steel Sheet", "RM-STEEL");

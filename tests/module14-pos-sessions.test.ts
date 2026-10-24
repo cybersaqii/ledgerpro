@@ -126,6 +126,7 @@ async function counterSale(opts: {
 
 beforeAll(async () => {
   ({ db, cleanup } = await createTestDb());
+  await db.insert(s.companies).values({ id: companyId, name: "M14 Test Co" });
   ({ branchId } = await setupCompany(db, companyId));
   const ac = await accountMap(db, companyId);
   shortageGl = ac[SYS.CASH_SHORTAGE]; // 6051 — backfilled by setupCompany
@@ -456,8 +457,10 @@ describe("shift summary + close", () => {
     const { session } = await db.transaction((tx) =>
       openSession(tx, { companyId, terminalId, openingCashPaisa: 0n, createdById: userId })
     );
-    // The period lock lives on the companies row (setupCompany does not create it).
-    await db.insert(s.companies).values({ id: companyId, name: "M14 Test Co", lockedUntil: new Date(Date.now() + 86400000) });
+    // The period lock lives on the companies row (created in beforeAll
+    // so setupCompany's company FKs pass); set the lock late so earlier
+    // tests in this file run with an open period.
+    await db.update(s.companies).set({ lockedUntil: new Date(Date.now() + 86400000) }).where(eq(s.companies.id, companyId));
     await expect(
       db.transaction((tx) =>
         closeSession(tx, { companyId, sessionId: session.id, countedCashPaisa: 0n, closedById: userId })

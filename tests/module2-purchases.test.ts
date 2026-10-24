@@ -30,6 +30,7 @@ const now = () => new Date("2026-10-01T10:00:00Z");
 
 beforeAll(async () => {
   ({ db, cleanup } = await createTestDb());
+  await db.insert(s.companies).values({ id: companyId, name: "M2 Test Co" });
   const res = await setupCompany(db, companyId);
   branchId = res.branchId;
 

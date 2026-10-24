@@ -24,6 +24,7 @@ async function balance(id: string): Promise<bigint> {
 
 beforeAll(async () => {
   ({ db, cleanup } = await createTestDb());
+  await db.insert(s.companies).values({ id: companyId, name: "Setoff Test Co" });
   branchId = (await setupCompany(db, companyId)).branchId;
   customerId = crypto.randomUUID();
   supplierId = crypto.randomUUID();

@@ -66,6 +66,7 @@ async function journalBalance(entryId: string) {
 
 beforeAll(async () => {
   ({ db, cleanup } = await createTestDb());
+  await db.insert(s.companies).values({ id: companyId, name: "M9 Test Co" });
   await setupCompany(db, companyId);
   const [ba] = await db.select().from(s.bankAccounts).where(eq(s.bankAccounts.companyId, companyId)).limit(1);
   bankId = ba.id;

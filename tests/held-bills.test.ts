@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
 import { createTestDb, type TestDb } from "./helpers";
+import * as s from "@/db/schema";
 import { setupCompany } from "@/lib/setup";
 import { createHeldBill, listHeldBills, deleteHeldBill } from "@/lib/held";
 
@@ -15,6 +16,10 @@ const lines = [{ productId: null, name: "Test item", qty: "1", rate: "100", disc
 
 beforeAll(async () => {
   ({ db, cleanup } = await createTestDb());
+  await db.insert(s.companies).values([
+    { id: companyA, name: "Held Bills Co A" },
+    { id: companyB, name: "Held Bills Co B" },
+  ]);
   await setupCompany(db, companyA);
   await setupCompany(db, companyB);
 });

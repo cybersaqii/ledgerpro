@@ -20,6 +20,7 @@ let prodB = "";
 
 beforeAll(async () => {
   ({ db, cleanup } = await createTestDb());
+  await db.insert(s.companies).values({ id: companyId, name: "Extra Cost Test Co" });
   branchId = (await setupCompany(db, companyId)).branchId;
   supplierId = crypto.randomUUID();
   prodA = crypto.randomUUID();

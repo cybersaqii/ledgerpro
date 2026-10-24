@@ -21,6 +21,7 @@ let cashAccountId = "";
 
 beforeAll(async () => {
   ({ db, cleanup } = await createTestDb());
+  await db.insert(s.companies).values({ id: companyId, name: "POS Test Co" });
   const res = await setupCompany(db, companyId);
   branchId = res.branchId;
   customerId = crypto.randomUUID();

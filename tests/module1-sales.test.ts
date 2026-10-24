@@ -116,6 +116,7 @@ async function stockOf(): Promise<bigint> {
 
 beforeAll(async () => {
   ({ db, cleanup } = await createTestDb());
+  await db.insert(s.companies).values({ id: companyId, name: "M1 Test Co" });
   const res = await setupCompany(db, companyId);
   branchId = res.branchId;
   cashAccountId = (

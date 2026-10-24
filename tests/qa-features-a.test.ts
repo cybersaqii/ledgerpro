@@ -42,10 +42,11 @@ let arAcctId = "";
 
 beforeAll(async () => {
   ({ db, cleanup } = await createTestDb());
-  ({ branchId } = await setupCompany(db, companyId));
-  // setupCompany seeds branches/accounts/sequences only — the company row
-  // itself (which carries the period lock) must exist explicitly.
+  // The companies row must exist BEFORE setupCompany now that
+  // branches/bank accounts carry DB-level company FKs (P1, 0068); the
+  // row itself (which carries the period lock) is created explicitly.
   await db.insert(s.companies).values({ id: companyId, name: "FIX-3 Test Co" });
+  ({ branchId } = await setupCompany(db, companyId));
 
   // setupCompany seeds every DOC_PREFIXES sequence (incl. WRITE_OFF/WO-,
   // TRANSFER/TRF- and STOCK_ADJUSTMENT/ADJ-), so no manual seeding is needed.

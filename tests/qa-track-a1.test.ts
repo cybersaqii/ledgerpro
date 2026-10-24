@@ -120,6 +120,7 @@ async function postInvoiceWithReceipt(opts: {
 
 beforeAll(async () => {
   ({ db, cleanup } = await createTestDb());
+  await db.insert(s.companies).values({ id: companyId, name: "QA Track A1 Test Co" });
   const res = await setupCompany(db, companyId);
   branchId = res.branchId;
   cashAccountId = (
