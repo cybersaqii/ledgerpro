@@ -26,7 +26,9 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
   const product = await findProduct(companyId, id);
   if (!product) return err("Not found.", 404);
   const components = await getBundleComponents(db, companyId, id);
-  return json({ data: components });
+  // Plain numbers on the wire (per-bundle qtys are small); the DB type is
+  // bigint since migration 0070.
+  return json({ data: components.map((c) => ({ ...c, qtyThousandths: Number(c.qtyThousandths) })) });
 }
 
 // PUT /api/products/[id]/bundles — replace the bundle's component list
@@ -56,5 +58,5 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
     detail: `Bundle components updated for "${product.name}" (${parsed.data.components.length} components)`,
   });
   const components = await getBundleComponents(db, companyId, id);
-  return json({ data: components });
+  return json({ data: components.map((c) => ({ ...c, qtyThousandths: Number(c.qtyThousandths) })) });
 }

@@ -121,53 +121,53 @@ describe("coupons", () => {
   });
 
   it("computes percent and fixed discounts in paisa", () => {
-    expect(discountFor({ kind: "PERCENT", value: 50 } as never, 100_000)).toBe(50_000);
-    expect(discountFor({ kind: "FIXED", value: 30_000 } as never, 100_000)).toBe(30_000);
-    expect(discountFor({ kind: "FIXED", value: 200_000 } as never, 100_000)).toBe(100_000); // capped
+    expect(discountFor({ kind: "PERCENT", value: 50 } as never, 100_000n)).toBe(50_000n);
+    expect(discountFor({ kind: "FIXED", value: 30_000 } as never, 100_000n)).toBe(30_000n);
+    expect(discountFor({ kind: "FIXED", value: 200_000 } as never, 100_000n)).toBe(100_000n); // capped
   });
 
   it("quotes, consumes and blocks reuse per company", async () => {
     const company = await makeCompany("Coupon Co");
     const c = await makeCoupon({ code: "HALF50" });
-    const q = await quoteCoupon(db, { code: "half50", companyId: company, amountPaisa: 200_000 });
-    expect(q.discountPaisa).toBe(100_000);
-    expect(q.payablePaisa).toBe(100_000);
+    const q = await quoteCoupon(db, { code: "half50", companyId: company, amountPaisa: 200_000n });
+    expect(q.discountPaisa).toBe(100_000n);
+    expect(q.payablePaisa).toBe(100_000n);
 
     await db.transaction(async (tx) => {
       await consumeCoupon(tx, { couponId: c.id, companyId: company, billingPaymentId: "pay1", discountPaisa: q.discountPaisa });
     });
     const [used] = await db.select().from(s.coupons).where(eq(s.coupons.id, c.id));
     expect(used.usedCount).toBe(1);
-    await expect(quoteCoupon(db, { code: "HALF50", companyId: company, amountPaisa: 200_000 })).rejects.toThrow(CouponError);
+    await expect(quoteCoupon(db, { code: "HALF50", companyId: company, amountPaisa: 200_000n })).rejects.toThrow(CouponError);
 
     // Another company can still use it.
     const other = await makeCompany("Other Co");
-    const q2 = await quoteCoupon(db, { code: "HALF50", companyId: other, amountPaisa: 200_000 });
-    expect(q2.discountPaisa).toBe(100_000);
+    const q2 = await quoteCoupon(db, { code: "HALF50", companyId: other, amountPaisa: 200_000n });
+    expect(q2.discountPaisa).toBe(100_000n);
   });
 
   it("releases a coupon when the payment is rejected", async () => {
     const company = await makeCompany("Reject Co");
     const c = await makeCoupon({ code: "ONCE10", kind: "FIXED", value: 10_000 });
     await db.transaction(async (tx) => {
-      await consumeCoupon(tx, { couponId: c.id, companyId: company, billingPaymentId: "pay2", discountPaisa: 10_000 });
+      await consumeCoupon(tx, { couponId: c.id, companyId: company, billingPaymentId: "pay2", discountPaisa: 10_000n });
     });
     await releaseCoupon(db, { couponId: c.id, companyId: company });
     const [after] = await db.select().from(s.coupons).where(eq(s.coupons.id, c.id));
     expect(after.usedCount).toBe(0);
     // Usable again.
-    const q = await quoteCoupon(db, { code: "ONCE10", companyId: company, amountPaisa: 50_000 });
-    expect(q.discountPaisa).toBe(10_000);
+    const q = await quoteCoupon(db, { code: "ONCE10", companyId: company, amountPaisa: 50_000n });
+    expect(q.discountPaisa).toBe(10_000n);
   });
 
   it("rejects expired coupons and enforces max uses", async () => {
     const company = await makeCompany("Expiry Co");
     const expired = await makeCoupon({ code: "OLD99", validTo: new Date(Date.now() - 1000) });
-    await expect(quoteCoupon(db, { code: expired.code, companyId: company, amountPaisa: 100_000 })).rejects.toThrow(/expired/i);
+    await expect(quoteCoupon(db, { code: expired.code, companyId: company, amountPaisa: 100_000n })).rejects.toThrow(/expired/i);
     const limited = await makeCoupon({ code: "TWOUSE", maxUses: 1, usedCount: 1 });
-    await expect(quoteCoupon(db, { code: limited.code, companyId: company, amountPaisa: 100_000 })).rejects.toThrow(/usage limit/i);
+    await expect(quoteCoupon(db, { code: limited.code, companyId: company, amountPaisa: 100_000n })).rejects.toThrow(/usage limit/i);
     const inactive = await makeCoupon({ code: "OFF99", active: false });
-    await expect(quoteCoupon(db, { code: inactive.code, companyId: company, amountPaisa: 100_000 })).rejects.toThrow(CouponError);
+    await expect(quoteCoupon(db, { code: inactive.code, companyId: company, amountPaisa: 100_000n })).rejects.toThrow(CouponError);
   });
 
   it("atomic consume: the cap cannot be overshot", async () => {
@@ -176,12 +176,12 @@ describe("coupons", () => {
     const b = await makeCompany("Cap B");
     // First consume wins.
     await db.transaction(async (tx) => {
-      await consumeCoupon(tx, { couponId: c.id, companyId: a, billingPaymentId: "cap1", discountPaisa: 5_000 });
+      await consumeCoupon(tx, { couponId: c.id, companyId: a, billingPaymentId: "cap1", discountPaisa: 5_000n });
     });
     // Second consume fails even though it re-validates inside its own txn.
     await expect(
       db.transaction(async (tx) => {
-        await consumeCoupon(tx, { couponId: c.id, companyId: b, billingPaymentId: "cap2", discountPaisa: 5_000 });
+        await consumeCoupon(tx, { couponId: c.id, companyId: b, billingPaymentId: "cap2", discountPaisa: 5_000n });
       })
     ).rejects.toThrow(/usage limit/i);
     const [after] = await db.select().from(s.coupons).where(eq(s.coupons.id, c.id));
@@ -192,11 +192,11 @@ describe("coupons", () => {
     const c = await makeCoupon({ code: "DOUBLE1", kind: "FIXED", value: 5_000 });
     const company = await makeCompany("Double Co");
     await db.transaction(async (tx) => {
-      await consumeCoupon(tx, { couponId: c.id, companyId: company, billingPaymentId: "d1", discountPaisa: 5_000 });
+      await consumeCoupon(tx, { couponId: c.id, companyId: company, billingPaymentId: "d1", discountPaisa: 5_000n });
     });
     await expect(
       db.transaction(async (tx) => {
-        await consumeCoupon(tx, { couponId: c.id, companyId: company, billingPaymentId: "d2", discountPaisa: 5_000 });
+        await consumeCoupon(tx, { couponId: c.id, companyId: company, billingPaymentId: "d2", discountPaisa: 5_000n });
       })
     ).rejects.toThrow(/already used/i);
     const [after] = await db.select().from(s.coupons).where(eq(s.coupons.id, c.id));

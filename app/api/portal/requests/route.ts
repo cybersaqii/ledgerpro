@@ -3,6 +3,7 @@ import { eq, and, desc, sql } from "drizzle-orm";
 import { portalOrderRequests, parties } from "@/db/schema";
 import { json } from "@/lib/api";
 import { requirePermission, db } from "@/lib/route-helpers";
+import { loadRequestItemsMany } from "@/lib/portal";
 import { toApiError } from "@/lib/errors";
 
 // GET /api/portal/requests?status=SUBMITTED — admin pending-requests inbox.
@@ -33,11 +34,11 @@ export async function GET(req: NextRequest) {
       .from(portalOrderRequests)
       .where(and(...conds));
 
+    const itemsByRequest = await loadRequestItemsMany(db, rows.map((r) => r.req.id));
     return json({
       data: rows.map((r) => ({
         ...r.req,
-        items: JSON.parse(r.req.itemsJson),
-        itemsJson: undefined,
+        items: itemsByRequest.get(r.req.id) ?? [],
         partyName: r.partyName,
         partyKind: r.partyKind,
         createdAt: r.req.createdAt.getTime(),

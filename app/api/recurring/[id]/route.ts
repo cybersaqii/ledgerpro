@@ -8,6 +8,7 @@ import { parseMoney } from "@/lib/money";
 import {
   FREQUENCIES,
   getTemplate,
+  loadTemplateItems,
   updateRecurringTemplate,
   deleteTemplate,
   serializeTemplate,
@@ -35,7 +36,9 @@ export async function GET(_req: NextRequest, { params }: Params) {
   try {
     const t = await getTemplate(db, gate.companyId, id);
     if (!t) return err("Recurring template not found.", 404, "NOT_FOUND");
-    return json({ data: serializeTemplate(t, await partyName(gate.companyId, t.partyId)) });
+    return json({
+      data: serializeTemplate(t, await partyName(gate.companyId, t.partyId), await loadTemplateItems(db, t.id)),
+    });
   } catch (e) {
     return toApiError(e, { route: "/api/recurring/[id]" });
   }
@@ -98,7 +101,9 @@ export async function PUT(req: NextRequest, { params }: Params) {
       detail: "Recurring template updated",
     });
     const t = await getTemplate(db, companyId, id);
-    return json({ data: serializeTemplate(t!, await partyName(companyId, t!.partyId)) });
+    return json({
+      data: serializeTemplate(t!, await partyName(companyId, t!.partyId), await loadTemplateItems(db, t!.id)),
+    });
   } catch (e) {
     return toApiError(e, { route: "/api/recurring/[id]" });
   }

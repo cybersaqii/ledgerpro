@@ -5,7 +5,7 @@ import { accounts } from "@/db/schema";
 import { json, err } from "@/lib/api";
 import { toApiError, UserError } from "@/lib/errors";
 import { requirePermission, db } from "@/lib/route-helpers";
-import { getCompanyAccount, countAccountUsage, wouldCycle, listCompanyAccounts } from "@/lib/chart-of-accounts";
+import { getCompanyAccount, countAccountUsage, findAccountConfigReference, wouldCycle, listCompanyAccounts } from "@/lib/chart-of-accounts";
 import { logAudit } from "@/lib/audit";
 
 const patchSchema = z.object({
@@ -99,6 +99,12 @@ export async function DELETE(_req: NextRequest, { params }: { params: Promise<{ 
       const used = await countAccountUsage(tx, id);
       if (used > 0)
         throw new UserError("This account has journal entries — deactivate it instead of deleting.", 422, "ACCOUNT_IN_USE");
+      // P2: configuration references with no journal history yet (a bank
+      // account's GL link, a product's revenue/COGS/inventory account, an
+      // asset's cost/depreciation account) would otherwise be orphaned.
+      const configRef = await findAccountConfigReference(tx, companyId, id);
+      if (configRef)
+        throw new UserError(`This account is linked to ${configRef} — unlink it first, or deactivate the account instead of deleting.`, 422, "ACCOUNT_IN_USE");
       const kids = await tx
         .select({ id: accounts.id })
         .from(accounts)

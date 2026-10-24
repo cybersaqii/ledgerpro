@@ -217,7 +217,7 @@ describe("B1 — backup/restore preservation and restrict FKs", () => {
     // Bundle with one component.
     await db.insert(s.bundleComponents).values({
       id: crypto.randomUUID(), companyId, bundleProductId: bundleId,
-      componentProductId: productId, qtyThousandths: 2000,
+      componentProductId: productId, qtyThousandths: 2000n,
     });
 
     // Set-off allocation against the sale invoice (linked to a real journal entry).

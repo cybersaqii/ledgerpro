@@ -342,6 +342,11 @@ export const stockLevels = sqliteTable(
       .references(() => branches.id),
     qty: qty("qty"), // milli-units
     avgCost: money("avg_cost"), // paisa per base unit, moving average
+    // Migration 0072: stock levels used to mutate in place with no audit
+    // trail. created_at/updated_at use the 0066 strftime default so raw
+    // inserts also get a timestamp; existing rows got the migration time.
+    createdAt: createdAt(),
+    updatedAt: updatedAt(),
   },
   (t) => [uniqueIndex("stock_product_branch").on(t.productId, t.branchId)]
 );
@@ -366,6 +371,12 @@ export const productBatches = sqliteTable(
       .notNull()
       .references(() => products.id),
     batchNo: text("batch_no").notNull(),
+    // INTENTIONAL date-only column (P2 decision): text "YYYY-MM-DD", not
+    // timestamp_ms. Lexicographic string comparison is the expiry logic
+    // everywhere (lib/batches.ts sorting/expiry buckets, dashboard cutoff,
+    // frontend fmtExpiry); converting to epoch ms would change the API
+    // shape (string -> ms) for every batch consumer. Format is validated
+    // on write by normalizeExpiry in lib/batches.ts.
     expiryDate: text("expiry_date"), // YYYY-MM-DD or NULL
     qtyThousandths: qty("qty_thousandths"), // remaining, milli-units
     unitCost: numeric("unit_cost", { mode: "bigint" }), // purchase rate per base unit (paisa) — for multi-price selling, NULL = unknown
@@ -529,8 +540,11 @@ export const bundleComponents = sqliteTable(
     componentProductId: text("component_product_id")
       .notNull()
       .references(() => products.id),
-    // component units per one bundle unit, in thousandths (2500 = 2.5 units)
-    qtyThousandths: integer("qty_thousandths").notNull(),
+    // component units per one bundle unit, in thousandths (2500 = 2.5 units).
+    // Migration 0070: unified to qty() (numeric bigint), same scale as
+    // every other milli-unit quantity; the DB CHECK (qty_thousandths > 0)
+    // is preserved by the rebuild.
+    qtyThousandths: qty("qty_thousandths"),
     createdAt: createdAt(),
   },
   (t) => [
@@ -781,7 +795,11 @@ export const exchangeRates = sqliteTable(
     companyId: text("company_id").notNull(),
     currencyCode: text("currency_code").notNull(),
     rateScaled: numeric("rate_scaled", { mode: "bigint" }).notNull(),
-    effectiveDate: integer("effective_date").notNull(), // start-of-day ms; applies from this date
+    // Migration P2: unified to ts() (timestamp_ms). Storage is unchanged
+    // (INTEGER start-of-day ms, same values, same unique index) so no
+    // rebuild migration was needed; only the Drizzle type changed from
+    // plain number to Date. Applies from this date.
+    effectiveDate: ts("effective_date").notNull(),
     createdById: text("created_by_id"),
     createdAt: createdAt(),
   },
@@ -1288,6 +1306,8 @@ export const settings = sqliteTable(
 // Held (parked) POS bills — durable, server-side, owned by company + user.
 // Replaces the old device-local localStorage parking so a held bill survives
 // browser clears and can be picked up from another counter.
+// Migration 0071: the old JSON `lines` column is replaced by the
+// held_bill_lines table (one row per parked line, same fields as text).
 export const heldBills = sqliteTable(
   "held_bills",
   {
@@ -1295,12 +1315,36 @@ export const heldBills = sqliteTable(
     companyId: text("company_id").notNull(),
     userId: text("user_id").notNull(),
     label: text("label").notNull().default(""),
-    lines: text("lines").notNull(), // JSON: [{productId,name,sku,unit,qty,rate,discount}]
     discount: text("discount").notNull().default("0"), // money string
     createdAt: createdAt(),
     updatedAt: updatedAt(),
   },
   (t) => [index("held_company_user").on(t.companyId, t.userId)]
+);
+
+// One parked line of a held bill. Qty/rate/discount stay TEXT on purpose:
+// they are the POS cart's display strings (fractional qtys, rupee strings),
+// exactly as the old JSON array stored them — not paisa/milli bigints.
+export const heldBillLines = sqliteTable(
+  "held_bill_lines",
+  {
+    id: id(),
+    // Migration 0071: DB-level FK (DEFERRABLE INITIALLY DEFERRED).
+    heldBillId: text("held_bill_id")
+      .notNull()
+      .references(() => heldBills.id),
+    companyId: text("company_id").notNull(),
+    productId: text("product_id"), // NULL = free-text line; no product FK by design (see P1 notes on doc items)
+    name: text("name").notNull(),
+    sku: text("sku").notNull().default(""),
+    unit: text("unit").notNull().default("PCS"),
+    qty: text("qty").notNull(),
+    rate: text("rate").notNull(),
+    discount: text("discount").notNull().default("0"),
+    lineOrder: integer("line_order").notNull().default(0),
+    createdAt: createdAt(),
+  },
+  (t) => [index("held_bill_lines_bill").on(t.heldBillId, t.lineOrder)]
 );
 
 // ─── Module 14: POS terminals & register sessions ───────────────────
@@ -1483,7 +1527,9 @@ export const billingPayments = sqliteTable(
     id: id(),
     companyId: text("company_id").notNull(),
     userId: text("user_id").notNull(),
-    amountPaisa: integer("amount_paisa").notNull(),
+    // Migration 0070: unified to money() (numeric bigint) like every
+    // other paisa column.
+    amountPaisa: money("amount_paisa"),
     method: text("method").notNull(), // BANK | JAZZCASH | EASYPAISA
     reference: text("reference").notNull(),
     months: integer("months").notNull().default(1),
@@ -1492,7 +1538,7 @@ export const billingPayments = sqliteTable(
     status: text("status").notNull().default("PENDING"), // PENDING | APPROVED | REJECTED
     note: text("note"),
     couponId: text("coupon_id"), // applied coupon (migration 0029)
-    discountPaisa: integer("discount_paisa").notNull().default(0), // coupon discount granted
+    discountPaisa: money("discount_paisa"), // coupon discount granted (migration 0070: money())
     reviewedBy: text("reviewed_by"),
     reviewedAt: ts("reviewed_at"),
     createdAt: createdAt(),
@@ -1961,7 +2007,8 @@ export const couponRedemptions = sqliteTable(
     couponId: text("coupon_id").notNull(),
     companyId: text("company_id").notNull(),
     billingPaymentId: text("billing_payment_id"),
-    discountPaisa: integer("discount_paisa").notNull(),
+    // Migration 0070: unified to money() (numeric bigint).
+    discountPaisa: money("discount_paisa"),
     createdAt: createdAt(),
   },
   (t) => [uniqueIndex("coupon_redemptions_coupon_company").on(t.couponId, t.companyId)]
@@ -2340,9 +2387,8 @@ export const portalOrderRequests = sqliteTable(
     requestNo: text("request_no").notNull(), // POR-xxxx per company
     kind: text("kind").notNull(), // SALES_ORDER (customer) | BILL_SUBMISSION (supplier)
     status: text("status").notNull().default("DRAFT"), // DRAFT | SUBMITTED | APPROVED | REJECTED | CANCELLED
-    // JSON array of {productId, description, qtyMilli, ratePaisa, lineTotalPaisa}
-    // with money/qty as DECIMAL STRINGS (never floats).
-    itemsJson: text("items_json").notNull(),
+    // Migration 0071: the old JSON items_json column is replaced by the
+    // portal_order_request_lines table (same fields, real money/qty types).
     subtotalPaisa: money("subtotal_paisa"),
     taxPaisa: money("tax_paisa"),
     grandTotalPaisa: money("grand_total_paisa"),
@@ -2409,6 +2455,28 @@ export const portalActivityLog = sqliteTable(
     createdAt: createdAt(),
   },
   (t) => [index("portal_activity_company").on(t.companyId, t.createdAt)]
+);
+
+// One staged line of a portal order request. Converted verbatim into a
+// sales_doc_items / purchase_doc_items row on approval (lib/portal.ts).
+export const portalOrderRequestLines = sqliteTable(
+  "portal_order_request_lines",
+  {
+    id: id(),
+    // Migration 0071: DB-level FK (DEFERRABLE INITIALLY DEFERRED).
+    requestId: text("request_id")
+      .notNull()
+      .references(() => portalOrderRequests.id),
+    companyId: text("company_id").notNull(),
+    productId: text("product_id"), // NULL = free-text line; no product FK by design
+    description: text("description").notNull(),
+    qtyMilli: qty("qty_milli"),
+    ratePaisa: money("rate_paisa"),
+    lineTotalPaisa: money("line_total_paisa"),
+    lineOrder: integer("line_order").notNull().default(0),
+    createdAt: createdAt(),
+  },
+  (t) => [index("portal_request_lines_request").on(t.requestId, t.lineOrder)]
 );
 
 /** Module 12 (migration 0043): Manufacturing & BOM.
@@ -2563,6 +2631,12 @@ export const reminderLog = sqliteTable(
     companyId: text("company_id").notNull(),
     invoiceId: text("invoice_id").notNull(), // sales_docs.id
     ruleId: text("rule_id").notNull(), // reminder_rules.id
+    // INTENTIONAL date-only column (P2 decision): text "YYYY-MM-DD" (UTC),
+    // not timestamp_ms. It participates in the unique index
+    // (company, invoice, rule, trigger_date) as a calendar-day key, and
+    // the automation log API surfaces it verbatim as a date string;
+    // converting to epoch ms would change that API shape and the dedupe
+    // semantics. Written only by lib/reminders.ts as a UTC date string.
     triggerDate: text("trigger_date").notNull(), // YYYY-MM-DD (UTC) the rule fired
     emailAttempted: flag("email_attempted", false),
     emailSent: flag("email_sent", false),
@@ -2685,7 +2759,8 @@ export const recurringTemplates = sqliteTable(
     status: text("status").notNull().default("ACTIVE"), // ACTIVE | PAUSED | COMPLETED
     terms: text("terms"),
     notes: text("notes"),
-    itemsJson: text("items_json").notNull(), // JSON array of {productId, qty, ratePaisa}
+    // Migration 0071: the old JSON items_json column is replaced by the
+    // recurring_template_lines table (same fields, real types).
     skipNext: flag("skip_next", false),
     lastRunAt: ts("last_run_at"),
     createdById: text("created_by_id").notNull(),
@@ -2693,6 +2768,26 @@ export const recurringTemplates = sqliteTable(
     updatedAt: updatedAt(),
   },
   (t) => [index("rt_company_next").on(t.companyId, t.status, t.nextRunDate)]
+);
+
+// One line of a recurring template. Rate is the snapshot frozen at
+// template creation (see lib/recurring.ts); qty is whole base units.
+export const recurringTemplateLines = sqliteTable(
+  "recurring_template_lines",
+  {
+    id: id(),
+    // Migration 0071: DB-level FK (DEFERRABLE INITIALLY DEFERRED).
+    templateId: text("template_id")
+      .notNull()
+      .references(() => recurringTemplates.id),
+    companyId: text("company_id").notNull(),
+    productId: text("product_id").notNull(),
+    qty: integer("qty").notNull(),
+    ratePaisa: money("rate_paisa"),
+    lineOrder: integer("line_order").notNull().default(0),
+    createdAt: createdAt(),
+  },
+  (t) => [index("recurring_template_lines_template").on(t.templateId, t.lineOrder)]
 );
 
 export const recurringRuns = sqliteTable(

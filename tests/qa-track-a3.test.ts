@@ -154,16 +154,16 @@ describe("product image URL edge cases (lib/product-image)", () => {
 
 describe("coupon math (lib/coupons)", () => {
   it("discountFor clamps percent and fixed discounts to the payable amount", () => {
-    expect(discountFor({ kind: "PERCENT", value: 10 } as never, 150000)).toBe(15000);
-    expect(discountFor({ kind: "PERCENT", value: 150 } as never, 100000)).toBe(100000);
-    expect(discountFor({ kind: "FIXED", value: 200000 } as never, 150000)).toBe(150000);
-    expect(discountFor({ kind: "FIXED", value: 50000 } as never, 150000)).toBe(50000);
-    expect(discountFor({ kind: "PERCENT", value: 10 } as never, 0)).toBe(0);
+    expect(discountFor({ kind: "PERCENT", value: 10 } as never, 150000n)).toBe(15000n);
+    expect(discountFor({ kind: "PERCENT", value: 150 } as never, 100000n)).toBe(100000n);
+    expect(discountFor({ kind: "FIXED", value: 200000 } as never, 150000n)).toBe(150000n);
+    expect(discountFor({ kind: "FIXED", value: 50000 } as never, 150000n)).toBe(50000n);
+    expect(discountFor({ kind: "PERCENT", value: 10 } as never, 0n)).toBe(0n);
   });
 
   it("quoteCoupon rejects a bogus code with CouponError (not a raw crash)", async () => {
-    await expect(quoteCoupon(db, { code: "BOGUS-CODE", companyId, amountPaisa: 150000 })).rejects.toThrow(CouponError);
-    await expect(quoteCoupon(db, { code: "  ", companyId, amountPaisa: 150000 })).rejects.toThrow(CouponError);
+    await expect(quoteCoupon(db, { code: "BOGUS-CODE", companyId, amountPaisa: 150000n })).rejects.toThrow(CouponError);
+    await expect(quoteCoupon(db, { code: "  ", companyId, amountPaisa: 150000n })).rejects.toThrow(CouponError);
   });
 
   it("bogus-code normalization is case/space/punctuation insensitive", () => {
@@ -173,22 +173,22 @@ describe("coupon math (lib/coupons)", () => {
   it("percent coupon quote: payable = gross - discount", async () => {
     const id = crypto.randomUUID();
     await db.insert(s.coupons).values({ id, code: "QAA310", kind: "PERCENT", value: 10, active: true });
-    const q = await quoteCoupon(db, { code: "qaa310", companyId, amountPaisa: 150000 });
-    expect(q.discountPaisa).toBe(15000);
-    expect(q.payablePaisa).toBe(135000);
+    const q = await quoteCoupon(db, { code: "qaa310", companyId, amountPaisa: 150000n });
+    expect(q.discountPaisa).toBe(15000n);
+    expect(q.payablePaisa).toBe(135000n);
   });
 
   it("consumeCoupon enforces max_uses and one-per-company", async () => {
     const id = crypto.randomUUID();
     await db.insert(s.coupons).values({ id, code: "QAA3ONE", kind: "FIXED", value: 10000, active: true, maxUses: 5 });
     await db.transaction(async (tx) => {
-      await quoteCoupon(tx, { code: "QAA3ONE", companyId, amountPaisa: 150000 });
-      await consumeCoupon(tx, { couponId: id, companyId, billingPaymentId: null, discountPaisa: 10000 });
+      await quoteCoupon(tx, { code: "QAA3ONE", companyId, amountPaisa: 150000n });
+      await consumeCoupon(tx, { couponId: id, companyId, billingPaymentId: null, discountPaisa: 10000n });
     });
     // second use by same company must fail cleanly
     await expect(
       db.transaction(async (tx) => {
-        await quoteCoupon(tx, { code: "QAA3ONE", companyId, amountPaisa: 150000 });
+        await quoteCoupon(tx, { code: "QAA3ONE", companyId, amountPaisa: 150000n });
       })
     ).rejects.toThrow(CouponError);
   });

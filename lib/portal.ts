@@ -24,10 +24,11 @@
  *     an admin reconciles the intent via the normal postPayment flow.
  */
 import { createHash, randomBytes, timingSafeEqual } from "node:crypto";
-import { eq, and, desc, sql } from "drizzle-orm";
+import { asc, eq, and, desc, inArray, sql } from "drizzle-orm";
 import {
   portalTokens,
   portalOrderRequests,
+  portalOrderRequestLines,
   portalPaymentIntents,
   portalActivityLog,
   parties,
@@ -191,6 +192,64 @@ export type PortalRequestItem = {
 
 export type PortalOrderRequestRow = typeof portalOrderRequests.$inferSelect;
 
+/** One staged request line, in the shape the API has always served
+ * (`items` array): money/qty as decimal strings, never floats. */
+export type PortalRequestLineStored = {
+  productId: string | null;
+  description: string;
+  qtyMilli: string;
+  ratePaisa: string;
+  lineTotalPaisa: string;
+};
+
+/**
+ * Load a request's lines from portal_order_request_lines (migration 0071),
+ * in stored order, in the API's `items` shape.
+ */
+export async function loadRequestItems(
+  dbx: Db | DbTx,
+  requestId: string
+): Promise<PortalRequestLineStored[]> {
+  const rows = await dbx
+    .select()
+    .from(portalOrderRequestLines)
+    .where(eq(portalOrderRequestLines.requestId, requestId))
+    .orderBy(asc(portalOrderRequestLines.lineOrder));
+  return rows.map((r) => ({
+    productId: r.productId,
+    description: r.description,
+    qtyMilli: r.qtyMilli.toString(),
+    ratePaisa: r.ratePaisa.toString(),
+    lineTotalPaisa: r.lineTotalPaisa.toString(),
+  }));
+}
+
+/** Batch version of loadRequestItems for list routes. */
+export async function loadRequestItemsMany(
+  dbx: Db | DbTx,
+  requestIds: string[]
+): Promise<Map<string, PortalRequestLineStored[]>> {
+  const out = new Map<string, PortalRequestLineStored[]>();
+  if (requestIds.length === 0) return out;
+  const rows = await dbx
+    .select()
+    .from(portalOrderRequestLines)
+    .where(inArray(portalOrderRequestLines.requestId, requestIds))
+    .orderBy(asc(portalOrderRequestLines.lineOrder));
+  for (const r of rows) {
+    const list = out.get(r.requestId) ?? [];
+    list.push({
+      productId: r.productId,
+      description: r.description,
+      qtyMilli: r.qtyMilli.toString(),
+      ratePaisa: r.ratePaisa.toString(),
+      lineTotalPaisa: r.lineTotalPaisa.toString(),
+    });
+    out.set(r.requestId, list);
+  }
+  return out;
+}
+
 const REQUEST_KINDS = ["SALES_ORDER", "BILL_SUBMISSION"] as const;
 const REQUEST_STATUSES = ["DRAFT", "SUBMITTED", "APPROVED", "REJECTED", "CANCELLED"] as const;
 
@@ -296,15 +355,6 @@ export async function createPortalOrderRequest(
     }
     const requestNo = await nextDocNo(tx, input.companyId, "PORTAL_REQUEST", "POR-");
     const id = crypto.randomUUID();
-    const itemsJson = JSON.stringify(
-      totals.items.map((i) => ({
-        productId: i.productId,
-        description: i.description,
-        qtyMilli: i.qtyMilli.toString(),
-        ratePaisa: i.ratePaisa.toString(),
-        lineTotalPaisa: i.lineTotalPaisa.toString(),
-      }))
-    );
     await tx.insert(portalOrderRequests).values({
       id,
       companyId: input.companyId,
@@ -313,7 +363,6 @@ export async function createPortalOrderRequest(
       requestNo,
       kind: input.kind,
       status: "DRAFT",
-      itemsJson,
       subtotalPaisa: totals.subtotal,
       taxPaisa: totals.taxTotal,
       grandTotalPaisa: totals.grandTotal,
@@ -321,6 +370,22 @@ export async function createPortalOrderRequest(
       notes: (input.notes ?? "").trim().slice(0, 2000) || null,
       idempotencyKey: input.idempotencyKey ?? null,
     });
+    // Lines live in portal_order_request_lines since migration 0071.
+    if (totals.items.length > 0) {
+      await tx.insert(portalOrderRequestLines).values(
+        totals.items.map((i, idx) => ({
+          id: crypto.randomUUID(),
+          requestId: id,
+          companyId: input.companyId,
+          productId: i.productId,
+          description: i.description,
+          qtyMilli: i.qtyMilli,
+          ratePaisa: i.ratePaisa,
+          lineTotalPaisa: i.lineTotalPaisa,
+          lineOrder: idx,
+        }))
+      );
+    }
     const rows = await tx.select().from(portalOrderRequests).where(eq(portalOrderRequests.id, id)).limit(1);
     return rows[0]!;
   });
@@ -370,7 +435,7 @@ async function getRequestForCompany(dbx: Db | DbTx, companyId: string, requestId
   return rows[0];
 }
 
-type RequestItemStored = { productId: string | null; description: string; qtyMilli: string; ratePaisa: string; lineTotalPaisa: string };
+type RequestItemStored = PortalRequestLineStored;
 
 /**
  * Admin approves a SUBMITTED request. This is the ONLY portal action that
@@ -389,7 +454,7 @@ export async function approvePortalOrderRequest(
     if (row.status !== "SUBMITTED") throw new UserError("Only submitted requests can be approved.", 409, "INVALID_STATUS");
     if (row.approvedDocId) throw new UserError("This request was already approved.", 409, "ALREADY_APPROVED");
 
-    const items: RequestItemStored[] = JSON.parse(row.itemsJson);
+    const items: RequestItemStored[] = await loadRequestItems(tx, row.id);
     const branchId = await defaultBranchId(tx, input.companyId);
     let docId: string;
     let docNo: string;

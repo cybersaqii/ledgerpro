@@ -1,7 +1,7 @@
 import { NextRequest } from "next/server";
 import { json, portalGate } from "@/lib/portal-route";
 import { db } from "@/lib/route-helpers";
-import { submitPortalOrderRequest, logPortalActivity } from "@/lib/portal";
+import { submitPortalOrderRequest, loadRequestItems, logPortalActivity } from "@/lib/portal";
 import { toApiError } from "@/lib/errors";
 
 // POST /api/portal/[token]/order-requests/[id]/submit — DRAFT -> SUBMITTED (ORDER access).
@@ -24,7 +24,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ tok
       detail: `${row.requestNo} submitted for approval`,
       ip: req.headers.get("x-forwarded-for")?.split(",").pop()?.trim() ?? null,
     });
-    return json({ data: { ...row, items: JSON.parse(row.itemsJson), itemsJson: undefined } });
+    return json({ data: { ...row, items: await loadRequestItems(db, row.id) } });
   } catch (e) {
     return toApiError(e, { route: "/api/portal/[token]/order-requests/[id]/submit" });
   }

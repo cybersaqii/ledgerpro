@@ -302,6 +302,32 @@ export function validateMatrixCell(input: {
   return { partyCategory: pc.slice(0, 60), productCategory: pdc.slice(0, 60), discountBps: bps };
 }
 
+/**
+ * P2 delete guard (shared by the API route and tests): a price list
+ * assigned to any party of the company cannot be deleted. The old route
+ * silently cleared those parties' priceListId; the guard forces an
+ * explicit reassign first so no customer silently loses their pricing.
+ * The list's own rates (priceListItems / priceListUomRates) are owned
+ * rows and are deleted with the list — they do not block it.
+ */
+export async function assertPriceListUnused(
+  dbx: Dbx,
+  companyId: string,
+  priceListId: string
+): Promise<void> {
+  const refs = await dbx
+    .select({ id: parties.id })
+    .from(parties)
+    .where(and(eq(parties.companyId, companyId), eq(parties.priceListId, priceListId)))
+    .limit(1);
+  if (refs[0])
+    throw new UserError(
+      "This price list is assigned to one or more parties — reassign those parties first, then delete.",
+      409,
+      "PRICE_LIST_IN_USE"
+    );
+}
+
 /** Validate a price-list payload (shared by the API route). */
 export function validatePriceList(input: {
   name: unknown;

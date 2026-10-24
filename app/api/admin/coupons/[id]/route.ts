@@ -1,6 +1,7 @@
 import { NextRequest } from "next/server";
 import { eq } from "drizzle-orm";
 import { coupons } from "@/db/schema";
+import { assertCouponDeletable, CouponError } from "@/lib/coupons";
 import { db } from "@/lib/route-helpers";
 import { json, err } from "@/lib/api";
 import { toApiError } from "@/lib/errors";
@@ -52,6 +53,9 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
 }
 
 // DELETE /api/admin/coupons/[id] — remove a coupon that was never used.
+// P2 guard: usedCount alone is a cached counter, so the delete is also
+// blocked by any actual redemption row or any billing payment referencing
+// the coupon (a payment keeps its coupon link as its discount audit trail).
 export async function DELETE(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const gate = await requirePlatformAdmin();
   if (!gate.ok) return gate.response;
@@ -61,6 +65,12 @@ export async function DELETE(_req: NextRequest, { params }: { params: Promise<{ 
     const [c] = await db.select().from(coupons).where(eq(coupons.id, id)).limit(1);
     if (!c) return err("Coupon not found.", 404);
     if (c.usedCount > 0) return err("Coupons that were already used cannot be deleted — deactivate them instead.", 409);
+    try {
+      await assertCouponDeletable(db, id);
+    } catch (e) {
+      if (e instanceof CouponError) return err(e.message, 409);
+      throw e;
+    }
     await db.delete(coupons).where(eq(coupons.id, id));
     await logAudit(db, {
       companyId: session.cid ?? "",

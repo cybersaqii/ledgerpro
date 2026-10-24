@@ -78,12 +78,27 @@ export async function updateExpense(tx: DbTx, input: UpdateExpenseInput) {
 
   // Reverse the original posting: restore the old bank balance and drop the
   // original journal (its lines first — SQLite has no ON DELETE CASCADE).
+  // P2: the destroyed journal is no longer invisible. Its entry id and
+  // line ids are captured here and returned to the caller, which writes
+  // them into the audit_logs detail for the edit — so a posted journal
+  // is never silently destroyed. (Keeping the old entry as a reversing
+  // entry instead was considered and rejected: it would change the void/
+  // period-lock accounting, since the entry would still exist as a live
+  // journal row; the audit-detail fix keeps every existing behaviour and
+  // test green.)
   const oldTotal = expense.amount + expense.taxAmount;
   await tx
     .update(bankAccounts)
     .set({ balance: sql`${bankAccounts.balance} + ${oldTotal}` })
     .where(eq(bankAccounts.id, expense.bankAccountId));
+  const replacedJournalEntryId = expense.journalEntryId;
+  let replacedJournalLineIds: string[] = [];
   if (expense.journalEntryId) {
+    const oldLines = await tx
+      .select({ id: journalLines.id })
+      .from(journalLines)
+      .where(eq(journalLines.entryId, expense.journalEntryId));
+    replacedJournalLineIds = oldLines.map((l) => l.id);
     await tx.delete(journalLines).where(eq(journalLines.entryId, expense.journalEntryId));
     await tx.delete(journalEntries).where(eq(journalEntries.id, expense.journalEntryId));
   }
@@ -128,5 +143,7 @@ export async function updateExpense(tx: DbTx, input: UpdateExpenseInput) {
     })
     .where(eq(expenses.id, expense.id))
     .returning();
-  return updated;
+  // Extra fields only; existing callers/tests that read updated.amount
+  // etc. are unaffected.
+  return { ...updated, replacedJournalEntryId, replacedJournalLineIds };
 }

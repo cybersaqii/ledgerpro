@@ -108,7 +108,8 @@ export async function POST(req: NextRequest) {
         companyId,
         currencyCode: code,
         rateScaled,
-        effectiveDate: dayMs,
+        // ts() column since P2: store a Date (same start-of-day ms value).
+        effectiveDate: new Date(dayMs),
         createdById: session.uid,
       })
       .onConflictDoUpdate({

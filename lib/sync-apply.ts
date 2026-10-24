@@ -24,6 +24,7 @@ import {
   bankAccounts,
   expenses,
   heldBills,
+  heldBillLines,
   parties,
   paymentAllocations,
   payments,
@@ -72,7 +73,7 @@ import { assertBranch, defaultBranchId, parseDateOnly } from "@/lib/route-helper
 import { UserError } from "@/lib/errors";
 import { logAudit } from "@/lib/audit";
 import { createSalesReturn } from "@/lib/doc-actions";
-import { createHeldBill, deleteHeldBill } from "@/lib/held";
+import { createHeldBill, deleteHeldBill, loadHeldBillLines } from "@/lib/held";
 import { getPurchaseDocDetail, getSalesDocDetail } from "@/lib/doc-detail";
 
 // ─── Operation model ─────────────────────────────────────────
@@ -1815,8 +1816,30 @@ async function applyHeldBillUpsert(db: Db, ds: DeviceSession, op: SyncOp): Promi
       winner = c.conflict ? "client" : undefined;
       await tx
         .update(heldBills)
-        .set({ label: b.label.slice(0, 80), lines: JSON.stringify(lines), discount: b.discount, updatedAt: new Date() })
+        .set({ label: b.label.slice(0, 80), discount: b.discount, updatedAt: new Date() })
         .where(eq(heldBills.id, existing.id));
+      // Lines live in held_bill_lines since migration 0071: replace them
+      // wholesale (lines first would violate the restrict FK on the parent
+      // delete, but this is a replace, not a delete — delete lines, then
+      // insert the new set, all inside this transaction).
+      await tx.delete(heldBillLines).where(eq(heldBillLines.heldBillId, existing.id));
+      if (lines.length > 0) {
+        await tx.insert(heldBillLines).values(
+          lines.map((l, i) => ({
+            id: crypto.randomUUID(),
+            heldBillId: existing.id,
+            companyId,
+            productId: l.productId,
+            name: l.name,
+            sku: l.sku ?? "",
+            unit: l.unit ?? "PCS",
+            qty: l.qty,
+            rate: l.rate,
+            discount: l.discount,
+            lineOrder: i,
+          }))
+        );
+      }
     } else {
       await createHeldBill(tx, {
         id: op.refId,
@@ -1837,7 +1860,7 @@ async function applyHeldBillUpsert(db: Db, ds: DeviceSession, op: SyncOp): Promi
     await logSyncConflict(db, ds, op, "held_bill", op.refId, out.existing.updatedAt, "server");
     const serverRow = serializeWire({
       ...out.existing,
-      lines: JSON.parse(out.existing.lines) as unknown,
+      lines: await loadHeldBillLines(db, out.existing.id),
     });
     return {
       status: "conflict",
@@ -1856,7 +1879,7 @@ async function applyHeldBillUpsert(db: Db, ds: DeviceSession, op: SyncOp): Promi
     entity: "held_bill", entityId: op.refId,
     detail: `Held bill ${b.label || op.refId.slice(0, 8)} (${lines.length} items) via sync`,
   });
-  const serverRow = serializeWire({ ...out.fresh, lines: JSON.parse(out.fresh.lines) as unknown });
+  const serverRow = serializeWire({ ...out.fresh, lines: await loadHeldBillLines(db, out.fresh.id) });
   return {
     status: "accepted",
     refId: op.refId,
@@ -1905,7 +1928,7 @@ async function applyHeldBillDelete(db: Db, ds: DeviceSession, op: SyncOp): Promi
     await logSyncConflict(db, ds, op, "held_bill", op.refId, out.existing.updatedAt, "server");
     const serverRow = serializeWire({
       ...out.existing,
-      lines: JSON.parse(out.existing.lines) as unknown,
+      lines: await loadHeldBillLines(db, out.existing.id),
     });
     return {
       status: "conflict",

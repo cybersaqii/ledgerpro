@@ -48,7 +48,9 @@ export async function PATCH(req: NextRequest, ctx: Ctx) {
     await logAudit(db, {
       companyId, userId: session.uid, userName: session.name,
       action: "expense.updated", entity: "expense", entityId: id,
-      detail: `Expense ${updated.docNo} updated`,
+      // P2: the replaced (deleted) journal entry + its line ids, so the
+      // destroyed posting stays traceable from the audit trail.
+      detail: `Expense ${updated.docNo} updated${updated.replacedJournalEntryId ? ` — replaced journal entry ${updated.replacedJournalEntryId} (lines: ${updated.replacedJournalLineIds.join(", ") || "none"}) with new entry ${updated.journalEntryId}` : ""}`,
     });
     return json({
       data: {

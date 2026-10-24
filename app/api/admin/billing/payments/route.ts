@@ -34,5 +34,13 @@ export async function GET(req: NextRequest) {
     .where(status ? eq(billingPayments.status, status) : undefined)
     .orderBy(desc(billingPayments.createdAt))
     .limit(100);
-  return json({ data: rows });
+  // Plain numbers on the wire (billing amounts are small); the DB type is
+  // bigint since migration 0070.
+  return json({
+    data: rows.map((r) => ({
+      ...r,
+      amountPaisa: Number(r.amountPaisa),
+      discountPaisa: Number(r.discountPaisa),
+    })),
+  });
 }

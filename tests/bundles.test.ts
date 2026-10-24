@@ -155,8 +155,8 @@ describe("bundle definition", () => {
   it("stores components and flags the product as a bundle", async () => {
     const comps = await getBundleComponents(db, companyId, bundleId);
     expect(comps).toHaveLength(2);
-    expect(comps.find((c) => c.componentProductId === compAId)?.qtyThousandths).toBe(2000);
-    expect(comps.find((c) => c.componentProductId === compBId)?.qtyThousandths).toBe(3000);
+    expect(comps.find((c) => c.componentProductId === compAId)?.qtyThousandths).toBe(2000n);
+    expect(comps.find((c) => c.componentProductId === compBId)?.qtyThousandths).toBe(3000n);
     expect(await bundleProductIds(db, companyId)).toContain(bundleId);
     expect(await bundleProductIds(db, companyId)).not.toContain(compAId);
   });

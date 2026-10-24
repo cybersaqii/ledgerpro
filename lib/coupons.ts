@@ -3,7 +3,7 @@
 // integer paisa; validation always runs server-side on submit — the client
 // preview is never trusted.
 import { and, eq, sql } from "drizzle-orm";
-import { coupons, couponRedemptions } from "@/db/schema";
+import { billingPayments, coupons, couponRedemptions } from "@/db/schema";
 import type { Db, DbTx } from "@/lib/db";
 
 export class CouponError extends Error {
@@ -39,6 +39,33 @@ export async function getValidCoupon(
   return c;
 }
 
+/**
+ * P2 delete guard (shared by the API route and tests): usedCount is a
+ * cached counter, so deletion is also blocked by any actual redemption
+ * row or any billing payment referencing the coupon — a payment keeps
+ * its coupon link as its discount audit trail. The route still checks
+ * usedCount first (fast path); this covers counter drift.
+ */
+export async function assertCouponDeletable(
+  dbc: Db | DbTx,
+  couponId: string
+): Promise<void> {
+  const [redemption] = await dbc
+    .select({ id: couponRedemptions.id })
+    .from(couponRedemptions)
+    .where(eq(couponRedemptions.couponId, couponId))
+    .limit(1);
+  if (redemption)
+    throw new CouponError("This coupon has redemptions — deactivate it instead of deleting.");
+  const [payment] = await dbc
+    .select({ id: billingPayments.id })
+    .from(billingPayments)
+    .where(eq(billingPayments.couponId, couponId))
+    .limit(1);
+  if (payment)
+    throw new CouponError("This coupon is linked to a billing payment — deactivate it instead of deleting.");
+}
+
 /** Company-level reuse guard. */
 export async function assertNotRedeemed(
   dbc: Db | DbTx,
@@ -53,23 +80,28 @@ export async function assertNotRedeemed(
   if (r) throw new CouponError("You have already used this coupon.");
 }
 
-export function discountFor(c: CouponRow, amountPaisa: number): number {
-  if (amountPaisa <= 0) return 0;
-  const d = c.kind === "PERCENT" ? Math.round((amountPaisa * c.value) / 100) : c.value;
-  return Math.min(d, amountPaisa);
+/** Discount in paisa. PERCENT rounds half-up, matching the old
+ * Math.round behaviour on non-negative amounts. */
+export function discountFor(c: CouponRow, amountPaisa: bigint): bigint {
+  if (amountPaisa <= 0n) return 0n;
+  const d =
+    c.kind === "PERCENT"
+      ? (amountPaisa * BigInt(c.value) + 50n) / 100n
+      : BigInt(c.value);
+  return d < amountPaisa ? d : amountPaisa;
 }
 
 export type CouponQuote = {
   coupon: CouponRow;
-  discountPaisa: number;
-  payablePaisa: number;
+  discountPaisa: bigint;
+  payablePaisa: bigint;
   description: string;
 };
 
 /** Full server-side quote: validity + reuse + discount math. */
 export async function quoteCoupon(
   dbc: Db | DbTx,
-  input: { code: string; companyId: string; amountPaisa: number }
+  input: { code: string; companyId: string; amountPaisa: bigint }
 ): Promise<CouponQuote> {
   const coupon = await getValidCoupon(dbc, input.code);
   await assertNotRedeemed(dbc, coupon.id, input.companyId);
@@ -91,7 +123,7 @@ export async function quoteCoupon(
  */
 export async function consumeCoupon(
   dbc: DbTx,
-  input: { couponId: string; companyId: string; billingPaymentId: string | null; discountPaisa: number; now?: Date }
+  input: { couponId: string; companyId: string; billingPaymentId: string | null; discountPaisa: bigint; now?: Date }
 ): Promise<void> {
   const now = input.now ?? new Date();
   const [c] = await dbc.select().from(coupons).where(eq(coupons.id, input.couponId)).limit(1);

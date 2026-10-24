@@ -47,7 +47,7 @@ export async function getRateForDate(
   companyId: string,
   code: string,
   date: Date
-): Promise<{ rateScaled: bigint; effectiveDate: number | null }> {
+): Promise<{ rateScaled: bigint; effectiveDate: Date | null }> {
   if (code === BASE_CURRENCY) return { rateScaled: BASE_RATE_SCALED, effectiveDate: null };
   const day = startOfDayMs(date);
   const rows = await tx
@@ -57,7 +57,8 @@ export async function getRateForDate(
       and(
         eq(exchangeRates.companyId, companyId),
         eq(exchangeRates.currencyCode, code),
-        lte(exchangeRates.effectiveDate, day)
+        // ts() column: compare with a Date, not raw ms.
+        lte(exchangeRates.effectiveDate, new Date(day))
       )
     )
     .orderBy(desc(exchangeRates.effectiveDate))

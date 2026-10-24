@@ -33,7 +33,15 @@ export async function GET() {
     .where(eq(billingPayments.companyId, gate.companyId))
     .orderBy(desc(billingPayments.createdAt))
     .limit(50);
-  return json({ data: rows });
+  // Plain numbers on the wire (billing amounts are small); the DB type is
+  // bigint since migration 0070.
+  return json({
+    data: rows.map((r) => ({
+      ...r,
+      amountPaisa: Number(r.amountPaisa),
+      discountPaisa: Number(r.discountPaisa),
+    })),
+  });
 }
 
 // POST /api/billing/payments — owner submits a manual payment for verification.
@@ -72,7 +80,7 @@ export async function POST(req: NextRequest) {
         .limit(1);
       if (open[0]) throw new UserError("You already have a payment waiting for verification.", 409);
       let couponId: string | null = null;
-      let discountPaisa = 0;
+      let discountPaisa = 0n;
       if (couponCodeNorm) {
         const quote = await quoteCoupon(tx, { code: couponCodeNorm, companyId, amountPaisa });
         couponId = quote.coupon.id;

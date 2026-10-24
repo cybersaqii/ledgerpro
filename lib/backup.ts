@@ -29,6 +29,7 @@ import {
   purchaseDocs,
   recurringRuns,
   recurringTemplates,
+  recurringTemplateLines,
   salesDocItems,
   salesDocs,
   stockLevels,
@@ -99,6 +100,15 @@ export async function buildBackupPayload(dbc: Db | DbTx, companyId: string) {
     creditHoldEvents: await dbc.select().from(creditHoldEvents).where(eq(creditHoldEvents.companyId, c)),
     // Module 24: recurring invoice templates + run history.
     recurringTemplates: await dbc.select().from(recurringTemplates).where(eq(recurringTemplates.companyId, c)),
+    // P2: template lines live in their own table since migration 0071;
+    // they must travel with the templates or a restore would leave
+    // templates with no items.
+    recurringTemplateLines: await dbc
+      .select({ l: recurringTemplateLines })
+      .from(recurringTemplateLines)
+      .innerJoin(recurringTemplates, eq(recurringTemplateLines.templateId, recurringTemplates.id))
+      .where(eq(recurringTemplates.companyId, c))
+      .then((rows) => rows.map((r) => r.l)),
     recurringRuns: await dbc.select().from(recurringRuns).where(eq(recurringRuns.companyId, c)),
     // Module 25: IP allowlist + bypasses + login-attempt audit.
     ipAllowlist: await dbc.select().from(ipAllowlist).where(eq(ipAllowlist.companyId, c)),
@@ -311,6 +321,7 @@ export const BACKUP_ARRAY_KEYS = [
   "stockLevels",
   "numberSequences",
   "recurringTemplates",
+  "recurringTemplateLines",
   "recurringRuns",
   "ipAllowlist",
   "loginAttempts",
@@ -343,6 +354,12 @@ export function validateBackupPayload(raw: string): VerifyResult {
   for (const key of BACKUP_ARRAY_KEYS) {
     const v = doc[key];
     if (!Array.isArray(v)) {
+      // Pre-P2 backups predate recurringTemplateLines (migration 0071);
+      // restore tolerates a missing section, so validation must too.
+      if (key === "recurringTemplateLines") {
+        rowCounts[key] = 0;
+        continue;
+      }
       errors.push(`Backup section "${key}" is missing or damaged.`);
       continue;
     }

@@ -200,12 +200,18 @@ describe("company deletion", () => {
       id: crypto.randomUUID(), companyId: cid, branchId, date: new Date(),
       accountId: acctRows[0].id, bankAccountId: crypto.randomUUID(), amount: 50n, createdById: uid,
     });
+    // P2: held lines live in held_bill_lines (migration 0071), not a JSON column.
+    const heldId = crypto.randomUUID();
     await db.insert(s.heldBills).values({
-      id: crypto.randomUUID(), companyId: cid, userId: uid, label: "hold", lines: "[]",
+      id: heldId, companyId: cid, userId: uid, label: "hold",
+    });
+    await db.insert(s.heldBillLines).values({
+      id: crypto.randomUUID(), heldBillId: heldId, companyId: cid,
+      name: "Held item", qty: "1", rate: "100",
     });
     await db.insert(s.settings).values({ id: crypto.randomUUID(), companyId: cid, key: "k", value: "v" });
     await db.insert(s.billingPayments).values({
-      id: crypto.randomUUID(), companyId: cid, userId: uid, amountPaisa: 150000,
+      id: crypto.randomUUID(), companyId: cid, userId: uid, amountPaisa: 150000n,
       method: "BANK", reference: "REF1",
     });
     await db.insert(s.auditLogs).values({

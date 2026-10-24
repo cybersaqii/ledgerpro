@@ -9,6 +9,7 @@ import { NextRequest } from "next/server";
 import { and, eq, gt, inArray, type SQL } from "drizzle-orm";
 import type { AnySQLiteColumn, SQLiteTable } from "drizzle-orm/sqlite-core";
 import { db } from "@/lib/db";
+import { loadHeldBillLinesMany } from "@/lib/held";
 import { json } from "@/lib/api";
 import { requireDevice, deviceCan, type DeviceSession } from "@/lib/sync-auth";
 import type { Permission } from "@/lib/permissions";
@@ -288,7 +289,7 @@ async function pullHeldBills(
 ): Promise<TablePage> {
   // User-scoped: owners see everyone's, staff see only their own.
   const extra = ds.isOwner ? undefined : eq(heldBills.userId, ds.userId);
-  return pullDelta(
+  const page = await pullDelta(
     ds.companyId,
     heldBills,
     heldBills.updatedAt,
@@ -298,6 +299,16 @@ async function pullHeldBills(
     extra,
     (r) => ({ ...r, createdAt: ms(r.createdAt), updatedAt: ms(r.updatedAt) }),
   );
+  // Lines live in held_bill_lines since migration 0071. The wire shape is
+  // unchanged: `lines` is still the JSON string clients have always parsed.
+  const linesByBill = await loadHeldBillLinesMany(
+    db,
+    page.rows.map((r) => r.id as string)
+  );
+  for (const row of page.rows) {
+    row.lines = JSON.stringify(linesByBill.get(row.id as string) ?? []);
+  }
+  return page;
 }
 
 async function pullJournalEntries(

@@ -204,24 +204,26 @@ const TIER_DEFAULT_PRICES: Record<string, { monthly: number; yearly: number }> =
   professional: { monthly: 200000, yearly: 2000000 },
   enterprise: { monthly: 350000, yearly: 3500000 },
 };
-export function priceForPlan(settings: Record<string, string>, plan: string, months: number): number {
+/** Plan price in paisa. Bigint since migration 0070 (billing_payments
+ * amounts are money()); callers that serve JSON convert with Number(). */
+export function priceForPlan(settings: Record<string, string>, plan: string, months: number): bigint {
   const tier = plan.toLowerCase();
   const monthlyKey = `billing.${tier}_monthly_price_paisa`;
   const yearlyKey = `billing.${tier}_yearly_price_paisa`;
   const def = TIER_DEFAULT_PRICES[tier] ?? TIER_DEFAULT_PRICES.professional;
   const monthly = parseInt(settings[monthlyKey] || settings["billing.monthly_price_paisa"] || String(def.monthly), 10);
   const yearly = parseInt(settings[yearlyKey] || settings["billing.yearly_price_paisa"] || String(def.yearly), 10);
-  return months >= 12 ? yearly : monthly * months;
+  return months >= 12 ? BigInt(yearly) : BigInt(monthly) * BigInt(months);
 }
 
-/** All tier prices for the billing page. */
+/** All tier prices for the billing page (plain numbers for JSON). */
 export function allTierPrices(settings: Record<string, string>): Record<string, { monthly: number; yearly: number }> {
   const tiers = ["STARTER", "PROFESSIONAL", "ENTERPRISE"];
   const out: Record<string, { monthly: number; yearly: number }> = {};
   for (const t of tiers) {
     out[t] = {
-      monthly: priceForPlan(settings, t, 1),
-      yearly: priceForPlan(settings, t, 12),
+      monthly: Number(priceForPlan(settings, t, 1)),
+      yearly: Number(priceForPlan(settings, t, 12)),
     };
   }
   return out;
@@ -308,13 +310,13 @@ export async function createBillingPayment(
   input: {
     companyId: string;
     userId: string;
-    amountPaisa: number;
+    amountPaisa: bigint;
     method: string;
     reference: string;
     months: number;
     plan?: string;
     couponId?: string | null;
-    discountPaisa?: number;
+    discountPaisa?: bigint;
   },
   dbc: Db | DbTx = db
 ): Promise<string> {
@@ -329,7 +331,7 @@ export async function createBillingPayment(
     months: input.months,
     plan: input.plan ?? "PROFESSIONAL",
     couponId: input.couponId ?? null,
-    discountPaisa: input.discountPaisa ?? 0,
+    discountPaisa: input.discountPaisa ?? 0n,
     status: "PENDING",
     createdAt: new Date(),
   });

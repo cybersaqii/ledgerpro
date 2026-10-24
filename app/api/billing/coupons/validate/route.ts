@@ -21,8 +21,10 @@ export async function POST(req: NextRequest) {
     const quote = await quoteCoupon(db, { code, companyId, amountPaisa });
     return json({
       data: {
-        discountPaisa: quote.discountPaisa,
-        payablePaisa: quote.payablePaisa,
+        // Plain numbers on the wire (plan prices are small); the server
+        // math above is bigint since migration 0070.
+        discountPaisa: Number(quote.discountPaisa),
+        payablePaisa: Number(quote.payablePaisa),
         description: quote.description,
       },
     });

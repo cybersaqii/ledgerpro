@@ -96,7 +96,7 @@ beforeAll(async () => {
     companyId,
     currencyCode: "USD",
     rateScaled: USD_RATE,
-    effectiveDate: startOfDayMs(D(2026, 9, 28)),
+    effectiveDate: new Date(startOfDayMs(D(2026, 9, 28))),
     createdById: userId,
   });
 });
@@ -355,7 +355,7 @@ describe("D. rate lookup follows effective-date ranges", () => {
       companyId,
       currencyCode: "USD",
       rateScaled: 281_250_000n,
-      effectiveDate: startOfDayMs(D(2026, 9, 30)),
+      effectiveDate: new Date(startOfDayMs(D(2026, 9, 30))),
       createdById: userId,
     });
   });
@@ -754,7 +754,7 @@ describe("K. idempotency guards", () => {
     const upsert = (rate: bigint) =>
       db
         .insert(s.exchangeRates)
-        .values({ companyId, currencyCode: "USD", rateScaled: rate, effectiveDate: day, createdById: userId })
+        .values({ companyId, currencyCode: "USD", rateScaled: rate, effectiveDate: new Date(day), createdById: userId })
         .onConflictDoUpdate({
           target: [s.exchangeRates.companyId, s.exchangeRates.currencyCode, s.exchangeRates.effectiveDate],
           set: { rateScaled: rate, createdById: userId },
@@ -768,7 +768,7 @@ describe("K. idempotency guards", () => {
         and(
           eq(s.exchangeRates.companyId, companyId),
           eq(s.exchangeRates.currencyCode, "USD"),
-          eq(s.exchangeRates.effectiveDate, day)
+          eq(s.exchangeRates.effectiveDate, new Date(day))
         )
       );
     expect(rows).toHaveLength(1);

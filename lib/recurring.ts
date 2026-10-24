@@ -25,12 +25,13 @@
  * companyId. Dates are UTC-midnight millis; month arithmetic clamps to the
  * end of shorter months (Jan 31 → Feb 28).
  */
-import { and, asc, desc, eq, lte } from "drizzle-orm";
+import { and, asc, desc, eq, inArray, lte } from "drizzle-orm";
 import {
   parties,
   products,
   recurringRuns,
   recurringTemplates,
+  recurringTemplateLines,
   salesDocs,
 } from "@/db/schema";
 import type { Db, DbTx } from "./db";
@@ -83,32 +84,50 @@ export function advanceRunDate(fromMs: number, frequency: Frequency): number {
   }
 }
 
-/** Parse + validate the items JSON stored on a template. */
-export function parseTemplateItems(json: string): TemplateItem[] {
-  let raw: unknown;
-  try {
-    raw = JSON.parse(json);
-  } catch {
-    throw new UserError("Recurring template items are corrupt.", 422, "INVALID_TEMPLATE");
-  }
-  if (!Array.isArray(raw) || raw.length === 0)
+/**
+ * Load + validate a template's lines from recurring_template_lines
+ * (migration 0071 replaced the old items_json blob). Same validation the
+ * old JSON parser applied, so corrupt stored rows still fail loudly
+ * instead of generating a wrong invoice.
+ */
+export async function loadTemplateItems(
+  dbx: Db | DbTx,
+  templateId: string
+): Promise<TemplateItem[]> {
+  const rows = await dbx
+    .select()
+    .from(recurringTemplateLines)
+    .where(eq(recurringTemplateLines.templateId, templateId))
+    .orderBy(asc(recurringTemplateLines.lineOrder));
+  if (rows.length === 0)
     throw new UserError("A recurring template needs at least one item.", 422, "INVALID_TEMPLATE");
-  return raw.map((it, i) => {
-    const o = it as Record<string, unknown>;
-    const productId = String(o.productId ?? "");
-    const qty = Number(o.qty);
-    let ratePaisa = 0n;
-    try {
-      ratePaisa = BigInt(String(o.ratePaisa ?? "0"));
-    } catch {
-      throw new UserError(`Item ${i + 1}: invalid rate.`, 422, "INVALID_TEMPLATE");
-    }
-    if (!productId) throw new UserError(`Item ${i + 1}: product is required.`, 422, "INVALID_TEMPLATE");
-    if (!Number.isInteger(qty) || qty <= 0)
+  return rows.map((r, i) => {
+    if (!r.productId) throw new UserError(`Item ${i + 1}: product is required.`, 422, "INVALID_TEMPLATE");
+    if (!Number.isInteger(r.qty) || r.qty <= 0)
       throw new UserError(`Item ${i + 1}: quantity must be a positive whole number.`, 422, "INVALID_TEMPLATE");
-    if (ratePaisa < 0n) throw new UserError(`Item ${i + 1}: rate cannot be negative.`, 422, "INVALID_TEMPLATE");
-    return { productId, qty, ratePaisa: ratePaisa.toString() };
+    if (r.ratePaisa < 0n) throw new UserError(`Item ${i + 1}: rate cannot be negative.`, 422, "INVALID_TEMPLATE");
+    return { productId: r.productId, qty: r.qty, ratePaisa: r.ratePaisa.toString() };
   });
+}
+
+/** Batch version of loadTemplateItems for list routes. */
+export async function loadTemplateItemsMany(
+  dbx: Db | DbTx,
+  templateIds: string[]
+): Promise<Map<string, TemplateItem[]>> {
+  const out = new Map<string, TemplateItem[]>();
+  if (templateIds.length === 0) return out;
+  const rows = await dbx
+    .select()
+    .from(recurringTemplateLines)
+    .where(inArray(recurringTemplateLines.templateId, templateIds))
+    .orderBy(asc(recurringTemplateLines.lineOrder));
+  for (const r of rows) {
+    const list = out.get(r.templateId) ?? [];
+    list.push({ productId: r.productId, qty: r.qty, ratePaisa: r.ratePaisa.toString() });
+    out.set(r.templateId, list);
+  }
+  return out;
 }
 
 export interface TemplateInput {
@@ -184,12 +203,23 @@ export async function createRecurringTemplate(
     status: "ACTIVE",
     terms: input.terms?.trim() || null,
     notes: input.notes?.trim() || null,
-    itemsJson: JSON.stringify(input.items),
     skipNext: false,
     createdById,
     createdAt: now,
     updatedAt: now,
   });
+  // Lines live in recurring_template_lines since migration 0071.
+  await tx.insert(recurringTemplateLines).values(
+    input.items.map((it, idx) => ({
+      id: crypto.randomUUID(),
+      templateId: id,
+      companyId,
+      productId: it.productId,
+      qty: it.qty,
+      ratePaisa: BigInt(it.ratePaisa),
+      lineOrder: idx,
+    }))
+  );
   return id;
 }
 
@@ -218,7 +248,19 @@ export async function updateRecurringTemplate(
   }
   if (input.items !== undefined) {
     await resolveTemplateProducts(tx, companyId, input.items);
-    patch.itemsJson = JSON.stringify(input.items);
+    // Replace the line set wholesale (lines are value rows, not identity).
+    await tx.delete(recurringTemplateLines).where(eq(recurringTemplateLines.templateId, templateId));
+    await tx.insert(recurringTemplateLines).values(
+      input.items.map((it, idx) => ({
+        id: crypto.randomUUID(),
+        templateId,
+        companyId,
+        productId: it.productId,
+        qty: it.qty,
+        ratePaisa: BigInt(it.ratePaisa),
+        lineOrder: idx,
+      }))
+    );
   }
   if (input.endDateMs !== undefined) patch.endDate = input.endDateMs != null ? new Date(input.endDateMs) : null;
   if (input.terms !== undefined) patch.terms = input.terms?.trim() || null;
@@ -279,6 +321,8 @@ export async function deleteTemplate(tx: DbTx, companyId: string, templateId: st
   const t = await getTemplate(tx, companyId, templateId);
   if (!t) throw new UserError("Recurring template not found.", 404, "NOT_FOUND");
   await tx.delete(recurringRuns).where(eq(recurringRuns.templateId, templateId));
+  // Lines first: the lines FK is restrict.
+  await tx.delete(recurringTemplateLines).where(eq(recurringTemplateLines.templateId, templateId));
   await tx.delete(recurringTemplates).where(eq(recurringTemplates.id, templateId));
 }
 
@@ -441,7 +485,7 @@ async function generateTemplateInvoice(
   const lockErr = await periodLockError(tx, companyId, docDate);
   if (lockErr) throw new UserError(`Period locked: ${lockErr}`, 422, "PERIOD_LOCKED");
 
-  const items = parseTemplateItems(t.itemsJson);
+  const items = await loadTemplateItems(tx, templateId);
   const prodMap = await resolveTemplateProducts(tx, companyId, items);
 
   // Build line items from the template snapshot (rate frozen at creation).
@@ -586,12 +630,12 @@ export function serializeTemplate(
     status: string;
     terms: string | null;
     notes: string | null;
-    itemsJson: string;
     skipNext: boolean;
     lastRunAt: Date | null;
     createdAt: Date;
   },
-  partyName: string
+  partyName: string,
+  items: TemplateItem[]
 ) {
   return {
     id: t.id,
@@ -606,7 +650,7 @@ export function serializeTemplate(
     status: t.status,
     terms: t.terms,
     notes: t.notes,
-    items: JSON.parse(t.itemsJson) as TemplateItem[],
+    items,
     skipNext: t.skipNext,
     lastRunAt: t.lastRunAt?.toISOString() ?? null,
     createdAt: t.createdAt.toISOString(),

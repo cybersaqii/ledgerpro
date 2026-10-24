@@ -8,6 +8,8 @@ import { getBundleComponents, bundlesUsingProduct } from "@/lib/bundles";
 import { json, err } from "@/lib/api";
 import { requireCompany, db, requirePermission } from "@/lib/route-helpers";
 import { logAudit } from "@/lib/audit";
+import { assertCategoryChangeAllowed } from "@/lib/category-guard";
+import { UserError } from "@/lib/errors";
 import { isForeignKeyViolation } from "@/lib/company-delete";
 import { validateImageUrl, ImageUrlError } from "@/lib/product-image";
 import { assertProductAccount } from "@/lib/stock-ledger";
@@ -27,7 +29,8 @@ async function find(companyId: string, id: string) {
     levels: lv,
     totalQty: lv.reduce((a, l) => a + l.qty, 0n).toString(),
     isBundle: components.length > 0,
-    components,
+    // Plain numbers on the wire; the DB type is bigint since migration 0070.
+    components: components.map((c) => ({ ...c, qtyThousandths: Number(c.qtyThousandths) })),
   };
 }
 
@@ -70,6 +73,17 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
       .limit(1);
     if (dup[0]) return err("A product with this SKU already exists.", 409, "DUPLICATE");
  }
+
+  // P2: a category keyed by an active discount rule is immutable —
+  // renaming it would silently orphan the rule.
+  if (p.category !== undefined) {
+    try {
+      await assertCategoryChangeAllowed(db, companyId, "product", row.category, p.category || null);
+    } catch (e) {
+      if (e instanceof UserError) return err(e.message, 409, "CATEGORY_IN_USE");
+      throw e;
+    }
+  }
 
   await db.transaction(async (tx) => {
     // Module 4.1: item type drives stock tracking; explicit itemType wins,

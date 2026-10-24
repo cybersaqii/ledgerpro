@@ -9,6 +9,7 @@ import {
   FREQUENCIES,
   createRecurringTemplate,
   listTemplates,
+  loadTemplateItemsMany,
   serializeTemplate,
   type TemplateItem,
 } from "@/lib/recurring";
@@ -20,8 +21,11 @@ export async function GET() {
   if (!gate.ok) return gate.response;
   try {
     const rows = await listTemplates(db, gate.companyId);
+    const itemsByTemplate = await loadTemplateItemsMany(db, rows.map((r) => r.template.id));
     return json({
-      data: rows.map((r) => serializeTemplate(r.template, r.partyName)),
+      data: rows.map((r) =>
+        serializeTemplate(r.template, r.partyName, itemsByTemplate.get(r.template.id) ?? [])
+      ),
     });
   } catch (e) {
     return toApiError(e, { route: "/api/recurring" });

@@ -4,6 +4,8 @@ import { parties, priceLists } from "@/db/schema";
 
 import { partySchema } from "@/lib/validators";
 import { parseMoney } from "@/lib/money";
+import { assertCategoryChangeAllowed } from "@/lib/category-guard";
+import { UserError } from "@/lib/errors";
 import { json, err } from "@/lib/api";
 import { requireCompany, db, requirePermission } from "@/lib/route-helpers";
 import { logAudit } from "@/lib/audit";
@@ -78,6 +80,14 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
  })
     .where(and(eq(parties.id, id), eq(parties.companyId, companyId)));
   if (p.category !== undefined) {
+    // P2: a category keyed by an active discount rule is immutable —
+    // renaming it would silently orphan the rule.
+    try {
+      await assertCategoryChangeAllowed(db, companyId, "party", row.category, p.category || null);
+    } catch (e) {
+      if (e instanceof UserError) return err(e.message, 409, "CATEGORY_IN_USE");
+      throw e;
+    }
     await db.update(parties).set({ category: p.category || null }).where(and(eq(parties.id, id), eq(parties.companyId, companyId)));
   }
   // Module 22: party price list must belong to this company (or be cleared).

@@ -1,7 +1,7 @@
 import { NextRequest } from "next/server";
 import { json, portalGate } from "@/lib/portal-route";
 import { db } from "@/lib/route-helpers";
-import { cancelPortalOrderRequest, logPortalActivity } from "@/lib/portal";
+import { cancelPortalOrderRequest, loadRequestItems, logPortalActivity } from "@/lib/portal";
 import { toApiError } from "@/lib/errors";
 
 // POST /api/portal/[token]/order-requests/[id]/cancel — party cancels its own
@@ -26,7 +26,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ tok
       detail: `${row.requestNo} cancelled by the party`,
       ip: req.headers.get("x-forwarded-for")?.split(",").pop()?.trim() ?? null,
     });
-    return json({ data: { ...row, items: JSON.parse(row.itemsJson), itemsJson: undefined } });
+    return json({ data: { ...row, items: await loadRequestItems(db, row.id) } });
   } catch (e) {
     return toApiError(e, { route: "/api/portal/[token]/order-requests/[id]/cancel" });
   }

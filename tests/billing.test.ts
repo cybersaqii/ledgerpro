@@ -206,7 +206,7 @@ describe("billing DB flow", () => {
     await db.insert(s.companies).values({ id: cid, name: "Pay Co", businessType: "SERVICES" });
     const pid = await createBillingPayment(
       {
-        companyId: cid, userId: uidv, amountPaisa: 150000,
+        companyId: cid, userId: uidv, amountPaisa: 150000n,
         method: "JAZZCASH", reference: "FT123", months: 1,
       },
       db
@@ -247,12 +247,13 @@ describe("platform admin + pricing", () => {
   });
   it("priceForPlan picks monthly vs yearly", () => {
     const settings = { "billing.monthly_price_paisa": "150000", "billing.yearly_price_paisa": "1500000" };
-    expect(priceForPlan(settings, "PROFESSIONAL", 1)).toBe(150000);
-    expect(priceForPlan(settings, "PROFESSIONAL", 12)).toBe(1500000);
-    expect(priceForPlan(settings, "PROFESSIONAL", 3)).toBe(450000);
+    // P2: priceForPlan returns bigint (billing_payments amounts are money()).
+    expect(priceForPlan(settings, "PROFESSIONAL", 1)).toBe(150000n);
+    expect(priceForPlan(settings, "PROFESSIONAL", 12)).toBe(1500000n);
+    expect(priceForPlan(settings, "PROFESSIONAL", 3)).toBe(450000n);
     // Per-tier override
     const tiered = { ...settings, "billing.starter_monthly_price_paisa": "50000" };
-    expect(priceForPlan(tiered, "STARTER", 1)).toBe(50000);
-    expect(priceForPlan(tiered, "PROFESSIONAL", 1)).toBe(150000);
+    expect(priceForPlan(tiered, "STARTER", 1)).toBe(50000n);
+    expect(priceForPlan(tiered, "PROFESSIONAL", 1)).toBe(150000n);
   });
 });

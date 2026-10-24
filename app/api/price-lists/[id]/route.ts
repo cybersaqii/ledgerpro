@@ -1,10 +1,10 @@
 import { NextRequest } from "next/server";
 import { and, eq, inArray } from "drizzle-orm";
-import { parties, priceLists, priceListItems, priceListUomRates, products } from "@/db/schema";
+import { priceLists, priceListItems, priceListUomRates, products } from "@/db/schema";
 import { json } from "@/lib/api";
 import { toApiError, UserError } from "@/lib/errors";
 import { requirePermission, requireCompany, db } from "@/lib/route-helpers";
-import { validatePriceList } from "@/lib/pricing";
+import { assertPriceListUnused, validatePriceList } from "@/lib/pricing";
 import { logAudit } from "@/lib/audit";
 
 async function loadList(companyId: string, id: string) {
@@ -116,8 +116,10 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
   }
 }
 
-// DELETE /api/price-lists/[id] — delete the list, its rates, and clear the
-// party references pointing at it.
+// DELETE /api/price-lists/[id] — delete the list and its rates. P2 guard:
+// parties referencing the list block the delete (the old code silently
+// cleared their priceListId, un-pricing customers without a trace).
+// Reassign those parties to another list (or none) first, then delete.
 export async function DELETE(
   _req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -129,10 +131,7 @@ export async function DELETE(
   try {
     const list = await loadList(companyId, id);
     await db.transaction(async (tx) => {
-      await tx
-        .update(parties)
-        .set({ priceListId: null })
-        .where(and(eq(parties.companyId, companyId), eq(parties.priceListId, id)));
+      await assertPriceListUnused(tx, companyId, id);
       await tx
         .delete(priceListUomRates)
         .where(

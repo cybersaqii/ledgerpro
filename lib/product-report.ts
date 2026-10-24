@@ -190,7 +190,7 @@ export async function buildProductSalesReport(
     })
     .from(bundleComponents)
     .where(eq(bundleComponents.companyId, companyId));
-  const graph = new Map<string, { comp: string; qtyThousandths: number }[]>();
+  const graph = new Map<string, { comp: string; qtyThousandths: bigint }[]>();
   for (const r of bundleRows) {
     const list = graph.get(r.bundle) ?? [];
     list.push({ comp: r.comp, qtyThousandths: r.qtyThousandths });

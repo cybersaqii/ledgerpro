@@ -77,6 +77,7 @@ const RESTORE_TABLES: Record<(typeof BACKUP_ARRAY_KEYS)[number], SQLiteTable> = 
   stockLevels: schema.stockLevels,
   numberSequences: schema.numberSequences,
   recurringTemplates: schema.recurringTemplates,
+  recurringTemplateLines: schema.recurringTemplateLines,
   recurringRuns: schema.recurringRuns,
   ipAllowlist: schema.ipAllowlist,
   loginAttempts: schema.loginAttempts,
@@ -185,7 +186,7 @@ export function assertTypedNameMatches(typedName: unknown, currentName: string):
  * every section is re-inserted. If ANY insert throws, the transaction rolls
  * back and the company's data is completely untouched.
  *
- * Wiped and replaced: exactly the 21 sections the backup payload carries.
+ * Wiped and replaced: exactly the 22 sections the backup payload carries.
  * Preserved (see restorePreservedTables): the companies row itself, users,
  * login history, stored backups, settings, held bills, billing payments,
  * and the sample-data manifest. Company audit/error rows are wiped; the

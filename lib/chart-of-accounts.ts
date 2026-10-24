@@ -1,7 +1,7 @@
 import { eq, and } from "drizzle-orm";
 import { accounts } from "@/db/schema";
 import { UserError } from "./errors";
-import type { DbTx } from "./db";
+import type { Db, DbTx } from "./db";
 
 /**
  * Chart-of-accounts code ranges (Module 5.1).
@@ -154,6 +154,57 @@ export async function countAccountUsage(tx: DbTx, accountId: string): Promise<nu
     .where(eq(journalLines.accountId, accountId))
     .limit(1);
   return rows.length;
+}
+
+/**
+ * Configuration references the journal guard misses (P2): an account can
+ * be linked as a bank account's GL account, a product's revenue/COGS/
+ * inventory account, or an asset's cost/accumulated-depreciation account
+ * without a single journal line existing yet. Posted documents (expenses,
+ * adjustments, receipts, write-offs, distributions) all post journals, so
+ * the journal guard already covers them and they are not listed here.
+ * Returns a human label for the first referrer found, or null.
+ */
+export async function findAccountConfigReference(
+  tx: Db | DbTx,
+  companyId: string,
+  accountId: string
+): Promise<string | null> {
+  const { bankAccounts, products, assets } = await import("@/db/schema");
+  const { or } = await import("drizzle-orm");
+  const bank = await tx
+    .select({ id: bankAccounts.id })
+    .from(bankAccounts)
+    .where(and(eq(bankAccounts.companyId, companyId), eq(bankAccounts.accountId, accountId)))
+    .limit(1);
+  if (bank[0]) return "a bank/cash account";
+  const prod = await tx
+    .select({ id: products.id })
+    .from(products)
+    .where(
+      and(
+        eq(products.companyId, companyId),
+        or(
+          eq(products.revenueAccountId, accountId),
+          eq(products.cogsAccountId, accountId),
+          eq(products.inventoryAccountId, accountId)
+        )
+      )
+    )
+    .limit(1);
+  if (prod[0]) return "a product";
+  const asset = await tx
+    .select({ id: assets.id })
+    .from(assets)
+    .where(
+      and(
+        eq(assets.companyId, companyId),
+        or(eq(assets.accountId, accountId), eq(assets.accumDepAccountId, accountId))
+      )
+    )
+    .limit(1);
+  if (asset[0]) return "an asset";
+  return null;
 }
 
 /** Fetch one company account or throw 404. */

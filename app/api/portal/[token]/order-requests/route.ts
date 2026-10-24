@@ -5,6 +5,8 @@ import { json, err, portalGate } from "@/lib/portal-route";
 import { db } from "@/lib/route-helpers";
 import {
   createPortalOrderRequest,
+  loadRequestItems,
+  loadRequestItemsMany,
   logPortalActivity,
 } from "@/lib/portal";
 import { extractIdempotencyKey } from "@/lib/idempotency";
@@ -23,11 +25,11 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ toke
       .where(and(eq(portalOrderRequests.companyId, ctx.token.companyId), eq(portalOrderRequests.partyId, ctx.party.id)))
       .orderBy(desc(portalOrderRequests.createdAt))
       .limit(100);
+    const itemsByRequest = await loadRequestItemsMany(db, rows.map((r) => r.id));
     return json({
       data: rows.map((r) => ({
         ...r,
-        items: JSON.parse(r.itemsJson),
-        itemsJson: undefined,
+        items: itemsByRequest.get(r.id) ?? [],
         createdAt: r.createdAt.getTime(),
         updatedAt: r.updatedAt.getTime(),
         reviewedAt: r.reviewedAt ? r.reviewedAt.getTime() : null,
@@ -73,7 +75,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ tok
       ip: req.headers.get("x-forwarded-for")?.split(",").pop()?.trim() ?? null,
     });
     return json(
-      { data: { ...row, items: JSON.parse(row.itemsJson), itemsJson: undefined } },
+      { data: { ...row, items: await loadRequestItems(db, row.id) } },
       { status: 201 }
     );
   } catch (e) {

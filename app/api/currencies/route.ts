@@ -29,7 +29,7 @@ export async function GET() {
     const latestByCode = new Map<string, { rateScaled: bigint; effectiveDateMs: number }>();
     for (const r of rateRows) {
       if (!latestByCode.has(r.currencyCode))
-        latestByCode.set(r.currencyCode, { rateScaled: BigInt(r.rateScaled), effectiveDateMs: r.effectiveDate });
+        latestByCode.set(r.currencyCode, { rateScaled: BigInt(r.rateScaled), effectiveDateMs: r.effectiveDate.getTime() });
     }
     const data = rows
       .sort((a, b) => a.code.localeCompare(b.code))

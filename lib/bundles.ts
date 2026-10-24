@@ -19,8 +19,9 @@ export type BundleComponent = {
   componentName: string;
   componentSku: string;
   componentUnit: string;
-  /** Component units per one bundle unit, in thousandths (2500 = 2.5). */
-  qtyThousandths: number;
+  /** Component units per one bundle unit, in thousandths (2500 = 2.5).
+   * Bigint since migration 0070 (qty() column). */
+  qtyThousandths: bigint;
 };
 
 /** All components of a bundle product. Empty array = not a bundle. */
@@ -90,7 +91,7 @@ export async function setBundleComponents(
   if (!bundle) throw new UserError("Product not found.");
 
   const seen = new Set<string>();
-  const prepared: { componentProductId: string; qtyThousandths: number }[] = [];
+  const prepared: { componentProductId: string; qtyThousandths: bigint }[] = [];
   for (const inp of inputs) {
     const pid = inp.productId?.trim() ?? "";
     if (!pid) throw new UserError("Each bundle component needs a product.");
@@ -98,11 +99,11 @@ export async function setBundleComponents(
       throw new UserError("A bundle cannot contain itself as a component.");
     if (seen.has(pid)) throw new UserError("The same product is listed twice in this bundle.");
     seen.add(pid);
-    let qtyT: number;
+    let qtyT: bigint;
     try {
       const milli = parseQty(inp.qty); // milli-units per bundle unit == thousandths
       if (milli <= 0n || milli > BigInt(Number.MAX_SAFE_INTEGER)) throw new Error("bad qty");
-      qtyT = Number(milli);
+      qtyT = milli;
     } catch {
       throw new UserError("Component quantity must be a positive number with up to 3 decimals.");
     }
@@ -262,7 +263,7 @@ export async function explodeSalesStockMoves(
     })
     .from(bundleComponents)
     .where(eq(bundleComponents.companyId, companyId));
-  const graph = new Map<string, { componentProductId: string; qtyThousandths: number }[]>();
+  const graph = new Map<string, { componentProductId: string; qtyThousandths: bigint }[]>();
   const involved = new Set<string>();
   for (const r of allRows) {
     const list = graph.get(r.bundle) ?? [];
@@ -290,7 +291,7 @@ export async function explodeSalesStockMoves(
 }
 
 function expand(
-  graph: Map<string, { componentProductId: string; qtyThousandths: number }[]>,
+  graph: Map<string, { componentProductId: string; qtyThousandths: bigint }[]>,
   tsMap: Map<string, boolean>,
   productId: string,
   qtyMilli: bigint,
@@ -318,7 +319,7 @@ function expand(
   for (const c of comps) {
     // Quantities here are positive (validators reject negative line qtys);
     // half-up rounding keeps tiny fractional component qtys exact.
-    const compQty = (qtyMilli * BigInt(c.qtyThousandths) + 500n) / 1000n;
+    const compQty = (qtyMilli * c.qtyThousandths + 500n) / 1000n;
     if (compQty <= 0n) continue;
     out.push(
       ...expand(
