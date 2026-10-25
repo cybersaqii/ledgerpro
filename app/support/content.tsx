@@ -9,9 +9,9 @@ import SupportForm from "./form";
 export default function SupportContent({ email, phone, hours }: { email: string; phone: string; hours: string }) {
   const { t } = useLang();
   const cards = [
-    { icon: Mail, label: t("support.emailLabel"), value: email, href: email ? `mailto:${email}` : undefined },
-    ...(phone ? [{ icon: Phone, label: t("support.phoneLabel"), value: phone, href: `tel:${phone.replace(/\s/g, "")}` }] : []),
-    ...(hours ? [{ icon: Clock, label: t("support.hoursLabel"), value: hours, href: undefined as string | undefined }] : []),
+    { icon: Mail, label: t("support.emailLabel"), value: email, href: email ? `mailto:${email}` : undefined, wrap: true },
+    ...(phone ? [{ icon: Phone, label: t("support.phoneLabel"), value: phone, href: `tel:${phone.replace(/\s/g, "")}`, wrap: false }] : []),
+    ...(hours ? [{ icon: Clock, label: t("support.hoursLabel"), value: hours, href: undefined as string | undefined, wrap: false }] : []),
   ];
   return (
     <div className="min-h-screen bg-background">
@@ -39,7 +39,10 @@ export default function SupportContent({ email, phone, hours }: { email: string;
               </span>
               <p className="mt-3 text-xs font-extrabold uppercase tracking-wider text-muted-foreground">{c.label}</p>
               {c.href ? (
-                <a href={c.href} title={c.value} className="mt-1 block truncate text-sm font-bold text-primary hover:underline">{c.value}</a>
+                // QA sweep 2026-10-25: the email was visually cut to
+                // "support@ledgerpro.a…" in the narrow 3-col card — an
+                // email address must wrap, never truncate.
+                <a href={c.href} title={c.value} className={c.wrap ? "mt-1 block break-all text-sm font-bold text-primary hover:underline" : "mt-1 block truncate text-sm font-bold text-primary hover:underline"}>{c.value}</a>
               ) : (
                 <p className="mt-1 truncate text-sm font-bold" title={c.value ?? undefined}>{c.value}</p>
               )}

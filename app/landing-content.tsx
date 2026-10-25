@@ -209,8 +209,12 @@ export default function LandingContent() {
                 </span>
               </div>
             </div>
-            {/* P&L sparkline card — top-left zone, solid for readability (lg) */}
-            <div className="floaty absolute left-0 top-0 z-10 hidden w-44 rounded-2xl bg-white p-4 text-start shadow-2xl shadow-black/25 lg:block" style={{ animationDelay: "-2s" }} aria-hidden="true">
+            {/* P&L sparkline card — bottom-left zone, solid for readability (lg).
+                QA sweep 2026-10-25: it sat top-left and covered the dashboard
+                header label, leaving only "INESS" of "Today's business"
+                readable. The bottom-left zone only overlaps the decorative
+                bars, never text. */}
+            <div className="floaty absolute bottom-0 left-0 z-10 hidden w-44 rounded-2xl bg-white p-4 text-start shadow-2xl shadow-black/25 lg:block" style={{ animationDelay: "-2s" }} aria-hidden="true">
               <p className="text-[0.68rem] font-bold uppercase tracking-wider text-slate-400">{L("fcPlT")}</p>
               <p className="font-display mt-1 text-[1.4rem] font-extrabold tracking-tight text-slate-900">Rs 1,84,500</p>
               <svg viewBox="0 0 120 36" className="mt-2 h-9 w-full" aria-hidden="true">
@@ -242,8 +246,10 @@ export default function LandingContent() {
                 </div>
               ))}
             </div>
-            {/* Low stock card — bottom-left zone (lg) */}
-            <div className="floaty absolute bottom-0 left-2 z-10 hidden items-center gap-3 rounded-2xl bg-white p-3 pe-5 text-start shadow-2xl shadow-black/25 lg:flex" style={{ animationDelay: "-5.6s" }} aria-hidden="true">
+            {/* Low stock card — top-left zone (lg). Swapped with the P&L card
+                (see above): this card is short, so it clears the dashboard
+                header with room to spare even while floating. */}
+            <div className="floaty absolute left-2 top-0 z-10 hidden items-center gap-3 rounded-2xl bg-white p-3 pe-5 text-start shadow-2xl shadow-black/25 lg:flex" style={{ animationDelay: "-5.6s" }} aria-hidden="true">
               <span className="grid h-10 w-10 place-items-center rounded-full bg-[#fbeed7] text-[#b45309]">
                 <TriangleAlert size={20} />
               </span>

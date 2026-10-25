@@ -18,7 +18,8 @@ import { rateLimitDb } from "./rate-limit-db";
  * Idempotency for money-moving creates (migration 0031).
  *
  * The client generates ONE key per user submission (crypto.randomUUID) and
- * sends it as `idempotencyKey` (JSON body) or the `X-Idempotency-Key` header.
+ * sends it as `idempotencyKey` (JSON body), the `X-Idempotency-Key` header,
+ * or the standard `Idempotency-Key` header.
  * The server:
  *   1. looks up (companyId, key) first — a hit returns the existing doc with
  *      HTTP 200 instead of creating a duplicate;
@@ -47,12 +48,18 @@ export type IdempotencyTable =
 
 /**
  * Extract the idempotency key from the `X-Idempotency-Key` header (wins when
- * both are present) or the `idempotencyKey` JSON body field. Returns
- * undefined when the client sent none. Throws UserError (422) when the key
- * is present but malformed.
+ * both are present), the standard `Idempotency-Key` header, or the
+ * `idempotencyKey` JSON body field. Returns undefined when the client sent
+ * none. Throws UserError (422) when the key is present but malformed.
+ *
+ * The standard header was silently ignored before (QA sweep 2026-10-25):
+ * an external client sending it got duplicates with no warning, while the
+ * in-app UI (body key / X- header) was unaffected.
  */
 export function extractIdempotencyKey(req: Request, body: unknown): string | undefined {
-  const header = req.headers.get("x-idempotency-key")?.trim();
+  const header =
+    req.headers.get("x-idempotency-key")?.trim() ||
+    req.headers.get("idempotency-key")?.trim();
   let raw: unknown = header || undefined;
   if (raw === undefined && body !== null && typeof body === "object") {
     raw = (body as { idempotencyKey?: unknown }).idempotencyKey;

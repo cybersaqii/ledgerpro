@@ -10,6 +10,10 @@ const nextConfig: NextConfig = {
       { source: "/inventory", destination: "/inventory/products", permanent: true },
       { source: "/banking", destination: "/bank", permanent: true },
       { source: "/team", destination: "/settings", permanent: true },
+      // QA sweep 2026-10-25: unlinked vanity URLs that 404'd. No blog or
+      // docs section exists — send readers to the homepage / support page.
+      { source: "/blog", destination: "/", permanent: true },
+      { source: "/docs", destination: "/support", permanent: true },
     ];
   },
   async headers() {

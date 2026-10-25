@@ -98,22 +98,28 @@ export async function POST(req: NextRequest) {
 
   const passwordHash = await hashPassword(password);
   const companyId = crypto.randomUUID();
-  await db.insert(companies).values({
-    id: companyId,
-    name: companyName,
-    email: emailLc,
-    phone: phone || null,
-    address: address || null,
-    city: city || null,
-    businessType,
-    trialEndsAt: new Date(Date.now() + TRIAL_DAYS * 86_400_000), // 30-day free trial
-  });
   const userId = crypto.randomUUID();
+  // QA sweep 2026-10-25 (L4): the company row used to be inserted OUTSIDE
+  // the user+link transaction — a crash between the two left an ownerless
+  // company row. All three rows are now one atomic transaction, so signup
+  // either creates a complete account or nothing at all. (Company
+  // bootstrap via setupCompany still runs after, with its own
+  // login-to-continue recovery path.)
   // The user_companies link MUST be created atomically with the user row:
   // getSession() rejects any session without an active link, so a missing
   // link means "logged in but every API call 401s". (Google signups funnel
   // through this same insert via the gCookie path above.)
   await db.transaction(async (tx) => {
+    await tx.insert(companies).values({
+      id: companyId,
+      name: companyName,
+      email: emailLc,
+      phone: phone || null,
+      address: address || null,
+      city: city || null,
+      businessType,
+      trialEndsAt: new Date(Date.now() + TRIAL_DAYS * 86_400_000), // 30-day free trial
+    });
     await tx.insert(users).values({
       id: userId,
       companyId,

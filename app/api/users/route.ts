@@ -67,8 +67,6 @@ export async function POST(req: NextRequest) {
   if (password.length < 8) return err("Password must be at least 8 characters.", 422);
 
   const existing = await db.select({ id: users.id }).from(users).where(eq(users.email, email)).limit(1);
-  if (existing[0]) return err("This email is already registered.", 409);
-
   const callerRole = await liveUserRole(db, session.uid, companyId);
   let permissions = [...STAFF_DEFAULT_PERMISSIONS];
   if (Array.isArray(body?.permissions)) {
@@ -76,6 +74,55 @@ export async function POST(req: NextRequest) {
     const clean = [...new Set((body.permissions as string[]).filter(isPermission))];
     if (clean.length === 0) return err("Pick at least one permission for the new staff member.", 422);
     permissions = clean;
+  }
+
+  if (existing[0]) {
+    // Re-invite: the account exists but is NOT on this company's team
+    // (removed from this company earlier, or never added here). An active
+    // link means they are already on this team — that stays a 409.
+    const [activeLink] = await db
+      .select({ id: userCompanies.id })
+      .from(userCompanies)
+      .where(
+        and(
+          eq(userCompanies.userId, existing[0].id),
+          eq(userCompanies.companyId, companyId),
+          eq(userCompanies.isActive, true)
+        )
+      )
+      .limit(1);
+    if (activeLink) return err("This email is already registered.", 409);
+    const userId = existing[0].id;
+    await db.transaction(async (tx) => {
+      // Fresh credentials for the re-invite, and a globally deactivated
+      // account comes back active — re-adding is the owner undoing the
+      // earlier removal/deactivation for this company.
+      await tx
+        .update(users)
+        .set({ passwordHash: await hashPassword(password), isActive: true })
+        .where(eq(users.id, userId));
+      const [link] = await tx
+        .select({ id: userCompanies.id })
+        .from(userCompanies)
+        .where(and(eq(userCompanies.userId, userId), eq(userCompanies.companyId, companyId)))
+        .limit(1);
+      if (link) {
+        // Preserve the link's existing role (never escalate via re-invite).
+        await tx
+          .update(userCompanies)
+          .set({ isActive: true })
+          .where(eq(userCompanies.id, link.id));
+      } else {
+        await ensureUserCompanyLink(tx, { userId, companyId, role: "STAFF" });
+      }
+      await setUserPermissions(tx, { companyId, userId, permissions });
+    });
+    await logAudit(db, {
+      companyId, userId: session.uid, userName: session.name,
+      action: "user.invited", entity: "user", entityId: userId,
+      detail: `Staff member ${name} <${email}> re-added (${permissions.length} permissions)`,
+    });
+    return json({ data: { id: userId } }, { status: 201 });
   }
 
   const userId = crypto.randomUUID();

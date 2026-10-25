@@ -993,7 +993,7 @@ function TeamCard() {
     finally { setSaving(false); }
   }
 
-  async function patchUser(id: string, patch: { role?: string; isActive?: boolean }) {
+  async function patchUser(id: string, patch: { role?: string; isActive?: boolean; companyActive?: boolean }) {
     setError(null);
     try {
       await api(`/api/users/${id}`, { method: "PATCH", body: JSON.stringify(patch) });
@@ -1092,6 +1092,15 @@ function TeamCard() {
                         onClick={() => patchUser(u.id, { isActive: !u.isActive })}
                       >
                         {u.isActive ? t("settingsteam.deactivate") : t("settingsteam.activate")}
+                      </button>
+                    )}
+                    {u.role !== "OWNER" && u.id !== myId && (
+                      <button
+                        className="btn btn-ghost !px-3 !py-1.5 text-xs"
+                        title={t("settingsteam.removeFromCompanyHint")}
+                        onClick={() => patchUser(u.id, { companyActive: false })}
+                      >
+                        {t("settingsteam.removeFromCompany")}
                       </button>
                     )}
                     {u.role !== "OWNER" && u.id !== myId && (

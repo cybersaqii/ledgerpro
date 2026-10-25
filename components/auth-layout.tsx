@@ -130,8 +130,12 @@ export function AuthLayout({
             />
           </div>
 
-          {/* Floating dashboard cards (deliberately white brand surfaces) */}
-          <div className="relative mb-4 h-64 shrink-0" aria-hidden="true">
+          {/* Floating dashboard cards (deliberately white brand surfaces).
+              QA sweep 2026-10-25: at h-64 the bottom allocations card slid
+              over the donut card's legend, leaving only "Sal/Exp/Udl"
+              readable. The stage is tall enough now that the two cards
+              clear each other even at opposite floaty extremes. */}
+          <div className="relative mb-4 h-[380px] shrink-0" aria-hidden="true">
             <div className="floaty absolute top-0 start-0 w-44 rounded-2xl bg-white p-4 shadow-xl shadow-black/25" style={{ animationDelay: "-1.2s" }}>
               <p className="text-[0.65rem] font-bold tracking-wider text-slate-400 uppercase">{L("c1t")}</p>
               <div className="mt-2 flex justify-center">

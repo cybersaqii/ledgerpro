@@ -27,8 +27,11 @@
     "**/*.ts",
     "**/*.tsx",
     ".next/types/**/*.ts",
-    ".next/dev/types/**/*.ts",
     "**/*.mts"
   ],
-  "exclude": ["node_modules"]
+  // QA sweep 2026-10-25 (L3): .next/dev/types is written by the dev server
+  // WHILE it runs, so a gated tsc can read a half-written (truncated)
+  // generated file and fail with 0 source errors. Excluding it keeps the
+  // gate honest; .next/types (build-time route types) stays included.
+  "exclude": ["node_modules", ".next/dev"]
 }
