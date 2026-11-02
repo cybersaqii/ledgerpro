@@ -3,7 +3,9 @@ import type { MetadataRoute } from "next";
 const base = "https://www.ledgerprosolution.com";
 
 // FIXED lastmod — a sitemap must not churn lastModified on every build.
-const lastModified = new Date("2026-10-02");
+// Bumped when public pages actually change (pricing + download pages
+// added Nov 2026).
+const lastModified = new Date("2026-11-02");
 
 export default function sitemap(): MetadataRoute.Sitemap {
   // NOTE: /login and /signup are intentionally noindex (see app/(auth) layouts)

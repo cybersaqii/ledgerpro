@@ -28,17 +28,25 @@ export default function StructuredData() {
     name: brand.name,
     url: SITE,
     applicationCategory: "BusinessApplication",
-    operatingSystem: "Web",
+    // Web app + the offline Android app (direct-install APK).
+    operatingSystem: ["Web", "Android"],
+    // Prices match the live pricing section (Nov 2026). Never invent
+    // ratings or review counts here — aggregateRating stays out until
+    // real user reviews exist.
     offers: [
       { "@type": "Offer", name: "Free", price: "0", priceCurrency: "PKR" },
-      { "@type": "Offer", name: "PRO Monthly", price: "1500", priceCurrency: "PKR" },
-      { "@type": "Offer", name: "PRO Yearly", price: "15000", priceCurrency: "PKR" },
+      { "@type": "Offer", name: "Starter Monthly", price: "1500", priceCurrency: "PKR" },
+      { "@type": "Offer", name: "Starter Yearly", price: "15000", priceCurrency: "PKR" },
+      { "@type": "Offer", name: "Professional Monthly", price: "2000", priceCurrency: "PKR" },
+      { "@type": "Offer", name: "Professional Yearly", price: "20000", priceCurrency: "PKR" },
+      { "@type": "Offer", name: "Enterprise Monthly", price: "3500", priceCurrency: "PKR" },
+      { "@type": "Offer", name: "Enterprise Yearly", price: "35000", priceCurrency: "PKR" },
     ],
   };
   const faqPage = {
     "@context": "https://schema.org",
     "@type": "FAQPage",
-    mainEntity: [0, 1, 2, 3, 4].map((i) => ({
+    mainEntity: [0, 1, 2, 3, 4, 5].map((i) => ({
       "@type": "Question",
       name: fillBrand((en.landing as Record<string, string>)[`q${i}`]),
       acceptedAnswer: {

@@ -4,9 +4,9 @@ import LandingContent from "./landing-content";
 import StructuredData from "./structured-data";
 
 export const metadata: Metadata = {
-  title: "Free Accounting Software for Every Business",
+  title: "Free Accounting Software in Pakistan",
   description:
-    "Sales, purchases, stock, POS, payments and profit reports — double-entry hisaab-kitab tailored to your trade. Free to start, no credit card needed.",
+    "Double-entry hisaab-kitab for Pakistani businesses — sales, purchases, stock, POS, udhaar and profit reports. Free to start, no credit card needed.",
   alternates: { canonical: "/" },
   openGraph: {
     title: `${brand.name} — ${brand.tagline}`,
