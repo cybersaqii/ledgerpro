@@ -17,6 +17,17 @@ export interface ChangelogEntry {
 export const CHANGELOG: ChangelogEntry[] = [
   {
     date: "2026-11-02",
+    tag: "b651d23",
+    title: "Pricing shows three paid plans only",
+    bullets: [
+      "Free card removed completely from the pricing section (landing + /pricing page); Starter, Professional and Enterprise remain.",
+      "MOST POPULAR badge moved to the centre of the Pro card's top edge — it used to sit inside the card and cover the PROFESSIONAL title.",
+      "Prices no longer wrap across lines (Rs 1,500 / Rs 2,000 / Rs 3,500 each stay on one line); Starter's first bullet now reads 'All basic features'.",
+      "Pricing/download page titles fixed: the brand name no longer appears twice in the browser tab.",
+    ],
+  },
+  {
+    date: "2026-11-02",
     tag: "f2b4a9f",
     title: "Pricing pages, Support links, convert idempotency",
     bullets: [
