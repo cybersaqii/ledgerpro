@@ -1,5 +1,6 @@
 import { NextRequest } from "next/server";
 import { z } from "zod";
+import { eq } from "drizzle-orm";
 import { json, err } from "@/lib/api";
 import { toApiError } from "@/lib/errors";
 import { requireCompany, requirePermission, db, defaultBranchId, parseDateOnly } from "@/lib/route-helpers";
@@ -11,6 +12,12 @@ import { parseQty } from "@/lib/qty";
 import { parseMoney } from "@/lib/money";
 import { UserError } from "@/lib/errors";
 import { logAudit } from "@/lib/audit";
+import { purchaseDocs } from "@/db/schema";
+import {
+  extractIdempotencyKey,
+  findByIdempotencyKey,
+  isIdempotencyConflict,
+} from "@/lib/idempotency";
 import type { Permission } from "@/lib/permissions";
 
 const returnLineSchema = z.object({
@@ -74,6 +81,26 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       } catch {
         return err("Invalid date.", 422);
       }
+    }
+  }
+
+  // QA sweep 2026-11-01 (Low): convert/return had no idempotency key, so a
+  // retried tap errored instead of replaying. Scoped to the two
+  // doc-creating actions (grn/bill/issue/cancel/close/void are untouched);
+  // the created doc's own idempotency_key (migration 0031) carries the key.
+  const idemScoped = action === "convert" || action === "return";
+  let idemKey: string | undefined;
+  try {
+    idemKey = idemScoped ? extractIdempotencyKey(req, body) : undefined;
+  } catch (e) {
+    return toApiError(e, { route: "/api/purchases/[id]/convert", companyId });
+  }
+  if (idemKey) {
+    const existing = await findByIdempotencyKey(db, purchaseDocs, companyId, idemKey);
+    if (existing) {
+      return json(
+        { data: { docId: existing.id, docNo: existing.docNo, idempotentReplay: true } },
+      );
     }
   }
 
@@ -168,6 +195,26 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
         })),
       };
     });
+
+    if (idemKey) {
+      // Stamp the created doc so a retry replays instead of erroring.
+      // A unique-conflict means a concurrent request won — replay its doc.
+      try {
+        await db.update(purchaseDocs).set({ idempotencyKey: idemKey }).where(eq(purchaseDocs.id, result.docId));
+      } catch (e) {
+        if (isIdempotencyConflict(e)) {
+          const hit = await findByIdempotencyKey(db, purchaseDocs, companyId, idemKey);
+          if (hit) {
+            return json(
+              { data: { docId: hit.id, docNo: hit.docNo, idempotentReplay: true } },
+            );
+          }
+        }
+        // Best-effort only: the conversion already succeeded, so never fail
+        // the response over the stamp.
+        console.error("[purchases convert] idempotency stamp failed", e);
+      }
+    }
 
     const auditDetail =
       action === "return"

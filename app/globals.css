@@ -41,7 +41,9 @@
   --card: #101a2e;
   --card-foreground: #e9eef7;
   --muted: #16223a;
-  --muted-foreground: #a6b6cf;
+  /* QA sweep 2026-11-01: was #a6b6cf — supporting text looked dim in
+     dark mode. Lighter, still clearly muted against #0a1120. */
+  --muted-foreground: #c3d0e2;
   --border: #22314e;
   --primary: #6ea8fe;
   --primary-foreground: #0a1a38;

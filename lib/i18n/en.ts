@@ -1414,6 +1414,7 @@ export const en = {
     googlePrefill: "Signed in with Google — just set a password to finish creating your account.",
     consentPrefix: "I agree to the",
     consentAnd: "and",
+    consentHint: "Tick the box above to accept the Terms and Privacy Policy — Send code activates once you do.",
     termsLink: "Terms of Service",
     privacyLink: "Privacy Policy",
     consentRequired: "Please accept the Terms of Service and Privacy Policy to continue."
@@ -1483,6 +1484,18 @@ export const en = {
     formTitle: "Send a support request",
     formSub: "Tell us what happened and how to reach you. Requests are answered by our team via email or phone — there are no automated replies, so please allow some time during support hours.",
     changelogLink: "Changelog"
+  },
+  download: {
+    title: "Android app",
+    intro: "LedgerPro on your phone — the full offline app. Sales, purchases, payments, stock and reports all work without internet, and everything syncs when you are back online.",
+    offlineTitle: "Fully offline",
+    offlineDesc: "No internet at the shop? No problem. Keep selling, buying and recording payments — your data stays safe on the phone.",
+    installTitle: "Direct install",
+    installDesc: "The app installs directly (it is not on the Play Store). When your phone asks, allow installs from your browser, then sign in with your LedgerPro account.",
+    ctaWhatsapp: "Get the app on WhatsApp",
+    ctaSupport: "Or ask us on the support page",
+    waText: "Hello! Please send me the LedgerPro Android app (APK).",
+    note: "The Android app works with the same LedgerPro account and plans as the website."
   },
   supportform: {
     nameLabel: "Your name",
@@ -1788,6 +1801,7 @@ export const en = {
     footTerms: "Terms",
     footPrivacy: "Privacy",
     footSupport: "Support",
+    footAndroid: "Android app",
     footChangelog: "Changelog",
     footTagline: "Complete hisaab-kitab for every business.",
     footBuiltBy: "A TechSol product",

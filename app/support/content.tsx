@@ -4,6 +4,7 @@ import Link from "next/link";
 import { LifeBuoy, Mail, Phone, Clock } from "lucide-react";
 import { brand } from "@/lib/brand";
 import { useLang } from "@/components/lang-provider";
+import { LangToggle } from "@/components/ui";
 import SupportForm from "./form";
 
 export default function SupportContent({ email, phone, hours }: { email: string; phone: string; hours: string }) {
@@ -23,7 +24,12 @@ export default function SupportContent({ email, phone, hours }: { email: string;
             </span>
             <span className="text-[1.05rem] font-extrabold tracking-tight text-white">{brand.name}</span>
           </Link>
-          <Link href="/login" className="text-sm font-bold text-white/75 transition hover:text-white">{t("pub.login")}</Link>
+          {/* QA sweep 2026-11-01: the support page header had no language
+              toggle — Urdu readers were stuck on English here. */}
+          <div className="flex items-center gap-3">
+            <LangToggle />
+            <Link href="/login" className="text-sm font-bold text-white/75 transition hover:text-white">{t("pub.login")}</Link>
+          </div>
         </div>
       </header>
 

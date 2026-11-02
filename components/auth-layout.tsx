@@ -65,7 +65,9 @@ export function AuthLayout({
           style={{ backgroundImage: "radial-gradient(circle at 1px 1px, #1e4fa3 1px, transparent 0)", backgroundSize: "34px 34px", opacity: 0.05 }}
         />
       </div>
-      <div className="absolute top-4 end-4 z-20 sm:top-6 sm:end-6">
+      <div className="absolute top-4 end-4 z-20 flex items-center gap-3 sm:top-6 sm:end-6">
+        {/* QA sweep 2026-11-01: auth pages had no Support link. */}
+        <Link href="/support" className="text-sm font-bold text-muted-foreground transition hover:text-foreground">{t("landing.footSupport")}</Link>
         <LangToggle />
       </div>
 

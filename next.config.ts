@@ -3,8 +3,7 @@ import type { NextConfig } from "next";
 const nextConfig: NextConfig = {
   async redirects() {
     return [
-      // Landing anchors live on / — these vanity URLs 404'd, redirect them.
-      { source: "/pricing", destination: "/#pricing", permanent: true },
+      // Landing anchors live on / — this vanity URL 404'd, redirect it.
       { source: "/features", destination: "/#features", permanent: true },
       // Dead-end section URLs — redirect to their real pages.
       { source: "/inventory", destination: "/inventory/products", permanent: true },

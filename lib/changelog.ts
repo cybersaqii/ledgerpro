@@ -16,6 +16,45 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    date: "2026-11-01",
+    tag: "20da3b5",
+    title: "Database hardening + plan prices updated",
+    bullets: [
+      "Foreign-key enforcement, company scoping, document uniqueness and cached-totals reconciliation across the database (migrations 0065–0073).",
+      "Plan prices updated: Starter Rs 1,500, Professional Rs 2,000, Enterprise Rs 3,500 per month (yearly = 10× monthly).",
+    ],
+  },
+  {
+    date: "2026-10-18",
+    tag: "601805c",
+    title: "Tier gating, distribution payments, billing fixes",
+    bullets: [
+      "Plan tiers are now enforced server-side: team, multi-company and sync unlock only on the tiers that include them.",
+      "Distribution payments gained idempotency keys and period-lock checks, so a double-tap can never pay twice.",
+      "Billing page now shows real tier names and prices instead of raw keys; broken /pricing and /features links redirect to the landing sections.",
+    ],
+  },
+  {
+    date: "2026-10-17",
+    tag: "f924b40",
+    title: "Five live-site bugs fixed",
+    bullets: [
+      "Dialog inputs no longer lose focus after every keystroke, and the CSV import picker works again.",
+      "Purchase-order Issue now asks for confirmation in-app instead of silently doing nothing.",
+      "Bank receipt form explains what to do when no nominal accounts exist yet.",
+      "Product creation and import validation accept untouched optional fields instead of failing.",
+    ],
+  },
+  {
+    date: "2026-10-15",
+    tag: "8df5134",
+    title: "Purchase Orders page",
+    bullets: [
+      "A dedicated Purchase Orders list: create, issue, receive (GRN) and convert orders into purchase bills.",
+      "Ordering stays separate from billing — a purchase order moves neither money nor stock until goods arrive.",
+    ],
+  },
+  {
     date: "2026-09-20",
     tag: "23d349e",
     title: "Granular staff permissions",

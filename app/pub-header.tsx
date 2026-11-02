@@ -4,6 +4,7 @@ import Link from "next/link";
 import { FileText } from "lucide-react";
 import { brand } from "@/lib/brand";
 import { useLang } from "@/components/lang-provider";
+import { LangToggle } from "@/components/ui";
 
 /** Shared header for public pages (terms, privacy, support, changelog). */
 export default function PubHeader() {
@@ -17,7 +18,13 @@ export default function PubHeader() {
           </span>
           <span className="text-[1.05rem] font-extrabold tracking-tight text-white">{brand.name}</span>
         </Link>
-        <Link href="/login" className="text-sm font-bold text-white/75 transition hover:text-white">{t("pub.login")}</Link>
+        {/* QA sweep 2026-11-01: support/legal pages had no Support link and
+            no Urdu toggle — both live here now. */}
+        <div className="flex items-center gap-4">
+          <Link href="/support" className="text-sm font-bold text-white/75 transition hover:text-white">{t("landing.footSupport")}</Link>
+          <LangToggle />
+          <Link href="/login" className="text-sm font-bold text-white/75 transition hover:text-white">{t("pub.login")}</Link>
+        </div>
       </div>
     </header>
   );

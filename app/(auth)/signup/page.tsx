@@ -208,6 +208,11 @@ function SignupForm() {
           <button className="btn btn-primary w-full !py-3" disabled={busy || sending || !consent}>
             <UserPlus size={17} /> {sending ? t("auth.sendingCode") : t("auth.sendCode")}
           </button>
+          {/* QA sweep 2026-11-01: Send code sat disabled with no explanation
+              until the consent box was ticked — say so under the button. */}
+          {!consent && (
+            <p className="text-center text-xs text-muted-foreground">{t("auth.consentHint")}</p>
+          )}
         </form>
         ) : (
         <form onSubmit={submit} className="rise rise-2 mt-6 space-y-4">

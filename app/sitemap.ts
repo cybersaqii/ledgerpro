@@ -10,6 +10,8 @@ export default function sitemap(): MetadataRoute.Sitemap {
   // and must NOT appear here — a sitemap must never list noindex URLs.
   const pages: { path: string; priority: number }[] = [
     { path: "", priority: 1 },
+    { path: "/pricing", priority: 0.8 },
+    { path: "/download", priority: 0.6 },
     { path: "/terms", priority: 0.4 },
     { path: "/privacy", priority: 0.4 },
     { path: "/support", priority: 0.5 },
