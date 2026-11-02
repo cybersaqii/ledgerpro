@@ -5,20 +5,25 @@ import { useState } from "react";
 import { ArrowRight, BadgeCheck, CheckCircle2, ShieldCheck } from "lucide-react";
 import { useLang } from "@/components/lang-provider";
 
-const freeFeatures = ["ff0", "ff1", "ff2", "ff3", "ff4", "ff5"];
 const starterFeatures = ["sf0", "sf1", "sf2", "sf3"];
 const proFeatures = ["pf0", "pf1", "pf2", "pf3", "pf4"];
 const enterpriseFeatures = ["ef0", "ef1", "ef2", "ef3"];
 
 /**
  * Pricing section, shared by the landing page (#pricing) and the
- * standalone /pricing page (QA sweep 2026-11-01: /pricing used to 404,
- * then redirect to the anchor — now it is a real page).
+ * standalone /pricing page.
  *
- * All four tiers render: Free (its keys and feature list existed in the
- * i18n dicts but were never rendered — the Starter card's "Everything in
- * Free" bullet pointed at a card that did not exist), Starter,
- * Professional, Enterprise.
+ * Three paid cards only: Starter, Professional, Enterprise. The Free
+ * card was removed 2026-11-02 per user decision (it had only just been
+ * added in the Nov 1 sweep fix round) — the Free tier still exists in
+ * entitlements, it is simply no longer shown as a card. Starter's first
+ * bullet therefore says "All basic features" instead of pointing at a
+ * card that no longer exists.
+ *
+ * Layout notes: the MOST POPULAR badge straddles the Pro card's top
+ * edge, centered — it used to sit top-right inside the card and covered
+ * the PROFESSIONAL title. Price amounts are whitespace-nowrap so
+ * "Rs 1,500" never splits across lines in a narrow card.
  */
 export default function PricingSection() {
   const { t } = useLang();
@@ -48,32 +53,12 @@ export default function PricingSection() {
             ))}
           </div>
         </div>
-        <div className="mx-auto mt-10 grid max-w-6xl gap-6 md:grid-cols-2 lg:grid-cols-4">
-          {/* Free */}
-          <div className="card flex flex-col p-7 sm:p-8">
-            <p className="text-sm font-extrabold uppercase tracking-wider text-muted-foreground">{L("planFree")}</p>
-            <p className="mt-3 flex items-baseline gap-1">
-              <span className="font-display text-4xl font-extrabold tracking-tight">{L("freePrice")}</span>
-              <span className="text-sm text-muted-foreground">{L("freePer")}</span>
-            </p>
-            <p className="mt-1 text-xs text-muted-foreground">{"\u00A0"}</p>
-            <ul className="mt-5 flex-1 space-y-3">
-              {freeFeatures.map((f) => (
-                <li key={f} className="flex items-start gap-2.5 text-sm">
-                  <CheckCircle2 size={17} className="mt-0.5 shrink-0 text-primary" />
-                  <span>{L(f)}</span>
-                </li>
-              ))}
-            </ul>
-            <Link href="/signup" className="btn btn-ghost mt-7 w-full !py-3 text-sm">
-              {L("ctaFree")} <ArrowRight size={16} />
-            </Link>
-          </div>
+        <div className="mx-auto mt-10 grid max-w-6xl gap-6 md:grid-cols-2 lg:grid-cols-3">
           {/* Starter */}
           <div className="card flex flex-col p-7 sm:p-8">
             <p className="text-sm font-extrabold uppercase tracking-wider text-muted-foreground">{L("planStarter")}</p>
             <p className="mt-3 flex items-baseline gap-1">
-              <span className="font-display text-4xl font-extrabold tracking-tight">{billing === "m" ? L("starterMonthlyPrice") : L("starterYearlyPrice")}</span>
+              <span className="font-display whitespace-nowrap text-4xl font-extrabold tracking-tight">{billing === "m" ? L("starterMonthlyPrice") : L("starterYearlyPrice")}</span>
               <span className="text-sm text-muted-foreground">{billing === "m" ? L("perMonth") : L("perYear")}</span>
             </p>
             <p className="mt-1 text-xs text-muted-foreground">{billing === "y" ? L("billedYearly") : "\u00A0"}</p>
@@ -89,12 +74,13 @@ export default function PricingSection() {
               {L("ctaPro")} <ArrowRight size={16} />
             </Link>
           </div>
-          {/* Professional — highlighted */}
-          <div className="relative flex flex-col overflow-hidden rounded-3xl border-2 border-[#f0b73f] bg-[#101a2c] p-7 shadow-2xl shadow-[#f0b73f]/15 sm:p-8">
-            <span className="absolute end-5 top-5 rounded-full bg-[#f0b73f] px-3 py-1 text-[0.7rem] font-extrabold uppercase tracking-wide text-[#231600]">{L("proTag")}</span>
+          {/* Professional — highlighted. No overflow-hidden: the badge
+              straddles the top edge, so clipping would cut it in half. */}
+          <div className="relative flex flex-col rounded-3xl border-2 border-[#f0b73f] bg-[#101a2c] p-7 shadow-2xl shadow-[#f0b73f]/15 sm:p-8">
+            <span className="absolute -top-3.5 left-1/2 -translate-x-1/2 rounded-full bg-[#f0b73f] px-3 py-1 text-[0.7rem] font-extrabold uppercase tracking-wide whitespace-nowrap text-[#231600]">{L("proTag")}</span>
             <p className="text-sm font-extrabold uppercase tracking-wider text-[#f0b73f]">{L("planProfessional")}</p>
             <p className="mt-3 flex items-baseline gap-1">
-              <span className="font-display text-4xl font-extrabold tracking-tight text-white">{billing === "m" ? L("proMonthlyPrice") : L("proYearlyPrice")}</span>
+              <span className="font-display whitespace-nowrap text-4xl font-extrabold tracking-tight text-white">{billing === "m" ? L("proMonthlyPrice") : L("proYearlyPrice")}</span>
               <span className="text-sm text-white/75">{billing === "m" ? L("perMonth") : L("perYear")}</span>
             </p>
             <p className="mt-1 text-xs text-white/65">{billing === "y" ? L("billedYearly") : "\u00A0"}</p>
@@ -114,7 +100,7 @@ export default function PricingSection() {
           <div className="card flex flex-col p-7 sm:p-8">
             <p className="text-sm font-extrabold uppercase tracking-wider text-muted-foreground">{L("planEnterprise")}</p>
             <p className="mt-3 flex items-baseline gap-1">
-              <span className="font-display text-4xl font-extrabold tracking-tight">{billing === "m" ? L("enterpriseMonthlyPrice") : L("enterpriseYearlyPrice")}</span>
+              <span className="font-display whitespace-nowrap text-4xl font-extrabold tracking-tight">{billing === "m" ? L("enterpriseMonthlyPrice") : L("enterpriseYearlyPrice")}</span>
               <span className="text-sm text-muted-foreground">{billing === "m" ? L("perMonth") : L("perYear")}</span>
             </p>
             <p className="mt-1 text-xs text-muted-foreground">{billing === "y" ? L("billedYearly") : "\u00A0"}</p>

@@ -4,8 +4,8 @@ import PubHeader from "../pub-header";
 import PricingSection from "@/components/pricing-section";
 
 export const metadata: Metadata = {
-  title: `Pricing in PKR — Free, Starter, Professional & Enterprise · ${brand.name}`,
-  description: `LedgerProSolution pricing in Pakistani rupees: Free plan (Rs 0), Starter Rs 1,500, Professional Rs 2,000, Enterprise Rs 3,500 per month. Start free, upgrade only when your business needs more.`,
+  title: `Pricing in PKR — Starter, Professional & Enterprise`,
+  description: `LedgerProSolution pricing in Pakistani rupees: Starter Rs 1,500, Professional Rs 2,000, Enterprise Rs 3,500 per month. Start with a 30-day free trial, upgrade only when your business needs more.`,
   alternates: { canonical: "/pricing" },
 };
 

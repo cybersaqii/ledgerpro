@@ -1753,7 +1753,7 @@ export const en = {
     ff3: "Products & stock tracking",
     ff4: "Payments & expenses",
     ff5: "Basic reports",
-    sf0: "Everything in Free",
+    sf0: "All basic features",
     sf1: "Advanced reports (P&L, balance sheet)",
     sf2: "CSV import & export",
     sf3: "1 company, 1 user",
