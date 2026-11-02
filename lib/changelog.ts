@@ -16,6 +16,18 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    date: "2026-11-02",
+    tag: "f2b4a9f",
+    title: "Pricing pages, Support links, convert idempotency",
+    bullets: [
+      "Pricing now shows all four tiers: the Free plan card finally renders (its keys existed but the card never did), and /pricing is a real page instead of a redirect.",
+      "New Android app page: the app is direct-install, not on the Play Store, so the page says so honestly and routes requests through WhatsApp or support; linked from the landing footer.",
+      "Support links added to the landing header, public-page header and login/signup pages; Urdu toggle added to the support and legal page headers.",
+      "Dark-mode supporting text brightened, and signup now explains that Send code stays disabled until the Terms consent box is ticked.",
+      "Convert and return endpoints accept idempotency keys, so a retried tap replays the created document instead of erroring.",
+    ],
+  },
+  {
     date: "2026-11-01",
     tag: "20da3b5",
     title: "Database hardening + plan prices updated",
