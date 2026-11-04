@@ -83,10 +83,10 @@ export default function ExpensesPage() {
       ]);
       setAccounts(a.data);
       setBanks(b.data);
-      if (a.data[0]) setForm((f) => ({ ...f, accountId: a.data[0].id }));
-      const cash = b.data.find((x) => x.name.toLowerCase().includes("cash"));
-      if (cash) setForm((f) => ({ ...f, bankAccountId: cash.id }));
-      else if (b.data[0]) setForm((f) => ({ ...f, bankAccountId: b.data[0].id }));
+      // No silent defaults: the first expense account (COGS by code order)
+      // and Cash used to pre-select themselves, so a rushed rent/salary
+      // entry could post to cost of sales. The selects now open on their
+      // "Select…" placeholders and the user chooses explicitly.
     } catch { /* ignore */ }
     setModal(true);
   }

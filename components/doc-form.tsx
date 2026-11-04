@@ -281,7 +281,9 @@ export function DocForm({ mode, initialType }: { mode: "SALES" | "PURCHASE"; ini
   const [partyQ, setPartyQ] = useState("");
   const [showPartyList, setShowPartyList] = useState(false);
   const [date, setDate] = useState(fmtDateInput());
-  const [dueDate, setDueDate] = useState(fmtDateInput());
+  // Quotations are valid 7 days by default (house convention, seen on QUO-0002);
+  // other docs are due the same day unless Term Days moves the date.
+  const [dueDate, setDueDate] = useState(initialType === "QUOTATION" ? (dueFromTerm(fmtDateInput(), "7") ?? fmtDateInput()) : fmtDateInput());
   /** Term days: typing here auto-computes the due date from the invoice date. */
   const [termDays, setTermDays] = useState("");
   const [discountTotal, setDiscountTotal] = useState("");
@@ -298,7 +300,17 @@ export function DocForm({ mode, initialType }: { mode: "SALES" | "PURCHASE"; ini
   const [whtPct, setWhtPct] = useState("");
   /** Module 2.6: purchase returns deduct stock by default; off = pure-ledger return. */
   const [deductFromInventory, setDeductFromInventory] = useState(true);
-  const [docType] = useState(initialType || (isSales ? "INVOICE" : "BILL"));
+  // Unknown ?type= values used to pass straight through and then fail the API
+  // enum on submit (e.g. SALES_ORDER rendered as an invoice). Normalize the
+  // two long forms to ORDER and fall back to the mode default otherwise.
+  const normalizeType = (v: string | undefined, sales: boolean): string => {
+    const mapped = v === "SALES_ORDER" || v === "PURCHASE_ORDER" ? "ORDER" : v;
+    const valid = sales
+      ? ["INVOICE", "QUOTATION", "ORDER", "CHALLAN", "RETURN"]
+      : ["BILL", "ORDER", "GRN", "RETURN"];
+    return mapped && valid.includes(mapped) ? mapped : sales ? "INVOICE" : "BILL";
+  };
+  const [docType] = useState(normalizeType(initialType, isSales));
   const [lines, setLines] = useState<Line[]>([]);
   const [prodQ, setProdQ] = useState("");
   const [prodResults, setProdResults] = useState<Product[]>([]);
@@ -1193,10 +1205,43 @@ export function DocForm({ mode, initialType }: { mode: "SALES" | "PURCHASE"; ini
     ? "\u2014"
     : bankAccounts.find((b) => b.id === rcptAccountId)?.kind === "CASH" ? "CASH" : "BANK";
 
+  // Header copy follows the document type: the old generic title/subtitle
+  // labelled quotations and orders as invoices/bills (which post stock and
+  // ledger), while quotations and orders post nothing until converted.
+  const formTitle = !isSales
+    ? docType === "ORDER" ? t("docform.titlePurchaseOrder")
+    : docType === "GRN" ? t("docform.titleGrn")
+    : docType === "RETURN" ? t("docform.titlePurchaseReturn")
+    : t("docs.newPurchase")
+    : docType === "QUOTATION" ? t("docform.titleQuotation")
+    : docType === "ORDER" ? t("docform.titleOrder")
+    : docType === "RETURN" ? t("docform.titleReturn")
+    : bp.newSale;
+  const formSubtitle = !isSales
+    ? docType === "ORDER" ? t("docform.subtitlePurchaseOrder")
+    : docType === "GRN" ? t("docform.subtitleGrn")
+    : docType === "RETURN" ? t("docform.subtitlePurchaseReturn")
+    : t("docform.subtitlePurchases")
+    : docType === "QUOTATION" ? t("docform.subtitleQuotation")
+    : docType === "ORDER" ? t("docform.subtitleOrder")
+    : docType === "RETURN" ? t("docform.subtitleReturn")
+    : t("docform.subtitleSales");
+  // Cancel goes to the owning list, not history-back: a deep-linked form
+  // used to drop the user on whatever page they came from (e.g. a PO form
+  // cancelling back to /sales/orders).
+  const cancelHref = isSales
+    ? docType === "INVOICE" ? "/sales/invoices"
+    : docType === "QUOTATION" ? "/sales/quotations"
+    : docType === "ORDER" ? "/sales/orders"
+    : "/sales/all"
+    : docType === "BILL" ? "/purchases/bills"
+    : docType === "ORDER" ? "/purchases/po"
+    : "/purchases/all";
+
   return (
     <div className="docform-fa text-xs">
-      <PageHeader title={isSales ? bp.newSale : t("docs.newPurchase")}
-        subtitle={isSales ? t("docform.subtitleSales") : t("docform.subtitlePurchases")} />
+      <PageHeader title={formTitle}
+        subtitle={formSubtitle} />
       <form onSubmit={submit} className="docform-fa space-y-2">
         <ErrorNote message={error} />
 
@@ -1639,7 +1684,7 @@ export function DocForm({ mode, initialType }: { mode: "SALES" | "PURCHASE"; ini
               </div>
               <div className="flex items-center justify-between gap-3">
                 <span className="text-muted-foreground">GST Rate</span>
-                <span className="text-xs text-muted-foreground" title={t("docform.gstPerLineHint")}>\u2014</span>
+                <span className="text-xs text-muted-foreground" title={t("docform.gstPerLineHint")}>{t("docform.gstPerLine")}</span>
               </div>
               <div className="flex items-center justify-between gap-3">
                 <span className="text-muted-foreground">GST</span>
@@ -1777,7 +1822,7 @@ export function DocForm({ mode, initialType }: { mode: "SALES" | "PURCHASE"; ini
 
         {/* ══════════ bottom action bar ══════════ */}
         <div className="flex flex-wrap items-center justify-between gap-2 pb-2">
-          <button type="button" className="btn btn-ghost !py-2 text-sm" onClick={() => router.back()}>
+          <button type="button" className="btn btn-ghost !py-2 text-sm" onClick={() => router.push(cancelHref)}>
             Cancel
           </button>
           <div className="flex flex-wrap items-center gap-2">

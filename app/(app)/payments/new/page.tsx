@@ -114,6 +114,16 @@ function PaymentFormInner() {
   }, [outstanding, prefill]);
 
   const selectedParty = parties.find((p) => p.id === partyId) ?? (partyId ? { id: partyId, name: "Selected" } : null);
+
+  // Deep links (?partyId=) name a party that the searchable list may not
+  // have loaded yet — the old fallback rendered the literal word "Selected"
+  // instead of the customer's name. Fetch the single party and use its name.
+  useEffect(() => {
+    if (!partyId || parties.some((p) => p.id === partyId)) return;
+    api<{ data: Party }>(`/api/parties/${partyId}`).then((d) => {
+      if (d.data?.id) setParties((ps) => (ps.some((p) => p.id === d.data.id) ? ps : [...ps, d.data]));
+    }).catch(() => {});
+  }, [partyId, parties]);
   const allocTotal = Object.values(alloc).reduce((a, v) => a + Math.round(parseFloat(v || "0") * 100), 0);
   const amountPaisa = Math.round(parseFloat(amount || "0") * 100);
 
@@ -372,6 +382,10 @@ function PaymentFormInner() {
 
         <button className="btn btn-primary w-full !py-3.5 !text-base" disabled={saving}>
           {saving ? t("payform.saving") : isReceipt ? t("payform.saveReceipt") : t("payform.savePayment")}
+        </button>
+        <button type="button" className="btn btn-ghost w-full !py-2.5 text-sm"
+          onClick={() => router.push(isReceipt ? "/sales/receipts" : "/purchases/payments")}>
+          {t("common.cancel")}
         </button>
         </div>
 

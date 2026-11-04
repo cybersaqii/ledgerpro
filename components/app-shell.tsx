@@ -10,7 +10,7 @@ import {
   FolderKanban, Repeat, ShieldAlert, Search, ChevronDown, MessageCircle, Handshake,
   FileText, ClipboardList, ArrowDownToLine, ArrowUpFromLine, ArrowLeftRight,
   ClipboardCheck, FileUp, Receipt, CalendarClock, Layers, FileEdit, TrendingUp,
-  ShoppingBag,
+  ShoppingBag, BookOpen, Undo2, CornerUpLeft,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { Logo, ThemeToggle, LangToggle, Breadcrumb } from "./ui";
@@ -237,6 +237,7 @@ export function AppShell({ children, initialBusinessType }: { children: ReactNod
     { href: "/sales/quotations", label: t("nav.quotations"), icon: FileEdit, perm: "sales", feature: null, group: "sales" as NavGroup },
     { href: "/sales/pos", label: t("nav.pos"), icon: ShoppingCart, perm: "sales", feature: null, group: "sales" as NavGroup },
     { href: "/sales/orders", label: t("nav.orders"), icon: ClipboardList, perm: "sales", feature: null, group: "sales" as NavGroup },
+    { href: "/sales/notes", label: t("nav.creditNotes"), icon: Undo2, perm: "sales", feature: null, group: "sales" as NavGroup },
     { href: "/sales/customers", label: t("nav.customers"), icon: Users, perm: "parties", feature: null, group: "sales" as NavGroup, match: ["/parties"] },
     // Purchases
     { href: "/purchases/bills", label: t("nav.bills"), icon: ReceiptText, perm: "purchases", feature: "purchases" as const, group: "purchases" as NavGroup, match: ["/purchases"] },
@@ -244,12 +245,14 @@ export function AppShell({ children, initialBusinessType }: { children: ReactNod
     { href: "/purchases/pdc-issued", label: t("nav.pdcIssued"), icon: CalendarClock, perm: "payments", feature: "purchases" as const, group: "purchases" as NavGroup },
     { href: "/purchases/all", label: t("nav.purchasesAll"), icon: Layers, perm: "purchases", feature: "purchases" as const, group: "purchases" as NavGroup },
     { href: "/purchases/po", label: t("nav.po"), icon: ShoppingBag, perm: "purchases", feature: "purchases" as const, group: "purchases" as NavGroup },
+    { href: "/purchases/notes", label: t("nav.debitNotes"), icon: CornerUpLeft, perm: "purchases", feature: "purchases" as const, group: "purchases" as NavGroup },
     { href: "/purchases/suppliers", label: t("nav.suppliers"), icon: Users, perm: "parties", feature: "purchases" as const, group: "purchases" as NavGroup, match: ["/parties"] },
     // Inventory
     { href: "/inventory/products", label: t("nav.products"), icon: Package, perm: "products", feature: null, group: "inventory" as NavGroup, match: ["/products"] },
     { href: "/inventory/stock-adjustment", label: t("nav.stockAdjustment"), icon: Boxes, perm: "stock", feature: null, group: "inventory" as NavGroup, match: ["/stock"] },
     // Reports
     { href: "/reports", label: t("nav.reports"), icon: BarChart3, perm: "reports_basic", feature: null, group: "reports" as NavGroup },
+    { href: "/reports/journal", label: t("nav.journal"), icon: BookOpen, perm: "reports_basic", feature: null, group: "reports" as NavGroup },
     // Analytical Reports
     { href: "/analytical-reports", label: t("nav.analyticalReports"), icon: TrendingUp, perm: "reports_basic", feature: null, group: "analytical" as NavGroup },
     // Setup — settings plus modules not covered by the Fast Accounts groups

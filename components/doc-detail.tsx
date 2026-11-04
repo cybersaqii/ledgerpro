@@ -640,7 +640,7 @@ export function DocDetail({ mode, id }: { mode: "SALES" | "PURCHASE" | "NOTE"; i
               {company?.invoiceShowPaid !== false && !isGrnDoc && (
                 <>
                   <div className="flex justify-between"><span className="text-muted-foreground">{t("docdetail.paid")}</span><span className="text-end">{dualRow(toBig(paidTotal), null)}</span></div>
-                  <div className="flex justify-between"><span className="text-muted-foreground">{t("docdetail.invoiceBalance")}</span><span className="text-end">{dualRow(toBig(balanceTotal), null)}</span></div>
+                  <div className="flex justify-between"><span className="text-muted-foreground">{t(isSales ? "docdetail.invoiceBalance" : "docdetail.billBalance")}</span><span className="text-end">{dualRow(toBig(balanceTotal), null)}</span></div>
                 </>
               )}
             </div>
@@ -783,7 +783,7 @@ export function DocDetail({ mode, id }: { mode: "SALES" | "PURCHASE" | "NOTE"; i
                   <span>{dualRowPlain(toBig(paidTotal), null)}</span>
                 </div>
                 <div className="flex justify-between py-0.5">
-                  <span>{t("docdetail.invoiceBalance")}:</span>
+                  <span>{t(isSales ? "docdetail.invoiceBalance" : "docdetail.billBalance")}:</span>
                   <span className="font-bold">{dualRowPlain(toBig(balanceTotal), null)}</span>
                 </div>
               </>

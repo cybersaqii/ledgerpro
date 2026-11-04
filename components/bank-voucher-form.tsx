@@ -127,7 +127,7 @@ export function BankVoucherForm({ kind }: { kind: "PAYMENT" | "RECEIPT" }) {
 
       {/* Bank selector above the table (FA style) */}
       <div className="mb-2 flex items-center gap-2">
-        <label htmlFor="bv-bank" className="text-xs font-bold">{t("bankvoucher.bank")}</label>
+        <label htmlFor="bv-bank" className="text-xs font-bold">{t("bankvoucher.bank")} *</label>
         <select id="bv-bank" className="field max-w-xs" value={bankId}
           onChange={(e) => setBankId(e.target.value)} required>
           <option value="">{t("bankvoucher.selectBank")}</option>
