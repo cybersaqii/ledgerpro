@@ -104,7 +104,7 @@ export default function PaymentDetailPage({ params }: { params: Promise<{ id: st
   return (
     <div>
       <PageHeader
-        title={`${t("payments.detailTitle")} ${detail.docNo ?? ""}`}
+        title={`${detail.kind === "RECEIPT" ? t("payments.receiptDetailTitle") : t("payments.detailTitle")} ${detail.docNo ?? ""}`}
         subtitle={fmtDate(detail.date)}
         actions={
           <div className="flex gap-2">
@@ -169,7 +169,7 @@ export default function PaymentDetailPage({ params }: { params: Promise<{ id: st
                 <th className="num">{t("payments.allocColTotal")}</th>
                 <th className="num">{t("payments.allocColAdjusted")}</th>
                 <th className="num">{t("payments.allocColBalance")}</th>
-                {canVoid && !detail.voidedAt && <th><span className="sr-only">{f("fix3.unallocate")}</span></th>}
+                {canVoid && !detail.voidedAt && <th>{f("fix3.unallocate")}</th>}
               </tr></thead>
               <tbody>
                 {detail.allocations.map((a, i) => (
@@ -194,7 +194,7 @@ export default function PaymentDetailPage({ params }: { params: Promise<{ id: st
                           disabled={unallocating === a.id}
                           onClick={() => doUnallocate(a.id)}
                         >
-                          <Undo2 size={14} />
+                          <Undo2 size={14} /> {f("fix3.unallocate")}
                         </button>
                       </td>
                     )}

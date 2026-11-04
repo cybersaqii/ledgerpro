@@ -331,6 +331,11 @@ export function DocDetail({ mode, id }: { mode: "SALES" | "PURCHASE" | "NOTE"; i
     .filter(Boolean)
     .join(" · ");
   const paidTotal = doc.amountPaid ?? "0";
+  // A GRN carries no financial totals (the bill created from it does) — its
+  // stored subtotal/grandTotal are 0, so the summary derives the received
+  // goods value from the lines instead of showing 0s.
+  const isGrnDoc = !isSales && doc.docType === "GRN";
+  const linesValue = doc.items.reduce((s, it) => s + toBig(it.lineTotal), 0n);
   // Balance nets off returns (M3) and write-offs (G7): a returned or
   // written-off invoice must not show those amounts as still outstanding.
   const balanceTotal = (BigInt(doc.grandTotal) - BigInt(paidTotal) - BigInt(doc.returnedTotal ?? "0") - BigInt(doc.writtenOffAmount ?? "0")).toString();
@@ -411,7 +416,7 @@ export function DocDetail({ mode, id }: { mode: "SALES" | "PURCHASE" | "NOTE"; i
           actions={
             <>
               <Link href={isSales ? "/sales" : "/purchases"} className="btn btn-ghost text-sm"><ArrowLeft size={15} className="rtl:rotate-180" /> {t("docdetail.printBack")}</Link>
-              {doc.partyId && (doc.docType === "INVOICE" || doc.docType === "BILL") && (
+              {doc.partyId && outstanding > 0n && (doc.docType === "INVOICE" || doc.docType === "BILL") && (
                 <Link href={`/payments/new?kind=${isSales ? "RECEIPT" : "PAYMENT"}&partyId=${doc.partyId}`} className="btn btn-ghost text-sm">
                   <Wallet size={15} /> {isSales ? t("header.receivePayment") : t("header.paySupplier")}
                 </Link>
@@ -607,7 +612,9 @@ export function DocDetail({ mode, id }: { mode: "SALES" | "PURCHASE" | "NOTE"; i
 
           <div className="mt-6 flex justify-end">
             <div className="w-full max-w-xs space-y-2 text-sm">
-              <div className="flex justify-between"><span className="text-muted-foreground">{t("docdetail.subtotal")}</span><span className="text-end">{dualRow(toBig(doc.subtotal), doc.foreignSubtotal != null ? toBig(doc.foreignSubtotal) : null)}</span></div>
+              {!isGrnDoc && (
+                <div className="flex justify-between"><span className="text-muted-foreground">{t("docdetail.subtotal")}</span><span className="text-end">{dualRow(toBig(doc.subtotal), doc.foreignSubtotal != null ? toBig(doc.foreignSubtotal) : null)}</span></div>
+              )}
               {toBig(doc.discountTotal) > 0n && (
                 <div className="flex justify-between"><span className="text-muted-foreground">{t("docdetail.discount")}</span><span className="text-end">− {dualRow(toBig(doc.discountTotal), null)}</span></div>
               )}
@@ -621,8 +628,8 @@ export function DocDetail({ mode, id }: { mode: "SALES" | "PURCHASE" | "NOTE"; i
                 </div>
               )}
               <div className="flex justify-between border-t border-border pt-2 text-base">
-                <span className="font-extrabold">{t("docdetail.total")}</span>
-                <span className="text-end font-extrabold text-primary">{dualRow(toBig(doc.grandTotal), doc.foreignTotal != null ? toBig(doc.foreignTotal) : null)}</span>
+                <span className="font-extrabold">{isGrnDoc ? t("docdetail.goodsValue") : t("docdetail.total")}</span>
+                <span className="text-end font-extrabold text-primary">{dualRow(isGrnDoc ? linesValue : toBig(doc.grandTotal), !isGrnDoc && doc.foreignTotal != null ? toBig(doc.foreignTotal) : null)}</span>
               </div>
               {isForeignDoc && docFxRate != null && (
                 <div className="flex justify-between text-xs text-muted-foreground">
@@ -630,7 +637,7 @@ export function DocDetail({ mode, id }: { mode: "SALES" | "PURCHASE" | "NOTE"; i
                   <span dir="ltr" className="font-semibold">1 {docFxCode} = {formatRate(docFxRate)} PKR</span>
                 </div>
               )}
-              {company?.invoiceShowPaid !== false && (
+              {company?.invoiceShowPaid !== false && !isGrnDoc && (
                 <>
                   <div className="flex justify-between"><span className="text-muted-foreground">{t("docdetail.paid")}</span><span className="text-end">{dualRow(toBig(paidTotal), null)}</span></div>
                   <div className="flex justify-between"><span className="text-muted-foreground">{t("docdetail.invoiceBalance")}</span><span className="text-end">{dualRow(toBig(balanceTotal), null)}</span></div>
@@ -639,7 +646,7 @@ export function DocDetail({ mode, id }: { mode: "SALES" | "PURCHASE" | "NOTE"; i
             </div>
           </div>
           <p className="mt-2 text-end text-xs italic text-muted-foreground">
-            {t("fix4.print.amountInWords", { words: amountInWords(BigInt(doc.grandTotal)) })}
+            {t("fix4.print.amountInWords", { words: amountInWords(isGrnDoc ? linesValue : BigInt(doc.grandTotal)) })}
           </p>
 
           {doc.notes && (
@@ -760,8 +767,8 @@ export function DocDetail({ mode, id }: { mode: "SALES" | "PURCHASE" | "NOTE"; i
               </div>
             )}
             <div className="flex items-center justify-between border-y-2 border-black py-1 text-[14px] font-extrabold">
-              <span>{t("docdetail.total")}:</span>
-              <span>{dualRowPlain(toBig(doc.grandTotal), doc.foreignTotal != null ? toBig(doc.foreignTotal) : null)}</span>
+              <span>{isGrnDoc ? t("docdetail.goodsValue") : t("docdetail.total")}:</span>
+              <span>{dualRowPlain(isGrnDoc ? linesValue : toBig(doc.grandTotal), !isGrnDoc && doc.foreignTotal != null ? toBig(doc.foreignTotal) : null)}</span>
             </div>
             {isForeignDoc && docFxRate != null && (
               <div className="flex justify-between py-0.5 text-[10px]">
@@ -769,7 +776,7 @@ export function DocDetail({ mode, id }: { mode: "SALES" | "PURCHASE" | "NOTE"; i
                 <span dir="ltr">1 {docFxCode} = {formatRate(docFxRate)}</span>
               </div>
             )}
-            {company?.invoiceShowPaid !== false && (
+            {company?.invoiceShowPaid !== false && !isGrnDoc && (
               <>
                 <div className="flex justify-between py-0.5">
                   <span>{t("docdetail.paid")}:</span>
@@ -1199,10 +1206,13 @@ function DocActions({ doc, isSales, onChanged }: { doc: Doc; isSales: boolean; o
       >
         <Mail size={15} /> {t("docdetail.emailBtn")}
       </button>
-      {sourceNo && (
-        <span className="inline-flex items-center gap-1.5 rounded-xl bg-muted px-3 py-2 text-xs font-semibold text-muted-foreground">
+      {sourceNo && doc.sourceDocId && (
+        <Link
+          href={`${isSales ? "/sales" : "/purchases"}/${doc.sourceDocId}`}
+          className="inline-flex items-center gap-1.5 rounded-xl bg-muted px-3 py-2 text-xs font-semibold text-muted-foreground hover:text-primary hover:underline"
+        >
           <ArrowRightLeft size={13} /> {t("docdetail.convertedFrom", { no: sourceNo })}
-        </span>
+        </Link>
       )}
       {canConvert && !isOrder && (isSales || doc.docType !== "ORDER") && (
         <button className="btn btn-primary text-sm" disabled={busy} onClick={() => run("convert")}>

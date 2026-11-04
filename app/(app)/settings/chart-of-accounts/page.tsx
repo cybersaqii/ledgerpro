@@ -116,10 +116,10 @@ export default function ChartOfAccountsPage() {
                             </button>
                           )}
                           <button
-                            className="btn btn-ghost !p-2" title={n.isActive ? t("coa.deactivate") : t("coa.activate")}
+                            className="btn btn-ghost !p-2 text-xs" title={n.isActive ? t("coa.deactivate") : t("coa.activate")}
                             onClick={() => toggleActive(n)}
                           >
-                            <Power size={14} />
+                            <Power size={14} /> {n.isActive ? t("coa.deactivate") : t("coa.activate")}
                           </button>
                           {!n.isSystem && (
                             <button className="btn btn-ghost !p-2 text-danger" title={t("common.delete")} onClick={() => remove(n)}>

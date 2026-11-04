@@ -100,7 +100,7 @@ function Card({ title, action, children, className = "" }: {
 export default function DashboardPage() {
   const router = useRouter();
   const { t } = useLang();
-  const [tab, setTab] = useState<"new" | "overview">("new");
+  const [tab, setTab] = useState<"new" | "overview">("overview");
   const [user, setUser] = useState<User | null>(null);
   const [overview, setOverview] = useState<OverviewData | null>(null);
   const [recent, setRecent] = useState<RecentDoc[]>([]);

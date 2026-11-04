@@ -137,6 +137,15 @@ function RowActions({ d, isSales, t, canPay, onDeleted }: {
   const ref = useRef<HTMLDivElement>(null);
   const detailHref = `${isSales ? "/sales" : "/purchases"}/${d.id}`;
   const bal = docBalance(d);
+  // Row action label follows the actual document type — a quotation or a
+  // return is not an invoice, and a GRN is not a bill.
+  const viewLabel =
+    d.docType === "QUOTATION" ? t("docs.viewQuotation")
+    : d.docType === "RETURN" ? t("docs.viewReturn")
+    : d.docType === "ORDER" ? t("docs.viewOrder")
+    : d.docType === "GRN" ? t("docs.viewGrn")
+    : d.docType === "CHALLAN" ? t("docs.viewChallan")
+    : t(isSales ? "docs.viewInvoice" : "docs.viewBill");
   const showMakePayment = canPay && (d.docType === "INVOICE" || d.docType === "BILL") && bal > 0n && d.partyId;
   useEffect(() => {
     if (!open) return;
@@ -166,7 +175,7 @@ function RowActions({ d, isSales, t, canPay, onDeleted }: {
           </Link>
         ) : (
           <Link href={detailHref} className="font-bold text-primary hover:underline text-[0.82rem] whitespace-nowrap">
-            {t(isSales ? "docs.viewInvoice" : "docs.viewBill")}
+            {viewLabel}
           </Link>
         )}
         <button
@@ -185,7 +194,7 @@ function RowActions({ d, isSales, t, canPay, onDeleted }: {
           {!showMakePayment && (
             <Link href={detailHref} role="menuitem" onClick={() => setOpen(false)}
               className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-semibold transition hover:bg-muted">
-              {t(isSales ? "docs.viewInvoice" : "docs.viewBill")}
+              {viewLabel}
             </Link>
           )}
           <Link href={`${detailHref}?print=1`} role="menuitem" onClick={() => setOpen(false)}
@@ -440,7 +449,7 @@ export function DocList({ mode, initialDocType, lockedType, titleKey, subtitleKe
                       </Link>
                     </td>
                     <td className="num whitespace-nowrap font-extrabold">{fmtMoney(d.grandTotal)}</td>
-                    <td className="num whitespace-nowrap font-bold">{fmtMoney(docBalance(d))}</td>
+                    <td className="num whitespace-nowrap font-bold">{(d.docType === "QUOTATION" || d.docType === "ORDER") ? <span className="text-muted-foreground">—</span> : fmtMoney(docBalance(d))}</td>
                     <td><PayStatusBadge d={d} t={t} nowMs={nowMs} /></td>
                     <td className="text-end">
                       <RowActions d={d} isSales={isSales} t={t} canPay={canPay} onDeleted={handleDeleted} />

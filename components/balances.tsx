@@ -213,12 +213,24 @@ function AgingView({ kind, onTotals }: { kind: "CUSTOMER" | "SUPPLIER"; onTotals
 
   const cell = (v: string, danger = false) =>
     BigInt(v) ? <span className={danger ? "font-extrabold text-danger" : "font-semibold"}>{fmtMoney(v)}</span> : <span className="text-muted-foreground/50">—</span>;
+  // The attention line names the oldest bucket that actually has money in it —
+  // never a hardcoded "90+ days" when that bucket is empty.
+  const hotBucket =
+    BigInt(totals.d90plus) > 0n ? t("balances.chipD90plus")
+    : BigInt(totals.d90) > 0n ? t("balances.chipD90")
+    : BigInt(totals.d60) > 0n ? t("balances.chipD60")
+    : BigInt(totals.d30) > 0n ? t("balances.chipD30")
+    : null;
 
   return (
     <div>
       <div className="mb-4 flex items-center justify-between gap-3">
         <p className="text-sm text-muted-foreground">
-          {t("balances.agingHintPre")} <span className="font-bold text-danger">{t("balances.agingHot")}</span> {t("balances.agingHintPost")}
+          {!loading && (hotBucket ? (
+            <>{t("balances.agingHintPre")} <span className="font-bold text-danger">{hotBucket}</span> {t("balances.agingHintPost")}</>
+          ) : (
+            t("balances.agingClear")
+          ))}
         </p>
         <ExportCsv filename={kind === "CUSTOMER" ? "receivables-aging" : "payables-aging"} disabled={loading || rows.length === 0} rows={() => [
           [t("balances.csvParty"), t("balances.csvPhone"), `${t("balances.chipNotDue")} (${t("common.currencyNote")})`, `${t("balances.chipD30")} (${t("common.currencyNote")})`, `${t("balances.chipD60")} (${t("common.currencyNote")})`, `${t("balances.chipD90")} (${t("common.currencyNote")})`, `${t("balances.chipD90plus")} (${t("common.currencyNote")})`, `${t("balances.total")} (${t("common.currencyNote")})`],

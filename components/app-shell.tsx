@@ -235,6 +235,7 @@ export function AppShell({ children, initialBusinessType }: { children: ReactNod
     { href: "/sales/pdc-received", label: t("nav.pdcReceived"), icon: CalendarClock, perm: "payments", feature: null, group: "sales" as NavGroup, match: ["/payments/pdc"] },
     { href: "/sales/all", label: t("nav.salesAll"), icon: Layers, perm: "sales", feature: null, group: "sales" as NavGroup },
     { href: "/sales/quotations", label: t("nav.quotations"), icon: FileEdit, perm: "sales", feature: null, group: "sales" as NavGroup },
+    { href: "/sales/pos", label: t("nav.pos"), icon: ShoppingCart, perm: "sales", feature: null, group: "sales" as NavGroup },
     { href: "/sales/orders", label: t("nav.orders"), icon: ClipboardList, perm: "sales", feature: null, group: "sales" as NavGroup },
     { href: "/sales/customers", label: t("nav.customers"), icon: Users, perm: "parties", feature: null, group: "sales" as NavGroup, match: ["/parties"] },
     // Purchases
@@ -253,6 +254,7 @@ export function AppShell({ children, initialBusinessType }: { children: ReactNod
     { href: "/analytical-reports", label: t("nav.analyticalReports"), icon: TrendingUp, perm: "reports_basic", feature: null, group: "analytical" as NavGroup },
     // Setup — settings plus modules not covered by the Fast Accounts groups
     { href: "/settings", label: t("nav.settings"), icon: Settings, perm: "", feature: null, group: "setup" as NavGroup },
+    { href: "/settings/chart-of-accounts", label: t("nav.chartOfAccounts"), icon: Landmark, perm: "", feature: null, group: "setup" as NavGroup },
     { href: "/settings/import", label: t("nav.importData"), icon: FileUp, perm: "import_export", feature: null, group: "setup" as NavGroup },
     { href: "/expenses", label: t("nav.expenses"), icon: ReceiptText, perm: "expenses", feature: null, group: "setup" as NavGroup },
     { href: "/sales/recurring", label: t("nav.recurring"), icon: Repeat, perm: "sales", feature: null, group: "setup" as NavGroup },
@@ -318,9 +320,13 @@ export function AppShell({ children, initialBusinessType }: { children: ReactNod
     }
   }
 
-  const isActiveNav = (n: NavItem) => {
-    if (pathname === n.href) return true;
-    if (n.href !== "/dashboard" && pathname.startsWith(n.href + "/")) return true;
+  // Match strength: exact href (or a path under it) outranks a catch-all
+  // `match` entry. Without this, the Invoices item (match: ["/sales"])
+  // hijacked the highlight and breadcrumb of every /sales/* page, so the
+  // Receipts page showed "Home > Sales > Invoices".
+  const navMatchScore = (n: NavItem): number => {
+    if (pathname === n.href) return 2;
+    if (n.href !== "/dashboard" && pathname.startsWith(n.href + "/")) return 2;
     for (const m of n.match ?? []) {
       if (pathname !== m && !pathname.startsWith(m + "/")) continue;
       // /parties serves both customers and suppliers — disambiguate by ?kind=
@@ -329,11 +335,26 @@ export function AppShell({ children, initialBusinessType }: { children: ReactNod
         const wantSupplier = n.href.includes("/suppliers");
         if ((kind === "SUPPLIER") !== wantSupplier) continue;
       }
-      return true;
+      return 1;
     }
-    return false;
+    return 0;
   };
-  const activeGroup: NavGroup | null = nav.find(isActiveNav)?.group ?? null;
+  const isActiveNav = (n: NavItem) => navMatchScore(n) > 0;
+  // Single best-matching item (highest score, then longest href, first-listed
+  // wins remaining ties) — drives the item highlight and the breadcrumb.
+  const bestNav: NavItem | null = (() => {
+    let best: NavItem | null = null;
+    let bestScore = 0;
+    for (const n of nav) {
+      const s = navMatchScore(n);
+      if (s > bestScore || (s === bestScore && s > 0 && best !== null && n.href.length > best.href.length)) {
+        best = n;
+        bestScore = s;
+      }
+    }
+    return best;
+  })();
+  const activeGroup: NavGroup | null = bestNav?.group ?? null;
 
   function toggleGroup(g: NavGroup) {
     setCollapsed((s) => {
@@ -379,7 +400,7 @@ export function AppShell({ children, initialBusinessType }: { children: ReactNod
   }, [activeGroup]);
 
   function renderNavItem(n: NavItem) {
-    const active = isActiveNav(n);
+    const active = bestNav?.href === n.href;
     return (
       <Link
         key={n.href}
@@ -481,7 +502,7 @@ export function AppShell({ children, initialBusinessType }: { children: ReactNod
         </div>
       )}
       {/* Desktop sidebar */}
-      <aside className="sticky top-0 hidden h-screen w-64 shrink-0 flex-col border-e border-border bg-sidebar lg:flex">
+      <aside className="sticky top-0 hidden h-screen w-72 shrink-0 flex-col border-e border-border bg-sidebar lg:flex">
         <div className="flex h-16 items-center border-b border-border px-5">
           <Logo />
         </div>
@@ -615,11 +636,9 @@ export function AppShell({ children, initialBusinessType }: { children: ReactNod
 
         <main className="flex-1 px-4 py-3 sm:px-6 lg:px-8">
           {(() => {
-            // Best-matching nav item (longest href wins) for the breadcrumb trail.
-            const ranked = nav
-              .filter(isActiveNav)
-              .sort((a, b) => b.href.length - a.href.length);
-            const item = ranked[0];
+            // Breadcrumb follows the single best-matching nav item, so a
+            // catch-all match never overrides the exact page.
+            const item = bestNav;
             if (!item) return null;
             const crumbs: { label: string; href?: string }[] = [
               { label: t("nav.home"), href: "/dashboard" },

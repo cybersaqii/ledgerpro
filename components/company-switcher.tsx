@@ -74,7 +74,7 @@ export function CompanySwitcher() {
         <span className="min-w-0 flex-1">
           <span className="block truncate text-sm font-bold">{current?.name ?? "…"}</span>
           <span className="block text-[0.7rem] text-muted-foreground">
-            {companies.length} {t("company.count")}
+            {companies.length} {companies.length === 1 ? t("company.countOne") : t("company.count")}
           </span>
         </span>
         <ChevronDown size={14} className={`shrink-0 text-muted-foreground transition-transform ${open ? "rotate-180" : ""}`} />

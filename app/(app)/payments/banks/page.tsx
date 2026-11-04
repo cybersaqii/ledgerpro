@@ -7,7 +7,7 @@ import { PageHeader, ErrorNote, Switch, Field } from "@/components/ui";
 import { Modal } from "@/components/modal";
 import { useLang } from "@/components/lang-provider";
 import { usePermissions } from "@/components/permissions";
-import { api, fmtMoney } from "@/lib/format";
+import { api, fmtMoney, toBig } from "@/lib/format";
 
 type Bank = {
   id: string; name: string; kind: string; accountType: string;
@@ -142,8 +142,7 @@ export default function BanksPage() {
               </thead>
               <tbody>
                 {banks.map((b) => (
-                  <tr key={b.id} className={b.isActive ? "" : "opacity-60"}>
-                    <td>
+                  <tr key={b.id} className={b.isActive ? "" : "opacity-60"}>                    <td>
                       <a href={`/reports/bank-book?accountId=${b.id}`} className="font-bold text-primary hover:underline" title={t("banks.viewStatement")}>
                         {b.name}
                       </a>
@@ -176,6 +175,13 @@ export default function BanksPage() {
                   </tr>
                 ))}
               </tbody>
+              <tfoot>
+                <tr className="bg-muted/40">
+                  <td colSpan={2} className="font-bold">{t("banks.total")}</td>
+                  <td className="num font-bold">{fmtMoney(banks.reduce((s, b) => s + toBig(b.balance), 0n))}</td>
+                  <td />
+                </tr>
+              </tfoot>
             </table>
           </div>
         </div>

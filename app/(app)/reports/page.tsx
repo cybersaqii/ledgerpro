@@ -18,6 +18,7 @@ type ReportDef = { key: string; num: string; bucket: string; href: string; title
 /** Category tabs (pill row), in display order — reuses the existing reportengine
  *  category strings so no new user-facing copy is introduced. */
 const TABS = [
+  { id: "all", bucket: null as string | null },
   { id: "favorites", bucket: null as string | null },
   { id: "bank", bucket: "catCashBank" },
   { id: "sales", bucket: "catSales" },
@@ -35,7 +36,7 @@ export default function ReportsHub() {
   const [isFree, setIsFree] = useState(false);
   const [favorites, setFavorites] = useState<string[]>([]);
   const [q, setQ] = useState("");
-  const [activeTab, setActiveTab] = useState<string>("favorites");
+  const [activeTab, setActiveTab] = useState<string>("all");
 
   useEffect(() => {
     api<{ data: { level: string } }>("/api/billing/status")
@@ -119,9 +120,12 @@ export default function ReportsHub() {
 
   const shown = activeTab === "favorites"
     ? searched.filter((r) => favorites.includes(r.key))
+    : activeTab === "all"
+    ? searched
     : searched.filter((r) => r.bucket === TABS.find((tb) => tb.id === activeTab)?.bucket);
 
   function tabLabel(id: string): string {
+    if (id === "all") return t("reportsindex.all");
     if (id === "favorites") return t("reportsindex.favorites");
     const tab = TABS.find((tb) => tb.id === id);
     return tab?.bucket ? t(`reportengine.${tab.bucket}`) : id;

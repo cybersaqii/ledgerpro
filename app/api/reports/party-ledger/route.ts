@@ -1,6 +1,6 @@
 import { NextRequest } from "next/server";
-import { eq, and, sql } from "drizzle-orm";
-import { parties, journalEntries, journalLines } from "@/db/schema";
+import { eq, and, sql, inArray } from "drizzle-orm";
+import { parties, journalEntries, journalLines, payments } from "@/db/schema";
 import { json, err } from "@/lib/api";
 import { requirePermission, db } from "@/lib/route-helpers";
 
@@ -79,14 +79,32 @@ export async function GET(req: NextRequest) {
     )
     .orderBy(journalEntries.date, journalEntries.createdAt);
 
+  // Payment journals store the user's free-text reference (usually blank), not
+  // the voucher number — so look up REC-/PAY- numbers for the REF column and
+  // for the detail link. Without this the ledger showed a generic "PAYMENT".
+  const payIds = [...new Set(lines.filter((l) => l.source === "PAYMENT" && l.sourceId).map((l) => l.sourceId as string))];
+  const payDocNos = new Map<string, string>();
+  if (payIds.length > 0) {
+    const payRows = await db
+      .select({ id: payments.id, docNo: payments.docNo })
+      .from(payments)
+      .where(and(eq(payments.companyId, companyId), inArray(payments.id, payIds)));
+    for (const p of payRows) if (p.docNo) payDocNos.set(p.id, p.docNo);
+  }
+
   let running = opening;
   const entries = lines.map((l) => {
     running += l.debit - l.credit;
     return {
       date: l.date,
       memo: l.memo,
-      reference: l.reference,
+      // Prefer the voucher number for payment rows so the entry is traceable;
+      // other rows keep their journal reference.
+      reference: l.source === "PAYMENT" && l.sourceId && payDocNos.get(l.sourceId)
+        ? payDocNos.get(l.sourceId) as string
+        : l.reference,
       source: l.source,
+      sourceId: l.sourceId,
       debit: l.debit.toString(),
       credit: l.credit.toString(),
       balance: running.toString(),

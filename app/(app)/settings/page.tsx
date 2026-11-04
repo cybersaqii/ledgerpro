@@ -90,12 +90,14 @@ function SettingsJumpNav({ active, onSelect }: { active: string; onSelect: (id: 
     `flex w-full items-center gap-3 rounded-xl px-3.5 py-2.5 text-sm font-semibold transition ${
       active === id
         ? "bg-primary text-primary-foreground shadow-md"
+        : id === "sec-danger"
+        ? "text-danger hover:bg-danger-soft hover:text-danger"
         : "text-muted-foreground hover:bg-muted hover:text-foreground"
     }`;
   return (
     <>
       {/* Desktop: premium sidebar */}
-      <aside className="hidden w-60 shrink-0 lg:block">
+      <aside className="hidden w-72 shrink-0 lg:block">
         <nav aria-label={t("settings.navAria")} className="sticky top-20 space-y-1 rounded-2xl border border-border bg-card p-3 shadow-[var(--shadow-card)]">
           {SECTIONS.map((id) => {
             const Icon = SECTION_ICONS[id];

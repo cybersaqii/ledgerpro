@@ -13,6 +13,7 @@ import { NumericDateInput } from "@/components/numeric-date-input";
 type Expense = {
   id: string; date: number; amount: string; taxAmount: string; notes: string | null;
   accountName: string | null; bankName: string | null; voidedAt: number | null;
+  docNo: string | null;
 };
 type Account = { id: string; name: string; code: string };
 type Bank = { id: string; name: string };
@@ -181,10 +182,11 @@ export default function ExpensesPage() {
         ) : (
           <div className="overflow-x-auto">
             <table className="tbl">
-              <thead><tr><th>{t("expenses.colDate")}</th><th>{t("expenses.colAccount")}</th><th>{t("expenses.colPaidFrom")}</th><th>{t("expenses.colNotes")}</th><th className="num">{t("expenses.colAmount")}</th>{canVoid && <th><span className="sr-only">{f("fix3.voidExpense")}</span></th>}</tr></thead>
+              <thead><tr><th>{t("expenses.colDocNo")}</th><th>{t("expenses.colDate")}</th><th>{t("expenses.colAccount")}</th><th>{t("expenses.colPaidFrom")}</th><th>{t("expenses.colNotes")}</th><th className="num">{t("expenses.colAmount")}</th>{canVoid && <th>{f("fix3.voidExpense")}</th>}</tr></thead>
               <tbody>
                 {rows.map((x) => (
                   <tr key={x.id} className={x.voidedAt ? "opacity-60" : ""}>
+                    <td className="whitespace-nowrap font-bold text-primary">{x.docNo ?? "—"}</td>
                     <td className="whitespace-nowrap text-muted-foreground">{fmtDate(x.date)}</td>
                     <td><span className="badge bg-muted text-foreground">{x.accountName ?? "—"}</span>
                       {x.voidedAt && <span className="badge ms-1 bg-danger/15 text-danger">{f("fix3.voided")}</span>}</td>
@@ -194,10 +196,10 @@ export default function ExpensesPage() {
                     {canVoid && (
                       <td className="text-end">
                         {!x.voidedAt && (
-                          <button className="btn btn-ghost !p-2 text-muted-foreground hover:text-danger"
+                          <button className="btn btn-ghost !p-2 text-xs text-muted-foreground hover:text-danger"
                             title={f("fix3.voidExpense")}
                             onClick={() => { setVoidReason(""); setVoidError(null); setVoidTarget(x); }}>
-                            <Ban size={15} />
+                            <Ban size={15} /> {f("fix3.voidExpense")}
                           </button>
                         )}
                       </td>

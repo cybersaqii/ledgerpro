@@ -608,9 +608,8 @@ export default function ProductsPage() {
                         <span className="flex items-center gap-2.5">
                           <ProductImage name={p.name} imageUrl={p.imageUrl} businessType={bp.type} size={36} />
                           <span>
-                            <span className="font-bold">{p.name}</span>
+                            <button type="button" onClick={() => openEdit(p)} className="font-bold text-primary hover:underline">{p.name}</button>
                             {p.isBundle && <span className="badge ms-2 bg-primary-soft text-primary">{t("bundles.badge")}</span>}
-                            {low && <span className="badge ms-2 bg-danger-soft text-danger"><TriangleAlert size={11} /> {t("products.lowBadge")}</span>}
                             <span className="block text-xs text-muted-foreground">
                               {[p.unit, p.location].filter(Boolean).join(" · ")}
                             </span>
@@ -630,8 +629,10 @@ export default function ProductsPage() {
                       </td>
                       <td>
                         {tracked ? (
-                          low
-                            ? <span className="badge bg-danger-soft text-danger">{t("products.lowBadge")}</span>
+                          BigInt(p.totalQty) < 0n
+                            ? <span className="badge bg-danger text-white">{t("products.negativeStock")}</span>
+                            : low
+                            ? <span className="badge bg-danger-soft text-danger" title={t("products.lowBelow", { level: p.reorderLevel })}>{t("products.lowBadge")}</span>
                             : <span className="badge bg-primary-soft text-primary">{t("products.lowOk")}</span>
                         ) : (
                           <span className="text-muted-foreground">—</span>
