@@ -72,7 +72,12 @@ export default function ProfitLossPage() {
             <button className="btn btn-danger text-sm" onClick={load}><RotateCcw size={15} /> {t("pl.tryAgain")}</button>
           </div>
         ) : (
-          <div>{lines.map((l) => <MoneyLine key={l.label} l={l} t={t} />)}</div>
+          <div>
+            {lines.map((l) => <MoneyLine key={l.label} l={l} t={t} />)}
+            {lines.length > 0 && lines.every((l) => BigInt(l.amount) === 0n) && (
+              <p className="mt-4 rounded-xl bg-muted px-4 py-3 text-sm text-muted-foreground">{t("pl.noActivityHint")}</p>
+            )}
+          </div>
         )}
       </div>
     </div>

@@ -82,6 +82,10 @@ export async function GET(req: NextRequest) {
   // Payment journals store the user's free-text reference (usually blank), not
   // the voucher number — so look up REC-/PAY- numbers for the REF column and
   // for the detail link. Without this the ledger showed a generic "PAYMENT".
+  // Rows with no human number at all keep a null reference (the row then
+  // shows its source) instead of leaking a system id like pay-<epoch>.
+  const isInternalRef = (v: string | null): boolean =>
+    !!v && (/^pay-\d{10,}$/.test(v) || /-synth$/.test(v) || /^pay-sale-\d+-\d+$/.test(v));
   const payIds = [...new Set(lines.filter((l) => l.source === "PAYMENT" && l.sourceId).map((l) => l.sourceId as string))];
   const payDocNos = new Map<string, string>();
   if (payIds.length > 0) {
@@ -95,14 +99,16 @@ export async function GET(req: NextRequest) {
   let running = opening;
   const entries = lines.map((l) => {
     running += l.debit - l.credit;
+    let reference: string | null = l.reference;
+    if (l.source === "PAYMENT") {
+      reference = (l.sourceId && payDocNos.get(l.sourceId)) ?? (isInternalRef(l.reference) ? null : l.reference);
+    }
     return {
       date: l.date,
       memo: l.memo,
       // Prefer the voucher number for payment rows so the entry is traceable;
       // other rows keep their journal reference.
-      reference: l.source === "PAYMENT" && l.sourceId && payDocNos.get(l.sourceId)
-        ? payDocNos.get(l.sourceId) as string
-        : l.reference,
+      reference,
       source: l.source,
       sourceId: l.sourceId,
       debit: l.debit.toString(),

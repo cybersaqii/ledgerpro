@@ -79,7 +79,7 @@ function AddNewSplit({ isSales, t, newType }: {
   const ref = useRef<HTMLDivElement>(null);
   const options: { label: string; href: string }[] = isSales
     ? [
-        { label: t("docs.addOptInvoice"), href: newType ? `/sales/new?type=${newType}` : "/sales/new" },
+        { label: newType === "ORDER" ? t("docs.addOptOrder") : t("docs.addOptInvoice"), href: newType ? `/sales/new?type=${newType}` : "/sales/new" },
         { label: t("docs.addOptCreditNote"), href: "/sales/notes/new" },
         { label: t("docs.addOptBatchInvoices"), href: "/sales/new" },
         { label: t("docs.addOptBulkInvoices"), href: "/sales/new" },
@@ -398,7 +398,7 @@ export function DocList({ mode, initialDocType, lockedType, titleKey, subtitleKe
           <div className="space-y-3 p-5">{[1, 2, 3, 4, 5].map((i) => <div key={i} className="skeleton h-12 rounded-xl" />)}</div>
         ) : rows.length === 0 ? (
           <EmptyState title={docType === "ORDER" ? t("docs.noOrders") : isSales ? t("docs.noSales", { sales: bp.salesNav.toLowerCase() }) : t("docs.noPurchases")}
-            hint={hasFilter ? t("docs.filterHint") : isSales ? t("docs.createFirstSale", { thing: bp.salesNav.toLowerCase() }) : t("docs.createFirstPurchase")}
+            hint={hasFilter ? t("docs.filterHint") : docType === "ORDER" ? t("docs.createFirstOrder") : isSales ? t("docs.createFirstSale", { thing: bp.salesNav.toLowerCase() }) : t("docs.createFirstPurchase")}
             action={!hasFilter ? <Link href={isSales ? (lockedType ? `/sales/new?type=${lockedType}` : "/sales/new") : (lockedType ? `/purchases/new?type=${lockedType}` : "/purchases/new")} className="btn btn-primary text-sm"><Plus size={16} /> {t("docs.createNow")}</Link> : undefined} />
         ) : (
           <div className="overflow-x-auto">

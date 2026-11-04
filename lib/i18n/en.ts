@@ -425,6 +425,7 @@ export const en = {
     dateFormatHint: "Date format: day / month / year",
     filterHint: "Try widening the date range or clearing filters.",
     createFirstSale: "Create your first {thing}.",
+    createFirstOrder: "Create your first order from the New Sale form.",
     createFirstPurchase: "Record your first purchase bill.",
     createNow: "Create now"
   },
@@ -1131,7 +1132,7 @@ export const en = {
     colAmount: "Amount",
     typeReceived: "Received",
     typePaid: "Paid",
-    viewAllocations: "View",
+    viewAllocations: "View allocations",
     hideAllocations: "Hide",
     noAllocations: "No allocations on this payment.",
     allocColDoc: "Doc no",
@@ -3831,7 +3832,8 @@ export const en = {
     errLoadWith: "Could not load the report — {error}",
     tryAgain: "Try again",
     csvItem: "Item",
-    csvAmount: "Amount (Rs)"
+    csvAmount: "Amount (Rs)",
+    noActivityHint: "No activity in this period — try a wider date range."
   },
   balancesheet: {
     title: "Balance sheet",

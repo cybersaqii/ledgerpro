@@ -210,7 +210,7 @@ export default function DashboardPage() {
           <tbody>
             {rows.map((r) => (
               <tr key={r.id}>
-                <td className="!text-start truncate text-xs font-semibold">{r.name}</td>
+                <td className="!text-start truncate text-xs font-semibold"><Link href={`/reports/party-ledger?party=${r.id}`} className="text-primary hover:underline">{r.name}</Link></td>
                 <td className="!text-end text-xs font-bold tabular-nums">{fmtMoney(r.balance)}</td>
               </tr>
             ))}

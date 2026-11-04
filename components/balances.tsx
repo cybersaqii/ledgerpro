@@ -70,11 +70,13 @@ export function BalancesPage({ kind }: { kind: "CUSTOMER" | "SUPPLIER" }) {
         title={isCustomer ? bp.receivables : t("balances.payables")}
         subtitle={<>{t("balances.outstanding")} <span className="font-extrabold text-primary">{fmtMoney(tab === "aging" && agingTotal !== null ? agingTotal : total)}</span></>}
         actions={<>
+          {tab === "list" && (
           <ExportCsv filename={isCustomer ? "receivables" : "payables"} disabled={loading || rows.length === 0} rows={() => [
             [t("balances.csvParty"), t("balances.csvPhone"), t("balances.csvCity"), t("balances.csvBalance"), t("balances.csvLimit"), t("balances.csvRisk"), t("balances.csvStatus")],
             ...rows.map((r) => [r.name, r.phone ?? "", r.city ?? "", csvMoney(r.balance), BigInt(r.creditLimit) > 0n ? csvMoney(r.creditLimit) : "", r.riskCategory, r.creditStatus]),
             [t("balances.csvTotal"), "", "", csvMoney(total), "", "", ""],
           ]} />
+          )}
           <Link href={`/payments/new?kind=${isCustomer ? "RECEIPT" : "PAYMENT"}`} className="btn btn-primary text-sm">
             <Plus size={16} /> {isCustomer ? t("balances.receivePayment") : t("balances.paySupplier")}
           </Link>
@@ -110,7 +112,7 @@ export function BalancesPage({ kind }: { kind: "CUSTOMER" | "SUPPLIER" }) {
                 {rows.map((r) => (
                   <tr key={r.id} className={r.creditStatus === "HOLD" ? "!bg-danger/[0.05]" : ""}>
                     <td>
-                      <span className="font-bold">{r.name}</span>
+                      <Link href={`/reports/party-ledger?party=${r.id}`} className="font-bold text-primary hover:underline">{r.name}</Link>
                       {r.creditStatus === "HOLD" && (
                         <span className="badge ms-2 !bg-danger-soft !text-danger !text-[10px]" title={r.creditHoldReason ?? ""}>
                           {t("balances.holdBadge")}
@@ -264,7 +266,7 @@ function AgingView({ kind, onTotals }: { kind: "CUSTOMER" | "SUPPLIER"; onTotals
                     <Fragment key={r.id}>
                       <tr className={hot ? "!bg-danger/[0.07]" : warm ? "!bg-accent/[0.06]" : ""}>
                         <td>
-                          <span className="font-bold">{r.name}</span>
+                          <Link href={`/reports/party-ledger?party=${r.id}`} className="font-bold text-primary hover:underline">{r.name}</Link>
                           {hot && <span className="badge ms-2 !bg-danger-soft !text-danger !text-[10px]">{t("balances.overdueBadge")}</span>}
                         </td>
                         <td className="num">{cell(r.notDue)}</td>

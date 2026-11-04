@@ -28,6 +28,15 @@ type PayDetail = {
 const PER_PAGE_DEFAULT = 25;
 const PER_PAGE_OPTIONS = [10, 25, 50, 100, 200, 300, 400, 500];
 
+// Legacy/synthetic payments carry no human voucher number — their reference is
+// a system id (pay-<epoch>, pay-sale-<epoch>-<n>, sale-<epoch>-synth). Those
+// are not user-facing information, so the list shows "—" instead of leaking
+// internal ids. The row still links to its detail page by id.
+const isInternalRef = (v: string | null | undefined): boolean =>
+  !!v && (/^pay-\d{10,}$/.test(v) || /-synth$/.test(v) || /^pay-sale-\d+-\d+$/.test(v));
+const displayRef = (v: string | null | undefined): string | null =>
+  isInternalRef(v) ? null : (v ?? null);
+
 /** Green "Add New ▾" split button for locked receipt/payment pages (Fast Accounts style). */
 function PayAddNewSplit({ lockedKind, t }: {
   lockedKind: "PAYMENT" | "RECEIPT";
@@ -313,7 +322,7 @@ export default function PaymentsPage({
                       </td>
                       <td className="whitespace-nowrap">
                         <Link href={`/payments/${p.id}`} className="font-bold text-primary hover:underline">
-                          {p.docNo ?? p.reference ?? "—"}
+                          {displayRef(p.docNo) ?? displayRef(p.reference) ?? "—"}
                         </Link>
                       </td>
                       <td className="whitespace-nowrap text-muted-foreground">{fmtDate(p.date)}</td>
@@ -324,7 +333,7 @@ export default function PaymentsPage({
                           </Link>
                         ) : (p.partyName ?? "—")}
                       </td>
-                      <td className="whitespace-nowrap text-muted-foreground">{p.reference ?? "—"}</td>
+                      <td className="whitespace-nowrap text-muted-foreground">{displayRef(p.reference) ?? "—"}</td>
                       <td>
                         <span className={`badge whitespace-nowrap ${p.kind === "RECEIPT" ? "bg-primary-soft text-primary" : "bg-accent-soft text-accent"}`}>
                           {p.kind === "RECEIPT" ? t("payments.typeReceived") : t("payments.typePaid")}
