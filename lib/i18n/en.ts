@@ -1270,6 +1270,7 @@ export const en = {
     allocClear: "All clear — no outstanding bills for this {party}.",
     allocateSummary: "Outstanding: {count} bill(s) · Allocated: {allocated} of {total}",
     due: "Due {balance}",
+    ofTotal: "of {total}",
     allocateAgainst: "Allocate against {docNo}",
     saveReceipt: "Save receipt",
     savePayment: "Save payment",

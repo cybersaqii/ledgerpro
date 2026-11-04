@@ -1432,6 +1432,7 @@ export function DocForm({ mode, initialType }: { mode: "SALES" | "PURCHASE"; ini
                     <th className="!px-2">#</th>
                     <th>{t("docform.colItemCode")}</th>
                     <th>{t("docform.colItemName")}</th>
+                    <th>{t("docform.colUnit")}</th>
                     <th className="num">{t("docform.colPurchasePrice")}</th>
                     <th className="num">{t("docform.colRate")}</th>
                     <th className="num">{t("docform.colQty")}</th>
@@ -1468,6 +1469,7 @@ export function DocForm({ mode, initialType }: { mode: "SALES" | "PURCHASE"; ini
                             <BatchControls line={l} isSales={isSales} docType={docType} batches={batchCache[l.productId]} t={t} onChange={(patch) => updateLine(l.key, patch)} />
                             <LocationControls line={l} branches={branches} t={t} onChange={(patch) => updateLine(l.key, patch)} />
                           </td>
+                          <td className="whitespace-nowrap text-[13px] text-muted-foreground">{l.lineUnit || l.unit || "—"}</td>
                           <td className="num whitespace-nowrap text-[13px] tabular-nums text-muted-foreground">{l.costPrice ? fmtMoney(BigInt(Math.round(parseFloat(l.costPrice) * 100))) : "—"}</td>
                           <td>
                             <div className="flex overflow-hidden rounded-lg border border-border text-[11px] font-bold">

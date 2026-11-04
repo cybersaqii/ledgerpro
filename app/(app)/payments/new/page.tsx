@@ -400,7 +400,7 @@ function PaymentFormInner() {
                     className="h-6 w-6 shrink-0 accent-[var(--primary)]" />
                   <div className="min-w-0 flex-1">
                     <p className="text-sm font-bold">{o.docNo}</p>
-                    <p className="text-xs text-muted-foreground">{fmtDate(o.date)} · {t("payform.due", { balance: fmtMoney(o.balance) })}</p>
+                    <p className="text-xs text-muted-foreground">{fmtDate(o.date)} · {t("payform.due", { balance: fmtMoney(o.balance) })} {t("payform.ofTotal", { total: fmtMoney(o.grandTotal) })}</p>
                   </div>
                   {alloc[o.id] !== undefined && (
                     <input className="field num !w-28 !py-1.5" type="number" min="0" step="0.01"

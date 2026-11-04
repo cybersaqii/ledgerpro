@@ -1270,6 +1270,7 @@ export const ur: DeepPartial<EnDict> = {
     allocClear: "سب ٹھیک ہے — اس {party} کے کوئی بقایا بل نہیں۔",
     allocateSummary: "واجب الادا: {count} بل · مختص: {total} میں سے {allocated}",
     due: "واجب الادا {balance}",
+    ofTotal: "کل {total} میں سے",
     allocateAgainst: "{docNo} کے مقابل مختص کریں",
     saveReceipt: "رسید محفوظ کریں",
     savePayment: "ادائیگی محفوظ کریں",

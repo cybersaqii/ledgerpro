@@ -187,7 +187,7 @@ export default function NewJournalVoucherPage() {
 
       {bothSides && <div className="mt-3"><ErrorNote message={t("jv.errBothSides")} /></div>}
 
-      <div className="sticky bottom-0 mt-4 flex justify-end gap-2 bg-background/80 py-3 backdrop-blur">
+      <div className="sticky bottom-0 mt-4 flex items-center justify-between gap-2 bg-background/80 py-3 backdrop-blur">
         <button className="btn btn-ghost" onClick={() => router.back()}>{t("common.cancel")}</button>
         <button className="btn btn-primary" onClick={save} disabled={!canSave}>
           {saving ? t("common.saving") : t("jv.saveVoucher")}
