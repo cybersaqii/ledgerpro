@@ -584,6 +584,8 @@ export const ur: DeepPartial<EnDict> = {
     saving: "محفوظ ہو رہا ہے…",
     savePurchase: "خریداری بل محفوظ کریں",
     errSelectParty: "براہ کرم {party} منتخب کریں۔",
+    errSelectCustomerProduct: "کسٹمر اور پروڈکٹ منتخب کریں",
+    moveDown: "نیچے جائیں ⇅",
     errNoItems: "کم از کم ایک آئٹم شامل کریں۔",
     errNoDescription: "ہر آئٹم کی تفصیل ضروری ہے۔",
     errQty: "مقدار مثبت ہونی چاہیے۔",

@@ -324,6 +324,8 @@ export function DocForm({ mode, initialType }: { mode: "SALES" | "PURCHASE"; ini
   const [activeIdx, setActiveIdx] = useState(-1);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // FA-style centered validation modal ("Select customer and product").
+  const [validationMsg, setValidationMsg] = useState<string | null>(null);
   const [creatingParty, setCreatingParty] = useState(false);
   // ── Module 22: price lists + discount matrix (sales docs only) ──
   const [priceLists, setPriceLists] = useState<{ id: string; name: string }[]>([]);
@@ -501,8 +503,22 @@ export function DocForm({ mode, initialType }: { mode: "SALES" | "PURCHASE"; ini
     return (el: HTMLInputElement | null) => {
       let rec = lineFieldRefs.current.get(key);
       if (!rec) { rec = { desc: null, qty: null, rate: null, discount: null, tax: null }; lineFieldRefs.current.set(key, rec); }
+      // Desktop table and mobile cards both render the same fields — only
+      // keep the visible twin, or focus() lands on a display:none input.
+      if (el && el.offsetParent === null) return;
       rec[field] = el;
     };
+  }
+
+  /** FA behaviour: focusing the last blank row's Description opens a fresh
+   *  blank row beneath it, so there is always one waiting. */
+  function appendBlankIfLast(key: number) {
+    setLines((ls) => {
+      const last = ls[ls.length - 1];
+      if (!last || last.key !== key || !isBlankLine(last)) return ls;
+      keyRef.current += 1;
+      return [...ls, newBlankLine(keyRef.current)];
+    });
   }
   /** Enter inside a row: qty → rate → discount → tax% → back to product search for the next line. */
   function rowKeyDown(e: React.KeyboardEvent, key: number, field: RowFieldName) {
@@ -791,7 +807,7 @@ export function DocForm({ mode, initialType }: { mode: "SALES" | "PURCHASE"; ini
     return () => document.removeEventListener("mousedown", fn);
   }, []);
 
-  function addLine(p: Product, opts: { focusQty?: boolean; viaBarcode?: boolean } = {}) {
+  function addLine(p: Product, opts: { focusQty?: boolean; focusDesc?: boolean; viaBarcode?: boolean } = {}) {
     productCache.current.set(p.id, p);
     keyRef.current += 1;
     const key = keyRef.current;
@@ -858,7 +874,15 @@ export function DocForm({ mode, initialType }: { mode: "SALES" | "PURCHASE"; ini
     setActiveIdx(-1);
     flashRow(targetKey);
     if (opts.viaBarcode) showToast(t("docform.barcodeAdded", { name: p.name }));
-    if (opts.focusQty) {
+    if (opts.focusDesc) {
+      // FA flow: after picking, the cursor lands in the line's Description
+      // (pre-filled with the product name) with the text selected.
+      setTimeout(() => {
+        const el = lineFieldRefs.current.get(targetKey)?.desc;
+        el?.focus();
+        el?.select();
+      }, 60);
+    } else if (opts.focusQty) {
       // let the new row render, then jump straight to qty for the keyboard flow
       setTimeout(() => {
         const el = lineFieldRefs.current.get(targetKey)?.qty;
@@ -985,7 +1009,7 @@ export function DocForm({ mode, initialType }: { mode: "SALES" | "PURCHASE"; ini
       const last = q ? results.length : results.length - 1;
       const idx = activeIdx >= 0 && activeIdx <= last ? activeIdx : -1;
       if (idx >= 0 && idx < results.length) {
-        addLine(results[idx], { focusQty: true });
+        addLine(results[idx], { focusDesc: true });
       } else if (idx === results.length && q) {
         addCustomLine(q);
         setProdQ("");
@@ -993,7 +1017,9 @@ export function DocForm({ mode, initialType }: { mode: "SALES" | "PURCHASE"; ini
         setActiveIdx(-1);
       } else if (results.length > 0) {
         const hit = results.find((p) => p.sku.trim().toLowerCase() === q.toLowerCase());
-        addLine(hit ?? results[0], { focusQty: true, viaBarcode: hit ? true : undefined });
+        // Exact SKU = barcode scan: jump to qty. A plain Enter pick follows
+        // the FA flow and lands in the Description instead.
+        addLine(hit ?? results[0], hit ? { focusQty: true, viaBarcode: true } : { focusDesc: true });
       } else {
         // no results at all: tell the user instead of silently doing nothing
         // (the dropdown stays open on the "add as custom line" option)
@@ -1047,12 +1073,12 @@ export function DocForm({ mode, initialType }: { mode: "SALES" | "PURCHASE"; ini
     // min-price / credit-limit confirm retries reuse the SAME key — a retry
     // after a network blip then replays instead of double-creating.
     const idemKey = opts.idemKey ?? crypto.randomUUID();
-    if (!partyId) { setError(t("docform.errSelectParty", { party: isSales ? bp.partyOne.toLowerCase() : t("docs.supplier").toLowerCase() })); return; }
+    if (!partyId) { setValidationMsg(t("docform.errSelectCustomerProduct")); return; }
     // Module 2.4: the vendor's bill reference is compulsory on purchase bills.
     if (!isSales && docType === "BILL" && !refNo.trim()) { setError(t("docform.errVendorRefRequired")); return; }
     // Untouched blank rows are not items: they neither count nor block.
     const realLines = effectiveLines(lines);
-    if (realLines.length === 0) { setError(t("docform.errNoItems")); return; }
+    if (realLines.length === 0) { setValidationMsg(t("docform.errSelectCustomerProduct")); return; }
     // Module 10: a foreign-currency doc needs a rate in force for its date —
     // the server enforces this too (FX_NO_RATE), this is just an early hint.
     if (isForeign && fxRateScaled == null) { setError(t("docform.errNoFxRate", { code: currencyCode })); return; }
@@ -1268,7 +1294,7 @@ export function DocForm({ mode, initialType }: { mode: "SALES" | "PURCHASE"; ini
 
         {/* ══════════ 1 · Customer / Supplier Details ══════════ */}
         <SectionCard title={isSales ? "Customer Details" : "Supplier Details"}>
-          <div className="grid gap-x-2 gap-y-2 sm:grid-cols-2 lg:grid-cols-4">
+          <div className="grid gap-x-2 gap-y-2 sm:grid-cols-2 lg:grid-cols-3">
             {/* col 1: party + address */}
             <div className="space-y-2">
               <CompactField label={isSales ? "Customer" : "Supplier"} required>
@@ -1347,7 +1373,7 @@ export function DocForm({ mode, initialType }: { mode: "SALES" | "PURCHASE"; ini
                   value={selectedParty?.address ?? ""} placeholder="\u2014" />
               </div>
             </div>
-            {/* col 2: dates */}
+            {/* col 2: dates + doc no + mobile (FA: one middle column) */}
             <div className="space-y-2">
               <CompactField label="Date" required>
                 <NumericDateInput value={date} onChange={onDateChange} className="!py-1.5 text-[13px]" required />
@@ -1359,9 +1385,6 @@ export function DocForm({ mode, initialType }: { mode: "SALES" | "PURCHASE"; ini
               <CompactField label={isSales && docType === "QUOTATION" ? t("docform.validUntil") : "Due Date"}>
                 <NumericDateInput value={dueDate} onChange={(v) => { setDueDate(v); setTermDays(""); }} className="!py-1.5 text-[13px]" />
               </CompactField>
-            </div>
-            {/* col 3: doc no + mobile */}
-            <div className="space-y-2">
               <CompactField label="Doc No." required={!isSales && docType === "BILL"}>
                 <input className="field !py-1.5 text-[13px]" value={refNo} maxLength={60}
                   required={!isSales && docType === "BILL"}
@@ -1373,12 +1396,12 @@ export function DocForm({ mode, initialType }: { mode: "SALES" | "PURCHASE"; ini
                   value={selectedParty?.phone ?? ""} placeholder="\u2014" />
               </CompactField>
             </div>
-            {/* col 4: credit limit (editable) + balance (clickable -> party ledger) */}
+            {/* col 3: credit limit (editable) + balance (clickable -> party ledger) — grey FA display boxes */}
             <div className="space-y-2">
               <div>
                 <span className="mb-0.5 block text-[11px] font-semibold text-foreground/90">Credit Limit</span>
                 <input type="number" min="0" step="0.01" dir="ltr"
-                  className="field !py-1.5 text-end text-[13px] font-bold tabular-nums"
+                  className="field fa-display-box !py-1.5 text-end text-[13px] font-bold tabular-nums"
                   value={creditLimitEdit} placeholder="0"
                   disabled={!selectedParty}
                   onChange={(e) => setCreditLimitEdit(e.target.value)}
@@ -1390,7 +1413,7 @@ export function DocForm({ mode, initialType }: { mode: "SALES" | "PURCHASE"; ini
                 <button type="button" disabled={!selectedParty}
                   onClick={() => selectedParty && router.push(`/reports/party-ledger?party=${selectedParty.id}`)}
                   title={t("docform.viewStatement")}
-                  className="field flex w-full items-center justify-end !py-1.5 text-[13px] font-bold tabular-nums text-primary underline-offset-2 hover:underline disabled:cursor-default disabled:text-foreground disabled:no-underline">
+                  className="field fa-display-box flex w-full items-center justify-end !py-1.5 text-[13px] font-bold tabular-nums text-primary underline-offset-2 hover:underline disabled:cursor-default disabled:text-foreground disabled:no-underline">
                   {partyBalance == null ? "\u2014" : fmtMoney(BigInt(partyBalance))}
                 </button>
               </div>
@@ -1429,15 +1452,15 @@ export function DocForm({ mode, initialType }: { mode: "SALES" | "PURCHASE"; ini
                       <button type="button"
                         className={`flex w-full items-center justify-between px-4 py-2.5 text-start ${i === activeIdx ? "bg-muted" : "hover:bg-muted"}`}
                         onMouseEnter={() => setActiveIdx(i)}
-                        onClick={() => addLine(p, { focusQty: true })}>
+                        onClick={() => addLine(p, { focusDesc: true })}>
                         <span className="min-w-0 flex-1">
                           <span className="block truncate text-sm font-bold">{p.name}</span>
-                          <span className="block text-xs text-muted-foreground">
-                            {pv.showSku && <>{p.sku} · </>}
-                            {t("docform.stockQty", { qty: (Number(BigInt(p.totalQty)) / 1000).toLocaleString() })} {p.unit}
-                          </span>
+                          {p.sku && <span className="block truncate text-xs font-semibold text-fa-blue">{p.sku}</span>}
                         </span>
                         <span className="shrink-0 text-end">
+                          <span className="block text-[13px] font-extrabold tabular-nums">
+                            {t("docform.stockQty", { qty: (Number(BigInt(p.totalQty)) / 1000).toLocaleString() })} {p.unit}
+                          </span>
                           {pv.showPurchase && (
                             <span className="block text-[11px] text-muted-foreground">{t("docform.buyPrice", { amt: fmtMoney(p.purchasePrice) })}</span>
                           )}
@@ -1510,7 +1533,6 @@ export function DocForm({ mode, initialType }: { mode: "SALES" | "PURCHASE"; ini
                   <tbody>
                     {lines.map((l, idx) => {
                       const c = computed[idx];
-                      const prodName = l.productId ? (l.productName || l.description) : t("docform.customLine");
                       // Red alert: sale rate below purchase cost (batch cost or line cost)
                       const batchCost = (() => {
                         if (!isSales || !l.batchId) return null;
@@ -1526,16 +1548,16 @@ export function DocForm({ mode, initialType }: { mode: "SALES" | "PURCHASE"; ini
                           <td className="!px-2 text-[13px] font-bold text-muted-foreground">{idx + 1}</td>
                           <td className="whitespace-nowrap text-[12px] font-semibold text-muted-foreground">{l.sku || "—"}</td>
                           <td className="min-w-40">
-                            {l.productId ? (
-                              <span className="block text-[13px] font-semibold leading-tight">{prodName}</span>
-                            ) : (
-                              <input ref={setRowRef(l.key, "desc")} onKeyDown={(e) => rowKeyDown(e, l.key, "desc")}
-                                className="field !px-2 !py-1 text-[13px] font-semibold" placeholder={t("docform.itemPlaceholder")} value={l.description}
-                                onChange={(e) => updateLine(l.key, { description: e.target.value })} />
-                            )}
-                            {l.availQty !== null && (
-                              <span className="block text-[11px] text-muted-foreground">
-                                {t("docform.inStock", { qty: (Number(BigInt(l.availQty)) / 1000).toLocaleString(), unit: l.unit })}
+                            {/* Description is always editable and pre-filled with
+                                the product name on pick (FA flow); the sub-line
+                                shows the FA "Name (code) - Q: stock" format. */}
+                            <input ref={setRowRef(l.key, "desc")} onKeyDown={(e) => rowKeyDown(e, l.key, "desc")}
+                              onFocus={() => appendBlankIfLast(l.key)}
+                              className="field !px-2 !py-1 text-[13px] font-semibold" placeholder={t("docform.itemPlaceholder")} value={l.description}
+                              onChange={(e) => updateLine(l.key, { description: e.target.value })} />
+                            {l.productId && l.availQty !== null && (
+                              <span className="block px-0.5 pt-0.5 text-[11px] text-muted-foreground">
+                                {l.sku ? `(${l.sku}) - ` : ""}Q: {(Number(BigInt(l.availQty)) / 1000).toLocaleString()} {l.unit}
                               </span>
                             )}
                             <BatchControls line={l} isSales={isSales} docType={docType} batches={batchCache[l.productId]} t={t} onChange={(patch) => updateLine(l.key, patch)} />
@@ -1620,11 +1642,12 @@ export function DocForm({ mode, initialType }: { mode: "SALES" | "PURCHASE"; ini
                       <div className="mt-2 grid gap-3">
                         <div>
                           <input ref={setRowRef(l.key, "desc")} onKeyDown={(e) => rowKeyDown(e, l.key, "desc")}
+                            onFocus={() => appendBlankIfLast(l.key)}
                             className="field" placeholder={t("docform.itemPlaceholder")} value={l.description}
                             onChange={(e) => updateLine(l.key, { description: e.target.value })} />
-                          {l.availQty !== null && (
+                          {l.productId && l.availQty !== null && (
                             <p className="mt-1 text-xs text-muted-foreground">
-                              {t("docform.inStock", { qty: (Number(BigInt(l.availQty)) / 1000).toLocaleString(), unit: l.unit })}
+                              {l.sku ? `(${l.sku}) - ` : ""}Q: {(Number(BigInt(l.availQty)) / 1000).toLocaleString()} {l.unit}
                             </p>
                           )}
                           <BatchControls line={l} isSales={isSales} docType={docType} batches={batchCache[l.productId]} t={t} onChange={(patch) => updateLine(l.key, patch)} />
@@ -1678,6 +1701,12 @@ export function DocForm({ mode, initialType }: { mode: "SALES" | "PURCHASE"; ini
                 onClick={() => addCustomLine()}>
                 + Add More
               </button>
+              {((isSales && docType === "INVOICE") || (!isSales && docType === "BILL")) && (
+                <button type="button" className="mt-2 ms-4 text-[13px] font-bold text-primary hover:underline"
+                  onClick={() => document.getElementById("docform-receipt")?.scrollIntoView({ behavior: "smooth", block: "start" })}>
+                  {t("docform.moveDown")}
+                </button>
+              )}
             </>
           )}
 
@@ -1808,6 +1837,7 @@ export function DocForm({ mode, initialType }: { mode: "SALES" | "PURCHASE"; ini
 
         {/* ══════════ 3 · Add Receipt / Add Payment ══════════ */}
         {((isSales && docType === "INVOICE") || (!isSales && docType === "BILL")) && (
+          <div id="docform-receipt">
           <SectionCard title={isSales ? "Add Receipt" : "Add Payment"}>
             <div className="overflow-x-auto">
               <table className="tbl-fa w-auto">
@@ -1845,6 +1875,7 @@ export function DocForm({ mode, initialType }: { mode: "SALES" | "PURCHASE"; ini
               </table>
             </div>
           </SectionCard>
+          </div>
         )}
 
         {/* ══════════ bottom action bar ══════════ */}
@@ -1874,12 +1905,27 @@ export function DocForm({ mode, initialType }: { mode: "SALES" | "PURCHASE"; ini
               onClick={(e) => submit(e, { printAfter: true })}>
               <Printer size={15} /> Approve and Print
             </button>
-            <button className="btn btn-primary !py-2 text-sm" disabled={saving}>
+            <button className="btn !py-2 text-sm font-bold text-white dark:text-[#052e16] bg-success hover:brightness-105 disabled:opacity-55" disabled={saving}>
               {saving ? t("docform.saving") : "Approve and Close"}
             </button>
           </div>
         </div>
       </form>
+
+      {/* validation modal: "Select customer and product" (FA flow) */}
+      {validationMsg && (
+        <div role="alertdialog" aria-modal="true" className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4"
+          onClick={() => setValidationMsg(null)}>
+          <div className="w-full max-w-sm rounded-xl border border-border bg-card p-5 text-center shadow-xl"
+            onClick={(e) => e.stopPropagation()}>
+            <p className="text-sm font-bold">{validationMsg}</p>
+            <button type="button" className="btn btn-primary mt-4 px-8 text-sm"
+              onClick={() => setValidationMsg(null)}>
+              OK
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* barcode/keyboard add toast */}
       {toast && (

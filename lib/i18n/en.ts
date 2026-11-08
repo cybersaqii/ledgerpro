@@ -578,6 +578,8 @@ export const en = {
     saving: "Saving…",
     savePurchase: "Save purchase bill",
     errSelectParty: "Please select a {party}.",
+    errSelectCustomerProduct: "Select customer and product",
+    moveDown: "Move Down ⇅",
     errNoItems: "Add at least one item.",
     errNoDescription: "Every item needs a description.",
     errQty: "Quantities must be positive.",

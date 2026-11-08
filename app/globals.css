@@ -261,6 +261,14 @@ html[lang="ur"] body {
 .tbl.tbl-fa thead th.fa-th-green { background: #dfffc9; color: #1a2e05; }
 .tbl.tbl-fa thead th.fa-th-blue { background: #a2e1ff; color: #0c2d4d; }
 
+/* Zebra rows on FA-style tables (invoices list in the recording). */
+.tbl-fa tbody tr:nth-child(even) { background: color-mix(in srgb, var(--muted) 28%, transparent); }
+
+/* Grey display boxes in the invoice form (Credit Limit / Balance) —
+   #eeeeee in the 2026-11-08 screen recording. */
+.field.fa-display-box { background: #eeeeee; }
+.dark .field.fa-display-box { background: var(--muted); }
+
 /* Fast Accounts dense doc form — scoped compact overrides */
 .docform-fa .field {
   padding: 0.3rem 0.5rem;
