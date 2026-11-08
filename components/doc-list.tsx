@@ -20,16 +20,6 @@ type Doc = {
   notes: string | null;
 };
 
-const typeBadge: Record<string, string> = {
-  INVOICE: "bg-primary-soft text-primary",
-  BILL: "bg-primary-soft text-primary",
-  RETURN: "bg-danger-soft text-danger",
-  QUOTATION: "bg-accent-soft text-accent",
-  ORDER: "bg-muted text-muted-foreground",
-  CHALLAN: "bg-muted text-muted-foreground",
-  GRN: "bg-muted text-muted-foreground",
-};
-
 const PER_PAGE_DEFAULT = 25;
 const PER_PAGE_OPTIONS = [10, 25, 50, 100, 200, 300, 400, 500];
 
@@ -45,9 +35,10 @@ function docBalance(d: Doc): bigint {
   return toBig(d.grandTotal) - toBig(d.amountPaid) - toBig(d.returnedTotal) - toBig(d.writtenOffAmount);
 }
 
-/** Payment-status badge for invoice/bill rows; null for non-payable doc types.
- *  Tones follow Fast Accounts: Fully Paid = green, Overdue = red, Part Paid = gray, Unpaid = amber. */
-function PayStatusBadge({ d, t, nowMs }: { d: Doc; t: (k: string, v?: Record<string, string | number>) => string; nowMs: number }) {
+/** Payment status as PLAIN COLORED TEXT (Fast Accounts style — no pills):
+ *  Fully Paid = green, Overdue = red, Part Paid = gray, Unpaid = amber.
+ *  Null for non-payable doc types. */
+function PayStatusText({ d, t, nowMs }: { d: Doc; t: (k: string, v?: Record<string, string | number>) => string; nowMs: number }) {
   if (d.docType !== "INVOICE" && d.docType !== "BILL") return <span className="text-muted-foreground">—</span>;
   const dueMs = d.dueDate == null ? null : new Date(d.dueDate).getTime();
   const s = paymentStatusOf({
@@ -59,14 +50,14 @@ function PayStatusBadge({ d, t, nowMs }: { d: Doc; t: (k: string, v?: Record<str
     nowMs,
   });
   const tone =
-    s.key === "paid" ? "bg-success-soft text-success"
-    : s.key === "overdue" ? "bg-danger-soft text-danger"
-    : s.key === "part" ? "bg-muted text-muted-foreground"
-    : "bg-accent-soft text-accent";
+    s.key === "paid" ? "text-success"
+    : s.key === "overdue" ? "text-danger"
+    : s.key === "part" ? "text-muted-foreground"
+    : "text-accent";
   const label =
     s.key === "overdue" ? t("docs.payOverdue", { days: s.daysOverdue })
     : t(`docs.pay${s.key === "paid" ? "Paid" : s.key === "part" ? "Part" : "Unpaid"}`);
-  return <span className={`badge whitespace-nowrap ${tone}`}>{label}</span>;
+  return <span className={`whitespace-nowrap font-bold ${tone}`}>{label}</span>;
 }
 
 /** Green "Add New ▾" split button (Fast Accounts style) with per-mode options. */
@@ -98,7 +89,7 @@ function AddNewSplit({ isSales, t, newType }: {
   return (
     <div className="relative" ref={ref}>
       <div className="flex">
-        <Link href={options[0].href} className="btn btn-primary !rounded-e-none text-sm">
+        <Link href={options[0].href} className="btn !bg-fa-green !text-white !rounded-e-none text-sm">
           <Plus size={16} /> {t("common.addNew")}
         </Link>
         <button
@@ -107,7 +98,7 @@ function AddNewSplit({ isSales, t, newType }: {
           aria-expanded={open}
           aria-haspopup="menu"
           aria-label={t("docs.addNewOptions")}
-          className="btn btn-primary !rounded-s-none !px-2 text-sm border-s border-white/25"
+          className="btn !bg-fa-green !text-white !rounded-s-none !px-2 text-sm border-s border-white/25"
         >
           <ChevronDown size={16} className={`transition-transform ${open ? "rotate-180" : ""}`} />
         </button>
@@ -303,6 +294,14 @@ export function DocList({ mode, initialDocType, lockedType, titleKey, subtitleKe
     ? [["", t("docs.typeAll")], ["INVOICE", t("docs.typeInvoices")], ["RETURN", t("docs.typeReturns")], ["QUOTATION", t("docs.typeQuotations")], ["ORDER", t("docs.typeOrders")], ["CHALLAN", t("docs.typeChallans")]]
     : [["", t("docs.typeAll")], ["BILL", t("docs.typeBills")], ["RETURN", t("docs.typeReturns")], ["ORDER", t("docs.typeOrders")], ["GRN", t("docs.typeGrns")]];
 
+  // Type column shows plain singular text (Fast Accounts style — no badge):
+  // "Invoice" / "Credit" on sales, "Bill" / "Debit" on purchases.
+  const typeLabels: Record<string, string> = {
+    INVOICE: "Invoice", BILL: "Bill",
+    RETURN: isSales ? "Credit" : "Debit",
+    QUOTATION: "Quotation", ORDER: "Order", CHALLAN: "Challan", GRN: "GRN",
+  };
+
   const hasFilter = q !== "" || (!lockedType && docType !== "") || from !== "" || to !== "";
   const clearFilters = () => { setQ(""); if (!lockedType) setDocType(""); setFrom(""); setTo(""); };
 
@@ -442,7 +441,7 @@ export function DocList({ mode, initialDocType, lockedType, titleKey, subtitleKe
                         </Link>
                       ) : (d.partyName ?? "—")}
                     </td>
-                    <td><span className={`badge whitespace-nowrap ${typeBadge[d.docType] ?? "bg-muted text-muted-foreground"}`}>{d.docType}</span></td>
+                    <td className="whitespace-nowrap text-muted-foreground">{typeLabels[d.docType] ?? d.docType}</td>
                     <td className="whitespace-nowrap">
                       <Link href={`${isSales ? "/sales" : "/purchases"}/${d.id}`} className="font-bold text-primary hover:underline" title={d.docNo}>
                         {d.docNo}
@@ -450,7 +449,7 @@ export function DocList({ mode, initialDocType, lockedType, titleKey, subtitleKe
                     </td>
                     <td className="num whitespace-nowrap font-extrabold">{fmtMoney(d.grandTotal)}</td>
                     <td className="num whitespace-nowrap font-bold">{(d.docType === "QUOTATION" || d.docType === "ORDER") ? <span className="text-muted-foreground">—</span> : fmtMoney(docBalance(d))}</td>
-                    <td><PayStatusBadge d={d} t={t} nowMs={nowMs} /></td>
+                    <td><PayStatusText d={d} t={t} nowMs={nowMs} /></td>
                     <td className="text-end">
                       <RowActions d={d} isSales={isSales} t={t} canPay={canPay} onDeleted={handleDeleted} />
                     </td>
