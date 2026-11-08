@@ -109,9 +109,12 @@ body {
   font-family: var(--font-display), var(--font-urdu), var(--font-body), ui-sans-serif, system-ui, sans-serif;
 }
 
-/* Urdu mode: clean Naskh-style font so beginners can read easily */
+/* Urdu mode: clean Naskh-style font so beginners can read easily.
+   Naskh glyphs are taller than Latin ones — without extra leading the
+   first line of a paragraph can clip (Sunday sweep 2026-11-08). */
 html[lang="ur"] body {
   font-family: var(--font-urdu), var(--font-body), ui-sans-serif, system-ui, sans-serif;
+  line-height: 1.9;
 }
 
 /* Card */

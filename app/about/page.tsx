@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { brand } from "@/lib/brand";
 import PubHeader from "../pub-header";
+import PubFooter from "../pub-footer";
 import AboutContent from "./content";
 
 export const metadata: Metadata = {
@@ -14,6 +15,7 @@ export default function AboutPage() {
     <div className="min-h-screen bg-background">
       <PubHeader />
       <AboutContent />
+      <PubFooter />
     </div>
   );
 }

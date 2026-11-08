@@ -4,11 +4,12 @@ import Link from "next/link";
 import { CHANGELOG } from "@/lib/changelog";
 import { useLang } from "@/components/lang-provider";
 import PubHeader from "../pub-header";
+import PubFooter from "../pub-footer";
 
 export default function ChangelogContent() {
-  const { t } = useLang();
+  const { t, lang } = useLang();
   return (
-    <div className="min-h-screen bg-background">
+    <div dir={lang === "ur" ? "rtl" : "ltr"} className="min-h-screen bg-background">
       <PubHeader />
       <main className="mx-auto max-w-3xl px-4 py-12 sm:px-8">
         <h1 className="text-3xl font-extrabold tracking-tight">{t("changelog.title")}</h1>
@@ -43,6 +44,7 @@ export default function ChangelogContent() {
           <Link href="/" className="font-bold text-primary hover:underline">{t("pub.backHome")}</Link>
         </p>
       </main>
+      <PubFooter />
     </div>
   );
 }

@@ -2,6 +2,7 @@ import { desc, eq } from "drizzle-orm";
 import { supportRequests } from "@/db/schema";
 import type { Db, DbTx } from "./db";
 import { UserError } from "./errors";
+import { brand } from "./brand";
 
 export const SUPPORT_SETTING_KEYS = [
   "support.email",
@@ -10,7 +11,7 @@ export const SUPPORT_SETTING_KEYS = [
 ] as const;
 
 export const SUPPORT_DEFAULTS: Record<string, string> = {
-  "support.email": "support@ledgerprosolution.com",
+  "support.email": brand.supportEmail,
   "support.phone": "",
   "support.hours": "Mon–Sat, 9am–6pm PKT",
 };

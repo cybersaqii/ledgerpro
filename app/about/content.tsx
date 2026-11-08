@@ -6,7 +6,7 @@ import { useLang } from "@/components/lang-provider";
 import { brand } from "@/lib/brand";
 
 export default function AboutContent() {
-  const { t } = useLang();
+  const { t, lang } = useLang();
   const b = brand.name;
 
   const services = [
@@ -22,7 +22,7 @@ export default function AboutContent() {
   ];
 
   return (
-    <main>
+    <main dir={lang === "ur" ? "rtl" : "ltr"}>
       {/* Hero */}
       <section className="relative overflow-hidden bg-[#0a1120] text-white">
         <div className="pointer-events-none absolute inset-0">

@@ -54,8 +54,12 @@ export function AuthLayout({
     { text: urPhrases?.tp1 ?? en.authlayout.tp1, rtl: true },
   ];
 
+  // Sunday sweep 2026-11-08: at 1920×999 the signup form's Send-code
+  // button sat below the fold with no scroll cue. Tightened vertical
+  // rhythm (outer padding, heading/tabs/children gaps, form padding)
+  // so the whole step-1 form + CTA fits in a 999px viewport.
   return (
-    <div className="relative flex min-h-screen items-center justify-center overflow-hidden bg-background px-3 py-8 sm:px-6 sm:py-12">
+    <div className="relative flex min-h-screen items-center justify-center overflow-hidden bg-background px-3 py-4 sm:px-6 sm:py-6">
       {/* Page backdrop */}
       <div className="pointer-events-none absolute inset-0" aria-hidden="true">
         <div className="absolute -top-24 start-[8%] h-96 w-96 rounded-full bg-primary/20 blur-[120px]" />
@@ -74,19 +78,19 @@ export function AuthLayout({
       {/* Card */}
       <div className="auth-card relative z-10 grid min-h-[80vh] w-full max-w-6xl md:grid-cols-[1fr_1.05fr]">
         {/* Left — form side */}
-        <div className="flex flex-col p-6 sm:p-10 lg:px-12">
+        <div className="flex flex-col p-6 sm:p-8 lg:px-12">
           <Link href="/" aria-label={brand.name} className="self-start">
             <BrandLockup markSize={34} wordClass="font-display text-[1.05rem] leading-none" tagline />
           </Link>
 
-          <div className="flex flex-1 flex-col justify-center py-6">
+          <div className="flex flex-1 flex-col justify-center py-4">
           {heading ? (
-            <h1 className="font-display mt-8 text-[1.65rem] font-extrabold tracking-tight text-foreground">{heading}</h1>
+            <h1 className="font-display mt-5 text-[1.65rem] font-extrabold tracking-tight text-foreground">{heading}</h1>
           ) : null}
           {sub ? <p className="mt-2 text-sm leading-relaxed text-muted-foreground">{sub}</p> : null}
 
           {showTabs && (
-            <div className="mt-6 grid grid-cols-2 rounded-xl bg-muted p-1 text-sm font-bold" role="tablist" aria-label={L("tabIn")}>
+            <div className="mt-4 grid grid-cols-2 rounded-xl bg-muted p-1 text-sm font-bold" role="tablist" aria-label={L("tabIn")}>
               <Link
                 href="/login"
                 role="tab"
@@ -114,7 +118,7 @@ export function AuthLayout({
             </div>
           )}
 
-          <div className="mt-6">{children}</div>
+          <div className="mt-4">{children}</div>
           </div>
 
           <p className="text-center text-xs text-muted-foreground">{L("footer", { brand: brand.name })}</p>

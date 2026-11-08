@@ -141,7 +141,7 @@ function SignupForm() {
           </p>
         )}
         {step === 1 ? (
-        <form onSubmit={sendCode} className="rise rise-2 space-y-4">
+        <form onSubmit={sendCode} className="rise rise-2 space-y-3">
           <ErrorNote message={error} />
           <Field label={t("auth.businessName")} required>
             <input className="field" required placeholder={t("auth.businessNamePh")}

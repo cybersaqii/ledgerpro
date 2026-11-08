@@ -183,9 +183,10 @@ export default function LoginPage() {
           <input className="field" type="email" required autoComplete="email" autoFocus
             placeholder="you@business.com" value={email} onChange={(e) => setEmail(e.target.value)} />
         </Field>
-        <button className="btn btn-primary w-full !py-3" disabled={sending}>
+        <button className="btn btn-primary w-full !py-3" disabled={sending || !email.trim()}>
           {sending ? t("auth.sendingCode") : t("auth.sendCode")}
         </button>
+        {!email.trim() && <p className="text-xs text-muted-foreground">{t("auth.emailFirst")}</p>}
       </form>
       ) : (
       <form onSubmit={verifyCode} className="space-y-4">

@@ -136,8 +136,12 @@ export default function LandingContent() {
             <p className="rise rise-4 mt-4 text-xs text-white/70">{L("heroMicro")}</p>
           </div>
 
-          {/* Collage — dashboard centerpiece + floating cards */}
-          <div className="rise rise-2 relative mx-auto w-full max-w-[520px] lg:h-[520px]">
+          {/* Collage — dashboard centerpiece + floating cards.
+              Sunday sweep 2026-11-08: at 520px the stage was over-packed —
+              the "New invoice" floater covered the "+18% this week" badge
+              (and in RTL, the main total). 600px gives every floater a
+              text-free zone: the badge and totals clear the floaters. */}
+          <div className="rise rise-2 relative mx-auto w-full max-w-[520px] lg:h-[600px]">
             <div className="pointer-events-none absolute -inset-8 rounded-[2.5rem] bg-[#1e4fa3]/25 blur-3xl" aria-hidden="true" />
             {/* Dashboard — in flow on small screens, centered stage on lg */}
             <div className="relative lg:absolute lg:left-1/2 lg:top-1/2 lg:w-[400px] lg:-translate-x-1/2 lg:-translate-y-1/2">
@@ -158,9 +162,11 @@ export default function LandingContent() {
                     { l: L("mockPay"), v: "Rs 41,750" },
                     { l: L("mockStock"), v: "Rs 5,20,000" },
                   ].map((s) => (
-                    <div key={s.l} className="rounded-xl bg-muted/70 p-3 sm:p-4">
-                      <p className="text-[0.68rem] font-semibold uppercase tracking-wider text-muted-foreground">{s.l}</p>
-                      <p className="mt-1 text-sm font-extrabold sm:text-lg">{s.v}</p>
+                    <div key={s.l} className="rounded-xl bg-muted/70 p-3">
+                      {/* Sunday sweep 2026-11-08: values wrapped ("Rs" / "96,200")
+                          at text-lg in these narrow cells — one line, no wrap. */}
+                      <p className="whitespace-nowrap text-[0.68rem] font-semibold uppercase tracking-wider text-muted-foreground">{s.l}</p>
+                      <p className="mt-1 whitespace-nowrap text-sm font-extrabold">{s.v}</p>
                     </div>
                   ))}
                 </div>
@@ -175,7 +181,9 @@ export default function LandingContent() {
             <div className="mt-6 grid grid-cols-2 gap-3 lg:hidden" aria-hidden="true">
               <div className="floaty rounded-2xl bg-white p-4 text-start shadow-xl shadow-black/20">
                 <p className="text-[0.68rem] font-bold uppercase tracking-wider text-slate-400">{L("fcPlT")}</p>
-                <p className="font-display mt-1 text-xl font-extrabold tracking-tight text-slate-900">Rs 1,84,500</p>
+                {/* Sunday sweep 2026-11-08 (LOW 13): this reused the
+                    dashboard's "Rs 1,84,500" — P&L gets its own figure. */}
+                <p className="font-display mt-1 text-xl font-extrabold tracking-tight text-slate-900">Rs 86,400</p>
                 <svg viewBox="0 0 120 36" className="mt-2 h-8 w-full" aria-hidden="true">
                   <polyline points="0,28 15,24 30,26 45,18 60,21 75,13 90,16 105,8 120,10" fill="none" stroke="#1e4fa3" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
                 </svg>
@@ -212,14 +220,16 @@ export default function LandingContent() {
                 bars, never text. */}
             <div className="floaty absolute bottom-0 left-0 z-10 hidden w-44 rounded-2xl bg-white p-4 text-start shadow-2xl shadow-black/25 lg:block" style={{ animationDelay: "-2s" }} aria-hidden="true">
               <p className="text-[0.68rem] font-bold uppercase tracking-wider text-slate-400">{L("fcPlT")}</p>
-              <p className="font-display mt-1 text-[1.4rem] font-extrabold tracking-tight text-slate-900">Rs 1,84,500</p>
+              <p className="font-display mt-1 text-[1.4rem] font-extrabold tracking-tight text-slate-900">Rs 86,400</p>
               <svg viewBox="0 0 120 36" className="mt-2 h-9 w-full" aria-hidden="true">
                 <polyline points="0,28 15,24 30,26 45,18 60,21 75,13 90,16 105,8 120,10" fill="none" stroke="#1e4fa3" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
               </svg>
               <p className="mt-1 text-[0.7rem] font-bold text-[#1e4fa3]">{L("fcPlD")}</p>
             </div>
-            {/* New invoice card — top-right zone (lg) */}
-            <div className="floaty absolute right-0 top-8 z-10 hidden w-48 rounded-2xl bg-white p-4 text-start shadow-2xl shadow-black/25 lg:block" style={{ animationDelay: "-4.2s" }} aria-hidden="true">
+            {/* New invoice card — top-right zone (lg). Sunday sweep
+                2026-11-08: at top-8 it covered the dashboard's "+18% this
+                week" badge; top-4 clears it on the taller 600px stage. */}
+            <div className="floaty absolute right-0 top-4 z-10 hidden w-48 rounded-2xl bg-white p-4 text-start shadow-2xl shadow-black/25 lg:block" style={{ animationDelay: "-4.2s" }} aria-hidden="true">
               <div className="flex items-center justify-between">
                 <p className="text-xs font-bold text-slate-900">{L("fcInvT")}</p>
                 <span className="rounded-md bg-primary-soft px-2 py-0.5 text-[0.65rem] font-bold text-primary">INV-0104</span>
@@ -323,7 +333,7 @@ export default function LandingContent() {
 
       {/* Businesses */}
       {/* Features */}
-      <section id="features" className="relative overflow-hidden">
+      <section id="features" className="relative scroll-mt-24 overflow-hidden">
         <div className="relative mx-auto max-w-[1200px] px-4 py-12 sm:px-8 sm:py-16 lg:px-12">
           <div className="text-center">
             <span className="inline-flex items-center gap-1.5 rounded-full bg-primary/10 px-4 py-1.5 text-xs font-bold uppercase tracking-wider text-primary">
@@ -352,7 +362,7 @@ export default function LandingContent() {
       </section>
 
       {/* Steps */}
-      <section id="how" className="relative overflow-hidden bg-[#101a2c]">
+      <section id="how" className="relative scroll-mt-24 overflow-hidden bg-[#101a2c]">
         <div className="pointer-events-none absolute inset-0">
           <div className="absolute -top-24 left-1/4 h-72 w-[36rem] rounded-full bg-[#1e4fa3]/25 blur-[110px]" />
           <div className="absolute -bottom-24 right-1/4 h-72 w-[36rem] rounded-full bg-[#f0b73f]/10 blur-[110px]" />
@@ -451,6 +461,12 @@ export default function LandingContent() {
           <div>
             <BrandLockup markSize={40} wordClass="text-lg leading-tight text-white" tagline dark />
             <p className="mt-4 max-w-sm text-sm leading-relaxed text-white/65">{L("footDesc")}</p>
+            {/* Sunday sweep 2026-11-08 (LOW 12): the footer had no contact
+                details — email/phone lived only on /support. */}
+            <p className="mt-4 space-y-1 text-sm">
+              <a href={`mailto:${brand.supportEmail}`} dir="ltr" className="block w-fit font-semibold text-white/85 transition hover:text-white">{brand.supportEmail}</a>
+              <a href={`tel:${brand.supportPhone}`} dir="ltr" className="block w-fit font-semibold text-white/85 transition hover:text-white">0323 8737464</a>
+            </p>
             <Link href="/signup" className="btn mt-5 !border-0 !bg-white !px-6 !py-2.5 !text-sm !text-[#101a2c] shadow-lg hover:!bg-slate-100">
               {L("footStart")} <ArrowRight size={16} />
             </Link>

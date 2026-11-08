@@ -5,7 +5,7 @@ import { brand } from "@/lib/brand";
 import { useLang } from "@/components/lang-provider";
 
 export default function TermsContent() {
-  const { t } = useLang();
+  const { t, lang } = useLang();
   const b = brand.name;
   const sections: { h: string; p: string[] }[] = [
     { h: t("terms.s0h", { brand: b }), p: [t("terms.s0p0", { brand: b })] },
@@ -15,10 +15,10 @@ export default function TermsContent() {
     { h: t("terms.s4h"), p: [t("terms.s4p0", { brand: b })] },
     { h: t("terms.s5h"), p: [t("terms.s5p0")] },
     { h: t("terms.s6h"), p: [t("terms.s6p0"), t("terms.s6p1"), t("terms.s6p2")] },
-    { h: t("terms.s7h"), p: [t("terms.s7p0", { brand: b })] },
+    { h: t("terms.s7h"), p: [t("terms.s7p0", { brand: b, email: brand.supportEmail, phone: "0323 8737464" })] },
   ];
   return (
-    <main className="mx-auto max-w-3xl px-4 py-12 sm:px-8">
+    <main dir={lang === "ur" ? "rtl" : "ltr"} className="mx-auto max-w-3xl px-4 py-12 sm:px-8">
       <h1 className="text-3xl font-extrabold tracking-tight">{t("terms.title")}</h1>
       <p className="mt-2 text-sm text-muted-foreground">{t("terms.updated")}</p>
       <div className="mt-8 space-y-8">

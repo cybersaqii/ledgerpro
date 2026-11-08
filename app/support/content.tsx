@@ -4,18 +4,19 @@ import Link from "next/link";
 import { LifeBuoy, Mail, Phone, Clock } from "lucide-react";
 import { brand } from "@/lib/brand";
 import { useLang } from "@/components/lang-provider";
-import { LangToggle } from "@/components/ui";
+import PubFooter from "../pub-footer";
+import { LangToggle, ThemeToggle } from "@/components/ui";
 import SupportForm from "./form";
 
 export default function SupportContent({ email, phone, hours }: { email: string; phone: string; hours: string }) {
-  const { t } = useLang();
+  const { t, lang } = useLang();
   const cards = [
-    { icon: Mail, label: t("support.emailLabel"), value: email, href: email ? `mailto:${email}` : undefined, wrap: true },
-    ...(phone ? [{ icon: Phone, label: t("support.phoneLabel"), value: phone, href: `tel:${phone.replace(/\s/g, "")}`, wrap: false }] : []),
-    ...(hours ? [{ icon: Clock, label: t("support.hoursLabel"), value: hours, href: undefined as string | undefined, wrap: false }] : []),
+    { icon: Mail, label: t("support.emailLabel"), value: email, href: email ? `mailto:${email}` : undefined },
+    ...(phone ? [{ icon: Phone, label: t("support.phoneLabel"), value: phone, href: `tel:${phone.replace(/\s/g, "")}` }] : []),
+    ...(hours ? [{ icon: Clock, label: t("support.hoursLabel"), value: hours, href: undefined as string | undefined }] : []),
   ];
   return (
-    <div className="min-h-screen bg-background">
+    <div dir={lang === "ur" ? "rtl" : "ltr"} className="min-h-screen bg-background">
       <header className="border-b border-white/10 bg-[#0a1120]">
         <div className="mx-auto flex h-16 max-w-4xl items-center justify-between px-4 sm:px-8">
           <Link href="/" className="flex items-center gap-2.5">
@@ -27,6 +28,7 @@ export default function SupportContent({ email, phone, hours }: { email: string;
           {/* QA sweep 2026-11-01: the support page header had no language
               toggle — Urdu readers were stuck on English here. */}
           <div className="flex items-center gap-3">
+            <ThemeToggle />
             <LangToggle />
             <Link href="/login" className="text-sm font-bold text-white/75 transition hover:text-white">{t("pub.login")}</Link>
           </div>
@@ -37,21 +39,24 @@ export default function SupportContent({ email, phone, hours }: { email: string;
         <h1 className="text-3xl font-extrabold tracking-tight">{t("support.title")}</h1>
         <p className="mt-2 leading-relaxed text-muted-foreground">{t("support.intro")}</p>
 
-        <div className="mt-8 grid gap-4 sm:grid-cols-3">
+        {/* Sunday sweep 2026-11-08: the old 3-col grid was too narrow — the
+            email wrapped mid-domain ("support@ledgerpro.ap" / "p") and the
+            hours truncated in Urdu mode. Full-width rows: nothing wraps
+            or truncates. */}
+        <div className="mt-8 space-y-3">
           {cards.map((c) => (
-            <div key={c.label} className="card p-5">
-              <span className="grid h-10 w-10 place-items-center rounded-2xl bg-primary-soft text-primary">
+            <div key={c.label} className="card flex items-center gap-4 p-4 sm:p-5">
+              <span className="grid h-10 w-10 shrink-0 place-items-center rounded-2xl bg-primary-soft text-primary">
                 <c.icon size={19} />
               </span>
-              <p className="mt-3 text-xs font-extrabold uppercase tracking-wider text-muted-foreground">{c.label}</p>
-              {c.href ? (
-                // QA sweep 2026-10-25: the email was visually cut to
-                // "support@ledgerpro.a…" in the narrow 3-col card — an
-                // email address must wrap, never truncate.
-                <a href={c.href} title={c.value} className={c.wrap ? "mt-1 block break-all text-sm font-bold text-primary hover:underline" : "mt-1 block truncate text-sm font-bold text-primary hover:underline"}>{c.value}</a>
-              ) : (
-                <p className="mt-1 truncate text-sm font-bold" title={c.value ?? undefined}>{c.value}</p>
-              )}
+              <div className="min-w-0">
+                <p className="text-xs font-extrabold uppercase tracking-wider text-muted-foreground">{c.label}</p>
+                {c.href ? (
+                  <a href={c.href} title={c.value} className="mt-0.5 block break-words text-sm font-bold text-primary hover:underline">{c.value}</a>
+                ) : (
+                  <p className="mt-0.5 text-sm font-bold">{c.value}</p>
+                )}
+              </div>
             </div>
           ))}
         </div>
@@ -68,6 +73,7 @@ export default function SupportContent({ email, phone, hours }: { email: string;
           <Link href="/" className="font-bold text-primary hover:underline">{t("pub.backHome")}</Link>
         </p>
       </main>
+      <PubFooter />
     </div>
   );
 }

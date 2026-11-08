@@ -5,19 +5,21 @@ import { MessageCircle, Smartphone, WifiOff, Download } from "lucide-react";
 import { whatsappLink } from "@/lib/brand";
 import { useLang } from "@/components/lang-provider";
 import PubHeader from "../pub-header";
+import PubFooter from "../pub-footer";
 
 /**
  * Android app page (QA sweep 2026-11-01: the landing claimed a mobile
  * app with offline sync but offered no download path). The APK is
- * direct-install, not on the Play Store, so this page honestly says so
- * and routes requests through WhatsApp / support instead of faking a
- * store button.
+ * direct-install, not on the Play Store, and it is sent on WhatsApp —
+ * Sunday sweep 2026-11-08: the old "Direct install" card promised an
+ * on-page install that does not exist, so the card now says plainly
+ * that the APK arrives on WhatsApp.
  */
 export default function DownloadContent() {
-  const { t } = useLang();
+  const { t, lang } = useLang();
   const L = (k: string) => t(`download.${k}`);
   return (
-    <div className="min-h-screen bg-background">
+    <div dir={lang === "ur" ? "rtl" : "ltr"} className="min-h-screen bg-background">
       <PubHeader />
       <main className="mx-auto max-w-3xl px-4 py-12 sm:px-8">
         <span className="grid h-14 w-14 place-items-center rounded-2xl bg-primary-soft text-primary">
@@ -58,6 +60,7 @@ export default function DownloadContent() {
           <Link href="/" className="font-bold text-primary hover:underline">{t("pub.backHome")}</Link>
         </p>
       </main>
+      <PubFooter />
     </div>
   );
 }

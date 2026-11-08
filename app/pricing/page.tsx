@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { brand } from "@/lib/brand";
 import PubHeader from "../pub-header";
+import PubFooter from "../pub-footer";
 import PricingSection from "@/components/pricing-section";
 
 export const metadata: Metadata = {
@@ -21,6 +22,7 @@ export default function PricingPage() {
       <main>
         <PricingSection />
       </main>
+      <PubFooter />
     </div>
   );
 }

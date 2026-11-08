@@ -26,11 +26,11 @@ const enterpriseFeatures = ["ef0", "ef1", "ef2", "ef3"];
  * "Rs 1,500" never splits across lines in a narrow card.
  */
 export default function PricingSection() {
-  const { t } = useLang();
+  const { t, lang } = useLang();
   const L = (k: string, vars?: Record<string, string | number>) => t(`landing.${k}`, vars);
   const [billing, setBilling] = useState<"m" | "y">("m");
   return (
-    <section id="pricing" className="relative scroll-mt-24 overflow-hidden bg-gradient-to-b from-background via-[#fdf6e3] to-background dark:via-[#f0b73f]/[0.05]">
+    <section id="pricing" dir={lang === "ur" ? "rtl" : "ltr"} className="relative scroll-mt-24 overflow-hidden bg-gradient-to-b from-background via-[#fdf6e3] to-background dark:via-[#f0b73f]/[0.05]">
       <div className="relative mx-auto max-w-[1200px] px-4 py-12 sm:px-8 sm:py-16 lg:px-12">
         <div className="text-center">
           <span className="inline-flex items-center gap-1.5 rounded-full bg-primary/10 px-4 py-1.5 text-xs font-bold uppercase tracking-wider text-primary">
@@ -70,7 +70,7 @@ export default function PricingSection() {
                 </li>
               ))}
             </ul>
-            <Link href="/signup" className="btn btn-ghost mt-7 w-full !py-3 text-sm">
+            <Link href="/signup" className="btn btn-ghost mt-7 w-full !py-3 text-sm dark:!border-white dark:!bg-white dark:!text-slate-900">
               {L("ctaPro")} <ArrowRight size={16} />
             </Link>
           </div>
@@ -112,7 +112,7 @@ export default function PricingSection() {
                 </li>
               ))}
             </ul>
-            <Link href="/signup" className="btn btn-ghost mt-7 w-full !py-3 text-sm">
+            <Link href="/signup" className="btn btn-ghost mt-7 w-full !py-3 text-sm dark:!border-white dark:!bg-white dark:!text-slate-900">
               {L("ctaPro")} <ArrowRight size={16} />
             </Link>
           </div>
