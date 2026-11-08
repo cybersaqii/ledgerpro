@@ -12,7 +12,9 @@ import { clientIp } from "@/lib/rate-limit-db";
 
 const disposeSchema = z.object({
   date: z.string().min(1).optional(),
-  idempotencyKey: z.string().min(1).optional(),
+  // No idempotencyKey: disposeAsset posts with the deterministic server key
+  // `asset-dispose:<id>`, so a retry can never double-post — a client key
+  // here would be dead input.
 });
 
 export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string }> }) {

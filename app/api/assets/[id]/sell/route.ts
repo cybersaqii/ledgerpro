@@ -15,7 +15,9 @@ const sellSchema = z.object({
   salePrice: z.union([z.string(), z.number()]),
   date: z.string().min(1).optional(),
   bankAccountId: z.string().min(1),
-  idempotencyKey: z.string().min(1).optional(),
+  // No idempotencyKey: sellAsset posts with the deterministic server key
+  // `asset-sell:<id>`, so a retry can never double-post — a client key
+  // here would be dead input.
 });
 
 export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string }> }) {

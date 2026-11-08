@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Handshake, Plus, X, Wallet, TrendingUp, Eye, EyeOff } from "lucide-react";
 import { PageHeader, Field, ErrorNote, EmptyState } from "@/components/ui";
 import { useLang } from "@/components/lang-provider";
@@ -289,13 +289,17 @@ function MoveMoneyDialog({ partner, kind, cashAccounts, onClose, onDone, t }: {
   const [accountId, setAccountId] = useState(cashAccounts[0]?.id ?? "");
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
+  // One idempotency key per dialog open: a retry of the same submit replays
+  // instead of posting the movement twice (Sunday sweep 2026-11-08).
+  const idemRef = useRef<string | null>(null);
 
   const save = async () => {
     setBusy(true); setErr("");
     try {
+      idemRef.current ??= crypto.randomUUID();
       await api(`/api/partners/${partner.id}/${kind === "contribute" ? "contribute" : "draw"}`, {
         method: "POST",
-        body: JSON.stringify({ amount, accountId }),
+        body: JSON.stringify({ amount, accountId, idempotencyKey: idemRef.current }),
       });
       onDone();
     } catch (e) { setErr(e instanceof Error ? e.message : "Failed"); }
