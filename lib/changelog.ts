@@ -16,6 +16,30 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    date: "2026-11-08",
+    tag: "2fa1a1f",
+    title: "Invoice grid fix + Sunday sweep fixes",
+    bullets: [
+      "Invoice form: the items grid now opens with one blank row, and the column headers match the fields beneath them (the W/S toggle column is headed “Mode”; the rate column reads “Sale Price” on sales and “Rate” on purchases). Picking a product fills the blank row, and empty rows no longer block saving.",
+      "Partner Contribute and Drawing are now safe to retry: a repeated tap replays the first movement instead of posting it twice, and movements dated inside a locked period are rejected.",
+      "Support email is now support@ledgerprosolution.com everywhere, and the support card shows the full address and hours without clipping.",
+      "Landing hero fixed: the dashboard totals no longer wrap, the “+18% this week” badge is fully visible, and the Profit & Loss card shows its own figure.",
+      "Every public page now has the footer and a dark-mode toggle; the signup form fits a standard laptop screen; login explains that the email code needs an email first.",
+    ],
+  },
+  {
+    date: "2026-11-04",
+    tag: "924d1f6",
+    title: "FastAccounts UI parity — Batch 1 + waves 1–3",
+    bullets: [
+      "Sidebar navigation fixed: the correct section stays highlighted, and quotations, credit notes, debit notes and journal have their own entries.",
+      "Document forms match the reference layout: per-type titles (quotations and orders are no longer labelled as invoices), a Unit column in the items grid, Cancel returns to the list, and quotations default to 7-day validity.",
+      "Invoice and bill numbers are links that open the detail in a new tab; party names link to their ledgers; internal payment IDs are hidden.",
+      "Receipt page shows the party name instead of “Selected”; the expense form no longer pre-selects an account; the bank-voucher Bank field is marked required.",
+      "Reports: per-invoice discount display, linked party names on balances and aging, and a Bill Balance total on bills.",
+    ],
+  },
+  {
     date: "2026-11-02",
     tag: "b651d23",
     title: "Pricing shows three paid plans only",
@@ -31,7 +55,11 @@ export const CHANGELOG: ChangelogEntry[] = [
     tag: "f2b4a9f",
     title: "Pricing pages, Support links, convert idempotency",
     bullets: [
-      "Pricing now shows all four tiers: the Free plan card finally renders (its keys existed but the card never did), and /pricing is a real page instead of a redirect.",
+      // Sunday sweep 2026-11-08: this entry read as contradicting the one
+      // above it ("Free card finally renders" vs "removed completely").
+      // Both are true in sequence — the Free card rendered in the morning
+      // and was removed later the same day (see the entry above).
+      "Pricing now shows all four tiers: the Free plan card finally renders (its keys existed but the card never did) — later the same day the Free card was removed again (see the entry above), so the page now shows three paid plans.",
       "New Android app page: the app is direct-install, not on the Play Store, so the page says so honestly and routes requests through WhatsApp or support; linked from the landing footer.",
       "Support links added to the landing header, public-page header and login/signup pages; Urdu toggle added to the support and legal page headers.",
       "Dark-mode supporting text brightened, and signup now explains that Send code stays disabled until the Terms consent box is ticked.",
