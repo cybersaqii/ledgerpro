@@ -531,6 +531,7 @@ export const en = {
     colUnit: "Unit",
     unitHint: "Type qty/rate in this unit — 1 {base} is the stock unit",
     colRate: "Rate",
+    colMode: "Mode",
     colDisc: "Disc.",
     colTax: "Tax %",
     colAmount: "Amount",

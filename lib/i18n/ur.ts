@@ -536,6 +536,7 @@ export const ur: DeepPartial<EnDict> = {
     colUnit: "یونٹ",
     unitHint: "مقدار/ریٹ اس یونٹ میں لکھیں — 1 {base} اسٹاک یونٹ ہے",
     colRate: "ریٹ",
+    colMode: "موڈ",
     colDisc: "رعایت",
     colTax: "ٹیکس ٪",
     colAmount: "رقم",
