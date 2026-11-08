@@ -33,6 +33,11 @@
   --shadow-card: 0 1px 2px rgb(16 26 44 / 0.05), 0 8px 24px -12px rgb(16 26 44 / 0.10);
   --shadow-pop: 0 12px 40px -12px rgb(16 26 44 / 0.22);
   --radius: 0.75rem;
+  /* Fast Accounts-style shell colors (video reference 2026-11-08). */
+  --fa-blue: #1ca2e9;
+  --fa-blue-soft: #e8f6fd;
+  --fa-header: #40bcfa;
+  --fa-green: #418d5e;
 }
 
 .dark {
@@ -89,6 +94,10 @@
   --color-sidebar: var(--sidebar);
   --color-sidebar-foreground: var(--sidebar-foreground);
   --color-sidebar-active: var(--sidebar-active);
+  --color-fa-blue: var(--fa-blue);
+  --color-fa-blue-soft: var(--fa-blue-soft);
+  --color-fa-header: var(--fa-header);
+  --color-fa-green: var(--fa-green);
   --font-sans: var(--font-body);
   --font-mono: var(--font-geist-mono);
 }

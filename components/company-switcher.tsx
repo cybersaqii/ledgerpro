@@ -1,13 +1,14 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { Building2, Check, ChevronDown, Plus } from "lucide-react";
+import { Building2, Check, ChevronDown, LayoutGrid, Plus } from "lucide-react";
 import { useLang } from "@/components/lang-provider";
 import { api } from "@/lib/format";
 
 type Company = { id: string; name: string; role: string };
 
-export function CompanySwitcher() {
+/** "pill" = Fast Accounts-style white pill for the blue top bar. */
+export function CompanySwitcher({ variant = "full" }: { variant?: "full" | "pill" }) {
   const { t } = useLang();
   const [companies, setCompanies] = useState<Company[]>([]);
   const [currentId, setCurrentId] = useState<string>("");
@@ -64,20 +65,32 @@ export function CompanySwitcher() {
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
-        className="flex w-full items-center gap-2.5 rounded-xl border border-border bg-card px-3 py-2 text-start transition hover:border-primary/40"
+        className={variant === "pill"
+          ? "flex max-w-64 items-center gap-1.5 rounded-full bg-white px-3 py-1.5 text-sm font-bold text-fa-blue shadow-sm transition hover:bg-fa-blue-soft sm:max-w-80"
+          : "flex w-full items-center gap-2.5 rounded-xl border border-border bg-card px-3 py-2 text-start transition hover:border-primary/40"}
         aria-haspopup="listbox"
         aria-expanded={open}
       >
-        <span className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-primary-soft text-primary">
-          <Building2 size={16} />
-        </span>
-        <span className="min-w-0 flex-1">
-          <span className="block truncate text-sm font-bold">{current?.name ?? "…"}</span>
-          <span className="block text-[0.7rem] text-muted-foreground">
-            {companies.length} {companies.length === 1 ? t("company.countOne") : t("company.count")}
-          </span>
-        </span>
-        <ChevronDown size={14} className={`shrink-0 text-muted-foreground transition-transform ${open ? "rotate-180" : ""}`} />
+        {variant === "pill" ? (
+          <>
+            <LayoutGrid size={15} className="shrink-0" />
+            <span className="min-w-0 truncate">{current?.name ?? "…"}</span>
+            <ChevronDown size={14} className={`shrink-0 transition-transform ${open ? "rotate-180" : ""}`} />
+          </>
+        ) : (
+          <>
+            <span className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-primary-soft text-primary">
+              <Building2 size={16} />
+            </span>
+            <span className="min-w-0 flex-1">
+              <span className="block truncate text-sm font-bold">{current?.name ?? "…"}</span>
+              <span className="block text-[0.7rem] text-muted-foreground">
+                {companies.length} {companies.length === 1 ? t("company.countOne") : t("company.count")}
+              </span>
+            </span>
+            <ChevronDown size={14} className={`shrink-0 text-muted-foreground transition-transform ${open ? "rotate-180" : ""}`} />
+          </>
+        )}
       </button>
 
       {open && (

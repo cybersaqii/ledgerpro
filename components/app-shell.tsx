@@ -6,8 +6,8 @@ import { useEffect, useRef, useState, type ReactNode } from "react";
 import {
   LayoutDashboard, ShoppingCart, Truck, Wallet, ReceiptText, Users, Package,
   BarChart3, Menu, X, LogOut, Boxes, Plus, Settings, Crown, ShieldCheck,
-  LifeBuoy, ArrowRight, Sparkles, Stamp, Landmark, Briefcase, Factory, KeyRound, Cog,
-  FolderKanban, Repeat, ShieldAlert, Search, ChevronDown, MessageCircle, Handshake,
+  LifeBuoy, ArrowRight, Stamp, Landmark, Briefcase, Factory, KeyRound, Cog,
+  FolderKanban, Repeat, ShieldAlert, ChevronDown, MessageCircle, Handshake,
   FileText, ClipboardList, ArrowDownToLine, ArrowUpFromLine, ArrowLeftRight,
   ClipboardCheck, FileUp, Receipt, CalendarClock, Layers, FileEdit, TrendingUp,
   ShoppingBag, BookOpen, Undo2, CornerUpLeft,
@@ -165,7 +165,9 @@ export function AppShell({ children, initialBusinessType }: { children: ReactNod
   // While permissions load, show everything (the API still enforces access).
   const can = (p: string) => permsLoading || permissions.includes(p);
   const [open, setOpen] = useState(false);
-  const [user, setUser] = useState<{ name: string; email: string } | null>(null);
+  // The user's name is shown on the dashboard ("Welcome …") — the shell
+  // only needs the company profile from /api/auth/me.
+  const [, setUser] = useState<{ name: string; email: string } | null>(null);
   // Seeded server-side by (app)/layout.tsx so the first paint already uses the
   // company's vocabulary; the /api/auth/me re-fetch on navigation (below)
   // keeps it fresh after the company profile changes.
@@ -179,22 +181,9 @@ export function AppShell({ children, initialBusinessType }: { children: ReactNod
   } | null>(null);
   const [quickOpen, setQuickOpen] = useState(false);
   const quickRef = useRef<HTMLDivElement>(null);
-  const [hello, setHello] = useState({ greet: "shell.morning", today: "" });
   // Grouped nav: all groups start collapsed; the group holding the current
   // page auto-expands so users always see where they are.
   const [collapsed, setCollapsed] = useState<Set<NavGroup>>(() => new Set(GROUP_ORDER));
-  const [navQuery, setNavQuery] = useState("");
-
-  useEffect(() => {
-    const now = new Date();
-    const h = now.getHours();
-    // Mount-once sync with the client clock (avoids SSR hydration mismatch on date/time).
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    setHello({
-      greet: h < 12 ? "shell.morning" : h < 17 ? "shell.afternoon" : "shell.evening",
-      today: now.toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long" }),
-    });
-  }, []);
 
   useEffect(() => {
     api<{ user: { name: string; email: string }; company: { name: string; businessType: string } }>("/api/auth/me")
@@ -402,94 +391,59 @@ export function AppShell({ children, initialBusinessType }: { children: ReactNod
     }
   }, [activeGroup]);
 
-  function renderNavItem(n: NavItem) {
+  /** Fast Accounts-style: group children are plain indented text, no icons. */
+  function renderNavItem(n: NavItem, bare = false) {
     const active = bestNav?.href === n.href;
     return (
       <Link
         key={n.href}
         href={n.href}
         aria-current={active ? "page" : undefined}
-        className={`relative flex items-center gap-3 rounded-xl px-3.5 py-2.5 text-sm font-semibold transition ${
+        className={`relative flex items-center gap-3 rounded-lg px-3.5 py-2 text-sm font-semibold transition ${
           active
-            ? "bg-sidebar-active text-foreground"
-            : "text-sidebar-foreground hover:bg-sidebar-active/60 hover:text-foreground"
+            ? "bg-fa-blue-soft text-fa-blue dark:bg-sidebar-active dark:text-primary"
+            : "text-sidebar-foreground hover:bg-muted/60 hover:text-foreground"
         }`}
       >
-        {active && (
-          <span aria-hidden className="absolute start-1.5 top-1/2 h-6 w-1 -translate-y-1/2 rounded-full bg-primary" />
-        )}
-        <n.icon size={18} className={active ? "shrink-0 text-primary" : "shrink-0"} />
+        {!bare && <n.icon size={18} className="shrink-0" />}
         <span className="truncate">{n.label}</span>
       </Link>
     );
   }
 
-  const navQ = navQuery.trim().toLowerCase();
-  const searchHits = navQ ? nav.filter((n) => n.label.toLowerCase().includes(navQ)) : [];
-
   const links = (
     <div>
-      <div className="px-3 pt-3">
-        <div className="relative">
-          <Search size={15} className="absolute start-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
-          <input
-            value={navQuery}
-            onChange={(e) => setNavQuery(e.target.value)}
-            placeholder={t("nav.searchMenu")}
-            aria-label={t("nav.searchMenu")}
-            className="field !py-2 !ps-9 !text-[0.82rem]"
-          />
-          {navQuery && (
-            <button
-              type="button"
-              onClick={() => setNavQuery("")}
-              aria-label={t("common.closeDialog")}
-              className="absolute end-1.5 top-1/2 grid h-8 w-8 -translate-y-1/2 place-items-center rounded-lg text-muted-foreground hover:bg-sidebar-active hover:text-foreground"
-            >
-              <X size={14} />
-            </button>
-          )}
-        </div>
-      </div>
-      <nav className="flex flex-col gap-1 p-3" aria-label={t("shell.navMenu")}>
-        {navQ ? (
-          searchHits.length === 0 ? (
-            <p className="px-3.5 py-2.5 text-xs text-muted-foreground">{t("common.noResults")}</p>
-          ) : (
-            searchHits.map(renderNavItem)
-          )
-        ) : (
-          GROUP_ORDER.map((g) => {
-            const items = nav.filter((n) => n.group === g);
-            if (items.length === 0) return null;
-            const open = !collapsed.has(g);
-            const GroupIcon = GROUP_ICON[g];
-            const groupActive = items.some(isActiveNav);
-            // Single-item groups render as a direct link row.
-            if (SINGLE_LINK_GROUPS.includes(g)) {
-              return <div key={g}>{items.map(renderNavItem)}</div>;
-            }
-            return (
-              <div key={g}>
-                <button
-                  type="button"
-                  onClick={() => toggleGroup(g)}
-                  aria-expanded={open}
-                  className={`flex w-full items-center gap-3 rounded-xl px-3.5 py-2.5 text-sm font-semibold transition ${
-                    groupActive
-                      ? "bg-sidebar-active text-foreground"
-                      : "text-sidebar-foreground hover:bg-sidebar-active/60 hover:text-foreground"
-                  }`}
-                >
-                  <GroupIcon size={18} className={`shrink-0 ${groupActive ? "text-primary" : ""}`} />
-                  <span className="flex-1 truncate text-start">{t(GROUP_LABEL[g])}</span>
-                  <ChevronDown size={14} className={`shrink-0 transition-transform ${open ? "" : "-rotate-90 rtl:rotate-90"}`} />
-                </button>
-                {open && <div className="ms-5 flex flex-col gap-1 border-s border-border ps-2 pt-1">{items.map(renderNavItem)}</div>}
-              </div>
-            );
-          })
-        )}
+      <nav className="flex flex-col gap-0.5 p-3" aria-label={t("shell.navMenu")}>
+        {GROUP_ORDER.map((g) => {
+          const items = nav.filter((n) => n.group === g);
+          if (items.length === 0) return null;
+          const open = !collapsed.has(g);
+          const GroupIcon = GROUP_ICON[g];
+          const groupActive = items.some(isActiveNav);
+          // Single-item groups render as a direct link row.
+          if (SINGLE_LINK_GROUPS.includes(g)) {
+            return <div key={g}>{items.map((n) => renderNavItem(n))}</div>;
+          }
+          return (
+            <div key={g}>
+              <button
+                type="button"
+                onClick={() => toggleGroup(g)}
+                aria-expanded={open}
+                className={`flex w-full items-center gap-3 rounded-lg px-3.5 py-2.5 text-sm font-semibold transition ${
+                  groupActive
+                    ? "bg-fa-blue-soft text-fa-blue dark:bg-sidebar-active dark:text-primary"
+                    : "text-sidebar-foreground hover:bg-muted/60 hover:text-foreground"
+                }`}
+              >
+                <GroupIcon size={18} className="shrink-0" />
+                <span className="flex-1 truncate text-start">{t(GROUP_LABEL[g])}</span>
+                <ChevronDown size={14} className={`shrink-0 transition-transform ${open ? "" : "-rotate-90 rtl:rotate-90"}`} />
+              </button>
+              {open && <div className="ms-9 flex flex-col gap-0.5 pt-0.5">{items.map((n) => renderNavItem(n, true))}</div>}
+            </div>
+          );
+        })}
       </nav>
     </div>
   );
@@ -504,22 +458,12 @@ export function AppShell({ children, initialBusinessType }: { children: ReactNod
           <p className="text-sm font-bold text-muted-foreground">{t("header.loggingOut")}</p>
         </div>
       )}
-      {/* Desktop sidebar */}
-      <aside className="sticky top-0 hidden h-screen w-72 shrink-0 flex-col border-e border-border bg-sidebar lg:flex">
-        <div className="flex h-16 items-center border-b border-border px-5">
+      {/* Desktop sidebar — Fast Accounts style: white, ~240px, logo on top. */}
+      <aside className="sticky top-0 hidden h-screen w-60 shrink-0 flex-col border-e border-border bg-sidebar lg:flex">
+        <div className="flex h-14 items-center border-b border-border px-5">
           <Logo />
         </div>
-        <div className="border-b border-border px-3 py-2.5">
-          <CompanySwitcher />
-        </div>
         <div className="flex-1 overflow-y-auto">{links}</div>
-        <div className="border-t border-border p-4">
-          {can("sales") && (
-            <Link href={newSaleHref(bp)} className="btn btn-primary w-full !py-2.5 text-sm">
-              <Plus size={16} /> {bp.newSale}
-            </Link>
-          )}
-        </div>
       </aside>
 
       {/* Mobile drawer */}
@@ -528,14 +472,11 @@ export function AppShell({ children, initialBusinessType }: { children: ReactNod
           <div className="absolute inset-0 bg-black/50" onClick={() => setOpen(false)} aria-hidden="true" />
           <aside role="dialog" aria-modal="true" aria-label={t("shell.navMenu")}
             className="absolute start-0 top-0 flex h-full w-72 flex-col border-e border-border bg-sidebar shadow-2xl">
-            <div className="flex h-16 items-center justify-between border-b border-border px-5">
+            <div className="flex h-14 items-center justify-between border-b border-border px-5">
               <Logo />
               <button onClick={() => setOpen(false)} className="grid h-11 w-11 place-items-center rounded-xl text-sidebar-foreground hover:bg-sidebar-active hover:text-foreground" aria-label={t("shell.closeMenu")}>
                 <X size={20} />
               </button>
-            </div>
-            <div className="border-b border-border px-3 py-2.5">
-              <CompanySwitcher />
             </div>
             <div className="flex-1 overflow-y-auto">{links}</div>
             <div className="flex items-center justify-around border-t border-border p-3 lg:hidden">
@@ -552,30 +493,19 @@ export function AppShell({ children, initialBusinessType }: { children: ReactNod
       )}
 
       <div className="flex min-w-0 flex-1 flex-col">
-        {/* Topbar */}
-        <header className="sticky top-0 z-30 flex h-16 items-center justify-between gap-3 border-b border-border bg-background/85 px-4 shadow-[0_1px_12px_-6px_rgb(15_30_26/0.15)] backdrop-blur-xl sm:px-6">
-          <div className="flex items-center gap-3">
-            <button onClick={() => setOpen(true)} className="grid h-11 w-11 place-items-center rounded-xl border border-border bg-card transition hover:-translate-y-0.5 hover:shadow-md lg:hidden" aria-label={t("header.openMenu")}>
+        {/* Topbar — Fast Accounts style: solid bright-blue bar, white company pill. */}
+        <header className="sticky top-0 z-30 flex h-14 items-center justify-between gap-3 bg-fa-blue px-3 text-white shadow-sm sm:px-4">
+          <div className="flex min-w-0 items-center gap-2">
+            <button onClick={() => setOpen(true)} className="grid h-10 w-10 shrink-0 place-items-center rounded-full text-white transition hover:bg-white/15 lg:hidden" aria-label={t("header.openMenu")}>
               <Menu size={19} />
             </button>
-            <div className="lg:hidden"><Logo /></div>
-            <div className="hidden min-w-0 sm:block">
-              {user ? (
-                <>
-                  <p className="flex items-center gap-1.5 truncate text-[15px] font-extrabold tracking-tight">
-                    {t(hello.greet)}, <span className="text-gradient">{user.name}</span>
-                    <Sparkles size={14} className="shrink-0 text-accent" />
-                  </p>
-                  {hello.today && <p className="truncate text-xs text-muted-foreground">{hello.today}</p>}
-                </>
-              ) : "…"}
-            </div>
+            <CompanySwitcher variant="pill" />
           </div>
           <div className="flex min-w-0 items-center gap-1.5 sm:gap-2">
             <div className="relative shrink-0" ref={quickRef}>
               {quickCreate.length > 0 && (
               <button onClick={() => setQuickOpen((o) => !o)}
-                className="btn-primary grid h-11 w-11 place-items-center !rounded-xl !p-0"
+                className="grid h-10 w-10 place-items-center rounded-full bg-white text-fa-blue shadow-sm transition hover:bg-fa-blue-soft"
                 aria-label={t("header.quickCreate")} aria-expanded={quickOpen} aria-haspopup="menu" title={t("header.quickCreate")}>
                 <Plus size={19} strokeWidth={2.5} />
               </button>
@@ -597,7 +527,7 @@ export function AppShell({ children, initialBusinessType }: { children: ReactNod
             <span className="shrink-0"><NotificationBell /></span>
             <span className="hidden shrink-0 sm:contents"><SupportButton /></span>
             <span className="hidden shrink-0 sm:contents"><WhatsAppSupport /></span>
-            <button onClick={logout} disabled={loggingOut} className="hidden h-11 w-11 shrink-0 place-items-center rounded-xl border border-border bg-card transition hover:-translate-y-0.5 hover:shadow-md hover:text-danger disabled:opacity-50 sm:grid" title={t("header.logout")} aria-label={t("header.logout")}>
+            <button onClick={logout} disabled={loggingOut} className="hidden h-10 w-10 shrink-0 place-items-center rounded-full bg-white text-slate-600 shadow-sm transition hover:bg-fa-blue-soft hover:text-danger disabled:opacity-50 sm:grid" title={t("header.logout")} aria-label={t("header.logout")}>
               {loggingOut ? <span className="h-4 w-4 animate-spin rounded-full border-2 border-muted-foreground/30 border-t-muted-foreground" /> : <LogOut size={17} />}
             </button>
           </div>
