@@ -252,6 +252,15 @@ html[lang="ur"] body {
 }
 .tbl-fa tbody tr:hover { background: color-mix(in srgb, var(--muted) 45%, transparent); }
 
+/* Business Overview tinted table headers (colors sampled from the
+   2026-11-08 FastAccounts screen recording). */
+.tbl.tbl-fa thead th.fa-th-ar { background: #ddffc6; color: #1a2e05; }
+.tbl.tbl-fa thead th.fa-th-ap { background: #a7e0fb; color: #0c2d4d; }
+.tbl.tbl-fa thead th.fa-th-bank { background: #a5a5a5; color: #fff; }
+.tbl.tbl-fa thead th.fa-th-peach { background: #fae7d8; color: #3d2b1f; }
+.tbl.tbl-fa thead th.fa-th-green { background: #dfffc9; color: #1a2e05; }
+.tbl.tbl-fa thead th.fa-th-blue { background: #a2e1ff; color: #0c2d4d; }
+
 /* Fast Accounts dense doc form — scoped compact overrides */
 .docform-fa .field {
   padding: 0.3rem 0.5rem;

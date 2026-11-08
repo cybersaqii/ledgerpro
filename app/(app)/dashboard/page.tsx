@@ -1,26 +1,46 @@
 "use client";
 
 import Link from "next/link";
+import dynamic from "next/dynamic";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
-  TriangleAlert, LayoutDashboard, RotateCcw, Plus, Eye,
-  TrendingUp, TrendingDown, Package, ChevronRight,
+  TriangleAlert, LayoutDashboard, RotateCcw, Eye,
+  TrendingUp, TrendingDown, Package, ChevronRight, FileText, Receipt,
 } from "lucide-react";
 import { PageHeader, EmptyState } from "@/components/ui";
 import { api, fmtMoney, fmtDate } from "@/lib/format";
 import { useLang } from "@/components/lang-provider";
 
+const CashFlowChart = dynamic(
+  () => import("@/components/overview-charts").then((m) => ({ default: m.CashFlowChart })),
+  { ssr: false, loading: () => <div className="h-full w-full animate-pulse rounded-lg bg-muted/60" /> }
+);
+const SalesLineChart = dynamic(
+  () => import("@/components/overview-charts").then((m) => ({ default: m.SalesLineChart })),
+  { ssr: false, loading: () => <div className="h-full w-full animate-pulse rounded-lg bg-muted/60" /> }
+);
+const ExpensesDonut = dynamic(
+  () => import("@/components/overview-charts").then((m) => ({ default: m.ExpensesDonut })),
+  { ssr: false, loading: () => <div className="h-full w-full animate-pulse rounded-lg bg-muted/60" /> }
+);
+const BankBalanceAreaChart = dynamic(
+  () => import("@/components/overview-charts").then((m) => ({ default: m.BankBalanceAreaChart })),
+  { ssr: false, loading: () => <div className="h-full w-full animate-pulse rounded-lg bg-muted/60" /> }
+);
+
 type OverviewData = {
-  ar: { total: string; buckets: Record<string, string> };
-  ap: { total: string; buckets: Record<string, string> };
+  ar: { total: string; buckets: Record<string, string>; counts: Record<string, number> };
+  ap: { total: string; buckets: Record<string, string>; counts: Record<string, number> };
   banks: Array<{ id: string; name: string; code: string | null; balance: string; kind: string }>;
   products: { lowStock: number; outOfStock: number; oversold: number; inStock: number };
-  sales: { total: string };
+  sales: { total: string; monthly: Array<{ label: string; total: number }> };
   expenses: { total: string; top: Array<{ name: string; total: string }> };
   pnl: { income: string; expenses: string; net: string };
   arTop10: Array<{ id: string; name: string; balance: string }>;
   apTop10: Array<{ id: string; name: string; balance: string }>;
+  cashFlow: Array<{ label: string; in: number; out: number }>;
+  bankMonthly: Array<{ label: string; balance: number }>;
 };
 
 type RecentDoc = {
@@ -83,17 +103,28 @@ function periodRange(key: SalesPeriodKey): { from: string; to: string } {
   }
 }
 
-function Card({ title, action, children, className = "" }: {
-  title: string; action?: React.ReactNode; children: React.ReactNode; className?: string;
+// FA-style widget card: thin border, square corners, title bar with a light
+// bottom divider — matches the 2026-11-08 screen recording's cards.
+function FaCard({ title, action, footer, children, className = "" }: {
+  title: string; action?: React.ReactNode; footer?: React.ReactNode; children: React.ReactNode; className?: string;
 }) {
   return (
-    <section className={`card min-w-0 p-4 sm:p-5 ${className}`}>
-      <div className="mb-3 flex items-center justify-between gap-2">
-        <h2 className="truncate text-sm font-extrabold tracking-tight sm:text-base">{title}</h2>
+    <section className={`min-w-0 overflow-hidden rounded border border-border bg-card ${className}`}>
+      <div className="flex items-center justify-between gap-2 border-b border-border px-4 py-2.5">
+        <h2 className="truncate text-sm font-extrabold tracking-tight">{title}</h2>
         {action}
       </div>
-      {children}
+      <div className="p-4">{children}</div>
+      {footer && <div className="flex justify-end border-t border-border px-4 py-2">{footer}</div>}
     </section>
+  );
+}
+
+function ViewReportLink({ href, label }: { href: string; label: string }) {
+  return (
+    <Link href={href} className="inline-flex items-center gap-1 text-xs font-bold text-primary hover:underline">
+      {label} <ChevronRight size={13} />
+    </Link>
   );
 }
 
@@ -107,6 +138,8 @@ export default function DashboardPage() {
   const [error, setError] = useState<string | null>(null);
   const [salesPeriod, setSalesPeriod] = useState<SalesPeriodKey>("fy");
   const [salesTotal, setSalesTotal] = useState<string | null>(null);
+  const [cashMonths, setCashMonths] = useState<12 | 6 | 3>(12);
+  const [bankMonths, setBankMonths] = useState<12 | 6 | 3>(12);
 
   const bucketLabels: Record<string, string> = useMemo(() => ({
     older: t("dashboard.bkOlder"),
@@ -159,8 +192,6 @@ export default function DashboardPage() {
 
   const onPeriodChange = (key: SalesPeriodKey) => {
     setSalesPeriod(key);
-    // Reload with the new period (loadOverview reads salesPeriod via closure —
-    // pass explicitly by temporarily relying on the state update below).
     const r = periodRange(key);
     api<{ data: OverviewData }>(`/api/dashboard/overview?salesFrom=${r.from}&salesTo=${r.to}`)
       .then((d) => { setOverview(d.data); setSalesTotal(d.data.sales.total); })
@@ -181,37 +212,37 @@ export default function DashboardPage() {
     </div>
   );
 
-  const agingTable = (buckets: Record<string, string>, label: string) => (
-    <div>
-      <div className="overflow-x-auto"><table className="tbl-fa w-full">
-        <thead>
-          <tr><th className="!text-start">{label}</th><th className="!text-end">{t("dashboard.balance")}</th></tr>
-        </thead>
-        <tbody>
-          {BUCKET_ORDER.map((b) => (
-            <tr key={b}>
-              <td className="!text-start text-xs">{bucketLabels[b]}</td>
-              <td className="!text-end text-xs font-bold tabular-nums">{fmtMoney(buckets[b] ?? "0")}</td>
-            </tr>
-          ))}
-        </tbody>
-      </table></div>
-    </div>
+  const welcomeParts = t("dashboard.welcome", { name: "§" }).split("§");
+
+  const agingTable = (buckets: Record<string, string>, counts: Record<string, number>, label: string, tint: string) => (
+    <div className="overflow-x-auto"><table className="tbl-fa w-full">
+      <thead>
+        <tr><th className={`fa-th-${tint}`}>{label}</th><th className={`fa-th-${tint} num`}>{t("dashboard.balance")}</th></tr>
+      </thead>
+      <tbody>
+        {BUCKET_ORDER.map((b) => (
+          <tr key={b}>
+            <td className="text-xs">{bucketLabels[b]}{counts?.[b] ? ` (${counts[b]})` : ""}</td>
+            <td className="num text-xs font-bold tabular-nums">{fmtMoney(buckets[b] ?? "0")}</td>
+          </tr>
+        ))}
+      </tbody>
+    </table></div>
   );
 
-  const top10Table = (rows: Array<{ id: string; name: string; balance: string }>) => (
+  const top10Table = (rows: Array<{ id: string; name: string; balance: string }>, tint: string) => (
     rows.length === 0
       ? <EmptyState title={t("dashboard.noData")} />
       : (
         <div className="overflow-x-auto"><table className="tbl-fa w-full">
           <thead>
-            <tr><th className="!text-start">{t("dashboard.name")}</th><th className="!text-end">{t("dashboard.balance")}</th></tr>
+            <tr><th className={`fa-th-${tint}`}>{t("dashboard.name")}</th><th className={`fa-th-${tint} num`}>{t("dashboard.balance")}</th></tr>
           </thead>
           <tbody>
             {rows.map((r) => (
               <tr key={r.id}>
-                <td className="!text-start truncate text-xs font-semibold"><Link href={`/reports/party-ledger?party=${r.id}`} className="text-primary hover:underline">{r.name}</Link></td>
-                <td className="!text-end text-xs font-bold tabular-nums">{fmtMoney(r.balance)}</td>
+                <td className="truncate text-xs font-semibold"><Link href={`/reports/party-ledger?party=${r.id}`} className="text-primary hover:underline">{r.name}</Link></td>
+                <td className="num text-xs font-bold tabular-nums">{fmtMoney(r.balance)}</td>
               </tr>
             ))}
           </tbody>
@@ -219,68 +250,91 @@ export default function DashboardPage() {
       )
   );
 
+  const monthsSelect = (value: 12 | 6 | 3, onChange: (v: 12 | 6 | 3) => void) => (
+    <select
+      value={value}
+      onChange={(e) => onChange(Number(e.target.value) as 12 | 6 | 3)}
+      className="field !w-auto !py-1 !px-2 text-xs"
+      aria-label={t("dashboard.period")}
+    >
+      <option value={12}>{t("dashboard.months12")}</option>
+      <option value={6}>{t("dashboard.months6")}</option>
+      <option value={3}>{t("dashboard.months3")}</option>
+    </select>
+  );
+
+  const watchlistCard = (title: string, tint: string) => (
+    <FaCard title={title}>
+      <div className="overflow-x-auto"><table className="tbl-fa w-full">
+        <thead>
+          <tr><th className={`fa-th-${tint}`}>{t("dashboard.name")}</th><th className={`fa-th-${tint} num`}>{t("dashboard.balance")}</th></tr>
+        </thead>
+      </table></div>
+      <p className="mt-3 text-center text-xs text-muted-foreground">{t("dashboard.watchlistEmpty")}</p>
+    </FaCard>
+  );
+
   return (
     <div>
-      {/* Tabs */}
-      <div className="mb-4 flex gap-1 rounded-xl bg-muted p-1 sm:w-fit">
-        {(["new", "overview"] as const).map((k) => (
-          <button
-            key={k}
-            type="button"
-            onClick={() => setTab(k)}
-            className={`rounded-lg px-4 py-1.5 text-xs font-bold transition ${tab === k ? "bg-card text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}`}
-          >
-            {t(k === "new" ? "dashboard.tabNew" : "dashboard.tabOverview")}
-          </button>
-        ))}
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+        <h1 className="text-xl font-extrabold tracking-tight sm:text-2xl">
+          {welcomeParts[0]}<span className="text-fa-blue">{user?.name ?? ""}</span>{welcomeParts[1] ?? ""}
+        </h1>
+        <div className="flex gap-1 rounded-full bg-muted p-1">
+          {(["new", "overview"] as const).map((k) => (
+            <button
+              key={k}
+              type="button"
+              onClick={() => setTab(k)}
+              className={`rounded-full px-4 py-1.5 text-xs font-bold transition ${tab === k ? "bg-fa-blue text-white shadow-sm" : "text-muted-foreground hover:text-foreground"}`}
+            >
+              {t(k === "new" ? "dashboard.tabNew" : "dashboard.tabOverview")}
+            </button>
+          ))}
+        </div>
       </div>
 
       {tab === "new" && (
-        <div>
-          <h1 className="mb-4 text-xl font-extrabold tracking-tight sm:text-2xl">
-            {t("dashboard.welcome", { name: user?.name ?? "" })}
-          </h1>
-          <div className="grid gap-4 lg:grid-cols-2">
-            {/* Quick Actions */}
-            <Card title={t("dashboard.quickActions")}>
-              <div className="flex flex-wrap gap-2.5">
-                <Link href="/sales/new" className="btn btn-primary text-sm">
-                  <Plus size={16} /> {t("dashboard.addSalesInvoice")}
-                </Link>
-                <Link href="/purchases/new" className="btn btn-primary text-sm">
-                  <Plus size={16} /> {t("dashboard.addSupplierBill")}
-                </Link>
-              </div>
-            </Card>
-            {/* Updates */}
-            <Card title={t("dashboard.updates")}>
-              {recent.length === 0 ? (
-                <EmptyState title={t("dashboard.noUpdates")} hint={t("dashboard.noUpdatesHint")} />
-              ) : (
-                <ul className="divide-y divide-border">
-                  {recent.map((d) => (
-                    <li key={d.id} className="flex items-center justify-between gap-3 py-2.5">
-                      <div className="min-w-0">
-                        <p className="truncate text-sm font-bold">
-                          {d.kind === "SALE" ? t("dashboard.saleInvoice") : t("dashboard.supplierBill")}{" "}
-                          <span className="font-extrabold">{d.docNo}</span>
-                        </p>
-                        <p className="truncate text-xs text-muted-foreground">
-                          {fmtDate(d.date)} · {d.partyName ?? "—"} · {fmtMoney(d.grandTotal)}
-                        </p>
-                      </div>
-                      <Link
-                        href={d.kind === "SALE" ? `/sales/${d.id}` : `/purchases/${d.id}`}
-                        className="btn btn-ghost shrink-0 !px-3 !py-1.5 text-xs font-bold text-primary"
-                      >
-                        <Eye size={14} /> {t("common.view")}
-                      </Link>
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </Card>
-          </div>
+        <div className="grid gap-4 lg:grid-cols-2">
+          <FaCard title={t("dashboard.quickActions")}>
+            <div className="flex flex-wrap gap-6 py-2">
+              <Link href="/sales/new" className="flex w-28 flex-col items-center gap-2 text-center">
+                <span className="flex h-14 w-14 items-center justify-center rounded-full border border-border bg-card text-fa-blue shadow-sm"><FileText size={24} /></span>
+                <span className="text-xs font-bold leading-tight">{t("dashboard.addSalesInvoice")}</span>
+              </Link>
+              <Link href="/purchases/new" className="flex w-28 flex-col items-center gap-2 text-center">
+                <span className="flex h-14 w-14 items-center justify-center rounded-full border border-border bg-card text-fa-blue shadow-sm"><Receipt size={24} /></span>
+                <span className="text-xs font-bold leading-tight">{t("dashboard.addSupplierBill")}</span>
+              </Link>
+            </div>
+          </FaCard>
+          <FaCard title={t("dashboard.updates")}>
+            {recent.length === 0 ? (
+              <EmptyState title={t("dashboard.noUpdates")} hint={t("dashboard.noUpdatesHint")} />
+            ) : (
+              <ul className="divide-y divide-border">
+                {recent.map((d) => (
+                  <li key={d.id} className="flex items-center justify-between gap-3 py-2.5 first:pt-0 last:pb-0">
+                    <div className="min-w-0">
+                      <p className="truncate text-sm font-bold">
+                        {d.kind === "SALE" ? t("dashboard.saleInvoice") : t("dashboard.supplierBill")}{" "}
+                        <span className="font-extrabold">{d.docNo}</span>
+                      </p>
+                      <p className="truncate text-xs text-fa-blue">
+                        {fmtDate(d.date)} · {d.partyName ?? "—"} · {fmtMoney(d.grandTotal)}
+                      </p>
+                    </div>
+                    <Link
+                      href={d.kind === "SALE" ? `/sales/${d.id}` : `/purchases/${d.id}`}
+                      className="inline-flex shrink-0 items-center gap-1 rounded-full border border-border px-3 py-1 text-xs font-bold text-primary"
+                    >
+                      <Eye size={14} /> {t("common.view")}
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </FaCard>
         </div>
       )}
 
@@ -293,43 +347,40 @@ export default function DashboardPage() {
           </div>
         ) : (
           <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-            {/* 1. AR Summary */}
-            <Card
+            <FaCard
               title={t("dashboard.arSummary")}
-              action={<Link href="/reports/aging?kind=CUSTOMER" className="inline-flex items-center gap-1 text-xs font-bold text-primary hover:underline">{t("dashboard.viewReport")} <ChevronRight size={13} /></Link>}
+              footer={<ViewReportLink href="/reports/aging?kind=CUSTOMER" label={t("dashboard.viewReport")} />}
             >
               <p className="mb-1 text-xs text-muted-foreground">{t("dashboard.totalReceivable")}</p>
               <p className="mb-3 text-xl font-extrabold tabular-nums">{fmtMoney(overview.ar.total)}</p>
-              {agingTable(overview.ar.buckets, t("dashboard.unpaidInvoices"))}
-            </Card>
+              {agingTable(overview.ar.buckets, overview.ar.counts, t("dashboard.unpaidInvoices"), "ar")}
+            </FaCard>
 
-            {/* 2. AP Summary */}
-            <Card
+            <FaCard
               title={t("dashboard.apSummary")}
-              action={<Link href="/reports/aging?kind=SUPPLIER" className="inline-flex items-center gap-1 text-xs font-bold text-primary hover:underline">{t("dashboard.viewReport")} <ChevronRight size={13} /></Link>}
+              footer={<ViewReportLink href="/reports/aging?kind=SUPPLIER" label={t("dashboard.viewReport")} />}
             >
               <p className="mb-1 text-xs text-muted-foreground">{t("dashboard.totalPayable")}</p>
               <p className="mb-3 text-xl font-extrabold tabular-nums">{fmtMoney(overview.ap.total)}</p>
-              {agingTable(overview.ap.buckets, t("dashboard.unpaidBills"))}
-            </Card>
+              {agingTable(overview.ap.buckets, overview.ap.counts, t("dashboard.unpaidBills"), "ap")}
+            </FaCard>
 
-            {/* 3. Bank Balances */}
-            <Card
+            <FaCard
               title={t("dashboard.bankBalances")}
               action={<Link href="/bank/balances" className="inline-flex items-center gap-1 text-xs font-bold text-primary hover:underline">{t("common.viewAll")} <ChevronRight size={13} /></Link>}
             >
               <div className="overflow-x-auto"><table className="tbl-fa w-full">
                 <thead>
-                  <tr><th className="!text-start !bg-sky-500">{t("dashboard.bank")}</th><th className="!text-end !bg-sky-500">{t("dashboard.balance")}</th></tr>
+                  <tr><th className="fa-th-bank">{t("dashboard.bank")}</th><th className="fa-th-bank num">{t("dashboard.balance")}</th></tr>
                 </thead>
                 <tbody>
                   {overview.banks.map((b) => (
                     <tr key={b.id}>
-                      <td className="!text-start truncate text-xs font-semibold">
+                      <td className="truncate text-xs font-semibold">
                         <Link href="/bank/balances" className="text-primary hover:underline">{b.name}</Link>
                         {b.code && <span className="ms-1 text-muted-foreground">({b.code})</span>}
                       </td>
-                      <td className="!text-end text-xs font-bold tabular-nums">{fmtMoney(b.balance)}</td>
+                      <td className="num text-xs font-bold tabular-nums">{fmtMoney(b.balance)}</td>
                     </tr>
                   ))}
                   {overview.banks.length === 0 && (
@@ -337,36 +388,48 @@ export default function DashboardPage() {
                   )}
                 </tbody>
               </table></div>
-            </Card>
+            </FaCard>
 
-            {/* 4. Products */}
-            <Card
+            <FaCard title={t("dashboard.cashFlow")} action={monthsSelect(cashMonths, setCashMonths)} className="xl:col-span-2">
+              <div className="h-56">
+                {overview.cashFlow.length === 0 ? (
+                  <EmptyState title={t("dashboard.noData")} />
+                ) : (
+                  <CashFlowChart data={overview.cashFlow.slice(-cashMonths)} inLabel={t("dashboard.moneyIn")} outLabel={t("dashboard.moneyOut")} />
+                )}
+              </div>
+              <div className="mt-2 flex items-center gap-4 text-xs">
+                <span className="flex items-center gap-1.5 font-semibold"><span className="h-2.5 w-2.5 rounded-full" style={{ background: "#7ed321" }} />{t("dashboard.moneyIn")}</span>
+                <span className="flex items-center gap-1.5 font-semibold"><span className="h-2.5 w-2.5 rounded-full" style={{ background: "#17a2b8" }} />{t("dashboard.moneyOut")}</span>
+              </div>
+            </FaCard>
+
+            <FaCard
               title={t("dashboard.productsCard")}
               action={<Link href="/inventory/products" className="inline-flex items-center gap-1 text-xs font-bold text-primary hover:underline">{t("common.viewAll")} <ChevronRight size={13} /></Link>}
             >
-              <div className="grid grid-cols-2 gap-2.5">
+              <ul className="divide-y divide-border">
                 {[
-                  { label: t("dashboard.lowStock"), value: overview.products.lowStock, tone: "text-amber-600", icon: <TriangleAlert size={16} /> },
-                  { label: t("dashboard.outOfStock"), value: overview.products.outOfStock, tone: "text-danger", icon: <Package size={16} /> },
-                  { label: t("dashboard.oversold"), value: overview.products.oversold, tone: "text-danger", icon: <TrendingDown size={16} /> },
-                  { label: t("dashboard.inStock"), value: overview.products.inStock, tone: "text-emerald-600", icon: <TrendingUp size={16} /> },
+                  { label: t("dashboard.lowStock"), value: overview.products.lowStock, color: "#7b1fa2", icon: <TriangleAlert size={15} /> },
+                  { label: t("dashboard.outOfStock"), value: overview.products.outOfStock, color: "#f59e0b", icon: <Package size={15} /> },
+                  { label: t("dashboard.oversold"), value: overview.products.oversold, color: "#e91e63", icon: <TrendingDown size={15} /> },
+                  { label: t("dashboard.inStock"), value: overview.products.inStock, color: "#22c55e", icon: <TrendingUp size={15} /> },
                 ].map((s) => (
-                  <div key={s.label} className="rounded-xl border border-border bg-muted/40 p-3">
-                    <p className={`flex items-center gap-1.5 text-lg font-extrabold tabular-nums ${s.tone}`}>{s.icon}{s.value}</p>
-                    <p className="mt-0.5 text-xs text-muted-foreground">{s.label}</p>
-                  </div>
+                  <li key={s.label} className="flex items-center justify-between gap-2 py-2.5 first:pt-0 last:pb-0">
+                    <span className="flex items-center gap-2 text-sm font-semibold"><span style={{ color: s.color }}>{s.icon}</span>{s.label}</span>
+                    <span className="text-lg font-extrabold tabular-nums" style={{ color: s.color }}>{s.value}</span>
+                  </li>
                 ))}
-              </div>
-            </Card>
+              </ul>
+            </FaCard>
 
-            {/* 5. Sales */}
-            <Card
+            <FaCard
               title={t("dashboard.salesCard")}
               action={
                 <select
                   value={salesPeriod}
                   onChange={(e) => onPeriodChange(e.target.value as SalesPeriodKey)}
-                  className="field !w-auto !py-1.5 !px-2 text-xs"
+                  className="field !w-auto !py-1 !px-2 text-xs"
                   aria-label={t("dashboard.period")}
                 >
                   {SALES_PERIODS.map((p) => (
@@ -376,33 +439,35 @@ export default function DashboardPage() {
               }
             >
               <p className="text-2xl font-extrabold tabular-nums">{fmtMoney(salesTotal ?? overview.sales.total)}</p>
-              <p className="mt-1 text-xs text-muted-foreground">
+              <div className="mt-3 h-40">
+                {overview.sales.monthly.length === 0 ? (
+                  <EmptyState title={t("dashboard.noSales")} />
+                ) : (
+                  <SalesLineChart data={overview.sales.monthly} label={t("dashboard.salesCard")} />
+                )}
+              </div>
+              <p className="mt-2 text-xs text-muted-foreground">
                 {t(`dashboard.period_${salesPeriod}`)} · <Link href="/sales/invoices" className="font-bold text-primary hover:underline">{t("dashboard.viewReport")}</Link>
               </p>
-            </Card>
+            </FaCard>
 
-            {/* 6. Expenses */}
-            <Card
+            <FaCard
               title={t("dashboard.expensesCard")}
               action={<Link href="/expenses" className="inline-flex items-center gap-1 text-xs font-bold text-primary hover:underline">{t("common.viewAll")} <ChevronRight size={13} /></Link>}
             >
               <p className="text-2xl font-extrabold tabular-nums">{fmtMoney(overview.expenses.total)}</p>
-              {overview.expenses.top.length > 0 && (
-                <ul className="mt-3 space-y-1.5">
-                  {overview.expenses.top.map((c) => (
-                    <li key={c.name} className="flex items-center justify-between gap-2 text-xs">
-                      <span className="truncate font-semibold">{c.name}</span>
-                      <span className="shrink-0 font-bold tabular-nums">{fmtMoney(c.total)}</span>
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </Card>
+              <div className="mt-3">
+                {overview.expenses.top.length === 0 ? (
+                  <EmptyState title={t("dashboard.noData")} />
+                ) : (
+                  <ExpensesDonut data={overview.expenses.top.map((c) => ({ name: c.name, total: Number(c.total) / 100 }))} />
+                )}
+              </div>
+            </FaCard>
 
-            {/* 7. P&L */}
-            <Card
+            <FaCard
               title={t("dashboard.pnlCard")}
-              action={<Link href="/reports/profit-loss" className="inline-flex items-center gap-1 text-xs font-bold text-primary hover:underline">{t("dashboard.viewReport")} <ChevronRight size={13} /></Link>}
+              footer={<ViewReportLink href="/reports/profit-loss" label={t("dashboard.viewReport")} />}
             >
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
@@ -418,23 +483,41 @@ export default function DashboardPage() {
                   <span className="font-bold tabular-nums">{fmtMoney(overview.pnl.expenses)}</span>
                 </div>
               </div>
-            </Card>
+            </FaCard>
 
-            {/* 8. AR Top 10 */}
-            <Card
+            <FaCard
               title={t("dashboard.arTop10")}
               action={<Link href="/sales/customers" className="inline-flex items-center gap-1 text-xs font-bold text-primary hover:underline">{t("common.viewAll")} <ChevronRight size={13} /></Link>}
             >
-              {top10Table(overview.arTop10)}
-            </Card>
+              {top10Table(overview.arTop10, "peach")}
+            </FaCard>
 
-            {/* 9. AP Top 10 */}
-            <Card
+            {watchlistCard(t("dashboard.arWatchlist"), "bank")}
+
+            {watchlistCard(t("dashboard.bankWatchlist"), "blue")}
+
+            <FaCard
               title={t("dashboard.apTop10")}
               action={<Link href="/purchases/suppliers" className="inline-flex items-center gap-1 text-xs font-bold text-primary hover:underline">{t("common.viewAll")} <ChevronRight size={13} /></Link>}
             >
-              {top10Table(overview.apTop10)}
-            </Card>
+              {top10Table(overview.apTop10, "green")}
+            </FaCard>
+
+            {watchlistCard(t("dashboard.apWatchlist"), "peach")}
+
+            <FaCard title={t("dashboard.monthlyBankBalance")} action={monthsSelect(bankMonths, setBankMonths)} className="xl:col-span-2">
+              <div className="h-56">
+                <BankBalanceAreaChart data={overview.bankMonthly.slice(-bankMonths)} label={t("dashboard.bankBalances")} />
+              </div>
+            </FaCard>
+
+            <FaCard title={t("dashboard.bankBalanceWatchlist")} className="xl:col-span-2">
+              <p className="py-6 text-center text-xs text-muted-foreground">{t("dashboard.watchlistEmpty")}</p>
+            </FaCard>
+
+            <FaCard title={t("dashboard.bankCashFlowWatchlist")} className="xl:col-span-2">
+              <p className="py-6 text-center text-xs text-muted-foreground">{t("dashboard.watchlistEmpty")}</p>
+            </FaCard>
           </div>
         )
       )}
