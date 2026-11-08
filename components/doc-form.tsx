@@ -7,6 +7,7 @@ import { PageHeader, ErrorNote } from "@/components/ui";
 import { api, ApiError, fmtMoney, fmtQty, fmtDateInput, fmtDate } from "@/lib/format";
 import { localizedApiError } from "@/lib/api-errors";
 import { lineMath, docMath, taxBpsOf, taxOf, matrixLineDiscount } from "@/lib/doc-math";
+import { effectiveLines, isBlankLine, upsertProductLine } from "@/lib/doc-lines";
 import { foreignToPaisa, paisaToForeignMinor, formatForeign, minorToDecimalString, formatRate } from "@/lib/fx";
 import { parseDecimalToMinor } from "@/lib/decimal";
 // Module 18: exact integer UOM math for the client-side unit preview
@@ -803,7 +804,7 @@ export function DocForm({ mode, initialType }: { mode: "SALES" | "PURCHASE"; ini
         rateStr = minorToDecimalString(paisaToForeignMinor(BigInt(price), fxRateScaled, fxMinorUnits), fxMinorUnits);
       } catch { /* keep the PKR figure; the server validates */ }
     }
-    setLines((ls) => [...ls, {
+    const productLine: Line = {
       key,
       productId: p.id,
       description: p.name,
@@ -826,10 +827,15 @@ export function DocForm({ mode, initialType }: { mode: "SALES" | "PURCHASE"; ini
       sku: p.sku,
       wholesalePrice: p.wholesalePrice ? (Number(BigInt(p.wholesalePrice)) / 100).toString() : "",
       rateMode: "RETAIL",
-    }]);
+    };
+    // Wave 4: the form opens with a blank row — fill it instead of appending
+    // past it, or the untouched row blocks saving (errNoDescription).
+    const blank = lines.find(isBlankLine);
+    const targetKey = blank ? blank.key : key;
+    setLines((ls) => upsertProductLine(ls, { ...productLine, key: targetKey }));
     loadBatches(p.id);
     loadLastRate(p.id);
-    loadUoms(p.id, key);
+    loadUoms(p.id, targetKey);
     // Module 22: a new line inherits the active price list's rate, and gets
     // its discount-matrix badge (server-authoritative at posting; the badge
     // and the preview below mirror the same formula).
@@ -841,7 +847,7 @@ export function DocForm({ mode, initialType }: { mode: "SALES" | "PURCHASE"; ini
           );
           const paisa = d.data.rates[p.id];
           if (paisa != null) {
-            try { updateLine(key, { rate: paisaToRateStr(BigInt(paisa)) }); } catch { /* keep default */ }
+            try { updateLine(targetKey, { rate: paisaToRateStr(BigInt(paisa)) }); } catch { /* keep default */ }
           }
         } catch { /* keep the default sale price */ }
       })();
@@ -850,12 +856,12 @@ export function DocForm({ mode, initialType }: { mode: "SALES" | "PURCHASE"; ini
     setProdQ("");
     setShowProdList(false);
     setActiveIdx(-1);
-    flashRow(key);
+    flashRow(targetKey);
     if (opts.viaBarcode) showToast(t("docform.barcodeAdded", { name: p.name }));
     if (opts.focusQty) {
       // let the new row render, then jump straight to qty for the keyboard flow
       setTimeout(() => {
-        const el = lineFieldRefs.current.get(key)?.qty;
+        const el = lineFieldRefs.current.get(targetKey)?.qty;
         el?.focus();
         el?.select();
       }, 60);
@@ -863,6 +869,15 @@ export function DocForm({ mode, initialType }: { mode: "SALES" | "PURCHASE"; ini
   }
 
   function addCustomLine(desc = "") {
+    // A blank row is already waiting — use it instead of stacking another:
+    // typed text fills its description, a bare click just focuses it.
+    const blank = lines.find(isBlankLine);
+    if (blank) {
+      if (desc) setLines((ls) => ls.map((l) => (l.key === blank.key && isBlankLine(l) ? { ...l, description: desc } : l)));
+      flashRow(blank.key);
+      setTimeout(() => lineFieldRefs.current.get(blank.key)?.desc?.focus(), 60);
+      return;
+    }
     keyRef.current += 1;
     const key = keyRef.current;
     setLines((ls) => [...ls, newBlankLine(key, desc)]);
@@ -1035,11 +1050,13 @@ export function DocForm({ mode, initialType }: { mode: "SALES" | "PURCHASE"; ini
     if (!partyId) { setError(t("docform.errSelectParty", { party: isSales ? bp.partyOne.toLowerCase() : t("docs.supplier").toLowerCase() })); return; }
     // Module 2.4: the vendor's bill reference is compulsory on purchase bills.
     if (!isSales && docType === "BILL" && !refNo.trim()) { setError(t("docform.errVendorRefRequired")); return; }
-    if (lines.length === 0) { setError(t("docform.errNoItems")); return; }
+    // Untouched blank rows are not items: they neither count nor block.
+    const realLines = effectiveLines(lines);
+    if (realLines.length === 0) { setError(t("docform.errNoItems")); return; }
     // Module 10: a foreign-currency doc needs a rate in force for its date —
     // the server enforces this too (FX_NO_RATE), this is just an early hint.
     if (isForeign && fxRateScaled == null) { setError(t("docform.errNoFxRate", { code: currencyCode })); return; }
-    for (const l of lines) {
+    for (const l of realLines) {
       if (!l.description.trim()) { setError(t("docform.errNoDescription")); return; }
       if (!(parseFloat(l.qty || "0") > 0)) { setError(t("docform.errQty")); return; }
       if (taxBpsOf(l.taxPct) === null) { setError(t("docform.errTaxRange")); return; }
@@ -1092,7 +1109,7 @@ export function DocForm({ mode, initialType }: { mode: "SALES" | "PURCHASE"; ini
         // Module 13: project tag rides on every journal line the doc posts.
         projectId: projectId || undefined,
         terms: terms.trim() || undefined,
-        items: lines.map((l) => ({
+        items: realLines.map((l) => ({
           productId: l.productId || undefined,
           description: l.description.trim(),
           qty: l.qty, rate: l.rate, discount: l.discount || "0",
