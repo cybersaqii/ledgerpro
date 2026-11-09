@@ -233,7 +233,7 @@ html[lang="ur"] body {
 
 /* Fast Accounts-style dense table: bright blue header, tight rows (doc-form). */
 .tbl-fa { width: 100%; border-collapse: separate; border-spacing: 0; font-size: 12px; }
-.tbl.tbl-fa thead th {
+.tbl-fa thead th {
   background: #1d9bd7;
   color: #fff;
   font-weight: 700;
@@ -242,9 +242,9 @@ html[lang="ur"] body {
   padding: 4px 6px;
   white-space: nowrap;
 }
-.tbl.tbl-fa thead th.num { text-align: end; }
-.tbl.tbl-fa thead th:first-child { border-start-start-radius: 0.25rem; }
-.tbl.tbl-fa thead th:last-child { border-start-end-radius: 0.25rem; }
+.tbl-fa thead th.num { text-align: end; }
+.tbl-fa thead th:first-child { border-start-start-radius: 0.25rem; }
+.tbl-fa thead th:last-child { border-start-end-radius: 0.25rem; }
 .tbl-fa td {
   padding: 2px 6px;
   border-bottom: 1px solid var(--border);
@@ -254,12 +254,12 @@ html[lang="ur"] body {
 
 /* Business Overview tinted table headers (colors sampled from the
    2026-11-08 FastAccounts screen recording). */
-.tbl.tbl-fa thead th.fa-th-ar { background: #ddffc6; color: #1a2e05; }
-.tbl.tbl-fa thead th.fa-th-ap { background: #a7e0fb; color: #0c2d4d; }
-.tbl.tbl-fa thead th.fa-th-bank { background: #a5a5a5; color: #fff; }
-.tbl.tbl-fa thead th.fa-th-peach { background: #fae7d8; color: #3d2b1f; }
-.tbl.tbl-fa thead th.fa-th-green { background: #dfffc9; color: #1a2e05; }
-.tbl.tbl-fa thead th.fa-th-blue { background: #a2e1ff; color: #0c2d4d; }
+.tbl-fa thead th.fa-th-ar { background: #ddffc6; color: #1a2e05; }
+.tbl-fa thead th.fa-th-ap { background: #a7e0fb; color: #0c2d4d; }
+.tbl-fa thead th.fa-th-bank { background: #a5a5a5; color: #fff; }
+.tbl-fa thead th.fa-th-peach { background: #fae7d8; color: #3d2b1f; }
+.tbl-fa thead th.fa-th-green { background: #dfffc9; color: #1a2e05; }
+.tbl-fa thead th.fa-th-blue { background: #a2e1ff; color: #0c2d4d; }
 
 /* Zebra rows on FA-style tables (invoices list in the recording). */
 .tbl-fa tbody tr:nth-child(even) { background: color-mix(in srgb, var(--muted) 28%, transparent); }

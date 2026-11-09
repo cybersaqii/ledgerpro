@@ -350,10 +350,11 @@ export function AppShell({ children, initialBusinessType }: { children: ReactNod
 
   function toggleGroup(g: NavGroup) {
     setCollapsed((s) => {
-      // Accordion: opening one group closes all others
-      if (s.has(g)) {
+      // Accordion: opening one group closes all others; clicking the open
+      // group closes it again (FA sidebar behaviour).
+      if (!s.has(g)) {
         const next = new Set(s);
-        next.delete(g);
+        next.add(g);
         return next;
       }
       return new Set(GROUP_ORDER.filter((x) => x !== g));

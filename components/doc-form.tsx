@@ -2,6 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { Plus, Printer, Search, Trash2, Eye, EyeOff, ChevronDown } from "lucide-react";
 import { PageHeader, ErrorNote } from "@/components/ui";
 import { api, ApiError, fmtMoney, fmtQty, fmtDateInput, fmtDate } from "@/lib/format";
@@ -322,6 +323,12 @@ export function DocForm({ mode, initialType }: { mode: "SALES" | "PURCHASE"; ini
   const [showProdList, setShowProdList] = useState(false);
   /** keyboard nav index in the product dropdown; prodResults.length = the "custom line" option. */
   const [activeIdx, setActiveIdx] = useState(-1);
+  /** FA in-cell product picker: which row's dropdown is open, its query,
+    the anchor rect for the portalled panel, and which row shows its last rate. */
+  const [rowPickerKey, setRowPickerKey] = useState<number | null>(null);
+  const [rowPickerQ, setRowPickerQ] = useState("");
+  const [rowPickerRect, setRowPickerRect] = useState<{ top: number; left: number; width: number } | null>(null);
+  const [shownLastRate, setShownLastRate] = useState<number | null>(null);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   // FA-style centered validation modal ("Select customer and product").
@@ -794,6 +801,27 @@ export function DocForm({ mode, initialType }: { mode: "SALES" | "PURCHASE"; ini
     return () => clearTimeout(t);
   }, [prodQ, showProdList, searchProducts]);
 
+  // FA in-cell picker: debounced search on the row query (an empty query
+  // keeps the initial list loaded on open).
+  useEffect(() => {
+    if (rowPickerKey == null || !rowPickerQ.trim()) return;
+    const t = setTimeout(() => { void searchProducts(rowPickerQ); }, 250);
+    return () => clearTimeout(t);
+  }, [rowPickerQ, rowPickerKey, searchProducts]);
+
+  // Close the in-cell picker when the page scrolls or resizes — the panel is
+  // portalled to document.body and positioned from the anchor rect.
+  useEffect(() => {
+    if (rowPickerKey == null) return;
+    const close = () => closeRowPicker();
+    window.addEventListener("scroll", close, true);
+    window.addEventListener("resize", close);
+    return () => {
+      window.removeEventListener("scroll", close, true);
+      window.removeEventListener("resize", close);
+    };
+  }, [rowPickerKey]);
+
   // keep the highlighted dropdown option visible while arrowing
   useEffect(() => {
     if (activeIdx >= 0) optionRefs.current.get(activeIdx)?.scrollIntoView({ block: "nearest" });
@@ -807,10 +835,9 @@ export function DocForm({ mode, initialType }: { mode: "SALES" | "PURCHASE"; ini
     return () => document.removeEventListener("mousedown", fn);
   }, []);
 
-  function addLine(p: Product, opts: { focusQty?: boolean; focusDesc?: boolean; viaBarcode?: boolean } = {}) {
+  /** Build the Line for a picked product (rate pre-filled in the doc currency). */
+  function buildProductLine(p: Product, key: number): Line {
     productCache.current.set(p.id, p);
-    keyRef.current += 1;
-    const key = keyRef.current;
     const price = isSales ? p.salePrice : p.purchasePrice;
     // Module 10: pre-fill the line rate in the document currency — PKR prices
     // convert at the day's rate so the user starts from the right figure.
@@ -820,7 +847,7 @@ export function DocForm({ mode, initialType }: { mode: "SALES" | "PURCHASE"; ini
         rateStr = minorToDecimalString(paisaToForeignMinor(BigInt(price), fxRateScaled, fxMinorUnits), fxMinorUnits);
       } catch { /* keep the PKR figure; the server validates */ }
     }
-    const productLine: Line = {
+    return {
       key,
       productId: p.id,
       description: p.name,
@@ -844,11 +871,11 @@ export function DocForm({ mode, initialType }: { mode: "SALES" | "PURCHASE"; ini
       wholesalePrice: p.wholesalePrice ? (Number(BigInt(p.wholesalePrice)) / 100).toString() : "",
       rateMode: "RETAIL",
     };
-    // Wave 4: the form opens with a blank row — fill it instead of appending
-    // past it, or the untouched row blocks saving (errNoDescription).
-    const blank = lines.find(isBlankLine);
-    const targetKey = blank ? blank.key : key;
-    setLines((ls) => upsertProductLine(ls, { ...productLine, key: targetKey }));
+  }
+
+  /** Shared side-effects after a product lands on a line: batches, last rate,
+    UOMs, price-list rate, discount-matrix badge. */
+  function afterProductChosen(p: Product, targetKey: number) {
     loadBatches(p.id);
     loadLastRate(p.id);
     loadUoms(p.id, targetKey);
@@ -869,10 +896,22 @@ export function DocForm({ mode, initialType }: { mode: "SALES" | "PURCHASE"; ini
       })();
     }
     if (isSales && partyId) void refreshMatrixBadges(partyId, [p.id]);
+    flashRow(targetKey);
+  }
+
+  function addLine(p: Product, opts: { focusQty?: boolean; focusDesc?: boolean; viaBarcode?: boolean } = {}) {
+    keyRef.current += 1;
+    const key = keyRef.current;
+    const productLine = buildProductLine(p, key);
+    // Wave 4: the form opens with a blank row — fill it instead of appending
+    // past it, or the untouched row blocks saving (errNoDescription).
+    const blank = lines.find(isBlankLine);
+    const targetKey = blank ? blank.key : key;
+    setLines((ls) => upsertProductLine(ls, { ...productLine, key: targetKey }));
+    afterProductChosen(p, targetKey);
     setProdQ("");
     setShowProdList(false);
     setActiveIdx(-1);
-    flashRow(targetKey);
     if (opts.viaBarcode) showToast(t("docform.barcodeAdded", { name: p.name }));
     if (opts.focusDesc) {
       // FA flow: after picking, the cursor lands in the line's Description
@@ -890,6 +929,45 @@ export function DocForm({ mode, initialType }: { mode: "SALES" | "PURCHASE"; ini
         el?.select();
       }, 60);
     }
+  }
+
+  /** FA in-cell picker: put the product on one specific row (blank or filled —
+    same fill behaviour as addLine, but targeted at this row). */
+  function pickForRow(key: number, p: Product) {
+    closeRowPicker();
+    const productLine = buildProductLine(p, key);
+    setLines((ls) => ls.map((l) => (l.key === key ? { ...productLine, key } : l)));
+    afterProductChosen(p, key);
+    setTimeout(() => {
+      const el = lineFieldRefs.current.get(key)?.desc;
+      el?.focus();
+      el?.select();
+    }, 60);
+  }
+
+  function openRowPicker(key: number, anchor: HTMLElement) {
+    // FA: focusing the last blank row's Product cell appends another blank row.
+    appendBlankIfLast(key);
+    setShowProdList(false);
+    const r = anchor.getBoundingClientRect();
+    setRowPickerRect({
+      top: r.bottom + 4,
+      left: Math.max(8, Math.min(r.left, window.innerWidth - 336)),
+      width: Math.max(r.width, 320),
+    });
+    setRowPickerKey(key);
+    setRowPickerQ("");
+    setShownLastRate(null);
+    // First 20 active products so the list is usable before typing.
+    void api<{ data: Product[] }>("/api/products?perPage=20")
+      .then((d) => setProdResults(d.data))
+      .catch(() => {});
+  }
+
+  function closeRowPicker() {
+    setRowPickerKey(null);
+    setRowPickerQ("");
+    setRowPickerRect(null);
   }
 
   function addCustomLine(desc = "") {
@@ -1062,6 +1140,8 @@ export function DocForm({ mode, initialType }: { mode: "SALES" | "PURCHASE"; ini
   }, 0) : 0;
   const { subtotal, itemDisc: itemDiscTotal, taxTotal, grand } =
     docMath(computed, discountTotal, freightDocTypes ? freightTotal : "0", fxMinorUnits);
+  /** FA grid total row: summed line quantities. */
+  const totalQty = lines.reduce((s, l) => s + (parseFloat(l.qty) || 0), 0);
   /** PKR equivalent of the live grand total (preview; the server converts per line). */
   const grandPkr = fxToPkr(grand);
 
@@ -1370,7 +1450,7 @@ export function DocForm({ mode, initialType }: { mode: "SALES" | "PURCHASE"; ini
                 <span className="mb-0.5 block text-[11px] font-semibold text-foreground/90">Address</span>
                 <textarea readOnly rows={2} aria-label="Address"
                   className="field !bg-muted/40 !py-1.5 text-[13px]"
-                  value={selectedParty?.address ?? ""} placeholder="\u2014" />
+                  value={selectedParty?.address ?? ""} placeholder="—" />
               </div>
             </div>
             {/* col 2: dates + doc no + mobile (FA: one middle column) */}
@@ -1393,7 +1473,7 @@ export function DocForm({ mode, initialType }: { mode: "SALES" | "PURCHASE"; ini
               </CompactField>
               <CompactField label="Mobile No">
                 <input readOnly aria-label="Mobile No" className="field !bg-muted/40 !py-1.5 text-[13px]"
-                  value={selectedParty?.phone ?? ""} placeholder="\u2014" />
+                  value={selectedParty?.phone ?? ""} placeholder="—" />
               </CompactField>
             </div>
             {/* col 3: credit limit (editable) + balance (clickable -> party ledger) — grey FA display boxes */}
@@ -1402,7 +1482,7 @@ export function DocForm({ mode, initialType }: { mode: "SALES" | "PURCHASE"; ini
                 <span className="mb-0.5 block text-[11px] font-semibold text-foreground/90">Credit Limit</span>
                 <input type="number" min="0" step="0.01" dir="ltr"
                   className="field fa-display-box !py-1.5 text-end text-[13px] font-bold tabular-nums"
-                  value={creditLimitEdit} placeholder="0"
+                  value={creditLimitEdit} placeholder="0.00"
                   disabled={!selectedParty}
                   onChange={(e) => setCreditLimitEdit(e.target.value)}
                   onBlur={saveCreditLimit}
@@ -1414,7 +1494,7 @@ export function DocForm({ mode, initialType }: { mode: "SALES" | "PURCHASE"; ini
                   onClick={() => selectedParty && router.push(`/reports/party-ledger?party=${selectedParty.id}`)}
                   title={t("docform.viewStatement")}
                   className="field fa-display-box flex w-full items-center justify-end !py-1.5 text-[13px] font-bold tabular-nums text-primary underline-offset-2 hover:underline disabled:cursor-default disabled:text-foreground disabled:no-underline">
-                  {partyBalance == null ? "\u2014" : fmtMoney(BigInt(partyBalance))}
+                  {partyBalance == null ? fmtMoney(0n) : fmtMoney(BigInt(partyBalance))}
                 </button>
               </div>
             </div>
@@ -1518,17 +1598,14 @@ export function DocForm({ mode, initialType }: { mode: "SALES" | "PURCHASE"; ini
               <div className="hidden overflow-x-auto sm:block">
                 <table className="tbl-fa">
                   <thead><tr>
-                    <th className="!px-2">#</th>
-                    <th>{t("docform.colItemCode")}</th>
-                    <th>{t("docform.colItemName")}</th>
+                    <th>{t("docform.colProduct")}</th>
+                    <th>{t("docform.colDescription")}</th>
                     <th>{t("docform.colUnit")}</th>
-                    <th className="num">{t("docform.colPurchasePrice")}</th>
-                    <th className="num">{t("docform.colMode")}</th>
                     <th className="num">{t("docform.colQty")}</th>
                     <th className="num">{isSales ? t("docform.colSalePrice") : t("docform.colRate")}</th>
-                    <th className="num">{t("docform.colDisc")}</th>
-                    <th className="num">{t("docform.colLineTotal")}</th>
+                    <th className="num">{t("docform.colAmount")}</th>
                     <th className="!px-1"></th>
+                    <th className="!px-1">{t("docform.colLastRate")}</th>
                   </tr></thead>
                   <tbody>
                     {lines.map((l, idx) => {
@@ -1545,36 +1622,88 @@ export function DocForm({ mode, initialType }: { mode: "SALES" | "PURCHASE"; ini
                       return (
                         <tr key={l.key} className={`${flashKey === l.key ? "row-flash" : ""} ${belowCost ? "!bg-danger-soft/60" : ""}`}
                           title={belowCost ? t("docform.belowCostAlert") : undefined}>
-                          <td className="!px-2 text-[13px] font-bold text-muted-foreground">{idx + 1}</td>
-                          <td className="whitespace-nowrap text-[12px] font-semibold text-muted-foreground">{l.sku || "—"}</td>
+                          <td className="min-w-44">
+                            <button type="button" onClick={(e) => openRowPicker(l.key, e.currentTarget)}
+                              className="field flex w-full items-center justify-between gap-2 !py-1.5 text-start text-[13px]"
+                              aria-haspopup="listbox" aria-expanded={rowPickerKey === l.key}>
+                              {l.productId ? (
+                                <span className="min-w-0">
+                                  <span className="block truncate font-bold">{l.productName || l.description}</span>
+                                  <span className="block truncate text-[11px] text-muted-foreground">
+                                    {l.sku ? <span className="font-semibold text-fa-blue">({l.sku})</span> : null}
+                                    {l.availQty !== null ? ` - Q: ${(Number(BigInt(l.availQty)) / 1000).toLocaleString()} ${l.unit}` : ""}
+                                  </span>
+                                </span>
+                              ) : (
+                                <span className="text-muted-foreground">{t("docform.selectProduct")}</span>
+                              )}
+                              <ChevronDown size={14} className="shrink-0 text-muted-foreground" />
+                            </button>
+                            {rowPickerKey === l.key && rowPickerRect && createPortal(
+                              <>
+                                <button type="button" aria-hidden tabIndex={-1} className="fixed inset-0 z-40 cursor-default"
+                                  onClick={closeRowPicker} />
+                                <div className="fixed z-50 overflow-hidden rounded-xl border border-border bg-card shadow-xl"
+                                  style={{ top: rowPickerRect.top, left: rowPickerRect.left, width: rowPickerRect.width }}>
+                                  <div className="flex items-center gap-2 border-b border-border px-3 py-2">
+                                    <Search size={15} className="shrink-0 text-muted-foreground" />
+                                    <input
+                                      autoFocus
+                                      className="w-full bg-transparent text-[13px] outline-none placeholder:text-muted-foreground"
+                                      placeholder={t("docform.searchScanPlaceholder")}
+                                      value={rowPickerQ}
+                                      onChange={(e) => setRowPickerQ(e.target.value)}
+                                      onKeyDown={(e) => {
+                                        if (e.key === "Enter") {
+                                          e.preventDefault();
+                                          const first = prodResults[0];
+                                          if (first) pickForRow(l.key, first);
+                                        } else if (e.key === "Escape") {
+                                          closeRowPicker();
+                                        }
+                                      }}
+                                      autoComplete="off"
+                                    />
+                                  </div>
+                                  <ul className="max-h-64 overflow-y-auto py-1" role="listbox">
+                                    {prodResults.map((p) => (
+                                      <li key={p.id} role="option" aria-selected={false}>
+                                        <button type="button"
+                                          className="flex w-full items-center justify-between px-4 py-2.5 text-start hover:bg-muted"
+                                          onClick={() => pickForRow(l.key, p)}>
+                                          <span className="min-w-0 flex-1">
+                                            <span className="block truncate text-sm font-bold">{p.name}</span>
+                                            {p.sku && <span className="block truncate text-xs font-semibold text-fa-blue">{p.sku}</span>}
+                                          </span>
+                                          <span className="shrink-0 text-end">
+                                            <span className="block text-[13px] font-extrabold tabular-nums">
+                                              {t("docform.stockQty", { qty: (Number(BigInt(p.totalQty)) / 1000).toLocaleString() })} {p.unit}
+                                            </span>
+                                            {pv.showRetail && (
+                                              <span className="block text-sm font-extrabold">{fmtMoney(p.salePrice)}</span>
+                                            )}
+                                          </span>
+                                        </button>
+                                      </li>
+                                    ))}
+                                    {prodResults.length === 0 && (
+                                      <li className="px-4 py-3 text-sm text-muted-foreground">{t("docform.typeToSearch")}</li>
+                                    )}
+                                  </ul>
+                                </div>
+                              </>,
+                              document.body
+                            )}
+                          </td>
                           <td className="min-w-40">
-                            {/* Description is always editable and pre-filled with
-                                the product name on pick (FA flow); the sub-line
-                                shows the FA "Name (code) - Q: stock" format. */}
                             <input ref={setRowRef(l.key, "desc")} onKeyDown={(e) => rowKeyDown(e, l.key, "desc")}
                               onFocus={() => appendBlankIfLast(l.key)}
                               className="field !px-2 !py-1 text-[13px] font-semibold" placeholder={t("docform.itemPlaceholder")} value={l.description}
                               onChange={(e) => updateLine(l.key, { description: e.target.value })} />
-                            {l.productId && l.availQty !== null && (
-                              <span className="block px-0.5 pt-0.5 text-[11px] text-muted-foreground">
-                                {l.sku ? `(${l.sku}) - ` : ""}Q: {(Number(BigInt(l.availQty)) / 1000).toLocaleString()} {l.unit}
-                              </span>
-                            )}
                             <BatchControls line={l} isSales={isSales} docType={docType} batches={batchCache[l.productId]} t={t} onChange={(patch) => updateLine(l.key, patch)} />
                             <LocationControls line={l} branches={branches} t={t} onChange={(patch) => updateLine(l.key, patch)} />
                           </td>
                           <td className="whitespace-nowrap text-[13px] text-muted-foreground">{l.lineUnit || l.unit || "—"}</td>
-                          <td className="num whitespace-nowrap text-[13px] tabular-nums text-muted-foreground">{l.costPrice ? fmtMoney(BigInt(Math.round(parseFloat(l.costPrice) * 100))) : "—"}</td>
-                          <td>
-                            <div className="flex overflow-hidden rounded-lg border border-border text-[11px] font-bold">
-                              <button type="button" onClick={() => l.rateMode !== "WS" && toggleRateMode(l.key)}
-                                className={`px-2 py-1 ${l.rateMode === "WS" ? "bg-primary text-white" : "text-muted-foreground hover:bg-muted"}`}
-                                title={t("docform.wholesale")}>W/S</button>
-                              <button type="button" onClick={() => l.rateMode !== "RETAIL" && toggleRateMode(l.key)}
-                                className={`px-2 py-1 ${l.rateMode === "RETAIL" ? "bg-foreground text-background" : "text-muted-foreground hover:bg-muted"}`}
-                                title={t("docform.retail")}>{t("docform.retailShort")}</button>
-                            </div>
-                          </td>
                           <td>
                             <div className="flex items-center gap-1">
                               <button type="button" onClick={() => stepQty(l.key, -1)}
@@ -1588,20 +1717,36 @@ export function DocForm({ mode, initialType }: { mode: "SALES" | "PURCHASE"; ini
                           </td>
                           <td><input ref={setRowRef(l.key, "rate")} onKeyDown={(e) => rowKeyDown(e, l.key, "rate")}
                             className="field num !w-24 !px-1 !py-1 text-[13px]" type="number" min="0" step={isForeign ? "any" : "0.01"} placeholder="0.00" value={l.rate}
-                            onChange={(e) => updateLine(l.key, { rate: e.target.value })} /></td>
-                          <td><input ref={setRowRef(l.key, "discount")} onKeyDown={(e) => rowKeyDown(e, l.key, "discount")}
-                            className="field num !w-16 !px-1 !py-1 text-[13px]" type="number" min="0" step={isForeign ? "any" : "0.01"} placeholder="0.00" value={l.discount}
-                            onChange={(e) => updateLine(l.key, { discount: e.target.value })} />
-                            {isSales && l.productId && (matrixBps[l.productId] ?? 0) > 0 && (
-                              <span className="block px-0.5 pt-0.5 text-[10px] font-semibold text-primary">
-                                {t("pricing.matrixBadge", { pct: String(matrixBps[l.productId]! / 100) })}
+                            onChange={(e) => updateLine(l.key, { rate: e.target.value })} />
+                            <span className="mt-1 flex items-center gap-1.5">
+                              <span className="flex overflow-hidden rounded-md border border-border text-[10px] font-bold">
+                                <button type="button" onClick={() => l.rateMode !== "WS" && toggleRateMode(l.key)}
+                                  className={`px-1.5 py-0.5 ${l.rateMode === "WS" ? "bg-primary text-white" : "text-muted-foreground hover:bg-muted"}`}
+                                  title={t("docform.wholesale")}>W/S</button>
+                                <button type="button" onClick={() => l.rateMode !== "RETAIL" && toggleRateMode(l.key)}
+                                  className={`px-1.5 py-0.5 ${l.rateMode === "RETAIL" ? "bg-foreground text-background" : "text-muted-foreground hover:bg-muted"}`}
+                                  title={t("docform.retail")}>{t("docform.retailShort")}</button>
                               </span>
-                            )}</td>
-
+                              {l.costPrice ? (
+                                <span className="whitespace-nowrap text-[10px] text-muted-foreground">{t("docform.cost")}: {fmtMoney(BigInt(Math.round(parseFloat(l.costPrice) * 100)))}</span>
+                              ) : null}
+                            </span>
+                          </td>
                           <td className="num whitespace-nowrap text-[13px] font-extrabold">
                             {fmtFx(c.total)}
                             {c.tax > 0n && (
                               <span className="block text-[10px] font-normal text-muted-foreground">{t("docform.inclTax", { amt: fmtFx(c.tax) })}</span>
+                            )}
+                            <span className="mt-1 flex items-center justify-end gap-1 text-[11px] font-semibold text-muted-foreground">
+                              {t("docform.colDisc")}
+                              <input ref={setRowRef(l.key, "discount")} onKeyDown={(e) => rowKeyDown(e, l.key, "discount")}
+                                className="field num !w-16 !px-1 !py-0.5 text-[11px]" type="number" min="0" step={isForeign ? "any" : "0.01"} placeholder="0.00" value={l.discount}
+                                onChange={(e) => updateLine(l.key, { discount: e.target.value })} />
+                            </span>
+                            {isSales && l.productId && (matrixBps[l.productId] ?? 0) > 0 && (
+                              <span className="block px-0.5 pt-0.5 text-[10px] font-semibold text-primary">
+                                {t("pricing.matrixBadge", { pct: String(matrixBps[l.productId]! / 100) })}
+                              </span>
                             )}
                           </td>
                           <td className="!px-1">
@@ -1611,11 +1756,37 @@ export function DocForm({ mode, initialType }: { mode: "SALES" | "PURCHASE"; ini
                               <Trash2 size={14} />
                             </button>
                           </td>
+                          <td className="!px-1 text-center">
+                            {l.productId && lastRates[l.productId] != null ? (
+                              <button type="button" onClick={() => setShownLastRate((k) => (k === l.key ? null : l.key))}
+                                className="grid h-8 w-8 place-items-center rounded-lg text-fa-blue hover:bg-muted"
+                                title={t("docform.showLastRate")} aria-label={t("docform.showLastRate")}>
+                                <Eye size={15} />
+                              </button>
+                            ) : (
+                              <span className="grid h-8 w-8 place-items-center text-muted-foreground/30" title={t("docform.showLastRate")}>
+                                <Eye size={15} />
+                              </span>
+                            )}
+                            {shownLastRate === l.key && l.productId && lastRates[l.productId] != null && (
+                              <span className="block whitespace-nowrap text-[10px] font-bold text-muted-foreground">{lastRateDisplay(l.productId)}</span>
+                            )}
+                          </td>
 
                         </tr>
                       );
                     })}
                   </tbody>
+                  <tfoot>
+                    <tr className="border-t-2 border-border font-extrabold">
+                      <td colSpan={3}>Total</td>
+                      <td className="num">{Number.isInteger(totalQty) ? String(totalQty) : totalQty.toFixed(3).replace(/0+$/, "").replace(/\.$/, "")}</td>
+                      <td />
+                      <td className="num">{fmtFx(subtotal)}</td>
+                      <td />
+                      <td />
+                    </tr>
+                  </tfoot>
                 </table>
               </div>
 
@@ -1697,25 +1868,25 @@ export function DocForm({ mode, initialType }: { mode: "SALES" | "PURCHASE"; ini
                 <button type="button" className="btn btn-ghost w-full text-sm" onClick={() => addCustomLine()}><Plus size={15} /> {t("docform.addCustomLine")}</button>
               </div>
             
-              <button type="button" className="mt-2 text-[13px] font-bold text-primary hover:underline"
+              <button type="button" className="mt-2 rounded-full border border-primary px-4 py-1.5 text-[13px] font-bold text-primary transition hover:bg-primary/5"
                 onClick={() => addCustomLine()}>
                 + Add More
               </button>
-              {((isSales && docType === "INVOICE") || (!isSales && docType === "BILL")) && (
-                <button type="button" className="mt-2 ms-4 text-[13px] font-bold text-primary hover:underline"
-                  onClick={() => document.getElementById("docform-receipt")?.scrollIntoView({ behavior: "smooth", block: "start" })}>
-                  {t("docform.moveDown")}
-                </button>
-              )}
             </>
           )}
 
-          <div className="mt-2 grid gap-2 lg:grid-cols-2">
+          <div className={`mt-2 grid gap-2 ${((isSales && docType === "INVOICE") || (!isSales && docType === "BILL")) ? "lg:grid-cols-[1fr_auto_1fr]" : "lg:grid-cols-2"}`}>
             <div>
               <span className="mb-0.5 block text-[11px] font-semibold text-foreground/90">Notes</span>
               <textarea className="field min-h-20 !py-1.5 text-[13px]" value={notes}
                 onChange={(e) => setNotes(e.target.value)} placeholder={t("docform.notesPlaceholder")} />
             </div>
+            {((isSales && docType === "INVOICE") || (!isSales && docType === "BILL")) && (
+              <button type="button" className="hidden self-center whitespace-nowrap text-[13px] font-bold text-primary hover:underline lg:block"
+                onClick={() => document.getElementById("docform-receipt")?.scrollIntoView({ behavior: "smooth", block: "start" })}>
+                {t("docform.moveDown")}
+              </button>
+            )}
             <div className="space-y-1.5">
               <div className="flex items-center justify-between gap-3">
                 <span className="text-muted-foreground">Sub Total</span>
