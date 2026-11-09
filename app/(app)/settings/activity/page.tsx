@@ -107,7 +107,7 @@ export default function ActivityPage() {
   };
 
   return (
-    <div>
+    <div className="mx-auto max-w-5xl">
       <PageHeader
         title={t("settingsactivity.title")}
         subtitle={t("settingsactivity.subtitle")}

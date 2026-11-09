@@ -112,15 +112,26 @@ export default function BillingPage() {
     setTimeout(() => setCopied(null), 1500);
   }
 
-  if (loading) return <PageHeader title={t("billing.title")} subtitle={t("billing.subtitle")} icon={<Crown size={22} />} />;
-  if (!status) return <PageHeader title={t("billing.title")} subtitle={t("billing.subtitle")} icon={<Crown size={22} />} />;
+  if (loading) return (
+    <div className="mx-auto max-w-5xl space-y-6">
+      <PageHeader title={t("billing.title")} subtitle={t("billing.subtitle")} icon={<Crown size={22} />} />
+      <div className="card p-5 sm:p-6"><div className="space-y-3">{[1, 2, 3].map((i) => <div key={i} className="skeleton h-16 rounded-xl" />)}</div></div>
+      <div className="card p-5 sm:p-6"><div className="space-y-3">{[1, 2].map((i) => <div key={i} className="skeleton h-12 rounded-xl" />)}</div></div>
+    </div>
+  );
+  if (!status) return (
+    <div className="mx-auto max-w-5xl space-y-6">
+      <PageHeader title={t("billing.title")} subtitle={t("billing.subtitle")} icon={<Crown size={22} />} />
+      <ErrorNote message={error ?? t("billing.loadError")} />
+    </div>
+  );
 
   const planName = status.level === "TRIAL" ? t("billing.freeTrial") : status.level === "PLAN" ? status.plan : t("billing.free");
   const tierPrice = status.tierPrices?.[selectedPlan] ?? { monthly: status.prices.monthlyPaisa, yearly: status.prices.yearlyPaisa };
   const price = months === 12 ? tierPrice.yearly : tierPrice.monthly;
 
   return (
-    <div className="space-y-6">
+    <div className="mx-auto max-w-5xl space-y-6">
       <PageHeader title={t("billing.title")} subtitle={t("billing.subtitle")} icon={<Crown size={22} />} />
 
       {/* Current status */}
@@ -267,7 +278,7 @@ export default function BillingPage() {
                     placeholder="—"
                     maxLength={24}
                   />
-                  <button onClick={applyCoupon} disabled={couponBusy || !coupon.trim()} className="btn btn-secondary shrink-0">
+                  <button onClick={applyCoupon} disabled={couponBusy || !coupon.trim()} className="btn btn-ghost shrink-0">
                     <Tag size={15} /> {couponBusy ? "…" : t("billing.applyCoupon")}
                   </button>
                 </div>
@@ -310,7 +321,7 @@ export default function BillingPage() {
                 <button onClick={() => copy(referral.code, "refcode")} className="btn btn-ghost !min-h-0 !px-2.5 !py-1.5 text-xs">
                   {copied === "refcode" ? <Check size={14} /> : <Copy size={14} />} {t("billing.copyCode")}
                 </button>
-                <button onClick={() => copy(referral.link, "reflink")} className="btn btn-secondary !min-h-0 !px-3 !py-1.5 text-xs">
+                <button onClick={() => copy(referral.link, "reflink")} className="btn btn-ghost !min-h-0 !px-3 !py-1.5 text-xs">
                   {copied === "reflink" ? <Check size={14} /> : <Link2 size={14} />} {t("billing.copyLink")}
                 </button>
               </div>

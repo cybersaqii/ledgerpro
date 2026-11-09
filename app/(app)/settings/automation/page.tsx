@@ -58,6 +58,7 @@ export default function AutomationPage() {
   const [editing, setEditing] = useState<Rule | null>(null);
   const [form, setForm] = useState(emptyForm);
   const [saving, setSaving] = useState(false);
+  const [deleteId, setDeleteId] = useState<string | null>(null);
 
   const load = useCallback(() => {
     setLoading(true);
@@ -122,7 +123,7 @@ export default function AutomationPage() {
   };
 
   const deleteRule = async (id: string) => {
-    if (!confirm(t("common.confirmDelete"))) return;
+    setDeleteId(null);
     try {
       await api(`/api/reminders/rules/${id}`, { method: "DELETE" });
       setRules((prev) => prev.filter((x) => x.id !== id));
@@ -199,13 +200,15 @@ export default function AutomationPage() {
       <section className="card p-6">
         <div className="mb-1 flex items-center justify-between gap-3">
           <h2 className="text-base font-extrabold">{t("rem.rulesTitle")}</h2>
-          <button onClick={openAdd} className="btn-secondary inline-flex items-center gap-2 text-sm">
+          <button onClick={openAdd} className="btn btn-ghost text-sm">
             <Plus size={15} /> {t("rem.addRule")}
           </button>
         </div>
         <p className="mb-4 text-sm text-muted-foreground">{t("rem.rulesHint")}</p>
         {loading ? (
           <div className="space-y-2">{[1, 2].map((i) => <div key={i} className="skeleton h-14 rounded-xl" />)}</div>
+        ) : rules.length === 0 ? (
+          <EmptyState title={t("rem.rulesEmpty")} />
         ) : (
           <div className="divide-y divide-border">
             {rules.map((r) => (
@@ -217,17 +220,27 @@ export default function AutomationPage() {
                   </p>
                 </div>
                 <Switch checked={r.enabled} onChange={() => toggleRule(r)} label={t("rem.enabled")} />
-                <button onClick={() => openEdit(r)} className="grid h-9 w-9 place-items-center rounded-lg border border-border hover:bg-muted" aria-label={t("common.edit")}>
-                  <Pencil size={14} />
-                </button>
-                <button onClick={() => deleteRule(r.id)} className="grid h-9 w-9 place-items-center rounded-lg border border-border text-danger hover:bg-muted" aria-label={t("common.delete")}>
-                  <Trash2 size={14} />
-                </button>
+                {deleteId === r.id ? (
+                  <span className="inline-flex items-center gap-2">
+                    <span className="text-xs font-bold text-danger">{t("common.confirmDelete")}</span>
+                    <button onClick={() => deleteRule(r.id)} className="btn btn-primary !px-2.5 !py-1 text-xs">{t("common.delete")}</button>
+                    <button onClick={() => setDeleteId(null)} className="btn btn-ghost !px-2.5 !py-1 text-xs">{t("common.cancel")}</button>
+                  </span>
+                ) : (
+                  <>
+                    <button onClick={() => openEdit(r)} className="grid h-9 w-9 place-items-center rounded-lg border border-border hover:bg-muted" aria-label={t("common.edit")}>
+                      <Pencil size={14} />
+                    </button>
+                    <button onClick={() => setDeleteId(r.id)} className="grid h-9 w-9 place-items-center rounded-lg border border-border text-danger hover:bg-muted" aria-label={t("common.delete")}>
+                      <Trash2 size={14} />
+                    </button>
+                  </>
+                )}
               </div>
             ))}
           </div>
         )}
-        <button onClick={runReminders} disabled={running} className="btn-primary mt-4 inline-flex items-center gap-2">
+        <button onClick={runReminders} disabled={running} className="btn btn-primary mt-4">
           <Play size={15} /> {running ? t("rem.running") : t("rem.runReminders")}
         </button>
       </section>
@@ -260,7 +273,7 @@ export default function AutomationPage() {
                 <textarea className="field min-h-24" value={form.template} onChange={(e) => setForm({ ...form, template: e.target.value })} placeholder={t("rem.templatePh")} dir="auto" />
               </Field>
               <Switch checked={form.enabled} onChange={() => setForm({ ...form, enabled: !form.enabled })} label={t("rem.enabled")} />
-              <button onClick={saveRule} disabled={saving || !form.name.trim()} className="btn-primary w-full">
+              <button onClick={saveRule} disabled={saving || !form.name.trim()} className="btn btn-primary w-full">
                 {saving ? t("common.saving") : t("rem.saveRule")}
               </button>
             </div>
@@ -272,30 +285,32 @@ export default function AutomationPage() {
       <section className="card p-6">
         <h2 className="mb-1 flex items-center gap-2 text-base font-extrabold"><History size={17} /> {t("rem.logTitle")}</h2>
         <p className="mb-4 text-sm text-muted-foreground">{t("rem.logHint")}</p>
-        {log.length === 0 ? (
+        {loading ? (
+          <div className="space-y-2">{[1, 2, 3].map((i) => <div key={i} className="skeleton h-12 rounded-xl" />)}</div>
+        ) : log.length === 0 ? (
           <EmptyState title={t("rem.logEmpty")} />
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full min-w-[640px] text-sm">
+            <table className="tbl tbl-fa min-w-[640px]">
               <thead>
-                <tr className="border-b border-border text-start text-xs text-muted-foreground">
-                  <th className="py-2 pe-3 text-start font-bold">{t("rem.thDate")}</th>
-                  <th className="py-2 pe-3 text-start font-bold">{t("rem.thInvoice")}</th>
-                  <th className="py-2 pe-3 text-start font-bold">{t("rem.thRule")}</th>
-                  <th className="py-2 pe-3 text-start font-bold">{t("rem.thEmail")}</th>
-                  <th className="py-2 pe-3 text-start font-bold">{t("rem.thWhatsapp")}</th>
-                  <th className="py-2 text-start font-bold">{t("rem.thStatus")}</th>
+                <tr>
+                  <th>{t("rem.thDate")}</th>
+                  <th>{t("rem.thInvoice")}</th>
+                  <th>{t("rem.thRule")}</th>
+                  <th>{t("rem.thEmail")}</th>
+                  <th>{t("rem.thWhatsapp")}</th>
+                  <th>{t("rem.thStatus")}</th>
                 </tr>
               </thead>
               <tbody>
                 {log.map((l) => (
-                  <tr key={l.id} className="border-b border-border/50 last:border-0">
-                    <td className="py-2 pe-3">{l.triggerDate}</td>
-                    <td className="py-2 pe-3 font-bold">{l.docNo ?? "—"}</td>
-                    <td className="py-2 pe-3 text-muted-foreground">{l.ruleName ?? "—"}</td>
-                    <td className="py-2 pe-3">{l.emailSent ? "✓" : l.emailSkipped ? "—" : "·"}</td>
-                    <td className="py-2 pe-3">{l.whatsappQueued ? "✓" : "·"}</td>
-                    <td className="py-2 font-semibold">{stLabel(l.status)}</td>
+                  <tr key={l.id}>
+                    <td>{l.triggerDate}</td>
+                    <td className="font-bold">{l.docNo ?? "—"}</td>
+                    <td className="text-muted-foreground">{l.ruleName ?? "—"}</td>
+                    <td>{l.emailSent ? "✓" : l.emailSkipped ? "—" : "·"}</td>
+                    <td>{l.whatsappQueued ? "✓" : "·"}</td>
+                    <td className="font-semibold">{stLabel(l.status)}</td>
                   </tr>
                 ))}
               </tbody>
@@ -308,7 +323,9 @@ export default function AutomationPage() {
       <section className="card p-6">
         <h2 className="mb-1 flex items-center gap-2 text-base font-extrabold"><MessageCircle size={17} /> {t("rem.waTitle")}</h2>
         <p className="mb-4 text-sm text-muted-foreground">{t("rem.waHint")}</p>
-        {wa.length === 0 ? (
+        {loading ? (
+          <div className="space-y-2">{[1, 2, 3].map((i) => <div key={i} className="skeleton h-12 rounded-xl" />)}</div>
+        ) : wa.length === 0 ? (
           <EmptyState title={t("rem.waEmpty")} />
         ) : (
           <div className="divide-y divide-border">
@@ -330,15 +347,15 @@ export default function AutomationPage() {
                     target="_blank"
                     rel="noopener noreferrer"
                     onClick={() => waStatus(w.id, "OPENED")}
-                    className="btn-secondary inline-flex items-center gap-1.5 text-xs"
+                    className="btn btn-ghost text-xs"
                   >
                     <MessageCircle size={13} /> {t("rem.waOpen")}
                   </a>
                   {w.status !== "SENT" && (
-                    <button onClick={() => waStatus(w.id, "SENT")} className="btn-secondary text-xs">{t("rem.waMarkSent")}</button>
+                    <button onClick={() => waStatus(w.id, "SENT")} className="btn btn-ghost text-xs">{t("rem.waMarkSent")}</button>
                   )}
                   {w.status !== "FAILED" && (
-                    <button onClick={() => waStatus(w.id, "FAILED")} className="btn-secondary text-xs text-danger">{t("rem.waMarkFailed")}</button>
+                    <button onClick={() => waStatus(w.id, "FAILED")} className="btn btn-ghost text-xs text-danger">{t("rem.waMarkFailed")}</button>
                   )}
                 </div>
               </div>
@@ -351,7 +368,7 @@ export default function AutomationPage() {
       <section className="card p-6">
         <h2 className="mb-1 flex items-center gap-2 text-base font-extrabold"><PackageSearch size={17} /> {t("rem.stockTitle")}</h2>
         <p className="mb-4 text-sm text-muted-foreground">{t("rem.stockHint")}</p>
-        <button onClick={runStock} disabled={stockRunning} className="btn-primary inline-flex items-center gap-2">
+        <button onClick={runStock} disabled={stockRunning} className="btn btn-primary">
           <Play size={15} /> {stockRunning ? t("rem.running") : t("rem.runStockCheck")}
         </button>
       </section>

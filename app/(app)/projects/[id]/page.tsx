@@ -58,6 +58,7 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
   const [from, setFrom] = useState("");
   const [to, setTo] = useState("");
   const [busy, setBusy] = useState(false);
+  const [pendingStatus, setPendingStatus] = useState<{ status: string; labelKey: string } | null>(null);
 
   useEffect(() => {
     params.then((p) => setId(p.id));
@@ -90,7 +91,6 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
 
   const setStatus = async (status: string) => {
     if (!id || busy) return;
-    if (!window.confirm(t("projects.statusConfirm"))) return;
     setBusy(true);
     try {
       await api(`/api/projects/${id}`, { method: "PATCH", body: JSON.stringify({ status }) });
@@ -151,13 +151,20 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
                 {NEXT[project.status].map((a) => (
                   <button
                     key={a.status}
-                    onClick={() => setStatus(a.status)}
+                    onClick={() => setPendingStatus(a)}
                     disabled={busy}
                     className={`rounded-xl border px-3 py-1.5 text-xs font-bold hover:bg-muted disabled:opacity-50 ${a.tone}`}
                   >
                     {t(`projects.${a.labelKey}`)}
                   </button>
                 ))}
+              </div>
+            )}
+            {pendingStatus && (
+              <div className="mt-3 flex flex-wrap items-center gap-2 rounded-xl border border-border bg-muted/50 px-3.5 py-2.5 text-sm">
+                <span className="font-bold">{t("projects.statusConfirm")}</span>
+                <button className="btn btn-primary !py-1.5 text-sm" disabled={busy} onClick={() => { const s = pendingStatus; setPendingStatus(null); setStatus(s.status); }}>{t(`projects.${pendingStatus.labelKey}`)}</button>
+                <button className="btn btn-ghost !py-1.5 text-sm" onClick={() => setPendingStatus(null)}>{t("common.cancel")}</button>
               </div>
             )}
           </div>

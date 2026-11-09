@@ -42,6 +42,7 @@ export default function ChartOfAccountsPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [dialog, setDialog] = useState<null | { mode: "add"; parentId?: string } | { mode: "edit"; node: Node }>(null);
+  const [deleteId, setDeleteId] = useState<string | null>(null);
 
   const load = useCallback(() => {
     setLoading(true);
@@ -64,7 +65,7 @@ export default function ChartOfAccountsPage() {
   }
 
   async function remove(node: Node) {
-    if (!confirm(t("coa.deleteConfirm", { name: node.name }))) return;
+    setDeleteId(null);
     setError(null);
     try {
       await api(`/api/accounts/${node.id}`, { method: "DELETE" });
@@ -73,7 +74,7 @@ export default function ChartOfAccountsPage() {
   }
 
   return (
-    <div>
+    <div className="mx-auto max-w-5xl">
       <PageHeader
         title={t("coa.title")}
         subtitle={t("coa.subtitle")}
@@ -89,7 +90,7 @@ export default function ChartOfAccountsPage() {
       <div className="card rise rise-1 overflow-hidden">
         {loading ? <div className="space-y-3 p-5">{[1, 2, 3].map((i) => <div key={i} className="skeleton h-12 rounded-xl" />)}</div> : (
           <div className="overflow-x-auto">
-            <table className="tbl">
+            <table className="tbl tbl-fa">
               <thead>
                 <tr><th>{t("coa.colCode")}</th><th>{t("coa.colAccount")}</th><th>{t("coa.colType")}</th>
                 <th className="num">{t("coa.colOpening")}</th><th className="!text-end">{t("common.actions")}</th></tr>
@@ -109,6 +110,13 @@ export default function ChartOfAccountsPage() {
                     <td className="num">{BigInt(n.openingBalance) ? fmtMoney(n.openingBalance) : "—"}</td>
                     <td className="!text-end">
                       {canManage && (
+                        deleteId === n.id ? (
+                          <span className="inline-flex items-center gap-2">
+                            <span className="text-xs font-bold text-danger">{t("coa.deleteConfirm", { name: n.name })}</span>
+                            <button className="btn btn-primary !px-2.5 !py-1 text-xs" onClick={() => remove(n)}>{t("common.delete")}</button>
+                            <button className="btn btn-ghost !px-2.5 !py-1 text-xs" onClick={() => setDeleteId(null)}>{t("common.cancel")}</button>
+                          </span>
+                        ) : (
                         <span className="inline-flex gap-1">
                           {!n.isSystem && (
                             <button className="btn btn-ghost !p-2" title={t("coa.edit")} onClick={() => setDialog({ mode: "edit", node: n })}>
@@ -122,11 +130,12 @@ export default function ChartOfAccountsPage() {
                             <Power size={14} /> {n.isActive ? t("coa.deactivate") : t("coa.activate")}
                           </button>
                           {!n.isSystem && (
-                            <button className="btn btn-ghost !p-2 text-danger" title={t("common.delete")} onClick={() => remove(n)}>
+                            <button className="btn btn-ghost !p-2 text-danger" title={t("common.delete")} onClick={() => setDeleteId(n.id)}>
                               <Trash2 size={14} />
                             </button>
                           )}
                         </span>
+                        )
                       )}
                     </td>
                   </tr>
@@ -202,22 +211,22 @@ function AccountDialog({ dialog, flat, onClose, onSaved }: {
         {error && <div className="mt-3"><ErrorNote message={error} /></div>}
         <div className="mt-4 grid gap-3 sm:grid-cols-2">
           <Field label={t("coa.code")} required hint={t("coa.codeHint", { range: RANGE_HINT[type] ?? "" })}>
-            <input className="input font-mono" value={code} onChange={(e) => setCode(e.target.value)} disabled={!!editing} placeholder="6001" />
+            <input className="field font-mono" value={code} onChange={(e) => setCode(e.target.value)} disabled={!!editing} placeholder="6001" />
           </Field>
           <Field label={t("coa.type")} required>
-            <select className="input" value={type} onChange={(e) => { setType(e.target.value); setParentId(""); }} disabled={!!editing}>
+            <select className="field" value={type} onChange={(e) => { setType(e.target.value); setParentId(""); }} disabled={!!editing}>
               {TYPES.map((x) => <option key={x} value={x}>{x}</option>)}
             </select>
           </Field>
           <div className="sm:col-span-2">
             <Field label={t("coa.name")} required>
-              <input className="input" value={name} onChange={(e) => setName(e.target.value)} placeholder={t("coa.namePh")} />
+              <input className="field" value={name} onChange={(e) => setName(e.target.value)} placeholder={t("coa.namePh")} />
             </Field>
           </div>
           {!editing && (
             <div className="sm:col-span-2">
               <Field label={t("coa.parent")} hint={t("coa.parentHint")}>
-                <select className="input" value={parentId} onChange={(e) => setParentId(e.target.value)}>
+                <select className="field" value={parentId} onChange={(e) => setParentId(e.target.value)}>
                   <option value="">{t("coa.noParent")}</option>
                   {parentOptions.map((f) => (
                     <option key={f.node.id} value={f.node.id}>
@@ -231,10 +240,10 @@ function AccountDialog({ dialog, flat, onClose, onSaved }: {
           {dialog.mode === "add" && (
             <>
               <Field label={t("coa.opening")} hint={t("coa.openingHint")}>
-                <input className="input" inputMode="decimal" value={opening} onChange={(e) => setOpening(e.target.value)} placeholder="0.00" />
+                <input className="field" inputMode="decimal" value={opening} onChange={(e) => setOpening(e.target.value)} placeholder="0.00" />
               </Field>
               <Field label={t("coa.openingDate")}>
-                <NumericDateInput className="input" value={openingDate} onChange={(v) => setOpeningDate(v)} />
+                <NumericDateInput className="field" value={openingDate} onChange={(v) => setOpeningDate(v)} />
               </Field>
             </>
           )}

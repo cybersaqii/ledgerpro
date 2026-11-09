@@ -139,21 +139,21 @@ function FbrTab() {
           <p className="mb-5 text-xs text-muted-foreground">
             {cfg?.tokenSet ? `${t("tax.tokenSet")} (••••${cfg.tokenLast4})` : t("tax.tokenNotSet")}
           </p>
-          {loading ? <p className="text-sm text-muted-foreground">…</p> : (
+          {loading ? <div className="space-y-4">{[1, 2, 3, 4].map((i) => <div key={i} className="skeleton h-12 rounded-xl" />)}</div> : (
             <form onSubmit={save} className="space-y-4">
               <ErrorNote message={error} />
               <Field label={t("tax.posId")} required>
-                <input className="input" value={form.posId} onChange={set("posId")} placeholder={t("tax.posIdPh")} disabled={!canSettings} />
+                <input className="field" value={form.posId} onChange={set("posId")} placeholder={t("tax.posIdPh")} disabled={!canSettings} />
               </Field>
               <div className="grid grid-cols-2 gap-4">
                 <Field label={t("tax.environment")}>
-                  <select className="input" value={form.environment} onChange={set("environment")} disabled={!canSettings}>
+                  <select className="field" value={form.environment} onChange={set("environment")} disabled={!canSettings}>
                     <option value="SANDBOX">{t("tax.envSandbox")}</option>
                     <option value="PRODUCTION">{t("tax.envProduction")}</option>
                   </select>
                 </Field>
                 <Field label={t("tax.qrPlacement")}>
-                  <select className="input" value={form.qrPlacement} onChange={set("qrPlacement")} disabled={!canSettings}>
+                  <select className="field" value={form.qrPlacement} onChange={set("qrPlacement")} disabled={!canSettings}>
                     <option value="BOTTOM">{t("tax.qrBottom")}</option>
                     <option value="TOP">{t("tax.qrTop")}</option>
                   </select>
@@ -161,18 +161,18 @@ function FbrTab() {
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <Field label={t("tax.storeCode")}>
-                  <input className="input" value={form.storeCode} onChange={set("storeCode")} disabled={!canSettings} />
+                  <input className="field" value={form.storeCode} onChange={set("storeCode")} disabled={!canSettings} />
                 </Field>
                 <Field label={t("tax.cashierId")}>
-                  <input className="input" value={form.cashierId} onChange={set("cashierId")} disabled={!canSettings} />
+                  <input className="field" value={form.cashierId} onChange={set("cashierId")} disabled={!canSettings} />
                 </Field>
               </div>
               <Field label={t("tax.tokenSecret")} hint={t("tax.tokenSecretHint")}>
-                <input type="password" className="input" value={form.tokenSecret} onChange={set("tokenSecret")}
+                <input type="password" className="field" value={form.tokenSecret} onChange={set("tokenSecret")}
                   placeholder={cfg?.tokenSet ? "••••" : ""} disabled={!canSettings} autoComplete="off" />
               </Field>
               {canSettings && (
-                <button type="submit" disabled={saving} className="btn-primary w-full py-3 text-sm font-bold disabled:opacity-60">
+                <button type="submit" disabled={saving} className="btn btn-primary w-full py-3 text-sm font-bold disabled:opacity-60">
                   {saving ? t("tax.saving") : t("tax.saveConfig")}
                 </button>
               )}
@@ -187,7 +187,9 @@ function FbrTab() {
             <QrCode className="h-5 w-5 text-primary" /> {t("tax.queueTitle")}
           </h2>
           <p className="mb-4 text-xs text-muted-foreground">{t("tax.queueSub")}</p>
-          {queue.length === 0 ? (
+          {loading ? (
+            <div className="space-y-3">{[1, 2, 3].map((i) => <div key={i} className="skeleton h-20 rounded-xl" />)}</div>
+          ) : queue.length === 0 ? (
             <EmptyState title={t("tax.queueEmpty")} icon={<QrCode className="h-8 w-8" />} />
           ) : (
             <ul className="space-y-3">
@@ -299,22 +301,22 @@ function WhtTab() {
 
       <FilterBar>
         <NumericDateInput
-          className="input w-auto"
+          className="field !w-auto"
           value={from}
           onChange={(v) => setFrom(v)}
           aria-label={t("tax.from")}
         />
         <NumericDateInput
-          className="input w-auto"
+          className="field !w-auto"
           value={to}
           onChange={(v) => setTo(v)}
           aria-label={t("tax.to")}
         />
-        <select className="input w-auto" value={section} onChange={(e) => setSection(e.target.value)} aria-label={t("tax.filterSection")}>
+        <select className="field !w-auto" value={section} onChange={(e) => setSection(e.target.value)} aria-label={t("tax.filterSection")}>
           <option value="">{t("tax.filterSection")}: {t("tax.all")}</option>
           {WHT_SECTIONS.map((s) => <option key={s.code} value={s.code}>{s.code}</option>)}
         </select>
-        <select className="input w-auto" value={kind} onChange={(e) => setKind(e.target.value)} aria-label={t("tax.filterKind")}>
+        <select className="field !w-auto" value={kind} onChange={(e) => setKind(e.target.value)} aria-label={t("tax.filterKind")}>
           <option value="">{t("tax.filterKind")}: {t("tax.all")}</option>
           <option value="BILL">{t("tax.kindBill")}</option>
           <option value="PAYMENT">{t("tax.kindPayment")}</option>
@@ -323,48 +325,48 @@ function WhtTab() {
       </FilterBar>
 
       <div className="card overflow-hidden">
-        {loading ? <p className="p-6 text-sm text-muted-foreground">…</p> : rows.length === 0 ? (
+        {loading ? <div className="space-y-3 p-5">{[1, 2, 3].map((i) => <div key={i} className="skeleton h-12 rounded-xl" />)}</div> : rows.length === 0 ? (
           <div className="p-6"><EmptyState title={t("tax.whtEmpty")} icon={<FileBadge className="h-8 w-8" />} /></div>
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full min-w-[760px] text-sm">
+            <table className="tbl tbl-fa min-w-[760px]">
               <thead>
-                <tr className="border-b border-border text-start text-xs text-muted-foreground">
-                  <th className="px-4 py-3 text-start font-bold">{t("tax.whtDate")}</th>
-                  <th className="px-4 py-3 text-start font-bold">{t("tax.whtDeductee")}</th>
-                  <th className="px-4 py-3 text-start font-bold">{t("tax.whtSection")}</th>
-                  <th className="px-4 py-3 text-start font-bold">{t("tax.whtKind")}</th>
-                  <th className="px-4 py-3 text-end font-bold">{t("tax.whtGross")}</th>
-                  <th className="px-4 py-3 text-end font-bold">{t("tax.whtTax")}</th>
-                  <th className="px-4 py-3 text-start font-bold">{t("tax.whtCpr")}</th>
-                  <th className="px-4 py-3 text-end font-bold">{t("tax.whtCertificate")}</th>
+                <tr>
+                  <th className="text-start font-bold">{t("tax.whtDate")}</th>
+                  <th className="text-start font-bold">{t("tax.whtDeductee")}</th>
+                  <th className="text-start font-bold">{t("tax.whtSection")}</th>
+                  <th className="text-start font-bold">{t("tax.whtKind")}</th>
+                  <th className="text-end font-bold">{t("tax.whtGross")}</th>
+                  <th className="text-end font-bold">{t("tax.whtTax")}</th>
+                  <th className="text-start font-bold">{t("tax.whtCpr")}</th>
+                  <th className="text-end font-bold">{t("tax.whtCertificate")}</th>
                 </tr>
               </thead>
               <tbody>
                 {rows.map((r) => (
-                  <tr key={r.id} className="border-b border-border/60 last:border-0">
-                    <td className="whitespace-nowrap px-4 py-3">{fmtDate(r.date)}</td>
-                    <td className="px-4 py-3">
+                  <tr key={r.id}>
+                    <td className="whitespace-nowrap">{fmtDate(r.date)}</td>
+                    <td>
                       <p className="font-bold">{r.deducteeName}</p>
                       {r.ntnCnic && <p className="text-xs text-muted-foreground" dir="ltr">{r.ntnCnic}</p>}
                     </td>
-                    <td className="whitespace-nowrap px-4 py-3">
+                    <td className="whitespace-nowrap">
                       <span className="rounded-full bg-muted px-2 py-0.5 text-xs font-bold">{r.taxSection}</span>
                       <p className="mt-0.5 text-xs text-muted-foreground">{(r.rateBps / 100).toString()}%</p>
                     </td>
-                    <td className="px-4 py-3 text-xs font-semibold text-muted-foreground">{kindLabel(r.kind)}</td>
-                    <td className="whitespace-nowrap px-4 py-3 text-end">{r.grossFmt}</td>
-                    <td className="whitespace-nowrap px-4 py-3 text-end font-extrabold">{r.whtFmt}</td>
-                    <td className="px-4 py-3">
+                    <td className="text-xs font-semibold text-muted-foreground">{kindLabel(r.kind)}</td>
+                    <td className="whitespace-nowrap text-end">{r.grossFmt}</td>
+                    <td className="whitespace-nowrap text-end font-extrabold">{r.whtFmt}</td>
+                    <td>
                       {editing === r.id ? (
                         <div className="flex min-w-[200px] items-center gap-2">
-                          <input className="input !py-1.5 text-xs" value={cpr} onChange={(e) => setCpr(e.target.value)}
+                          <input className="field !py-1.5 text-xs" value={cpr} onChange={(e) => setCpr(e.target.value)}
                             placeholder={t("tax.cprPh")} dir="ltr" />
                           <label className="flex shrink-0 items-center gap-1 text-xs font-semibold">
                             <input type="checkbox" checked={dep} onChange={(e) => setDep(e.target.checked)} />
                             {t("tax.deposited")}
                           </label>
-                          <button type="button" onClick={() => saveCpr(r.id)} className="btn-primary shrink-0 !px-3 !py-1.5 text-xs">
+                          <button type="button" onClick={() => saveCpr(r.id)} className="btn btn-primary shrink-0 !px-3 !py-1.5 text-xs">
                             <Check className="h-3.5 w-3.5" />
                           </button>
                         </div>
@@ -379,7 +381,7 @@ function WhtTab() {
                         </button>
                       )}
                     </td>
-                    <td className="whitespace-nowrap px-4 py-3 text-end">
+                    <td className="whitespace-nowrap text-end">
                       <Link href={`/tax/wht/${r.id}`}
                         className="inline-flex items-center gap-1.5 rounded-lg border border-border px-3 py-1.5 text-xs font-bold transition hover:border-primary hover:text-primary">
                         <Printer className="h-3.5 w-3.5" /> {t("tax.whtCertificate")}
@@ -460,18 +462,18 @@ function AnnexTab() {
 
       <FilterBar>
         <NumericDateInput
-          className="input w-auto"
+          className="field !w-auto"
           value={from}
           onChange={(v) => setFrom(v)}
           aria-label={t("tax.from")}
         />
         <NumericDateInput
-          className="input w-auto"
+          className="field !w-auto"
           value={to}
           onChange={(v) => setTo(v)}
           aria-label={t("tax.to")}
         />
-        <a href={csvHref} className="btn-primary inline-flex items-center gap-2 !px-4 !py-2 text-xs font-bold" download>
+        <a href={csvHref} className="btn btn-primary !px-4 !py-2 text-xs font-bold" download>
           <Download className="h-4 w-4" /> {t("tax.exportCsv")}
         </a>
       </FilterBar>
@@ -482,35 +484,35 @@ function AnnexTab() {
       </div>
 
       <div className="card overflow-hidden">
-        {loading ? <p className="p-6 text-sm text-muted-foreground">…</p> : rows.length === 0 ? (
+        {loading ? <div className="space-y-3 p-5">{[1, 2, 3].map((i) => <div key={i} className="skeleton h-12 rounded-xl" />)}</div> : rows.length === 0 ? (
           <div className="p-6"><EmptyState title={t("tax.annexEmpty")} icon={<FileSpreadsheet className="h-8 w-8" />} /></div>
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full min-w-[720px] text-sm">
+            <table className="tbl tbl-fa min-w-[720px]">
               <thead>
-                <tr className="border-b border-border text-xs text-muted-foreground">
-                  <th className="px-4 py-3 text-start font-bold">{t("tax.colDate")}</th>
-                  <th className="px-4 py-3 text-start font-bold">{t("tax.colName")}</th>
-                  <th className="px-4 py-3 text-start font-bold">{t("tax.colNtn")}</th>
-                  <th className="px-4 py-3 text-start font-bold">{t("tax.colDocNo")}</th>
-                  <th className="px-4 py-3 text-end font-bold">{t("tax.colRate")}</th>
-                  <th className="px-4 py-3 text-end font-bold">{t("tax.colValue")}</th>
-                  <th className="px-4 py-3 text-end font-bold">{t("tax.colTax")}</th>
+                <tr>
+                  <th className="text-start font-bold">{t("tax.colDate")}</th>
+                  <th className="text-start font-bold">{t("tax.colName")}</th>
+                  <th className="text-start font-bold">{t("tax.colNtn")}</th>
+                  <th className="text-start font-bold">{t("tax.colDocNo")}</th>
+                  <th className="text-end font-bold">{t("tax.colRate")}</th>
+                  <th className="text-end font-bold">{t("tax.colValue")}</th>
+                  <th className="text-end font-bold">{t("tax.colTax")}</th>
                 </tr>
               </thead>
               <tbody>
                 {rows.map((r, i) => (
-                  <tr key={i} className="border-b border-border/60 last:border-0">
-                    <td className="whitespace-nowrap px-4 py-3">{fmtDate(r.date)}</td>
-                    <td className="px-4 py-3 font-semibold">{r.name}</td>
-                    <td className="px-4 py-3 text-xs" dir="ltr">{r.ntn || "—"}</td>
-                    <td className="whitespace-nowrap px-4 py-3">
+                  <tr key={i}>
+                    <td className="whitespace-nowrap">{fmtDate(r.date)}</td>
+                    <td className="font-semibold">{r.name}</td>
+                    <td className="text-xs" dir="ltr">{r.ntn || "—"}</td>
+                    <td className="whitespace-nowrap">
                       {r.docNo}
                       {r.vendorRef && <p className="text-xs text-muted-foreground" dir="ltr">{r.vendorRef}</p>}
                     </td>
-                    <td className="whitespace-nowrap px-4 py-3 text-end">{(r.rateBps / 100).toString()}%</td>
-                    <td className="whitespace-nowrap px-4 py-3 text-end">{r.valueFmt}</td>
-                    <td className="whitespace-nowrap px-4 py-3 text-end font-extrabold">{r.taxFmt}</td>
+                    <td className="whitespace-nowrap text-end">{(r.rateBps / 100).toString()}%</td>
+                    <td className="whitespace-nowrap text-end">{r.valueFmt}</td>
+                    <td className="whitespace-nowrap text-end font-extrabold">{r.taxFmt}</td>
                   </tr>
                 ))}
               </tbody>
@@ -529,7 +531,7 @@ export default function TaxPage() {
   const [tab, setTab] = useState<Tab>("fbr");
 
   return (
-    <div>
+    <div className="mx-auto max-w-5xl">
       <PageHeader title={t("tax.title")} subtitle={t("tax.subtitle")}
         icon={<Landmark className="h-6 w-6 text-primary" />} />
       <div className="mb-6 flex rounded-xl border border-border bg-muted/60 p-1 sm:max-w-lg">

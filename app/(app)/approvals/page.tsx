@@ -49,6 +49,7 @@ export default function ApprovalsPage() {
   const [busyId, setBusyId] = useState<string | null>(null);
   const [rejectId, setRejectId] = useState<string | null>(null);
   const [comment, setComment] = useState("");
+  const [confirm, setConfirm] = useState<{ id: string; action: "approve" | "cancel" } | null>(null);
 
   const canSee = permsLoading || permissions.includes("approvals");
 
@@ -109,9 +110,9 @@ export default function ApprovalsPage() {
   };
 
   return (
-    <div>
+    <div className="mx-auto max-w-4xl">
       <PageHeader title={t("approvals.title")} subtitle={t("approvals.subtitle")} icon={<Stamp size={20} />} />
-      <div className="mx-auto max-w-4xl">
+      <div>
         <div className="mt-4 flex gap-2">
           {(["PENDING", "DECIDED"] as const).map((f) => (
             <button
@@ -167,9 +168,7 @@ export default function ApprovalsPage() {
                       <button
                         className="btn btn-primary !py-2 text-sm"
                         disabled={busyId === it.id}
-                        onClick={() => {
-                          if (window.confirm(t("approvals.approveConfirm"))) act(it.id, "approve");
-                        }}
+                        onClick={() => setConfirm({ id: it.id, action: "approve" })}
                       >
                         <Check size={16} /> {busyId === it.id ? t("common.saving") : t("approvals.approve")}
                       </button>
@@ -179,12 +178,29 @@ export default function ApprovalsPage() {
                       <button
                         className="btn btn-ghost !py-2 text-sm text-danger"
                         disabled={busyId === it.id}
-                        onClick={() => {
-                          if (window.confirm(t("approvals.cancelConfirm"))) act(it.id, "cancel");
-                        }}
+                        onClick={() => setConfirm({ id: it.id, action: "cancel" })}
                       >
                         <Trash2 size={16} /> {t("approvals.cancel")}
                       </button>
+                    </div>
+                  )}
+                  {confirm?.id === it.id && (
+                    <div className="mt-3 rounded-xl border border-border bg-muted/30 p-3">
+                      <p className="text-sm font-semibold">
+                        {confirm.action === "approve" ? t("approvals.approveConfirm") : t("approvals.cancelConfirm")}
+                      </p>
+                      <div className="mt-2 flex gap-2">
+                        <button
+                          className="btn btn-primary !py-2 text-sm"
+                          disabled={busyId === it.id}
+                          onClick={() => { const c = confirm; setConfirm(null); act(c.id, c.action); }}
+                        >
+                          {confirm.action === "approve" ? t("approvals.approve") : t("approvals.cancel")}
+                        </button>
+                        <button className="btn btn-ghost !py-2 text-sm" onClick={() => setConfirm(null)}>
+                          {t("common.cancel")}
+                        </button>
+                      </div>
                     </div>
                   )}
                   {rejectId === it.id && (

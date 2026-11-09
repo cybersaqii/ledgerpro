@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { KeyRound, Check, X, Wallet } from "lucide-react";
+import { KeyRound, Check, ChevronDown, X, Wallet } from "lucide-react";
 import { PageHeader, EmptyState, ErrorNote, Field } from "@/components/ui";
 import { useLang } from "@/components/lang-provider";
 import { usePermissions } from "@/components/permissions";
@@ -59,6 +59,7 @@ export default function PortalsPage() {
   const [error, setError] = useState<string | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [rejectId, setRejectId] = useState<string | null>(null);
+  const [approveId, setApproveId] = useState<string | null>(null);
   const [reason, setReason] = useState("");
   const [expanded, setExpanded] = useState<string | null>(null);
   // Reconcile dialog
@@ -101,7 +102,7 @@ export default function PortalsPage() {
   }, [recIntent, bankAccounts.length]);
 
   async function approve(id: string) {
-    if (!window.confirm(t("portal.approveConfirm"))) return;
+    setApproveId(null);
     setBusyId(id); setError(null);
     try {
       await api(`/api/portal/requests/${id}/approve`, { method: "POST" });
@@ -159,7 +160,7 @@ export default function PortalsPage() {
 
   if (!canSee) {
     return (
-      <div>
+      <div className="mx-auto max-w-5xl">
         <PageHeader title={t("portal.title")} icon={<KeyRound size={20} />} />
         <ErrorNote message={t("common.forbidden")} />
       </div>
@@ -167,7 +168,7 @@ export default function PortalsPage() {
   }
 
   return (
-    <div>
+    <div className="mx-auto max-w-5xl">
       <PageHeader
         title={t("portal.title")}
         subtitle={t("portal.subtitle")}
@@ -214,12 +215,12 @@ export default function PortalsPage() {
                       {r.vendorRef && <span> · {t("portal.vendorInvoice")}: <b className="text-foreground">{r.vendorRef}</b></span>}
                     </div>
                     {r.notes && <div className="mt-1 text-sm italic text-muted-foreground">“{r.notes}”</div>}
-                    <button className="mt-2 text-xs font-bold text-primary hover:underline" onClick={() => setExpanded(expanded === r.id ? null : r.id)}>
-                      {r.items.length} {t("portal.details").toLowerCase()} {expanded === r.id ? "▲" : "▼"}
+                    <button className="mt-2 inline-flex items-center gap-1 text-xs font-bold text-primary hover:underline" onClick={() => setExpanded(expanded === r.id ? null : r.id)}>
+                      {r.items.length} {t("portal.details").toLowerCase()} <ChevronDown size={13} className={`transition-transform ${expanded === r.id ? "rotate-180" : ""}`} />
                     </button>
                     {expanded === r.id && (
                       <div className="mt-2 overflow-x-auto rounded-lg border border-border">
-                        <table className="tbl">
+                        <table className="tbl tbl-fa">
                           <thead><tr><th>{t("portal.details")}</th><th className="num">{t("portal.qty")}</th><th className="num">{t("portal.rate")}</th><th className="num">{t("portal.total")}</th></tr></thead>
                           <tbody>
                             {r.items.map((it, i) => (
@@ -236,9 +237,19 @@ export default function PortalsPage() {
                     )}
                     {r.status === "SUBMITTED" && (
                       <div className="mt-3 flex flex-wrap gap-2">
-                        <button className="btn btn-primary text-sm" disabled={busyId === r.id} onClick={() => approve(r.id)}>
-                          <Check size={15} /> {t("portal.approve")}
-                        </button>
+                        {approveId === r.id ? (
+                          <span className="inline-flex flex-wrap items-center gap-2">
+                            <span className="text-sm font-bold">{t("portal.approveConfirm")}</span>
+                            <button className="btn btn-primary text-sm" disabled={busyId === r.id} onClick={() => approve(r.id)}>
+                              <Check size={15} /> {t("portal.approve")}
+                            </button>
+                            <button className="btn btn-ghost text-sm" onClick={() => setApproveId(null)}>{t("common.cancel")}</button>
+                          </span>
+                        ) : (
+                          <button className="btn btn-primary text-sm" disabled={busyId === r.id} onClick={() => setApproveId(r.id)}>
+                            <Check size={15} /> {t("portal.approve")}
+                          </button>
+                        )}
                         {rejectId === r.id ? (
                           <span className="flex flex-1 flex-wrap items-center gap-2">
                             <input className="field flex-1 min-w-40" placeholder={t("portal.rejectionReasonPlaceholder")}

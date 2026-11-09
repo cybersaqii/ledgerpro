@@ -146,22 +146,27 @@ export default function AdminBillingPage() {
     }
   }
 
-  if (loading) return <PageHeader title={t("adminbilling.title")} subtitle={t("adminbilling.subtitle")} icon={<ShieldCheck size={22} />} />;
+  if (loading) return (
+    <div className="mx-auto max-w-5xl space-y-6">
+      <PageHeader title={t("adminbilling.title")} subtitle={t("adminbilling.subtitle")} icon={<ShieldCheck size={22} />} />
+      <div className="card p-5"><div className="space-y-3">{[1, 2, 3].map((i) => <div key={i} className="skeleton h-16 rounded-xl" />)}</div></div>
+    </div>
+  );
   if (forbidden) return (
-    <div className="space-y-4">
+    <div className="mx-auto max-w-5xl space-y-4">
       <PageHeader title={t("adminbilling.title")} subtitle={t("adminbilling.subtitle")} icon={<ShieldCheck size={22} />} />
       <EmptyState title={t("adminbilling.notAuth")} hint={t("adminbilling.notAuthHint")} />
     </div>
   );
 
   return (
-    <div className="space-y-6">
+    <div className="mx-auto max-w-5xl space-y-6">
       <PageHeader
         title={t("adminbilling.title")}
         subtitle={t("adminbilling.subtitle")}
         icon={<ShieldCheck size={22} />}
         actions={
-          <Link href="/admin/coupons" className="btn btn-secondary">
+          <Link href="/admin/coupons" className="btn btn-ghost">
             <Tag size={15} /> {t("adminbilling.coupons")}
           </Link>
         }
@@ -182,7 +187,7 @@ export default function AdminBillingPage() {
         ))}
       </div>
 
-      <Link href="/admin/support" className="card flex items-center justify-between p-4 transition hover:-translate-y-0.5">
+      <Link href="/admin/support" className="card card-lift flex items-center justify-between p-4 transition hover:-translate-y-0.5">
         <span className="font-bold">{t("adminbilling.supportInbox")}</span>
         <span className="text-sm font-bold text-primary">{t("adminbilling.open")}</span>
       </Link>
@@ -415,7 +420,7 @@ function UsersTab({ t }: { t: (k: string, vars?: Record<string, string | number>
       {/* Table */}
       <div className="card overflow-x-auto">
         {loading ? (
-          <p className="p-8 text-center text-muted-foreground">{t("common.loading")}</p>
+          <div className="space-y-3 p-5">{[1, 2, 3].map((i) => <div key={i} className="skeleton h-12 rounded-xl" />)}</div>
         ) : filtered.length === 0 ? (
           <EmptyState title={t("adminbilling.noUsers")} />
         ) : (

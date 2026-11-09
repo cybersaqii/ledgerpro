@@ -193,6 +193,7 @@ export const ur: DeepPartial<EnDict> = {
     date: "تاریخ",
     confirmPayment: "ادائیگی کی تصدیق",
     title: "Partners",
+    subtitle: "سرمایہ، منافع کا حصہ اور تقسیم",
     addPartner: "Partner add karein",
     addHint: "Capital aur current accounts khud ban jayenge.",
     emptyTitle: "Abhi koi partner nahi",
@@ -2225,6 +2226,7 @@ export const ur: DeepPartial<EnDict> = {
     navAutomation: "آٹومیشن اور یاددہانیاں",
     rulesTitle: "ادائیگی کی یاددہانی کے اصول",
     rulesHint: "جب کوئی غیر ادا شدہ انوائس اصول کے دن پر پہنچے تو انجن چینل کے مطابق بھیجتا ہے اور یہاں لاگ کرتا ہے۔",
+    rulesEmpty: "ابھی کوئی یاددہانی اصول نہیں ہے — خودکار یاددہانی کے لیے ایک شامل کریں۔",
     enabled: "فعال",
     daysOffset: "دن کا فرق",
     daysOffsetHint: "-3 = واجب الادا سے 3 دن پہلے · 0 = واجب الادا کی تاریخ · 7 / 15 = تاخیر کے دن",
@@ -4892,6 +4894,7 @@ export const ur: DeepPartial<EnDict> = {
     subtitle: "خام مال کی فہرستیں اور پروڈکشن ورک آرڈرز",
     tabBoms: "خام مال کی فہرستیں",
     tabWorkOrders: "ورک آرڈرز",
+    workOrdersHint: "MWO-0001 · DRAFT → RELEASED → IN_PROGRESS → COMPLETED",
     // BOMs
     newBom: "نئی BOM",
     bomFor: "کی BOM",
@@ -5147,6 +5150,7 @@ export const ur: DeepPartial<EnDict> = {
   },
   payroll: {
     title: "پے رول",
+    subtitle: "ماہانہ تنخواہ کے رن، ملازمین اور ایڈوانس",
     runs: "تنخواہ کے رن",
     employees: "ملازمین",
     advances: "ایڈوانس",
@@ -5252,6 +5256,7 @@ export const ur: DeepPartial<EnDict> = {
   },
   assets: {
     title: "فکسڈ اثاثے",
+    subtitle: "فکسڈ اثاثوں کا رجسٹر، فرسودگی اور تصفیہ",
     register: "اثاثوں کا رجسٹر",
     newAsset: "اثاثہ رجسٹر کریں",
     assetCode: "اثاثہ کوڈ",

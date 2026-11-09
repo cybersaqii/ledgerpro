@@ -107,18 +107,18 @@ export default function PayrollSettingsPage() {
       <div className="rounded-2xl border border-border bg-card p-4">
         <h2 className="text-sm font-bold">{t("payroll.eobiSettings")}</h2>
         <div className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-4">
-          <Field label={t("payroll.eobiEmployeeRate")}><input type="number" min="0" step="0.01" className="input" value={eobiEmp} onChange={(e) => setEobiEmp(e.target.value)} /></Field>
-          <Field label={t("payroll.eobiEmployerRate")}><input type="number" min="0" step="0.01" className="input" value={eobiEr} onChange={(e) => setEobiEr(e.target.value)} /></Field>
-          <Field label={t("payroll.eobiWageCap")}><input type="number" min="0" className="input" value={eobiCap} onChange={(e) => setEobiCap(e.target.value)} /></Field>
-          <Field label={t("payroll.workDaysPerMonth")}><input type="number" min="1" max="31" className="input" value={workDays} onChange={(e) => setWorkDays(e.target.value)} /></Field>
+          <Field label={t("payroll.eobiEmployeeRate")}><input type="number" min="0" step="0.01" className="field" value={eobiEmp} onChange={(e) => setEobiEmp(e.target.value)} /></Field>
+          <Field label={t("payroll.eobiEmployerRate")}><input type="number" min="0" step="0.01" className="field" value={eobiEr} onChange={(e) => setEobiEr(e.target.value)} /></Field>
+          <Field label={t("payroll.eobiWageCap")}><input type="number" min="0" className="field" value={eobiCap} onChange={(e) => setEobiCap(e.target.value)} /></Field>
+          <Field label={t("payroll.workDaysPerMonth")}><input type="number" min="1" max="31" className="field" value={workDays} onChange={(e) => setWorkDays(e.target.value)} /></Field>
         </div>
       </div>
 
       <div className="rounded-2xl border border-border bg-card p-4">
         <h2 className="text-sm font-bold">{t("payroll.pfSettings")}</h2>
         <div className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-4">
-          <Field label={t("payroll.pfEmployeeRate")}><input type="number" min="0" step="0.01" className="input" value={pfEmp} onChange={(e) => setPfEmp(e.target.value)} /></Field>
-          <Field label={t("payroll.pfEmployerRate")}><input type="number" min="0" step="0.01" className="input" value={pfEr} onChange={(e) => setPfEr(e.target.value)} /></Field>
+          <Field label={t("payroll.pfEmployeeRate")}><input type="number" min="0" step="0.01" className="field" value={pfEmp} onChange={(e) => setPfEmp(e.target.value)} /></Field>
+          <Field label={t("payroll.pfEmployerRate")}><input type="number" min="0" step="0.01" className="field" value={pfEr} onChange={(e) => setPfEr(e.target.value)} /></Field>
         </div>
       </div>
 
@@ -144,14 +144,14 @@ export default function PayrollSettingsPage() {
             <tbody>
               {slabs.map((s, i) => (
                 <tr key={i} className="border-b border-border/50 last:border-0">
-                  <td className="py-1.5 pe-2"><input type="number" min="0" className="input !py-1.5" value={s.minAnnualPaisa} onChange={(e) => setSlab(i, { minAnnualPaisa: e.target.value })} /></td>
+                  <td className="py-1.5 pe-2"><input type="number" min="0" className="field !py-1.5" value={s.minAnnualPaisa} onChange={(e) => setSlab(i, { minAnnualPaisa: e.target.value })} /></td>
                   <td className="py-1.5 pe-2">
                     {i === slabs.length - 1
                       ? <span className="text-xs text-muted-foreground">{t("payroll.noUpperBound")}</span>
-                      : <input type="number" min="0" className="input !py-1.5" value={s.maxAnnualPaisa ?? ""} onChange={(e) => setSlab(i, { maxAnnualPaisa: e.target.value })} />}
+                      : <input type="number" min="0" className="field !py-1.5" value={s.maxAnnualPaisa ?? ""} onChange={(e) => setSlab(i, { maxAnnualPaisa: e.target.value })} />}
                   </td>
-                  <td className="py-1.5 pe-2"><input type="number" min="0" max="100" step="0.01" className="input !py-1.5" value={s.rateBps / 100} onChange={(e) => setSlab(i, { rateBps: Math.round(Number(e.target.value) * 100) })} /></td>
-                  <td className="py-1.5 pe-2"><input type="number" min="0" className="input !py-1.5" value={s.fixedPaisa} onChange={(e) => setSlab(i, { fixedPaisa: e.target.value })} /></td>
+                  <td className="py-1.5 pe-2"><input type="number" min="0" max="100" step="0.01" className="field !py-1.5" value={s.rateBps / 100} onChange={(e) => setSlab(i, { rateBps: Math.round(Number(e.target.value) * 100) })} /></td>
+                  <td className="py-1.5 pe-2"><input type="number" min="0" className="field !py-1.5" value={s.fixedPaisa} onChange={(e) => setSlab(i, { fixedPaisa: e.target.value })} /></td>
                   <td className="py-1.5">
                     {slabs.length > 1 && i < slabs.length - 1 && (
                       <button className="btn btn-ghost !p-1.5" onClick={() => {

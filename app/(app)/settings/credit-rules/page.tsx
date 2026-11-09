@@ -111,10 +111,11 @@ export default function CreditRulesPage() {
     risk === "MEDIUM" ? "!bg-accent-soft !text-accent" : "!bg-muted !text-muted-foreground";
 
   return (
-    <div>
+    <div className="mx-auto max-w-5xl">
       <PageHeader
         title={t("creditrules.title")}
         subtitle={t("creditrules.subtitle")}
+        icon={<ShieldAlert size={20} />}
         actions={<button className="btn btn-ghost text-sm" disabled={sweeping} onClick={sweep}>
           <RefreshCw size={15} className={sweeping ? "animate-spin" : ""} /> {sweeping ? t("creditrules.sweeping") : t("creditrules.sweepNow")}
         </button>}
@@ -166,7 +167,7 @@ export default function CreditRulesPage() {
           <div className="p-6"><EmptyState title={t("creditrules.priorityEmpty")} hint={t("creditrules.priorityEmptyHint")} /></div>
         ) : (
           <div className="overflow-x-auto">
-            <table className="tbl">
+            <table className="tbl tbl-fa">
               <thead><tr>
                 <th>{t("creditrules.colParty")}</th><th>{t("creditrules.colRisk")}</th>
                 <th className="num">{t("creditrules.colOutstanding")}</th><th className="num">{t("creditrules.colOverdue")}</th>

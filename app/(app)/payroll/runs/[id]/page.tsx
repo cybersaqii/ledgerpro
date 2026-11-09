@@ -44,6 +44,7 @@ export default function RunDetailPage() {
   const [disburseOpen, setDisburseOpen] = useState(false);
   const [bankId, setBankId] = useState("");
   const [disbDate, setDisbDate] = useState(fmtDateInput(new Date()));
+  const [confirmAct, setConfirmAct] = useState<{ path: string; msg: string; body?: object } | null>(null);
 
   const load = useCallback(async () => {
     try {
@@ -77,8 +78,7 @@ export default function RunDetailPage() {
     finally { setBusy(false); }
   };
 
-  const act = async (path: string, confirmMsg: string | null, body?: object) => {
-    if (confirmMsg && !window.confirm(confirmMsg)) return;
+  const act = async (path: string, body?: object) => {
     setBusy(true);
     try {
       await api(`/api/payroll/runs/${id}${path}`, body ? { method: "POST", body: JSON.stringify({ ...body, idempotencyKey: crypto.randomUUID() }) } : { method: "POST" });
@@ -100,12 +100,12 @@ export default function RunDetailPage() {
         icon={<Briefcase size={20} />}
         actions={
           <div className="flex flex-wrap gap-2">
-            {isDraft && <button className="btn btn-primary !py-2 text-sm" disabled={busy} onClick={() => act("/post", t("payroll.confirmPost"))}>{t("payroll.approvePost")}</button>}
+            {isDraft && <button className="btn btn-primary !py-2 text-sm" disabled={busy} onClick={() => setConfirmAct({ path: "/post", msg: t("payroll.confirmPost") })}>{t("payroll.approvePost")}</button>}
             {run.status === "POSTED" && (
               <>
                 <a className="btn btn-ghost !py-2 text-sm" href={`/api/payroll/runs/${id}/advice`}><Download size={15} />{t("payroll.bankAdvice")}</a>
                 <button className="btn btn-primary !py-2 text-sm" disabled={busy} onClick={() => setDisburseOpen(true)}><Landmark size={15} />{t("payroll.disburse")}</button>
-                <button className="btn btn-ghost !py-2 text-sm !text-danger" disabled={busy} onClick={() => act("/void", t("payroll.confirmVoid"))}>{t("payroll.voidRun")}</button>
+                <button className="btn btn-ghost !py-2 text-sm !text-danger" disabled={busy} onClick={() => setConfirmAct({ path: "/void", msg: t("payroll.confirmVoid") })}>{t("payroll.voidRun")}</button>
               </>
             )}
             {run.status === "PAID" && (
@@ -115,6 +115,13 @@ export default function RunDetailPage() {
         }
       />
       <ErrorNote message={error} />
+      {confirmAct && (
+        <div className="flex flex-wrap items-center gap-2 rounded-xl border border-border bg-muted/50 px-3.5 py-2.5 text-sm">
+          <span className="font-bold">{confirmAct.msg}</span>
+          <button className="btn btn-primary !py-1.5 text-sm" disabled={busy} onClick={() => { const a = confirmAct; setConfirmAct(null); act(a.path, a.body); }}>{t("common.confirm")}</button>
+          <button className="btn btn-ghost !py-1.5 text-sm" onClick={() => setConfirmAct(null)}>{t("common.cancel")}</button>
+        </div>
+      )}
       <StatusPill status={run.status} />
 
       <SummaryChips items={[
@@ -152,7 +159,7 @@ export default function RunDetailPage() {
                   <td className="px-3 py-2">{s.employeeName}</td>
                   <td className="px-3 py-2 text-center">
                     {isDraft ? (
-                      <input type="number" min={0} max={s.workDays} className="input mx-auto w-16 !py-1 text-center"
+                      <input type="number" min={0} max={s.workDays} className="field mx-auto !w-16 !py-1 text-center"
                         value={days[s.id] ?? s.payableDays}
                         onChange={(e) => setDays({ ...days, [s.id]: Math.max(0, Number(e.target.value)) })} />
                     ) : (
@@ -185,18 +192,18 @@ export default function RunDetailPage() {
             <h2 className="text-base font-bold">{t("payroll.disburse")} — {fmtMoney(run.netPaisa)}</h2>
             <div className="mt-4 space-y-3">
               <Field label={t("payroll.bankAccount")} required>
-                <select className="input" value={bankId} onChange={(e) => setBankId(e.target.value)}>
+                <select className="field" value={bankId} onChange={(e) => setBankId(e.target.value)}>
                   {banks.map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}
                 </select>
               </Field>
               <Field label={t("payroll.date")} required>
-                <NumericDateInput className="input" value={disbDate} onChange={(v) => setDisbDate(v)} />
+                <NumericDateInput className="field" value={disbDate} onChange={(v) => setDisbDate(v)} />
               </Field>
             </div>
             <div className="mt-4 flex justify-end gap-2">
               <button className="btn btn-ghost" onClick={() => setDisburseOpen(false)}>{t("payroll.cancel")}</button>
               <button className="btn btn-primary" disabled={busy || !bankId}
-                onClick={() => act("/disburse", t("payroll.confirmDisburse"), { bankAccountId: bankId, date: disbDate })}>
+                onClick={() => { setDisburseOpen(false); setConfirmAct({ path: "/disburse", msg: t("payroll.confirmDisburse"), body: { bankAccountId: bankId, date: disbDate } }); }}>
                 {t("payroll.disburse")}
               </button>
             </div>

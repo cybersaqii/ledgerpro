@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { ArrowLeft, ArrowRight, CheckCircle2, Download, FileUp, TriangleAlert, Upload } from "lucide-react";
+import { ArrowLeft, ArrowRight, Boxes, CheckCircle2, Download, FileUp, Package, TriangleAlert, Upload, Users } from "lucide-react";
 import { PageHeader, ErrorNote } from "@/components/ui";
 import { useLang } from "@/components/lang-provider";
 import { useCan } from "@/components/permissions";
@@ -36,6 +36,13 @@ const FIELDS: Record<string, { field: string; required: boolean }[]> = {
 };
 
 type Kind = keyof typeof FIELDS;
+
+const KIND_ICONS: Record<Kind, typeof Package> = {
+  products: Package,
+  parties: Users,
+  opening_stock: Boxes,
+};
+
 type Step = "kind" | "upload" | "map" | "validate" | "done";
 
 type ValResult = {
@@ -77,8 +84,8 @@ export default function ImportWizardPage() {
 
   if (!canImport) {
     return (
-      <div>
-        <PageHeader title={t("imp.title")} subtitle={t("imp.subtitle")} />
+      <div className="mx-auto max-w-5xl">
+        <PageHeader title={t("imp.title")} subtitle={t("imp.subtitle")} icon={<FileUp size={20} />} />
         <ErrorNote message={t("imp.noPermission")} />
       </div>
     );
@@ -170,8 +177,8 @@ export default function ImportWizardPage() {
   const stepIdx = steps.indexOf(step);
 
   return (
-    <div>
-      <PageHeader title={t("imp.title")} subtitle={t("imp.subtitle")} />
+    <div className="mx-auto max-w-5xl">
+      <PageHeader title={t("imp.title")} subtitle={t("imp.subtitle")} icon={<FileUp size={20} />} />
       {error && <ErrorNote message={error} />}
 
       {/* stepper */}
@@ -189,13 +196,17 @@ export default function ImportWizardPage() {
 
       {step === "kind" && (
         <div className="grid gap-4 sm:grid-cols-3">
-          {(Object.keys(FIELDS) as Kind[]).map((k) => (
+          {(Object.keys(FIELDS) as Kind[]).map((k) => {
+            const Icon = KIND_ICONS[k];
+            return (
             <button key={k} type="button" onClick={() => pickKind(k)}
               className="card card-lift p-6 text-start">
+              <span className="mb-3 inline-block rounded-xl bg-primary/10 p-2.5 text-primary"><Icon size={20} /></span>
               <p className="text-base font-extrabold">{t(`imp.kind${k === "opening_stock" ? "OpeningStock" : k[0].toUpperCase() + k.slice(1)}`)}</p>
               <p className="mt-1 text-sm text-muted-foreground">{t(`imp.kind${k === "opening_stock" ? "OpeningStock" : k[0].toUpperCase() + k.slice(1)}Hint`)}</p>
             </button>
-          ))}
+            );
+          })}
         </div>
       )}
 
@@ -269,18 +280,18 @@ export default function ImportWizardPage() {
                 <TriangleAlert size={16} className="mt-0.5 shrink-0" /> {t("imp.importBlocked", { count: result.errorCount })}
               </p>
               <div className="mt-3 max-h-72 overflow-auto rounded-2xl border border-border">
-                <div className="overflow-x-auto"><table className="w-full text-sm">
-                  <thead className="sticky top-0 bg-muted/70">
+                <div className="overflow-x-auto"><table className="tbl tbl-fa">
+                  <thead className="sticky top-0">
                     <tr>
-                      <th className="px-3 py-2 text-start font-bold">{t("imp.rowCol")}</th>
-                      <th className="px-3 py-2 text-start font-bold">{t("imp.messageCol")}</th>
+                      <th>{t("imp.rowCol")}</th>
+                      <th>{t("imp.messageCol")}</th>
                     </tr>
                   </thead>
                   <tbody>
                     {result.errors.map((e, i) => (
-                      <tr key={i} className="border-t border-border">
-                        <td className="px-3 py-2 font-bold tabular-nums">{e.row > 0 ? e.row : "—"}</td>
-                        <td className="px-3 py-2">{e.message}</td>
+                      <tr key={i}>
+                        <td className="font-bold tabular-nums">{e.row > 0 ? e.row : "—"}</td>
+                        <td>{e.message}</td>
                       </tr>
                     ))}
                   </tbody>

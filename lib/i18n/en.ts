@@ -188,6 +188,7 @@ export const en = {
     date: "Date",
     confirmPayment: "Confirm payment",
     title: "Partners",
+    subtitle: "Capital, profit share and distributions",
     addPartner: "Add partner",
     addHint: "Creates capital & current accounts automatically.",
     emptyTitle: "No partners yet",
@@ -2225,6 +2226,7 @@ export const en = {
     navAutomation: "Automation & Reminders",
     rulesTitle: "Payment reminder rules",
     rulesHint: "When an unpaid invoice hits a rule's day offset, the engine sends per the channel and logs it here.",
+    rulesEmpty: "No reminder rules yet — add one to start automatic chasing.",
     enabled: "Enabled",
     daysOffset: "Days offset",
     daysOffsetHint: "-3 = 3 days before due · 0 = on due date · 7 / 15 = days overdue",
@@ -4897,6 +4899,7 @@ export const en = {
     subtitle: "Bills of materials and production work orders",
     tabBoms: "Bills of materials",
     tabWorkOrders: "Work orders",
+    workOrdersHint: "MWO-0001 · DRAFT → RELEASED → IN_PROGRESS → COMPLETED",
     // BOMs
     newBom: "New BOM",
     bomFor: "BOM for",
@@ -5157,6 +5160,7 @@ export const en = {
   },
   payroll: {
     title: "Payroll",
+    subtitle: "Monthly salary runs, employees and advances",
     runs: "Payroll runs",
     employees: "Employees",
     advances: "Advances",
@@ -5262,6 +5266,7 @@ export const en = {
   },
   assets: {
     title: "Fixed Assets",
+    subtitle: "Fixed assets register, depreciation and disposal",
     register: "Asset register",
     newAsset: "Register asset",
     assetCode: "Asset code",

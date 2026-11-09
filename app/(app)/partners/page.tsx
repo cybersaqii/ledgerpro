@@ -60,9 +60,10 @@ export default function PartnersPage() {
   if (!can) return <PageHeader title={t("partners.title")} icon={<Handshake size={20} />} />;
 
   return (
-    <div>
+    <div className="mx-auto max-w-5xl">
       <PageHeader
         title={t("partners.title")}
+        subtitle={t("partners.subtitle")}
         icon={<Handshake size={20} />}
         actions={
           <div className="flex gap-2">
@@ -78,7 +79,7 @@ export default function PartnersPage() {
       <ErrorNote message={err} />
 
       {loading ? (
-        <p className="text-muted-foreground">{t("common.loading")}</p>
+        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">{[1, 2, 3].map((i) => <div key={i} className="skeleton h-48 rounded-2xl" />)}</div>
       ) : partners.length === 0 ? (
         <EmptyState
           icon={<Handshake size={32} />}
@@ -206,10 +207,10 @@ function PartnerCard({ partner: p, onMove, onReload, t }: {
         <span className="font-extrabold text-primary tabular-nums">{fmtMoney(total)}</span>
       </div>
       <div className="mt-3 flex gap-2">
-        <button className="btn btn-secondary flex-1 !py-2 text-xs" onClick={() => onMove({ partner: p, kind: "contribute" })}>
+        <button className="btn btn-ghost flex-1 !py-2 text-xs" onClick={() => onMove({ partner: p, kind: "contribute" })}>
           <TrendingUp size={14} /> {t("partners.addCapital")}
         </button>
-        <button className="btn btn-secondary flex-1 !py-2 text-xs" onClick={() => onMove({ partner: p, kind: "draw" })}>
+        <button className="btn btn-ghost flex-1 !py-2 text-xs" onClick={() => onMove({ partner: p, kind: "draw" })}>
           <Wallet size={14} /> {t("partners.drawing")}
         </button>
       </div>
@@ -258,14 +259,14 @@ function AddPartnerDialog({ onClose, onDone, t }: {
         <ErrorNote message={err} />
         <div className="mt-4 space-y-4">
           <Field label={t("partners.name")} required>
-            <input className="input !rounded-xl !border-2 !border-border bg-background" value={name} onChange={(e) => setName(e.target.value)} placeholder={t("partners.namePh")} />
+            <input className="field !rounded-xl !border-2 !border-border bg-background" value={name} onChange={(e) => setName(e.target.value)} placeholder={t("partners.namePh")} />
           </Field>
           <div className="grid grid-cols-2 gap-3">
             <Field label={t("partners.profitShare")} required hint={t("partners.profitShareHint")}>
-              <input type="number" min="0" max="100" step="0.1" className="input !rounded-xl !border-2 !border-border bg-background" value={share} onChange={(e) => setShare(e.target.value)} placeholder="50" />
+              <input type="number" min="0" max="100" step="0.1" className="field !rounded-xl !border-2 !border-border bg-background" value={share} onChange={(e) => setShare(e.target.value)} placeholder="50" />
             </Field>
             <Field label={t("partners.phone")}>
-              <input className="input !rounded-xl !border-2 !border-border bg-background" value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="03xx xxxxxxx" />
+              <input className="field !rounded-xl !border-2 !border-border bg-background" value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="03xx xxxxxxx" />
             </Field>
           </div>
         </div>
@@ -318,10 +319,10 @@ function MoveMoneyDialog({ partner, kind, cashAccounts, onClose, onDone, t }: {
         <ErrorNote message={err} />
         <div className="mt-4 space-y-4">
           <Field label={t("partners.amount")} required>
-            <input inputMode="decimal" className="input !rounded-xl !border-2 !border-border bg-background text-lg font-bold tabular-nums" value={amount} onChange={(e) => setAmount(e.target.value)} placeholder="0.00" />
+            <input inputMode="decimal" className="field !rounded-xl !border-2 !border-border bg-background text-lg font-bold tabular-nums" value={amount} onChange={(e) => setAmount(e.target.value)} placeholder="0.00" />
           </Field>
           <Field label={t("partners.cashAccount")} required>
-            <select className="input !rounded-xl !border-2 !border-border bg-background" value={accountId} onChange={(e) => setAccountId(e.target.value)}>
+            <select className="field !rounded-xl !border-2 !border-border bg-background" value={accountId} onChange={(e) => setAccountId(e.target.value)}>
               {cashAccounts.map((a) => <option key={a.id} value={a.id}>{a.code} — {a.name}</option>)}
             </select>
           </Field>
@@ -437,19 +438,19 @@ function DistributeDialog({ onClose, onDone, t }: {
 
           <div className="grid grid-cols-2 gap-3">
             <Field label={t("partners.periodStart")} required>
-              <NumericDateInput className="input !rounded-xl !border-2 !border-border bg-background" value={periodStart} onChange={(v) => { setPeriodStart(v); setPreview(null); }} />
+              <NumericDateInput className="field !rounded-xl !border-2 !border-border bg-background" value={periodStart} onChange={(v) => { setPeriodStart(v); setPreview(null); }} />
             </Field>
             <Field label={t("partners.periodEnd")} required>
-              <NumericDateInput className="input !rounded-xl !border-2 !border-border bg-background" value={periodEnd} onChange={(v) => { setPeriodEnd(v); setPreview(null); }} />
+              <NumericDateInput className="field !rounded-xl !border-2 !border-border bg-background" value={periodEnd} onChange={(v) => { setPeriodEnd(v); setPreview(null); }} />
             </Field>
           </div>
 
           <Field label={t("partners.distAmount")} required hint={t("partners.distAmountHint")}>
-            <input inputMode="decimal" className="input !rounded-xl !border-2 !border-border bg-background text-lg font-bold tabular-nums" value={amount} onChange={(e) => { setAmount(e.target.value); setPreview(null); }} placeholder="0.00" />
+            <input inputMode="decimal" className="field !rounded-xl !border-2 !border-border bg-background text-lg font-bold tabular-nums" value={amount} onChange={(e) => { setAmount(e.target.value); setPreview(null); }} placeholder="0.00" />
           </Field>
 
           <Field label={t("partners.memo")}>
-            <input className="input !rounded-xl !border-2 !border-border bg-background" value={memo} onChange={(e) => setMemo(e.target.value)} maxLength={300} />
+            <input className="field !rounded-xl !border-2 !border-border bg-background" value={memo} onChange={(e) => setMemo(e.target.value)} maxLength={300} />
           </Field>
 
           {method === "TIME_WEIGHTED" && (
@@ -594,17 +595,17 @@ function DistributionPaymentsDialog({ distId, cashAccounts, onClose, onDone, t }
             <p className="font-bold">{t("partners.payTo").replace("{name}", paying.partnerName)}</p>
             <div className="mt-3 grid grid-cols-2 gap-3">
               <Field label={t("partners.amount")} required>
-                <input inputMode="decimal" className="input !rounded-xl !border-2 !border-border bg-background font-bold tabular-nums"
+                <input inputMode="decimal" className="field !rounded-xl !border-2 !border-border bg-background font-bold tabular-nums"
                   value={amount} onChange={(e) => setAmount(e.target.value)} placeholder="0.00" />
               </Field>
               <Field label={t("partners.cashAccount")} required>
-                <select className="input !rounded-xl !border-2 !border-border bg-background" value={accountId} onChange={(e) => setAccountId(e.target.value)}>
+                <select className="field !rounded-xl !border-2 !border-border bg-background" value={accountId} onChange={(e) => setAccountId(e.target.value)}>
                   {cashAccounts.map((a) => <option key={a.id} value={a.id}>{a.code} — {a.name}</option>)}
                 </select>
               </Field>
             </div>
             <Field label={t("partners.date")} required>
-              <NumericDateInput className="input !rounded-xl !border-2 !border-border bg-background" value={date} onChange={(v) => setDate(v)} />
+              <NumericDateInput className="field !rounded-xl !border-2 !border-border bg-background" value={date} onChange={(v) => setDate(v)} />
             </Field>
             <div className="mt-3 flex justify-end gap-2">
               <button className="btn btn-ghost !rounded-xl" onClick={() => setPaying(null)}>{t("common.cancel")}</button>

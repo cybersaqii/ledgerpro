@@ -179,10 +179,10 @@ export default function WorkOrderDetailPage() {
             {confirm === "complete" && (
               <div className="mt-4 grid grid-cols-2 gap-4">
                 <Field label={t("mfg.labor")}>
-                  <input className="input" inputMode="decimal" placeholder={t("mfg.laborPlaceholder")} value={labor} onChange={(e) => setLabor(e.target.value)} />
+                  <input className="field" inputMode="decimal" placeholder={t("mfg.laborPlaceholder")} value={labor} onChange={(e) => setLabor(e.target.value)} />
                 </Field>
                 <Field label={t("mfg.overhead")}>
-                  <input className="input" inputMode="decimal" placeholder={t("mfg.overheadPlaceholder")} value={overhead} onChange={(e) => setOverhead(e.target.value)} />
+                  <input className="field" inputMode="decimal" placeholder={t("mfg.overheadPlaceholder")} value={overhead} onChange={(e) => setOverhead(e.target.value)} />
                 </Field>
               </div>
             )}

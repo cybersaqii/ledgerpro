@@ -186,7 +186,7 @@ export default function BomsPage() {
           <div className="mt-4 space-y-4">
             <Field label={t("mfg.finishedProduct")} required>
               <input
-                className="input"
+                className="field"
                 placeholder={t("mfg.selectFinished")}
                 value={finishedQ}
                 onChange={(e) => { setFinishedQ(e.target.value); setFinishedId(""); }}
@@ -213,7 +213,7 @@ export default function BomsPage() {
                   <div key={i} className="flex flex-col gap-2 rounded-xl border border-border p-3 sm:flex-row sm:items-end">
                     <div className="flex-1">
                       <Field label={t("mfg.component")}>
-                        <select className="input" value={l.componentProductId} onChange={(e) => setLine(i, { componentProductId: e.target.value })}>
+                        <select className="field" value={l.componentProductId} onChange={(e) => setLine(i, { componentProductId: e.target.value })}>
                           <option value="">{t("mfg.selectComponent")}</option>
                           {products.filter((p) => p.id !== finishedId).map((p) => (
                             <option key={p.id} value={p.id}>{p.name} ({p.sku})</option>
@@ -223,12 +223,12 @@ export default function BomsPage() {
                     </div>
                     <div className="w-full sm:w-32">
                       <Field label={t("mfg.qtyPerUnit")}>
-                        <input className="input" inputMode="decimal" placeholder="1" value={l.qty} onChange={(e) => setLine(i, { qty: e.target.value })} />
+                        <input className="field" inputMode="decimal" placeholder="1" value={l.qty} onChange={(e) => setLine(i, { qty: e.target.value })} />
                       </Field>
                     </div>
                     <div className="w-full sm:w-24">
                       <Field label={t("mfg.scrap")}>
-                        <input className="input" inputMode="numeric" placeholder="0" value={l.scrapPct} onChange={(e) => setLine(i, { scrapPct: e.target.value })} />
+                        <input className="field" inputMode="numeric" placeholder="0" value={l.scrapPct} onChange={(e) => setLine(i, { scrapPct: e.target.value })} />
                       </Field>
                     </div>
                     <button
@@ -246,7 +246,7 @@ export default function BomsPage() {
               </button>
             </div>
             <Field label={t("common.notes")}>
-              <input className="input" value={notes} onChange={(e) => setNotes(e.target.value)} maxLength={500} />
+              <input className="field" value={notes} onChange={(e) => setNotes(e.target.value)} maxLength={500} />
             </Field>
             <ErrorNote message={formError} />
             <div className="flex justify-end gap-2">

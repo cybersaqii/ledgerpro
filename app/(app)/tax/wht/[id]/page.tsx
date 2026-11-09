@@ -58,7 +58,7 @@ export default function WhtCertificatePage() {
         <Link href="/tax" className="inline-flex items-center gap-2 text-sm font-bold text-primary hover:underline">
           <ArrowLeft className="h-4 w-4 rtl:rotate-180" /> {t("tax.backToRegister")}
         </Link>
-        <button type="button" onClick={() => window.print()} className="btn-primary inline-flex items-center gap-2 !px-4 !py-2 text-sm font-bold">
+        <button type="button" onClick={() => window.print()} className="btn btn-primary !px-4 !py-2 text-sm font-bold">
           <Printer className="h-4 w-4" /> {t("tax.print")}
         </button>
       </div>

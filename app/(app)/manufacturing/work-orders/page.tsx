@@ -182,7 +182,7 @@ export default function WorkOrdersPage() {
             <div className="mt-4 space-y-4">
               <Field label={t("mfg.finishedProduct")} required>
                 <input
-                  className="input"
+                  className="field"
                   placeholder={t("mfg.selectFinished")}
                   value={productQ}
                   onChange={(e) => { setProductQ(e.target.value); setProductId(""); }}
@@ -203,7 +203,7 @@ export default function WorkOrdersPage() {
               </Field>
               <div className="grid gap-4 sm:grid-cols-2">
                 <Field label={t("mfg.branch")} required>
-                  <select className="input" value={branchId} onChange={(e) => setBranchId(e.target.value)}>
+                  <select className="field" value={branchId} onChange={(e) => setBranchId(e.target.value)}>
                     <option value="">{t("mfg.selectBranch")}</option>
                     {branches.map((b) => (
                       <option key={b.id} value={b.id}>{b.name}</option>
@@ -211,12 +211,12 @@ export default function WorkOrdersPage() {
                   </select>
                 </Field>
                 <Field label={t("mfg.plannedQty")} required>
-                  <input className="input" inputMode="decimal" placeholder={t("mfg.qtyPlaceholder")} value={qty} onChange={(e) => setQty(e.target.value)} />
+                  <input className="field" inputMode="decimal" placeholder={t("mfg.qtyPlaceholder")} value={qty} onChange={(e) => setQty(e.target.value)} />
                 </Field>
               </div>
               <p className="text-xs text-muted-foreground">{t("mfg.versionNote")}</p>
               <Field label={t("common.notes")}>
-                <input className="input" value={notes} onChange={(e) => setNotes(e.target.value)} maxLength={500} />
+                <input className="field" value={notes} onChange={(e) => setNotes(e.target.value)} maxLength={500} />
               </Field>
               <ErrorNote message={formError} />
               <div className="flex justify-end gap-2">

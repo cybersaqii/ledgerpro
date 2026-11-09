@@ -35,6 +35,7 @@ export default function AssetDetailPage() {
   const [banks, setBanks] = useState<Bank[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(false);
   const [dialog, setDialog] = useState<"" | "sell" | "dispose" | "transfer">("");
   const [sellPrice, setSellPrice] = useState("");
   const [sellDate, setSellDate] = useState(fmtDateInput(new Date()));
@@ -101,7 +102,7 @@ export default function AssetDetailPage() {
     finally { setBusy(false); }
   };
   const doDelete = async () => {
-    if (!window.confirm(t("assets.confirmDelete"))) return;
+    setConfirmDelete(false);
     setBusy(true);
     try {
       await api(`/api/assets/${id}`, { method: "DELETE" });
@@ -126,7 +127,7 @@ export default function AssetDetailPage() {
                 <button className="btn btn-ghost !py-2 text-sm" onClick={() => { setDialog("dispose"); setDialogErr(null); }}>{t("assets.dispose")}</button>
                 <button className="btn btn-ghost !py-2 text-sm" onClick={() => { setDialog("transfer"); setDialogErr(null); }}><ArrowRightLeft size={15} />{t("assets.transfer")}</button>
                 {BigInt(asset.accumDepPaisa) === 0n && (
-                  <button className="btn btn-ghost !py-2 text-sm !text-danger" disabled={busy} onClick={doDelete}>{t("common.delete")}</button>
+                  <button className="btn btn-ghost !py-2 text-sm !text-danger" disabled={busy} onClick={() => setConfirmDelete(true)}>{t("common.delete")}</button>
                 )}
               </>
             )}
@@ -134,6 +135,13 @@ export default function AssetDetailPage() {
         }
       />
       <ErrorNote message={error} />
+      {confirmDelete && (
+        <div className="flex flex-wrap items-center gap-2 rounded-xl border border-danger/30 bg-danger-soft px-3.5 py-2.5 text-sm">
+          <span className="font-bold">{t("assets.confirmDelete")}</span>
+          <button className="btn btn-danger !py-1.5 text-sm" disabled={busy} onClick={doDelete}>{t("common.delete")}</button>
+          <button className="btn btn-ghost !py-1.5 text-sm" onClick={() => setConfirmDelete(false)}>{t("common.cancel")}</button>
+        </div>
+      )}
       <StatusPill status={asset.status} />
 
       <SummaryChips items={[
@@ -210,15 +218,15 @@ export default function AssetDetailPage() {
                 <>
                   <p className="text-xs text-muted-foreground">{t("assets.confirmSell")}</p>
                   <Field label={t("assets.salePrice")} required>
-                    <input inputMode="decimal" className="input" value={sellPrice} onChange={(e) => setSellPrice(e.target.value)} />
+                    <input inputMode="decimal" className="field" value={sellPrice} onChange={(e) => setSellPrice(e.target.value)} />
                   </Field>
                   <Field label={t("assets.proceedsAccount")} required>
-                    <select className="input" value={bankId} onChange={(e) => setBankId(e.target.value)}>
+                    <select className="field" value={bankId} onChange={(e) => setBankId(e.target.value)}>
                       {banks.map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}
                     </select>
                   </Field>
                   <Field label={t("assets.soldOn")}>
-                    <NumericDateInput className="input" value={sellDate} onChange={(v) => setSellDate(v)} />
+                    <NumericDateInput className="field" value={sellDate} onChange={(v) => setSellDate(v)} />
                   </Field>
                 </>
               )}
@@ -227,7 +235,7 @@ export default function AssetDetailPage() {
               )}
               {dialog === "transfer" && (
                 <Field label={t("assets.branch")} required>
-                  <select className="input" value={toBranch} onChange={(e) => setToBranch(e.target.value)}>
+                  <select className="field" value={toBranch} onChange={(e) => setToBranch(e.target.value)}>
                     <option value="">—</option>
                     {branches.filter((b) => b.id !== asset.branchId).map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}
                   </select>

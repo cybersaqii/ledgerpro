@@ -27,6 +27,7 @@ export default function DepreciationRunDetailPage() {
   const [entries, setEntries] = useState<Entry[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [confirmAct, setConfirmAct] = useState<{ path: string; msg: string } | null>(null);
 
   const load = useCallback(async () => {
     try {
@@ -42,8 +43,7 @@ export default function DepreciationRunDetailPage() {
 
   if (!can) return <PageHeader title={t("assets.title")} icon={<CalendarClock size={20} />} />;
 
-  const act = async (path: string, confirmMsg: string | null) => {
-    if (confirmMsg && !window.confirm(confirmMsg)) return;
+  const act = async (path: string) => {
     setBusy(true);
     try {
       await api(`/api/assets/depreciation/runs/${id}${path}`, {
@@ -69,16 +69,23 @@ export default function DepreciationRunDetailPage() {
           <div className="flex flex-wrap gap-2">
             {isDraft && (
               <button className="btn btn-primary !py-2 text-sm" disabled={busy}
-                onClick={() => act("/post", t("assets.confirmPost"))}>{t("assets.post")}</button>
+                onClick={() => setConfirmAct({ path: "/post", msg: t("assets.confirmPost") })}>{t("assets.post")}</button>
             )}
             {run.status === "POSTED" && (
               <button className="btn btn-ghost !py-2 text-sm !text-danger" disabled={busy}
-                onClick={() => act("/void", t("assets.confirmVoid"))}>{t("assets.voidRun")}</button>
+                onClick={() => setConfirmAct({ path: "/void", msg: t("assets.confirmVoid") })}>{t("assets.voidRun")}</button>
             )}
           </div>
         }
       />
       <ErrorNote message={error} />
+      {confirmAct && (
+        <div className="flex flex-wrap items-center gap-2 rounded-xl border border-border bg-muted/50 px-3.5 py-2.5 text-sm">
+          <span className="font-bold">{confirmAct.msg}</span>
+          <button className="btn btn-primary !py-1.5 text-sm" disabled={busy} onClick={() => { const a = confirmAct; setConfirmAct(null); act(a.path); }}>{t("common.confirm")}</button>
+          <button className="btn btn-ghost !py-1.5 text-sm" onClick={() => setConfirmAct(null)}>{t("common.cancel")}</button>
+        </div>
+      )}
       <StatusPill status={run.status} />
 
       <SummaryChips items={[

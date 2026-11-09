@@ -55,13 +55,13 @@ export default function TemplatePage() {
   }
 
   return (
-    <div>
+    <div className="mx-auto max-w-2xl">
       <PageHeader
         title={t("template.title")}
         subtitle={t("template.subtitle")}
         icon={<Palette size={20} />}
       />
-      <div className="card mx-auto max-w-2xl p-6 sm:p-8">
+      <div className="card p-6 sm:p-8">
         {loading ? (
           <div className="space-y-4">{[1, 2, 3].map((i) => <div key={i} className="skeleton h-12 rounded-xl" />)}</div>
         ) : (

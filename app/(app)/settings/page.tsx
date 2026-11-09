@@ -1349,6 +1349,8 @@ function SessionsCard() {
   const [devLoading, setDevLoading] = useState(true);
   const [devError, setDevError] = useState<string | null>(null);
   const [revoking, setRevoking] = useState<string | null>(null);
+  const [revokeId, setRevokeId] = useState<string | null>(null);
+  const [confirmLogout, setConfirmLogout] = useState(false);
 
   async function loadDevices() {
     setDevLoading(true); setDevError(null);
@@ -1363,7 +1365,7 @@ function SessionsCard() {
   }
 
   async function revokeDevice(id: string) {
-    if (!window.confirm(t("settingssyncdevices.revokeConfirm"))) return;
+    setRevokeId(null);
     setRevoking(id); setDevError(null);
     try {
       await api(`/api/sync/devices/${id}`, { method: "DELETE" });
@@ -1389,7 +1391,7 @@ function SessionsCard() {
   }, [t]);
 
   async function logoutEverywhere() {
-    if (!window.confirm(t("settingssessions.logoutConfirm"))) return;
+    setConfirmLogout(false);
     setBusy(true); setError(null);
     try {
       await api("/api/auth/logout-everywhere", { method: "POST" });
@@ -1466,7 +1468,7 @@ function SessionsCard() {
                     ) : (
                       <button
                         type="button"
-                        onClick={() => revokeDevice(d.id)}
+                        onClick={() => setRevokeId(d.id)}
                         disabled={revoking === d.id}
                         className="btn btn-ghost shrink-0 text-sm text-danger"
                       >
@@ -1478,11 +1480,25 @@ function SessionsCard() {
               })}
             </ul>
           )}
+          {revokeId && (
+            <div className="mt-3 flex flex-wrap items-center gap-2 rounded-xl border border-danger/30 bg-danger-soft px-3.5 py-2.5 text-sm">
+              <span className="font-bold">{t("settingssyncdevices.revokeConfirm")}</span>
+              <button className="btn btn-danger !py-1.5 text-sm" disabled={revoking === revokeId} onClick={() => revokeDevice(revokeId)}>{t("settingssyncdevices.revoke")}</button>
+              <button className="btn btn-ghost !py-1.5 text-sm" onClick={() => setRevokeId(null)}>{t("common.cancel")}</button>
+            </div>
+          )}
         </div>
       </div>
-      <button onClick={logoutEverywhere} disabled={busy || loading} className="btn btn-ghost mt-4 text-sm text-danger">
+      <button onClick={() => setConfirmLogout(true)} disabled={busy || loading} className="btn btn-ghost mt-4 text-sm text-danger">
         <LogOut size={15} /> {busy ? t("settingssessions.loggingOut") : t("settingssessions.logoutAll")}
       </button>
+      {confirmLogout && (
+        <div className="mt-3 flex flex-wrap items-center gap-2 rounded-xl border border-border bg-muted/50 px-3.5 py-2.5 text-sm">
+          <span className="font-bold">{t("settingssessions.logoutConfirm")}</span>
+          <button className="btn btn-primary !py-1.5 text-sm" disabled={busy} onClick={logoutEverywhere}>{t("common.confirm")}</button>
+          <button className="btn btn-ghost !py-1.5 text-sm" onClick={() => setConfirmLogout(false)}>{t("common.cancel")}</button>
+        </div>
+      )}
     </div>
   );
 }
@@ -1534,7 +1550,7 @@ function PeriodLockCard() {
         ))}
       </ul>
       {loading ? (
-        <div className="mt-4 h-12 animate-pulse rounded-xl bg-muted" />
+        <div className="mt-4 skeleton h-12 rounded-xl" />
       ) : (
         <div className="mt-4">
           <ErrorNote message={error} />
@@ -1589,6 +1605,7 @@ function YearEndCloseCard() {
     closes: { fiscalYear: string; entryId: string | null; netIncome: string; closedAt: number | string }[];
   } | null>(null);
   const [selected, setSelected] = useState("");
+  const [confirmClose, setConfirmClose] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [done, setDone] = useState<string | null>(null);
@@ -1605,7 +1622,8 @@ function YearEndCloseCard() {
   }, []);
 
   async function close() {
-    if (!selected || !confirm(t("closeyear.confirm", { year: selected }))) return;
+    if (!selected) return;
+    setConfirmClose(false);
     setBusy(true); setError(null); setDone(null);
     try {
       const d = await api<{ data: { fiscalYear: string; docNo: string | null; netIncome: string } }>(
@@ -1632,13 +1650,13 @@ function YearEndCloseCard() {
       <h2 className="inline-flex items-center gap-2 text-lg font-extrabold"><CalendarCheck size={19} /> {t("closeyear.title")}</h2>
       <p className="mt-1 text-sm text-muted-foreground">{t("closeyear.hint")}</p>
       {loading ? (
-        <div className="mt-4 h-12 animate-pulse rounded-xl bg-muted" />
+        <div className="mt-4 skeleton h-12 rounded-xl" />
       ) : (
         <div className="mt-4">
           <ErrorNote message={error} />
           {done && <p className="rounded-xl bg-primary-soft px-4 py-2.5 text-sm font-semibold text-primary">{done}</p>}
           <div className="overflow-x-auto">
-            <table className="tbl">
+            <table className="tbl tbl-fa">
               <thead><tr><th>{t("closeyear.colYear")}</th><th>{t("closeyear.colPeriod")}</th><th className="num">{t("closeyear.colNet")}</th><th className="!text-end">{t("closeyear.colStatus")}</th></tr></thead>
               <tbody>
                 {status?.candidates.map((c) => {
@@ -1665,9 +1683,16 @@ function YearEndCloseCard() {
               </tbody>
             </table>
           </div>
+          {confirmClose && (
+            <div className="mt-4 flex flex-wrap items-center gap-2 rounded-xl border border-border bg-muted/50 px-3.5 py-2.5 text-sm">
+              <span className="font-bold">{t("closeyear.confirm", { year: selected })}</span>
+              <button className="btn btn-primary !py-1.5 text-sm" disabled={busy} onClick={close}>{t("closeyear.closeYear", { year: selected })}</button>
+              <button className="btn btn-ghost !py-1.5 text-sm" onClick={() => setConfirmClose(false)}>{t("common.cancel")}</button>
+            </div>
+          )}
           <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
             <p className="text-xs text-muted-foreground">{t("closeyear.lockNote")}</p>
-            <button className="btn btn-primary text-sm" disabled={busy || !selected} onClick={close}>
+            <button className="btn btn-primary text-sm" disabled={busy || !selected} onClick={() => setConfirmClose(true)}>
               {busy ? t("closeyear.closing") : t("closeyear.closeYear", { year: selected })}
             </button>
           </div>
@@ -1839,6 +1864,7 @@ function AccessSecurityCard() {
   const [bypass, setBypass] = useState<BypassUser[]>([]);
   const [users, setUsers] = useState<{ id: string; name: string; email: string }[]>([]);
   const [attempts, setAttempts] = useState<LoginAttempt[]>([]);
+  const [removeIpId, setRemoveIpId] = useState<string | null>(null);
   const [backup, setBackup] = useState<BackupStatus>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -1889,7 +1915,7 @@ function AccessSecurityCard() {
   }
 
   async function removeIp(id: string) {
-    if (!window.confirm(t("settingsaccess.removeIpConfirm"))) return;
+    setRemoveIpId(null);
     setBusy(true); setError(null);
     try {
       await api(`/api/security/ip-allowlist/${id}`, { method: "DELETE" });
@@ -1946,12 +1972,19 @@ function AccessSecurityCard() {
               {ips.map((e) => (
                 <li key={e.id} className="flex items-center justify-between gap-3 rounded-xl bg-muted/50 px-3 py-2 text-sm">
                   <span><code className="font-bold">{e.cidr}</code>{e.label && <span className="ms-2 text-muted-foreground">{e.label}</span>}</span>
-                  <button className="btn btn-ghost !px-2 !py-1 text-xs !text-danger" disabled={busy} onClick={() => removeIp(e.id)}>
+                  <button className="btn btn-ghost !px-2 !py-1 text-xs !text-danger" disabled={busy} onClick={() => setRemoveIpId(e.id)}>
                     <Trash2 size={13} /> {t("settingsaccess.remove")}
                   </button>
                 </li>
               ))}
             </ul>
+          )}
+          {removeIpId && (
+            <div className="mt-3 flex flex-wrap items-center gap-2 rounded-xl border border-danger/30 bg-danger-soft px-3.5 py-2.5 text-sm">
+              <span className="font-bold">{t("settingsaccess.removeIpConfirm")}</span>
+              <button className="btn btn-danger !py-1.5 text-sm" disabled={busy} onClick={() => removeIp(removeIpId)}>{t("settingsaccess.remove")}</button>
+              <button className="btn btn-ghost !py-1.5 text-sm" onClick={() => setRemoveIpId(null)}>{t("common.cancel")}</button>
+            </div>
           )}
           <div className="mt-3 grid gap-2 sm:grid-cols-[1fr_1fr_auto]">
             <Field label={t("settingsaccess.cidr")}>
@@ -2001,7 +2034,7 @@ function AccessSecurityCard() {
           <h3 className="text-sm font-extrabold">{t("settingsaccess.attemptsTitle")}</h3>
           <p className="mt-1 text-xs text-muted-foreground">{t("settingsaccess.attemptsHint")}</p>
           <div className="mt-3 max-h-64 overflow-y-auto">
-            <table className="tbl">
+            <table className="tbl tbl-fa">
               <thead><tr><th>{t("settingsaccess.colEmail")}</th><th>{t("settingsaccess.colIp")}</th><th>{t("settingsaccess.colResult")}</th><th>{t("settingsaccess.colWhen")}</th></tr></thead>
               <tbody>
                 {attempts.map((a) => (

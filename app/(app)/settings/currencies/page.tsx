@@ -1,9 +1,9 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { ArrowLeft, Plus, RefreshCw } from "lucide-react";
+import { ArrowLeft, Coins, Plus, RefreshCw } from "lucide-react";
 import Link from "next/link";
-import { PageHeader, ErrorNote } from "@/components/ui";
+import { PageHeader, ErrorNote, EmptyState } from "@/components/ui";
 import { api } from "@/lib/format";
 import { useLang } from "@/components/lang-provider";
 import { usePermissions } from "@/components/permissions";
@@ -148,11 +148,11 @@ export default function CurrenciesPage() {
   }
 
   return (
-    <div className="mx-auto max-w-3xl p-4 sm:p-6">
+    <div className="mx-auto max-w-5xl">
       <Link href="/settings" className="mb-4 inline-flex items-center gap-1.5 text-sm font-semibold text-muted-foreground hover:text-primary">
         <ArrowLeft size={15} className="rtl:rotate-180" /> {t("settingscurrencies.backToSettings")}
       </Link>
-      <PageHeader title={t("settingscurrencies.title")} subtitle={t("settingscurrencies.hint")} />
+      <PageHeader title={t("settingscurrencies.title")} subtitle={t("settingscurrencies.hint")} icon={<Coins size={20} />} />
 
       {error && <div className="mt-4"><ErrorNote message={error} /></div>}
       {notice && (
@@ -169,24 +169,24 @@ export default function CurrenciesPage() {
           </button>
         </div>
         {loading ? (
-          <p className="mt-4 text-sm text-muted-foreground">{t("settingscurrencies.loading")}</p>
+          <div className="mt-4 space-y-3">{[1, 2, 3].map((i) => <div key={i} className="skeleton h-12 rounded-xl" />)}</div>
         ) : currencies.length === 0 ? (
-          <p className="mt-4 text-sm text-muted-foreground">{t("settingscurrencies.empty")}</p>
+          <div className="mt-4"><EmptyState title={t("settingscurrencies.empty")} /></div>
         ) : (
           <div className="mt-4 overflow-x-auto">
-            <table className="w-full text-sm">
+            <table className="tbl tbl-fa">
               <thead>
-                <tr className="border-b border-border text-start text-xs uppercase tracking-wide text-muted-foreground">
-                  <th className="py-2 pe-3 text-start font-bold">{t("settingscurrencies.colCode")}</th>
-                  <th className="py-2 pe-3 text-start font-bold">{t("settingscurrencies.colName")}</th>
-                  <th className="py-2 pe-3 text-start font-bold">{t("settingscurrencies.colUnits")}</th>
-                  <th className="py-2 text-start font-bold">{t("settingscurrencies.colRate")}</th>
+                <tr>
+                  <th>{t("settingscurrencies.colCode")}</th>
+                  <th>{t("settingscurrencies.colName")}</th>
+                  <th>{t("settingscurrencies.colUnits")}</th>
+                  <th>{t("settingscurrencies.colRate")}</th>
                 </tr>
               </thead>
               <tbody>
                 {currencies.map((c) => (
-                  <tr key={c.code} className="border-b border-border/60 last:border-0">
-                    <td className="py-2.5 pe-3 font-extrabold">
+                  <tr key={c.code}>
+                    <td className="font-extrabold">
                       {c.code}
                       {c.isBase && (
                         <span className="ms-2 rounded-full bg-primary/10 px-2 py-0.5 text-[11px] font-bold text-primary">
@@ -194,9 +194,9 @@ export default function CurrenciesPage() {
                         </span>
                       )}
                     </td>
-                    <td className="py-2.5 pe-3 text-muted-foreground">{c.name}{c.symbol ? ` (${c.symbol})` : ""}</td>
-                    <td className="py-2.5 pe-3 text-muted-foreground">{c.minorUnits}</td>
-                    <td className="py-2.5">
+                    <td className="text-muted-foreground">{c.name}{c.symbol ? ` (${c.symbol})` : ""}</td>
+                    <td className="text-muted-foreground">{c.minorUnits}</td>
+                    <td>
                       {c.isBase ? (
                         <span className="text-muted-foreground">1.000000</span>
                       ) : c.latestRate ? (
@@ -231,25 +231,25 @@ export default function CurrenciesPage() {
                 {t("settingscurrencies.colCode")}
                 <input value={newCode} onChange={(e) => setNewCode(e.target.value.toUpperCase())}
                   placeholder="AED" maxLength={3} required
-                  className="input mt-1 w-full uppercase" />
+                  className="field mt-1 w-full uppercase" />
               </label>
               <label className="text-xs font-bold">
                 {t("settingscurrencies.colName")}
                 <input value={newName} onChange={(e) => setNewName(e.target.value)}
                   placeholder={t("settingscurrencies.namePlaceholder")} maxLength={60} required
-                  className="input mt-1 w-full" />
+                  className="field mt-1 w-full" />
               </label>
               <label className="text-xs font-bold">
                 {t("settingscurrencies.colSymbol")}
                 <input value={newSymbol} onChange={(e) => setNewSymbol(e.target.value)}
                   placeholder="د.إ" maxLength={6}
-                  className="input mt-1 w-full" />
+                  className="field mt-1 w-full" />
               </label>
               <label className="text-xs font-bold">
                 {t("settingscurrencies.colUnits")}
                 <input value={newUnits} onChange={(e) => setNewUnits(e.target.value)}
                   type="number" min={0} max={6} required
-                  className="input mt-1 w-full" />
+                  className="field mt-1 w-full" />
               </label>
               <div className="col-span-2 sm:col-span-4">
                 <button className="btn btn-primary text-sm" disabled={adding}>
@@ -265,7 +265,7 @@ export default function CurrenciesPage() {
             <form onSubmit={saveRate} className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-4">
               <label className="text-xs font-bold">
                 {t("settingscurrencies.colCode")}
-                <select value={rateCode} onChange={(e) => setRateCode(e.target.value)} required className="input mt-1 w-full">
+                <select value={rateCode} onChange={(e) => setRateCode(e.target.value)} required className="field mt-1 w-full">
                   {foreignCurrencies.map((c) => (
                     <option key={c.code} value={c.code}>{c.code} — {c.name}</option>
                   ))}
@@ -275,12 +275,12 @@ export default function CurrenciesPage() {
                 {t("settingscurrencies.rateLabel")}
                 <input value={rateValue} onChange={(e) => setRateValue(e.target.value)}
                   placeholder="76.500000" required inputMode="decimal"
-                  className="input mt-1 w-full" dir="ltr" />
+                  className="field mt-1 w-full" dir="ltr" />
               </label>
               <label className="text-xs font-bold">
                 {t("settingscurrencies.dateLabel")}
                 <NumericDateInput
-                  className="input mt-1 w-full"
+                  className="field mt-1 w-full"
                   value={rateDate}
                   onChange={(v) => setRateDate(v)}
                   required
@@ -302,7 +302,7 @@ export default function CurrenciesPage() {
           <h2 className="text-base font-extrabold">{t("settingscurrencies.historyTitle")}</h2>
           <label className="flex items-center gap-2 text-xs font-bold">
             {t("settingscurrencies.colCode")}
-            <select value={histCode} onChange={(e) => setHistCode(e.target.value)} className="input w-auto">
+            <select value={histCode} onChange={(e) => setHistCode(e.target.value)} className="field !w-auto">
               {currencies.filter((c) => !c.isBase).map((c) => (
                 <option key={c.code} value={c.code}>{c.code}</option>
               ))}
@@ -310,23 +310,23 @@ export default function CurrenciesPage() {
           </label>
         </div>
         {histLoading ? (
-          <p className="mt-4 text-sm text-muted-foreground">{t("settingscurrencies.loading")}</p>
+          <div className="mt-4 space-y-3">{[1, 2, 3].map((i) => <div key={i} className="skeleton h-12 rounded-xl" />)}</div>
         ) : history.length === 0 ? (
-          <p className="mt-4 text-sm text-muted-foreground">{t("settingscurrencies.historyEmpty")}</p>
+          <div className="mt-4"><EmptyState title={t("settingscurrencies.historyEmpty")} /></div>
         ) : (
           <div className="mt-4 overflow-x-auto">
-            <table className="w-full text-sm">
+            <table className="tbl tbl-fa">
               <thead>
-                <tr className="border-b border-border text-start text-xs uppercase tracking-wide text-muted-foreground">
-                  <th className="py-2 pe-3 text-start font-bold">{t("settingscurrencies.dateLabel")}</th>
-                  <th className="py-2 text-start font-bold">{t("settingscurrencies.rateLabel")}</th>
+                <tr>
+                  <th>{t("settingscurrencies.dateLabel")}</th>
+                  <th>{t("settingscurrencies.rateLabel")}</th>
                 </tr>
               </thead>
               <tbody>
                 {history.map((r) => (
-                  <tr key={r.id} className="border-b border-border/60 last:border-0">
-                    <td className="py-2.5 pe-3 text-muted-foreground">{r.effectiveDate}</td>
-                    <td className="py-2.5 font-bold" dir="ltr">{r.rate}</td>
+                  <tr key={r.id}>
+                    <td className="text-muted-foreground">{r.effectiveDate}</td>
+                    <td className="font-bold" dir="ltr">{r.rate}</td>
                   </tr>
                 ))}
               </tbody>

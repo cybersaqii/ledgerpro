@@ -22,17 +22,21 @@ export default function PayrollPage() {
   const can = useCan("payroll");
   const [runs, setRuns] = useState<Run[]>([]);
   const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
   const [year, setYear] = useState(new Date().getFullYear());
   const [month, setMonth] = useState(new Date().getMonth() + 1);
   const [creating, setCreating] = useState(false);
 
   const load = useCallback(async () => {
+    setLoading(true);
     try {
       const d = await api<{ data: Run[] }>("/api/payroll/runs");
       setRuns(d.data);
       setError(null);
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setLoading(false);
     }
   }, []);
   useEffect(() => {
@@ -59,9 +63,10 @@ export default function PayrollPage() {
   const period = (r: Run) => `${r.year}-${String(r.month).padStart(2, "0")}`;
 
   return (
-    <div className="space-y-4">
+    <div className="mx-auto max-w-5xl space-y-6">
       <PageHeader
         title={t("payroll.title")}
+        subtitle={t("payroll.subtitle")}
         icon={<Briefcase size={20} />}
         actions={
           <div className="flex flex-wrap gap-2">
@@ -76,11 +81,11 @@ export default function PayrollPage() {
         <h2 className="text-sm font-bold">{t("payroll.newRun")}</h2>
         <div className="mt-3 flex flex-wrap items-end gap-3">
           <Field label={t("payroll.year")}>
-            <input type="number" className="input w-28" value={year} min={2000} max={2100}
+            <input type="number" className="field !w-28" value={year} min={2000} max={2100}
               onChange={(e) => setYear(Number(e.target.value))} />
           </Field>
           <Field label={t("payroll.month")}>
-            <input type="number" className="input w-24" value={month} min={1} max={12}
+            <input type="number" className="field !w-24" value={month} min={1} max={12}
               onChange={(e) => setMonth(Number(e.target.value))} />
           </Field>
           <button className="btn btn-primary !py-2 text-sm" onClick={create} disabled={creating}>
@@ -91,7 +96,9 @@ export default function PayrollPage() {
 
       <div className="rounded-2xl border border-border bg-card">
         <div className="border-b border-border px-4 py-3 text-sm font-bold">{t("payroll.runs")}</div>
-        {runs.length === 0 ? (
+        {loading ? (
+          <div className="space-y-3 p-4">{[1, 2, 3].map((i) => <div key={i} className="skeleton h-14 rounded-xl" />)}</div>
+        ) : runs.length === 0 ? (
           <div className="p-4"><EmptyState title={t("payroll.noRuns")} icon={<Briefcase size={22} />} /></div>
         ) : (
           <ul className="divide-y divide-border">
@@ -117,12 +124,12 @@ export default function PayrollPage() {
       </div>
 
       <div className="grid grid-cols-2 gap-3">
-        <Link href="/payroll/employees" className="rounded-2xl border border-border bg-card p-4 hover:bg-muted/40">
-          <Users size={18} />
+        <Link href="/payroll/employees" className="card-lift rounded-2xl border border-border bg-card p-4 transition hover:border-primary">
+          <span className="inline-block rounded-xl bg-primary/10 p-2 text-primary"><Users size={18} /></span>
           <div className="mt-2 text-sm font-bold">{t("payroll.employees")}</div>
         </Link>
-        <Link href="/payroll/employees?tab=advances" className="rounded-2xl border border-border bg-card p-4 hover:bg-muted/40">
-          <HandCoins size={18} />
+        <Link href="/payroll/employees?tab=advances" className="card-lift rounded-2xl border border-border bg-card p-4 transition hover:border-primary">
+          <span className="inline-block rounded-xl bg-primary/10 p-2 text-primary"><HandCoins size={18} /></span>
           <div className="mt-2 text-sm font-bold">{t("payroll.advances")}</div>
         </Link>
       </div>

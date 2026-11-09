@@ -128,7 +128,7 @@ export default function ExpensesPage() {
   }
 
   return (
-    <div>
+    <div className="mx-auto max-w-5xl">
       <PageHeader
         title={t("expenses.title")}
         subtitle={t("expenses.subtitle")}
@@ -181,7 +181,7 @@ export default function ExpensesPage() {
             action={!hasFilter ? <button className="btn btn-primary text-sm" onClick={openModal}><Plus size={16} /> {t("expenses.addNow")}</button> : undefined} />
         ) : (
           <div className="overflow-x-auto">
-            <table className="tbl">
+            <table className="tbl tbl-fa">
               <thead><tr><th>{t("expenses.colDocNo")}</th><th>{t("expenses.colDate")}</th><th>{t("expenses.colAccount")}</th><th>{t("expenses.colPaidFrom")}</th><th>{t("expenses.colNotes")}</th><th className="num">{t("expenses.colAmount")}</th>{canVoid && <th>{f("fix3.voidExpense")}</th>}</tr></thead>
               <tbody>
                 {rows.map((x) => (

@@ -73,16 +73,23 @@ export default function AdminSupportPage() {
     }
   }
 
-  if (loading) return <PageHeader title={t("adminsupport.title")} subtitle={t("adminsupport.inboxSub")} icon={<Inbox size={22} />} />;
+  if (loading) return (
+    <div className="mx-auto max-w-5xl space-y-6">
+      <PageHeader title={t("adminsupport.title")} subtitle={t("adminsupport.inboxSub")} icon={<Inbox size={22} />} />
+      <div className="card p-5">
+        <div className="space-y-3">{[1, 2, 3].map((i) => <div key={i} className="skeleton h-24 rounded-xl" />)}</div>
+      </div>
+    </div>
+  );
   if (forbidden) return (
-    <div className="space-y-4">
+    <div className="mx-auto max-w-5xl space-y-6">
       <PageHeader title={t("adminsupport.title")} subtitle={t("adminsupport.inboxSub")} icon={<Inbox size={22} />} />
       <EmptyState title={t("adminsupport.notAuth")} hint={t("adminsupport.notAuthHint")} />
     </div>
   );
 
   return (
-    <div className="space-y-6">
+    <div className="mx-auto max-w-5xl space-y-6">
       <PageHeader title={t("adminsupport.title")} subtitle={t("adminsupport.subtitle")} icon={<Inbox size={22} />} />
       <ErrorNote message={error} />
       <div className="card p-5">

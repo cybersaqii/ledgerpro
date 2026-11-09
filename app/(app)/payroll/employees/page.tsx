@@ -162,7 +162,7 @@ export default function EmployeesPage() {
         <>
           <div className="relative">
             <Search size={15} className="absolute start-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
-            <input className="input ps-9" placeholder={t("payroll.searchEmployees")} value={q} onChange={(e) => setQ(e.target.value)} />
+            <input className="field !ps-9" placeholder={t("payroll.searchEmployees")} value={q} onChange={(e) => setQ(e.target.value)} />
           </div>
           <div className="rounded-2xl border border-border bg-card">
             {employees.length === 0 ? (
@@ -222,25 +222,25 @@ export default function EmployeesPage() {
           <div className="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-t-2xl bg-card p-5 sm:rounded-2xl" onClick={(e) => e.stopPropagation()}>
             <h2 className="text-base font-bold">{editing ? editing.fullName : t("payroll.newEmployee")}</h2>
             <div className="mt-4 grid grid-cols-2 gap-3">
-              {!editing && <Field label={t("payroll.code")} required><input className="input" value={empForm.code} onChange={(e) => setEmpForm({ ...empForm, code: e.target.value })} /></Field>}
-              <Field label={t("payroll.fullName")} required><input className="input" value={empForm.fullName} onChange={(e) => setEmpForm({ ...empForm, fullName: e.target.value })} /></Field>
-              <Field label={t("payroll.cnic")}><input className="input" value={empForm.cnic} onChange={(e) => setEmpForm({ ...empForm, cnic: e.target.value })} /></Field>
-              <Field label={t("payroll.email")}><input className="input" value={empForm.email} onChange={(e) => setEmpForm({ ...empForm, email: e.target.value })} /></Field>
-              <Field label={t("payroll.department")}><input className="input" value={empForm.department} onChange={(e) => setEmpForm({ ...empForm, department: e.target.value })} /></Field>
-              <Field label={t("payroll.designation")}><input className="input" value={empForm.designation} onChange={(e) => setEmpForm({ ...empForm, designation: e.target.value })} /></Field>
-              {!editing && <Field label={t("payroll.joiningDate")} required><NumericDateInput className="input" value={empForm.joiningDate} onChange={(v) => setEmpForm({ ...empForm, joiningDate: v })} /></Field>}
+              {!editing && <Field label={t("payroll.code")} required><input className="field" value={empForm.code} onChange={(e) => setEmpForm({ ...empForm, code: e.target.value })} /></Field>}
+              <Field label={t("payroll.fullName")} required><input className="field" value={empForm.fullName} onChange={(e) => setEmpForm({ ...empForm, fullName: e.target.value })} /></Field>
+              <Field label={t("payroll.cnic")}><input className="field" value={empForm.cnic} onChange={(e) => setEmpForm({ ...empForm, cnic: e.target.value })} /></Field>
+              <Field label={t("payroll.email")}><input className="field" value={empForm.email} onChange={(e) => setEmpForm({ ...empForm, email: e.target.value })} /></Field>
+              <Field label={t("payroll.department")}><input className="field" value={empForm.department} onChange={(e) => setEmpForm({ ...empForm, department: e.target.value })} /></Field>
+              <Field label={t("payroll.designation")}><input className="field" value={empForm.designation} onChange={(e) => setEmpForm({ ...empForm, designation: e.target.value })} /></Field>
+              {!editing && <Field label={t("payroll.joiningDate")} required><NumericDateInput className="field" value={empForm.joiningDate} onChange={(v) => setEmpForm({ ...empForm, joiningDate: v })} /></Field>}
               <Field label={t("payroll.employmentType")}>
-                <select className="input" value={empForm.employmentType} onChange={(e) => setEmpForm({ ...empForm, employmentType: e.target.value })}>
+                <select className="field" value={empForm.employmentType} onChange={(e) => setEmpForm({ ...empForm, employmentType: e.target.value })}>
                   <option value="PERMANENT">{t("payroll.permanent")}</option>
                   <option value="CONTRACT">{t("payroll.contract")}</option>
                   <option value="DAILY_WAGE">{t("payroll.dailyWage")}</option>
                 </select>
               </Field>
-              <Field label={t("payroll.bankName")}><input className="input" value={empForm.bankName} onChange={(e) => setEmpForm({ ...empForm, bankName: e.target.value })} /></Field>
-              <Field label={t("payroll.bankAccountNo")}><input className="input" value={empForm.bankAccountNo} onChange={(e) => setEmpForm({ ...empForm, bankAccountNo: e.target.value })} /></Field>
-              <Field label={t("payroll.ntn")}><input className="input" value={empForm.ntn} onChange={(e) => setEmpForm({ ...empForm, ntn: e.target.value })} /></Field>
+              <Field label={t("payroll.bankName")}><input className="field" value={empForm.bankName} onChange={(e) => setEmpForm({ ...empForm, bankName: e.target.value })} /></Field>
+              <Field label={t("payroll.bankAccountNo")}><input className="field" value={empForm.bankAccountNo} onChange={(e) => setEmpForm({ ...empForm, bankAccountNo: e.target.value })} /></Field>
+              <Field label={t("payroll.ntn")}><input className="field" value={empForm.ntn} onChange={(e) => setEmpForm({ ...empForm, ntn: e.target.value })} /></Field>
               <Field label={empForm.employmentType === "DAILY_WAGE" ? t("payroll.dailyRate") : t("payroll.monthlySalary")} required>
-                <input type="number" min="0" className="input" value={empForm.baseSalary} onChange={(e) => setEmpForm({ ...empForm, baseSalary: e.target.value })} />
+                <input type="number" min="0" className="field" value={empForm.baseSalary} onChange={(e) => setEmpForm({ ...empForm, baseSalary: e.target.value })} />
               </Field>
             </div>
             {empForm.employmentType !== "DAILY_WAGE" && (
@@ -249,7 +249,7 @@ export default function EmployeesPage() {
                 <div className="mt-2 grid grid-cols-2 gap-3 sm:grid-cols-3">
                   {([["basic", t("payroll.basic")], ["hra", t("payroll.hra")], ["medical", t("payroll.medical")], ["conveyance", t("payroll.conveyance")], ["specialAllowance", t("payroll.special")]] as const).map(([k, label]) => (
                     <Field key={k} label={label}>
-                      <input type="number" min="0" className="input" value={empForm[k]} onChange={(e) => setEmpForm({ ...empForm, [k]: e.target.value })} />
+                      <input type="number" min="0" className="field" value={empForm[k]} onChange={(e) => setEmpForm({ ...empForm, [k]: e.target.value })} />
                     </Field>
                   ))}
                 </div>
@@ -270,23 +270,23 @@ export default function EmployeesPage() {
             <h2 className="text-base font-bold">{t("payroll.newAdvance")}</h2>
             <div className="mt-4 space-y-3">
               <Field label={t("payroll.employees")} required>
-                <select className="input" value={advForm.employeeId} onChange={(e) => setAdvForm({ ...advForm, employeeId: e.target.value })}>
+                <select className="field" value={advForm.employeeId} onChange={(e) => setAdvForm({ ...advForm, employeeId: e.target.value })}>
                   {employees.filter((e) => e.isActive).map((e) => <option key={e.id} value={e.id}>{e.fullName} ({e.code})</option>)}
                 </select>
               </Field>
               <Field label={t("payroll.amount")} required>
-                <input type="number" min="0" className="input" value={advForm.amount} onChange={(e) => setAdvForm({ ...advForm, amount: e.target.value })} />
+                <input type="number" min="0" className="field" value={advForm.amount} onChange={(e) => setAdvForm({ ...advForm, amount: e.target.value })} />
               </Field>
               <Field label={t("payroll.date")} required>
-                <NumericDateInput className="input" value={advForm.date} onChange={(v) => setAdvForm({ ...advForm, date: v })} />
+                <NumericDateInput className="field" value={advForm.date} onChange={(v) => setAdvForm({ ...advForm, date: v })} />
               </Field>
               <Field label={t("payroll.bankAccount")} required>
-                <select className="input" value={advForm.bankAccountId} onChange={(e) => setAdvForm({ ...advForm, bankAccountId: e.target.value })}>
+                <select className="field" value={advForm.bankAccountId} onChange={(e) => setAdvForm({ ...advForm, bankAccountId: e.target.value })}>
                   {banks.map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}
                 </select>
               </Field>
               <Field label={t("payroll.note")}>
-                <input className="input" value={advForm.note} onChange={(e) => setAdvForm({ ...advForm, note: e.target.value })} />
+                <input className="field" value={advForm.note} onChange={(e) => setAdvForm({ ...advForm, note: e.target.value })} />
               </Field>
             </div>
             <div className="mt-4 flex justify-end gap-2">

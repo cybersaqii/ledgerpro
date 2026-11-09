@@ -28,6 +28,7 @@ export default function AssetsPage() {
   const router = useRouter();
   const can = useCan("assets");
   const [list, setList] = useState<Asset[]>([]);
+  const [loading, setLoading] = useState(true);
   const [status, setStatus] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [open, setOpen] = useState(false);
@@ -47,12 +48,15 @@ export default function AssetsPage() {
   });
 
   const load = useCallback(async () => {
+    setLoading(true);
     try {
       const d = await api<{ data: Asset[] }>("/api/assets");
       setList(d.data);
       setError(null);
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setLoading(false);
     }
   }, []);
   useEffect(() => {
@@ -116,9 +120,10 @@ export default function AssetsPage() {
   const nbv = (a: Asset) => BigInt(a.purchaseCostPaisa) - BigInt(a.accumDepPaisa);
 
   return (
-    <div className="space-y-4">
+    <div className="mx-auto max-w-5xl space-y-6">
       <PageHeader
         title={t("assets.title")}
+        subtitle={t("assets.subtitle")}
         icon={<Factory size={20} />}
         actions={
           <div className="flex flex-wrap gap-2">
@@ -130,7 +135,7 @@ export default function AssetsPage() {
       <ErrorNote message={error} />
 
       <FilterBar>
-        <select className="input w-auto" value={status} onChange={(e) => setStatus(e.target.value)}>
+        <select className="field !w-auto" value={status} onChange={(e) => setStatus(e.target.value)}>
           <option value="">{t("assets.status")}: —</option>
           {["ACTIVE", "DEPRECIATED", "SOLD", "DISPOSED"].map((s) => (
             <option key={s} value={s}>{t(`assets.statuses.${s}`)}</option>
@@ -138,32 +143,36 @@ export default function AssetsPage() {
         </select>
       </FilterBar>
 
-      {filtered.length === 0 ? (
+      {loading ? (
+        <div className="rounded-2xl border border-border bg-card p-5">
+          <div className="space-y-3">{[1, 2, 3].map((i) => <div key={i} className="skeleton h-12 rounded-xl" />)}</div>
+        </div>
+      ) : filtered.length === 0 ? (
         <EmptyState title={t("assets.noAssets")} hint={t("assets.noAssetsHint")} icon={<Factory size={28} />} />
       ) : (
         <div className="overflow-x-auto rounded-2xl border border-border bg-card">
-          <table className="w-full min-w-[640px] text-sm">
+          <table className="tbl tbl-fa min-w-[640px]">
             <thead>
-              <tr className="border-b border-border text-start text-xs text-muted-foreground">
-                <th className="p-3 font-semibold">{t("assets.assetCode")}</th>
-                <th className="p-3 font-semibold">{t("assets.description")}</th>
-                <th className="p-3 text-end font-semibold">{t("assets.purchaseCost")}</th>
-                <th className="p-3 text-end font-semibold">{t("assets.accumDep")}</th>
-                <th className="p-3 text-end font-semibold">{t("assets.nbv")}</th>
-                <th className="p-3 font-semibold">{t("assets.status")}</th>
-                <th className="p-3" />
+              <tr>
+                <th className="font-semibold">{t("assets.assetCode")}</th>
+                <th className="font-semibold">{t("assets.description")}</th>
+                <th className="text-end font-semibold">{t("assets.purchaseCost")}</th>
+                <th className="text-end font-semibold">{t("assets.accumDep")}</th>
+                <th className="text-end font-semibold">{t("assets.nbv")}</th>
+                <th className="font-semibold">{t("assets.status")}</th>
+                <th />
               </tr>
             </thead>
             <tbody>
               {filtered.map((a) => (
-                <tr key={a.id} className="border-b border-border last:border-0 hover:bg-muted/40">
-                  <td className="p-3 font-mono font-bold">{a.code}</td>
-                  <td className="p-3">{a.description}</td>
-                  <td className="p-3 text-end tabular-nums">{fmtMoney(a.purchaseCostPaisa)}</td>
-                  <td className="p-3 text-end tabular-nums">{fmtMoney(a.accumDepPaisa)}</td>
-                  <td className="p-3 text-end font-semibold tabular-nums">{fmtMoney(nbv(a))}</td>
-                  <td className="p-3"><StatusPill status={a.status} /></td>
-                  <td className="p-3 text-end">
+                <tr key={a.id}>
+                  <td className="font-mono font-bold">{a.code}</td>
+                  <td>{a.description}</td>
+                  <td className="text-end tabular-nums">{fmtMoney(a.purchaseCostPaisa)}</td>
+                  <td className="text-end tabular-nums">{fmtMoney(a.accumDepPaisa)}</td>
+                  <td className="text-end font-semibold tabular-nums">{fmtMoney(nbv(a))}</td>
+                  <td><StatusPill status={a.status} /></td>
+                  <td className="text-end">
                     <Link href={`/assets/${a.id}`} className="btn btn-ghost !p-2"><ChevronRight size={16} /></Link>
                   </td>
                 </tr>
@@ -200,14 +209,14 @@ export default function AssetsPage() {
               </p>
               <div className="space-y-4">
                 <Field label={t("assets.description")} required hint={t("assets.descriptionHint")}>
-                  <input className="input !rounded-xl !border-2 !border-border bg-background" value={f.description} onChange={set("description")} placeholder={t("assets.descriptionPh")} />
+                  <input className="field !rounded-xl !border-2 !border-border bg-background" value={f.description} onChange={set("description")} placeholder={t("assets.descriptionPh")} />
                 </Field>
                 <div className="grid grid-cols-2 gap-3">
                   <Field label={t("assets.purchaseCost")} required>
-                    <input inputMode="decimal" className="input !rounded-xl !border-2 !border-border bg-background text-lg font-bold tabular-nums" value={f.purchaseCost} onChange={set("purchaseCost")} placeholder="0.00" />
+                    <input inputMode="decimal" className="field !rounded-xl !border-2 !border-border bg-background text-lg font-bold tabular-nums" value={f.purchaseCost} onChange={set("purchaseCost")} placeholder="0.00" />
                   </Field>
                   <Field label={t("assets.purchaseDate")} required>
-                    <NumericDateInput className="input !rounded-xl !border-2 !border-border bg-background" value={f.purchaseDate} onChange={set("purchaseDate")} />
+                    <NumericDateInput className="field !rounded-xl !border-2 !border-border bg-background" value={f.purchaseDate} onChange={set("purchaseDate")} />
                   </Field>
                 </div>
               </div>
@@ -230,32 +239,32 @@ export default function AssetsPage() {
             {showAdvanced && (
               <div className="mt-3 grid grid-cols-1 gap-3 rounded-2xl border border-border/60 bg-muted/20 p-4 sm:grid-cols-2">
                 <Field label={t("assets.assetCode")} hint={t("assets.assetCodeHint")}>
-                  <input className="input !rounded-xl !border-2 !border-border bg-background" value={f.code} onChange={set("code")} placeholder="AST-0001" />
+                  <input className="field !rounded-xl !border-2 !border-border bg-background" value={f.code} onChange={set("code")} placeholder="AST-0001" />
                 </Field>
                 <Field label={t("assets.assetClass")}>
-                  <select className="input !rounded-xl !border-2 !border-border bg-background" value={f.assetClass} onChange={set("assetClass")}>
+                  <select className="field !rounded-xl !border-2 !border-border bg-background" value={f.assetClass} onChange={set("assetClass")}>
                     {CLASSES.map((c) => <option key={c} value={c}>{c}</option>)}
                   </select>
                 </Field>
                 <Field label={t("assets.serialNumber")}>
-                  <input className="input !rounded-xl !border-2 !border-border bg-background" value={f.serialNumber} onChange={set("serialNumber")} />
+                  <input className="field !rounded-xl !border-2 !border-border bg-background" value={f.serialNumber} onChange={set("serialNumber")} />
                 </Field>
                 <Field label={t("assets.branch")}>
-                  <select className="input !rounded-xl !border-2 !border-border bg-background" value={f.branchId} onChange={set("branchId")}>
+                  <select className="field !rounded-xl !border-2 !border-border bg-background" value={f.branchId} onChange={set("branchId")}>
                     <option value="">—</option>
                     {branches.map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}
                   </select>
                 </Field>
                 <div className="sm:col-span-2">
                   <Field label={t("assets.assetAccount")} hint={t("assets.assetAccountHint")}>
-                    <select className="input !rounded-xl !border-2 !border-border bg-background" value={f.accountId} onChange={set("accountId")}>
+                    <select className="field !rounded-xl !border-2 !border-border bg-background" value={f.accountId} onChange={set("accountId")}>
                       {accounts.map((a) => <option key={a.id} value={a.id}>{a.code} — {a.name}</option>)}
                     </select>
                   </Field>
                 </div>
                 <div className="sm:col-span-2">
                   <Field label={t("assets.accumDepAccount")} hint={t("assets.accumDepHint")}>
-                    <select className="input !rounded-xl !border-2 !border-border bg-background" value={f.accumDepAccountId} onChange={set("accumDepAccountId")}>
+                    <select className="field !rounded-xl !border-2 !border-border bg-background" value={f.accumDepAccountId} onChange={set("accumDepAccountId")}>
                       <option value="">{t("assets.sharedAccumDep")}</option>
                       {accounts.map((a) => <option key={a.id} value={a.id}>{a.code} — {a.name}</option>)}
                     </select>
@@ -281,20 +290,20 @@ export default function AssetsPage() {
             {showDepreciation && (
               <div className="mt-3 grid grid-cols-1 gap-3 rounded-2xl border border-border/60 bg-muted/20 p-4 sm:grid-cols-2">
                 <Field label={t("assets.usefulLife")} required hint={t("assets.usefulLifeHint")}>
-                  <input type="number" min={1} max={100} className="input !rounded-xl !border-2 !border-border bg-background" value={f.usefulLifeYears} onChange={set("usefulLifeYears")} />
+                  <input type="number" min={1} max={100} className="field !rounded-xl !border-2 !border-border bg-background" value={f.usefulLifeYears} onChange={set("usefulLifeYears")} />
                 </Field>
                 <Field label={t("assets.method")} required hint={t("assets.methodHint")}>
-                  <select className="input !rounded-xl !border-2 !border-border bg-background" value={f.depreciationMethod} onChange={set("depreciationMethod")}>
+                  <select className="field !rounded-xl !border-2 !border-border bg-background" value={f.depreciationMethod} onChange={set("depreciationMethod")}>
                     <option value="SL">{t("assets.methodSL")}</option>
                     <option value="DB">{t("assets.methodDB")}</option>
                   </select>
                 </Field>
                 <Field label={t("assets.salvageValue")} hint={t("assets.salvageValueHint")}>
-                  <input inputMode="decimal" className="input !rounded-xl bg-card tabular-nums" value={f.salvageValue} onChange={set("salvageValue")} placeholder="0.00" />
+                  <input inputMode="decimal" className="field !rounded-xl bg-card tabular-nums" value={f.salvageValue} onChange={set("salvageValue")} placeholder="0.00" />
                 </Field>
                 {f.depreciationMethod === "DB" && (
                   <Field label={t("assets.annualRate")} required hint={t("assets.annualRateHint")}>
-                    <input inputMode="decimal" className="input !rounded-xl !border-2 !border-border bg-background" value={f.annualRate} onChange={set("annualRate")} />
+                    <input inputMode="decimal" className="field !rounded-xl !border-2 !border-border bg-background" value={f.annualRate} onChange={set("annualRate")} />
                   </Field>
                 )}
               </div>

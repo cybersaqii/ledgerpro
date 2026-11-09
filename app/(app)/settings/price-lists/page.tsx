@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Pencil, Plus, Star, Trash2, X } from "lucide-react";
+import { ArrowLeft, Pencil, Plus, Star, Tag, Trash2, X } from "lucide-react";
 import { PageHeader, ErrorNote, EmptyState } from "@/components/ui";
 import { useLang } from "@/components/lang-provider";
 import { useCan } from "@/components/permissions";
@@ -22,8 +22,12 @@ export default function PriceListsPage() {
   const canManage = useCan("products");
   const [tab, setTab] = useState<"lists" | "matrix">("lists");
   const [lists, setLists] = useState<PriceList[]>([]);
+  const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [deleteListId, setDeleteListId] = useState<string | null>(null);
+  const [removeItemId, setRemoveItemId] = useState<string | null>(null);
+  const [deleteCellId, setDeleteCellId] = useState<string | null>(null);
 
   // list form
   const [editing, setEditing] = useState<PriceList | null>(null);
@@ -67,14 +71,14 @@ export default function PriceListsPage() {
       setProductCats(cats.data.productCategories);
     } catch (e) { setError(e instanceof Error ? e.message : t("pricing.loadError")); }
   }
-  /* eslint-disable react-hooks/set-state-in-effect -- intentional: fetch on mount */
-  useEffect(() => { loadLists(); loadMatrix(); }, []);
-  /* eslint-enable react-hooks/set-state-in-effect */
+  /* eslint-disable react-hooks/set-state-in-effect, react-hooks/exhaustive-deps -- intentional: fetch on mount */
+  useEffect(() => { Promise.all([loadLists(), loadMatrix()]).finally(() => setLoading(false)); }, []);
+  /* eslint-enable react-hooks/set-state-in-effect, react-hooks/exhaustive-deps */
 
   if (!canManage) {
     return (
-      <div>
-        <PageHeader title={t("pricing.title")} subtitle={t("pricing.subtitle")} />
+      <div className="mx-auto max-w-5xl">
+        <PageHeader title={t("pricing.title")} subtitle={t("pricing.subtitle")} icon={<Tag size={20} />} />
         <ErrorNote message={t("pricing.noPermission")} />
       </div>
     );
@@ -112,7 +116,7 @@ export default function PriceListsPage() {
   }
 
   async function deleteList(list: PriceList) {
-    if (!window.confirm(t("pricing.confirmDeleteList", { name: list.name }))) return;
+    setDeleteListId(null);
     setBusy(true); setError(null);
     try {
       await api(`/api/price-lists/${list.id}`, { method: "DELETE" });
@@ -172,7 +176,7 @@ export default function PriceListsPage() {
 
   async function removeItem(row: ItemRow) {
     if (!openList) return;
-    if (!window.confirm(t("pricing.confirmRemoveItem", { name: row.productName }))) return;
+    setRemoveItemId(null);
     try {
       await api(`/api/price-lists/${openList.id}/items?productId=${encodeURIComponent(row.productId)}`, { method: "DELETE" });
       setItems((xs) => xs.filter((x) => x.productId !== row.productId));
@@ -228,7 +232,7 @@ export default function PriceListsPage() {
   }
 
   async function deleteCell(c: MatrixCell) {
-    if (!window.confirm(t("pricing.confirmDeleteCell", { a: c.partyCategory, b: c.productCategory }))) return;
+    setDeleteCellId(null);
     try {
       await api(`/api/discount-matrix/${c.id}`, { method: "DELETE" });
       await loadMatrix();
@@ -236,8 +240,8 @@ export default function PriceListsPage() {
   }
 
   return (
-    <div>
-      <PageHeader title={t("pricing.title")} subtitle={t("pricing.subtitle")} />
+    <div className="mx-auto max-w-5xl">
+      <PageHeader title={t("pricing.title")} subtitle={t("pricing.subtitle")} icon={<Tag size={20} />} />
       {error && <ErrorNote message={error} />}
 
       <div className="mb-5 flex gap-2">
@@ -256,7 +260,9 @@ export default function PriceListsPage() {
               <Plus size={15} /> {t("pricing.newList")}
             </button>
           </div>
-          {lists.length === 0 ? (
+          {loading ? (
+            <div className="grid gap-4 sm:grid-cols-2">{[1, 2, 3, 4].map((i) => <div key={i} className="skeleton h-32 rounded-2xl" />)}</div>
+          ) : lists.length === 0 ? (
             <EmptyState title={t("pricing.noLists")} hint={t("pricing.noListsHint")} />
           ) : (
             <div className="grid gap-4 sm:grid-cols-2">
@@ -272,6 +278,13 @@ export default function PriceListsPage() {
                       <p className="mt-0.5 text-xs text-muted-foreground">{l.currency}</p>
                     </div>
                   </div>
+                  {deleteListId === l.id ? (
+                    <div className="mt-4 flex flex-wrap items-center gap-2">
+                      <span className="text-sm font-bold text-danger">{t("pricing.confirmDeleteList", { name: l.name })}</span>
+                      <button type="button" className="btn btn-primary !px-2.5 !py-1 text-xs" disabled={busy} onClick={() => deleteList(l)}>{t("common.delete")}</button>
+                      <button type="button" className="btn btn-ghost !px-2.5 !py-1 text-xs" onClick={() => setDeleteListId(null)}>{t("common.cancel")}</button>
+                    </div>
+                  ) : (
                   <div className="mt-4 flex flex-wrap gap-2">
                     <button type="button" className="btn btn-primary text-sm" onClick={() => openRates(l)}>
                       {t("pricing.manageRates")}
@@ -284,10 +297,11 @@ export default function PriceListsPage() {
                         <Star size={14} /> {t("pricing.setDefault")}
                       </button>
                     )}
-                    <button type="button" className="btn btn-ghost text-sm text-danger" disabled={busy} onClick={() => deleteList(l)}>
+                    <button type="button" className="btn btn-ghost text-sm text-danger" disabled={busy} onClick={() => setDeleteListId(l.id)}>
                       <Trash2 size={14} /> {t("common.delete")}
                     </button>
                   </div>
+                  )}
                 </div>
               ))}
             </div>
@@ -298,7 +312,7 @@ export default function PriceListsPage() {
       {tab === "lists" && openList && (
         <div>
           <button type="button" className="btn btn-ghost mb-4 text-sm" onClick={() => { setOpenList(null); loadLists(); }}>
-            ← {openList.name}
+            <ArrowLeft size={15} className="rtl:rotate-180" /> {openList.name}
           </button>
           <div className="card p-5 sm:p-6">
             <div className="flex flex-wrap items-center justify-between gap-3">
@@ -326,9 +340,9 @@ export default function PriceListsPage() {
               )}
             </div>
             {loadingItems ? (
-              <p className="mt-4 text-sm text-muted-foreground">{t("common.loading")}</p>
+              <div className="mt-4 space-y-3">{[1, 2, 3].map((i) => <div key={i} className="skeleton h-20 rounded-2xl" />)}</div>
             ) : items.length === 0 ? (
-              <p className="mt-4 text-sm text-muted-foreground">{t("pricing.noItemsHint")}</p>
+              <div className="mt-4"><EmptyState title={t("pricing.noItemsHint")} /></div>
             ) : (
               <div className="mt-4 space-y-3">
                 {items.map((i) => (
@@ -347,10 +361,18 @@ export default function PriceListsPage() {
                         onClick={() => patchItem(i.productId, { showUom: !i.showUom })}>
                         {t("pricing.uomRates", { count: i.uomRates.length })}
                       </button>
-                      <button type="button" className="btn btn-ghost !px-2 text-danger"
-                        onClick={() => removeItem(i)} aria-label={t("common.delete")}>
-                        <Trash2 size={15} />
-                      </button>
+                      {removeItemId === i.productId ? (
+                        <span className="inline-flex items-center gap-2">
+                          <span className="text-xs font-bold text-danger">{t("pricing.confirmRemoveItem", { name: i.productName })}</span>
+                          <button type="button" className="btn btn-primary !px-2.5 !py-1 text-xs" onClick={() => removeItem(i)}>{t("common.delete")}</button>
+                          <button type="button" className="btn btn-ghost !px-2.5 !py-1 text-xs" onClick={() => setRemoveItemId(null)}>{t("common.cancel")}</button>
+                        </span>
+                      ) : (
+                        <button type="button" className="btn btn-ghost !px-2 text-danger"
+                          onClick={() => setRemoveItemId(i.productId)} aria-label={t("common.delete")}>
+                          <Trash2 size={15} />
+                        </button>
+                      )}
                     </div>
                     {i.showUom && (
                       <div className="mt-3 space-y-2 rounded-xl bg-muted/50 p-3">
@@ -427,33 +449,45 @@ export default function PriceListsPage() {
             </div>
           </div>
 
-          {cells.length === 0 ? (
-            <p className="mt-6 text-sm text-muted-foreground">{t("pricing.noCells")}</p>
+          {loading ? (
+            <div className="mt-6 space-y-3">{[1, 2, 3].map((i) => <div key={i} className="skeleton h-12 rounded-xl" />)}</div>
+          ) : cells.length === 0 ? (
+            <div className="mt-6"><EmptyState title={t("pricing.noCells")} /></div>
           ) : (
             <div className="mt-6 overflow-x-auto">
-              <table className="w-full text-sm">
+              <table className="tbl tbl-fa">
                 <thead>
-                  <tr className="border-b border-border text-start">
-                    <th className="py-2 pe-3 text-start font-bold">{t("pricing.partyCategory")}</th>
-                    <th className="py-2 pe-3 text-start font-bold">{t("pricing.productCategory")}</th>
-                    <th className="py-2 pe-3 text-start font-bold">{t("pricing.discountPct")}</th>
-                    <th className="py-2 text-end font-bold">{t("common.actions")}</th>
+                  <tr>
+                    <th>{t("pricing.partyCategory")}</th>
+                    <th>{t("pricing.productCategory")}</th>
+                    <th>{t("pricing.discountPct")}</th>
+                    <th>{t("common.actions")}</th>
                   </tr>
                 </thead>
                 <tbody>
                   {cells.map((c) => (
-                    <tr key={c.id} className="border-b border-border/60">
-                      <td className="py-2 pe-3 font-semibold">{c.partyCategory}</td>
-                      <td className="py-2 pe-3">{c.productCategory}</td>
-                      <td className="py-2 pe-3 tabular-nums">{c.discountBps / 100}%</td>
-                      <td className="py-2 text-end">
-                        <button type="button" className="btn btn-ghost !px-2 text-xs"
-                          onClick={() => { setEditingCell(c); setMParty(c.partyCategory); setMProduct(c.productCategory); setMPct(String(c.discountBps / 100)); }}>
-                          <Pencil size={14} />
-                        </button>
-                        <button type="button" className="btn btn-ghost !px-2 text-xs text-danger" onClick={() => deleteCell(c)}>
-                          <Trash2 size={14} />
-                        </button>
+                    <tr key={c.id}>
+                      <td className="font-semibold">{c.partyCategory}</td>
+                      <td>{c.productCategory}</td>
+                      <td className="tabular-nums">{c.discountBps / 100}%</td>
+                      <td className="text-end">
+                        {deleteCellId === c.id ? (
+                          <span className="inline-flex items-center gap-2">
+                            <span className="text-xs font-bold text-danger">{t("pricing.confirmDeleteCell", { a: c.partyCategory, b: c.productCategory })}</span>
+                            <button type="button" className="btn btn-primary !px-2.5 !py-1 text-xs" onClick={() => deleteCell(c)}>{t("common.delete")}</button>
+                            <button type="button" className="btn btn-ghost !px-2.5 !py-1 text-xs" onClick={() => setDeleteCellId(null)}>{t("common.cancel")}</button>
+                          </span>
+                        ) : (
+                          <>
+                            <button type="button" className="btn btn-ghost !px-2 text-xs"
+                              onClick={() => { setEditingCell(c); setMParty(c.partyCategory); setMProduct(c.productCategory); setMPct(String(c.discountBps / 100)); }}>
+                              <Pencil size={14} />
+                            </button>
+                            <button type="button" className="btn btn-ghost !px-2 text-xs text-danger" onClick={() => setDeleteCellId(c.id)}>
+                              <Trash2 size={14} />
+                            </button>
+                          </>
+                        )}
                       </td>
                     </tr>
                   ))}

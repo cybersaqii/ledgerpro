@@ -76,7 +76,7 @@ export default function SupportPage() {
       <div className="card p-5 sm:p-6">
         <p className="font-extrabold">{t("mysupport.history")}</p>
         {loading ? (
-          <p className="py-6 text-center text-sm text-muted-foreground">{t("common.loading")}</p>
+          <div className="space-y-3">{[1, 2, 3].map((i) => <div key={i} className="skeleton h-20 rounded-xl" />)}</div>
         ) : requests.length === 0 ? (
           <div className="mt-2"><EmptyState title={t("mysupport.noRequests")} hint={t("mysupport.noRequestsHint")} /></div>
         ) : (

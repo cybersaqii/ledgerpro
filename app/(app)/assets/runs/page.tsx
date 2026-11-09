@@ -67,11 +67,11 @@ export default function DepreciationRunsPage() {
         <p className="mt-1 text-xs text-muted-foreground">{t("assets.noRunsHint")}</p>
         <div className="mt-3 flex flex-wrap items-end gap-3">
           <Field label={t("assets.year")}>
-            <input type="number" className="input w-28" value={year} min={2000} max={2100}
+            <input type="number" className="field !w-28" value={year} min={2000} max={2100}
               onChange={(e) => setYear(Number(e.target.value))} />
           </Field>
           <Field label={t("assets.month")}>
-            <select className="input w-36" value={month} onChange={(e) => setMonth(Number(e.target.value))}>
+            <select className="field !w-36" value={month} onChange={(e) => setMonth(Number(e.target.value))}>
               {Array.from({ length: 12 }, (_, i) => i + 1).map((m) => (
                 <option key={m} value={m}>{`${String(m).padStart(2, "0")}`}</option>
               ))}

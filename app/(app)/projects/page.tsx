@@ -30,6 +30,7 @@ export default function ProjectsPage() {
   const { t } = useLang();
   const can = useCan("projects");
   const [list, setList] = useState<Project[]>([]);
+  const [loading, setLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [open, setOpen] = useState(false);
@@ -42,6 +43,7 @@ export default function ProjectsPage() {
   });
 
   const load = useCallback(async () => {
+    setLoading(true);
     try {
       const d = await api<{ projects: Project[] }>(
         "/api/projects" + (statusFilter ? `?status=${statusFilter}` : "")
@@ -50,6 +52,8 @@ export default function ProjectsPage() {
       setError(null);
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setLoading(false);
     }
   }, [statusFilter]);
 
@@ -108,7 +112,7 @@ export default function ProjectsPage() {
         actions={
           <button
             onClick={openDialog}
-            className="inline-flex items-center gap-2 rounded-xl bg-primary px-4 py-2 text-sm font-bold text-primary-foreground hover:opacity-90"
+            className="btn btn-primary"
           >
             <Plus size={16} /> {t("projects.newProject")}
           </button>
@@ -118,7 +122,7 @@ export default function ProjectsPage() {
       <FilterBar>
         <span className="text-xs font-bold text-muted-foreground">{t("projects.filterByStatus")}:</span>
         <select
-          className="input w-auto"
+          className="field !w-auto"
           value={statusFilter}
           onChange={(e) => setStatusFilter(e.target.value)}
         >
@@ -131,7 +135,9 @@ export default function ProjectsPage() {
 
       {error && <div className="mt-4"><ErrorNote message={error} /></div>}
 
-      {list.length === 0 ? (
+      {loading ? (
+        <div className="mt-6 grid gap-3 sm:grid-cols-2">{[1, 2, 3, 4].map((i) => <div key={i} className="skeleton h-28 rounded-2xl" />)}</div>
+      ) : list.length === 0 ? (
         <div className="mt-6">
           <EmptyState
             title={t("projects.noProjects")}
@@ -139,7 +145,7 @@ export default function ProjectsPage() {
             action={
               <button
                 onClick={openDialog}
-                className="inline-flex items-center gap-2 rounded-xl bg-primary px-4 py-2 text-sm font-bold text-primary-foreground hover:opacity-90"
+                className="btn btn-primary"
               >
                 <Plus size={16} /> {t("projects.newProject")}
               </button>
@@ -152,7 +158,7 @@ export default function ProjectsPage() {
             <Link
               key={p.id}
               href={`/projects/${p.id}`}
-              className="group rounded-2xl border border-border bg-card p-4 transition hover:border-primary"
+              className="group card-lift rounded-2xl border border-border bg-card p-4 transition hover:border-primary"
             >
               <div className="flex items-start justify-between gap-2">
                 <div className="min-w-0">
@@ -191,13 +197,13 @@ export default function ProjectsPage() {
                 <input
                   value={f.name}
                   onChange={set("name")}
-                  className="w-full rounded-xl border border-border bg-background px-3 py-2 text-sm"
+                  className="field"
                   maxLength={120}
                   autoFocus
                 />
               </Field>
               <Field label={t("projects.customer")}>
-                <select value={f.customerId} onChange={set("customerId")} className="w-full rounded-xl border border-border bg-background px-3 py-2 text-sm">
+                <select value={f.customerId} onChange={set("customerId")} className="field">
                   <option value="">{t("projects.noCustomer")}</option>
                   {customers.map((c) => (
                     <option key={c.id} value={c.id}>{c.name}</option>
@@ -206,10 +212,10 @@ export default function ProjectsPage() {
               </Field>
               <div className="grid grid-cols-2 gap-3">
                 <Field label={t("projects.startDate")}>
-                  <NumericDateInput className="w-full rounded-xl border border-border bg-background px-3 py-2 text-sm" value={f.startDate} onChange={set("startDate")} />
+                  <NumericDateInput className="field" value={f.startDate} onChange={set("startDate")} />
                 </Field>
                 <Field label={t("projects.endDate")}>
-                  <NumericDateInput className="w-full rounded-xl border border-border bg-background px-3 py-2 text-sm" value={f.endDate} onChange={set("endDate")} />
+                  <NumericDateInput className="field" value={f.endDate} onChange={set("endDate")} />
                 </Field>
               </div>
               <div className="grid grid-cols-2 gap-3">
@@ -219,7 +225,7 @@ export default function ProjectsPage() {
                     onChange={set("contractValue")}
                     inputMode="decimal"
                     placeholder="0"
-                    className="w-full rounded-xl border border-border bg-background px-3 py-2 text-sm"
+                    className="field"
                   />
                 </Field>
                 <Field label={t("projects.budget")}>
@@ -228,7 +234,7 @@ export default function ProjectsPage() {
                     onChange={set("budget")}
                     inputMode="decimal"
                     placeholder="0"
-                    className="w-full rounded-xl border border-border bg-background px-3 py-2 text-sm"
+                    className="field"
                   />
                 </Field>
               </div>
@@ -238,18 +244,18 @@ export default function ProjectsPage() {
                   onChange={set("notes")}
                   rows={2}
                   maxLength={500}
-                  className="w-full rounded-xl border border-border bg-background px-3 py-2 text-sm"
+                  className="field"
                 />
               </Field>
               {formErr && <ErrorNote message={formErr} />}
               <div className="flex justify-end gap-2 pt-1">
-                <button onClick={() => setOpen(false)} className="rounded-xl border border-border px-4 py-2 text-sm font-bold hover:bg-muted">
+                <button onClick={() => setOpen(false)} className="btn btn-ghost">
                   {t("common.cancel")}
                 </button>
                 <button
                   onClick={create}
                   disabled={busy}
-                  className="rounded-xl bg-primary px-4 py-2 text-sm font-bold text-primary-foreground hover:opacity-90 disabled:opacity-50"
+                  className="btn btn-primary"
                 >
                   {t("projects.saveProject")}
                 </button>

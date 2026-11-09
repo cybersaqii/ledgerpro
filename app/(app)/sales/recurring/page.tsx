@@ -51,6 +51,7 @@ export default function RecurringPage() {
   const [form, setForm] = useState(emptyForm);
   const [saving, setSaving] = useState(false);
   const [historyFor, setHistoryFor] = useState<Template | null>(null);
+  const [deleteId, setDeleteId] = useState<string | null>(null);
   const [runs, setRuns] = useState<Run[]>([]);
   const [runsLoading, setRunsLoading] = useState(false);
   // Product picker
@@ -174,7 +175,7 @@ export default function RecurringPage() {
   }
 
   async function remove(tpl: Template) {
-    if (!window.confirm(t("recurring.deleteConfirm", { name: tpl.name }))) return;
+    setDeleteId(null);
     setError(null);
     try {
       await api(`/api/recurring/${tpl.id}`, { method: "DELETE" });
@@ -201,10 +202,11 @@ export default function RecurringPage() {
     s === "PAUSED" ? "!bg-accent-soft !text-accent" : "!bg-muted !text-muted-foreground";
 
   return (
-    <div>
+    <div className="mx-auto max-w-5xl">
       <PageHeader
         title={t("recurring.title")}
         subtitle={t("recurring.subtitle")}
+        icon={<Repeat size={20} />}
         actions={<button className="btn btn-primary text-sm" onClick={openNew}><Plus size={16} /> {t("recurring.new")}</button>}
       />
       <ErrorNote message={error} />
@@ -215,7 +217,7 @@ export default function RecurringPage() {
           <EmptyState title={t("recurring.emptyTitle")} hint={t("recurring.emptyHint")} />
         ) : (
           <div className="overflow-x-auto">
-            <table className="tbl">
+            <table className="tbl tbl-fa">
               <thead><tr>
                 <th>{t("recurring.colName")}</th><th>{t("recurring.colCustomer")}</th>
                 <th className="num">{t("recurring.colTotal")}</th><th>{t("recurring.colFrequency")}</th>
@@ -262,9 +264,17 @@ export default function RecurringPage() {
                             <Pencil size={14} />
                           </button>
                         )}
-                        <button className="btn btn-ghost !px-2 !py-1 text-xs !text-danger" title={t("recurring.deleteTitle")} onClick={() => remove(tpl)}>
-                          <Trash2 size={14} />
-                        </button>
+                        {deleteId === tpl.id ? (
+                          <span className="inline-flex items-center gap-1.5">
+                            <span className="text-xs font-bold text-danger">{t("recurring.deleteConfirm", { name: tpl.name })}</span>
+                            <button className="btn btn-primary !px-2 !py-1 text-xs" onClick={() => remove(tpl)}>{t("common.delete")}</button>
+                            <button className="btn btn-ghost !px-2 !py-1 text-xs" onClick={() => setDeleteId(null)}>{t("common.cancel")}</button>
+                          </span>
+                        ) : (
+                          <button className="btn btn-ghost !px-2 !py-1 text-xs !text-danger" title={t("recurring.deleteTitle")} onClick={() => setDeleteId(tpl.id)}>
+                            <Trash2 size={14} />
+                          </button>
+                        )}
                       </div>
                     </td>
                   </tr>
@@ -345,7 +355,7 @@ export default function RecurringPage() {
                 )}
               </div>
               {form.items.length > 0 && (
-                <table className="tbl mt-3">
+                <table className="tbl tbl-fa mt-3">
                   <thead><tr><th>{t("recurring.colProduct")}</th><th className="num">{t("recurring.qty")}</th><th className="num">{t("recurring.rate")}</th><th className="num">{t("recurring.colTotal")}</th><th></th></tr></thead>
                   <tbody>
                     {form.items.map((it, idx) => {
@@ -388,7 +398,7 @@ export default function RecurringPage() {
             ) : runs.length === 0 ? (
               <EmptyState title={t("recurring.noRunsTitle")} hint={t("recurring.noRunsHint")} />
             ) : (
-              <table className="tbl">
+              <table className="tbl tbl-fa">
                 <thead><tr><th>{t("recurring.colPeriod")}</th><th className="num">{t("recurring.colTotal")}</th><th>{t("recurring.colStatus")}</th><th>{t("recurring.colDetail")}</th></tr></thead>
                 <tbody>
                   {runs.map((r) => (

@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { Cog, ClipboardList, ArrowRight } from "lucide-react";
+import { Cog, ClipboardList, ArrowRight, Info } from "lucide-react";
 import { PageHeader } from "@/components/ui";
 import { useLang } from "@/components/lang-provider";
 import { usePermissions } from "@/components/permissions";
@@ -17,7 +17,7 @@ export default function ManufacturingPage() {
       href: "/manufacturing/work-orders",
       icon: ClipboardList,
       title: t("mfg.tabWorkOrders"),
-      hint: "MWO-0001 · DRAFT → RELEASED → IN_PROGRESS → COMPLETED",
+      hint: t("mfg.workOrdersHint"),
     },
     {
       href: "/manufacturing/boms",
@@ -29,13 +29,13 @@ export default function ManufacturingPage() {
 
   return (
     <div className="mx-auto max-w-5xl">
-      <PageHeader title={t("mfg.title")} subtitle={t("mfg.subtitle")} />
+      <PageHeader title={t("mfg.title")} subtitle={t("mfg.subtitle")} icon={<Cog size={20} />} />
       <div className="mt-6 grid gap-4 sm:grid-cols-2">
         {cards.map((c) => (
           <Link
             key={c.href}
             href={c.href}
-            className="group rounded-2xl border border-border bg-card p-5 transition hover:border-primary"
+            className="group card-lift rounded-2xl border border-border bg-card p-5 transition hover:border-primary"
           >
             <div className="flex items-start justify-between">
               <span className="rounded-xl bg-primary/10 p-2.5 text-primary">
@@ -49,7 +49,7 @@ export default function ManufacturingPage() {
         ))}
       </div>
       <div className="mt-6 rounded-2xl border border-border bg-muted/40 p-4 text-sm text-muted-foreground">
-        <p className="font-bold text-foreground">{t("mfg.wip")}</p>
+        <p className="flex items-center gap-2 font-bold text-foreground"><Info size={15} className="text-primary" />{t("mfg.wip")}</p>
         <ul className="mt-2 list-disc space-y-1 ps-5 text-xs">
           <li>{t("mfg.wipHint")}</li>
           <li>{t("mfg.laborPayableHint")}</li>
