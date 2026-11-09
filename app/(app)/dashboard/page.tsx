@@ -154,7 +154,7 @@ export default function DashboardPage() {
   const loadOverview = useCallback(async () => {
     const r = periodRange(salesPeriod);
     const d = await api<{ data: OverviewData }>(
-      `/api/dashboard/overview?salesFrom=${r.from}&salesTo=${r.to}`
+      `/api/dashboard/overview?salesFrom=${r.from}&salesTo=${r.to}&expFrom=${r.from}&expTo=${r.to}`
     );
     setOverview(d.data);
     setSalesTotal(d.data.sales.total);
@@ -193,7 +193,7 @@ export default function DashboardPage() {
   const onPeriodChange = (key: SalesPeriodKey) => {
     setSalesPeriod(key);
     const r = periodRange(key);
-    api<{ data: OverviewData }>(`/api/dashboard/overview?salesFrom=${r.from}&salesTo=${r.to}`)
+    api<{ data: OverviewData }>(`/api/dashboard/overview?salesFrom=${r.from}&salesTo=${r.to}&expFrom=${r.from}&expTo=${r.to}`)
       .then((d) => { setOverview(d.data); setSalesTotal(d.data.sales.total); })
       .catch(() => {});
   };

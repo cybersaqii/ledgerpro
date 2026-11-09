@@ -1,5 +1,5 @@
 import { NextRequest } from "next/server";
-import { eq, and, sql, desc, inArray } from "drizzle-orm";
+import { eq, and, sql, desc, inArray, isNull } from "drizzle-orm";
 import {
   salesDocs,
   purchaseDocs,
@@ -241,7 +241,11 @@ export async function GET(req: NextRequest) {
   }
 
   // --- Expenses total + top 5 categories for period ---
-  const expConds = [eq(expenses.companyId, companyId)];
+  // Total and donut must agree: both queries share expConds (company +
+  // period + not-voided). The donut left-joins accounts so an expense whose
+  // account row is gone still appears, under "Other expenses", instead of
+  // silently dropping out of the donut while staying in the total.
+  const expConds = [eq(expenses.companyId, companyId), isNull(expenses.voidedAt)];
   if (expFrom) expConds.push(sql`${expenses.date} >= ${new Date(expFrom).getTime()}`);
   if (expTo) expConds.push(sql`${expenses.date} <= ${new Date(expTo).getTime()}`);
   const expSum = await db
@@ -250,13 +254,13 @@ export async function GET(req: NextRequest) {
     .where(and(...expConds));
   const expTop = await db
     .select({
-      name: accounts.name,
+      name: sql<string>`COALESCE(${accounts.name}, 'Other expenses')`,
       total: sql<string>`COALESCE(SUM(${expenses.amount} + COALESCE(${expenses.taxAmount},0)),0)`,
     })
     .from(expenses)
-    .innerJoin(accounts, eq(expenses.accountId, accounts.id))
+    .leftJoin(accounts, eq(expenses.accountId, accounts.id))
     .where(and(...expConds))
-    .groupBy(accounts.name)
+    .groupBy(sql`COALESCE(${accounts.name}, 'Other expenses')`)
     .orderBy(desc(sql`COALESCE(SUM(${expenses.amount} + COALESCE(${expenses.taxAmount},0)),0)`))
     .limit(5);
 
