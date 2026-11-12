@@ -1376,7 +1376,7 @@ export function DocForm({ mode, initialType }: { mode: "SALES" | "PURCHASE"; ini
         <SectionCard title={isSales ? "Customer Details" : "Supplier Details"}>
           <div className="grid gap-x-2 gap-y-2 sm:grid-cols-2 lg:grid-cols-3">
             {/* col 1: party + address */}
-            <div className="space-y-2">
+            <div className="flex flex-col gap-2">
               <CompactField label={isSales ? "Customer" : "Supplier"} required>
 <div className="relative">
                 <button type="button" onClick={() => setShowPartyList((s) => !s)}
@@ -1446,10 +1446,10 @@ export function DocForm({ mode, initialType }: { mode: "SALES" | "PURCHASE"; ini
                 )}
               </div>
               </CompactField>
-              <div>
+              <div className="flex flex-1 flex-col">
                 <span className="mb-0.5 block text-[11px] font-semibold text-foreground/90">Address</span>
                 <textarea readOnly rows={2} aria-label="Address"
-                  className="field !bg-muted/40 !py-1.5 text-[13px]"
+                  className="field flex-1 !bg-muted/40 !py-1.5 text-[13px]"
                   value={selectedParty?.address ?? ""} placeholder="—" />
               </div>
             </div>
@@ -1598,13 +1598,17 @@ export function DocForm({ mode, initialType }: { mode: "SALES" | "PURCHASE"; ini
               <div className="hidden overflow-x-auto sm:block">
                 <table className="tbl-fa">
                   <thead><tr>
-                    <th>{t("docform.colProduct")}</th>
+                    <th className="!px-2">#</th>
+                    <th>{t("docform.colItemCode")}</th>
+                    <th>{t("docform.colItemName")}</th>
                     <th>{t("docform.colDescription")}</th>
-                    <th>{t("docform.colUnit")}</th>
+                    <th className="num">{t("docform.colPurchasePrice")}</th>
+                    <th>{isSales ? t("docform.colRate") : t("docform.colMode")}</th>
                     <th className="num">{t("docform.colQty")}</th>
                     <th className="num">{isSales ? t("docform.colSalePrice") : t("docform.colRate")}</th>
-                    <th className="num">{t("docform.colAmount")}</th>
-                    <th className="!px-1"></th>
+                    <th className="num">{t("docform.colDisc")}</th>
+                    <th className="num">{t("docform.colLineTotal")}</th>
+                    <th className="!px-1">{t("docform.colAction")}</th>
                     <th className="!px-1">{t("docform.colLastRate")}</th>
                   </tr></thead>
                   <tbody>
@@ -1622,6 +1626,14 @@ export function DocForm({ mode, initialType }: { mode: "SALES" | "PURCHASE"; ini
                       return (
                         <tr key={l.key} className={`${flashKey === l.key ? "row-flash" : ""} ${belowCost ? "!bg-danger-soft/60" : ""}`}
                           title={belowCost ? t("docform.belowCostAlert") : undefined}>
+                          <td className="text-center text-[13px] text-muted-foreground">{idx + 1}</td>
+                          <td className="whitespace-nowrap">
+                            {l.sku ? (
+                              <span className="inline-block rounded-md bg-muted px-2 py-1 font-mono text-[12px] font-bold">{l.sku}</span>
+                            ) : (
+                              <span className="text-[13px] text-muted-foreground">—</span>
+                            )}
+                          </td>
                           <td className="min-w-44">
                             <button type="button" onClick={(e) => openRowPicker(l.key, e.currentTarget)}
                               className="field flex w-full items-center justify-between gap-2 !py-1.5 text-start text-[13px]"
@@ -1630,8 +1642,7 @@ export function DocForm({ mode, initialType }: { mode: "SALES" | "PURCHASE"; ini
                                 <span className="min-w-0">
                                   <span className="block truncate font-bold">{l.productName || l.description}</span>
                                   <span className="block truncate text-[11px] text-muted-foreground">
-                                    {l.sku ? <span className="font-semibold text-fa-blue">({l.sku})</span> : null}
-                                    {l.availQty !== null ? ` - Q: ${(Number(BigInt(l.availQty)) / 1000).toLocaleString()} ${l.unit}` : ""}
+                                    {l.availQty !== null ? `Q: ${(Number(BigInt(l.availQty)) / 1000).toLocaleString()} ${l.unit}` : ""}
                                   </span>
                                 </span>
                               ) : (
@@ -1703,7 +1714,21 @@ export function DocForm({ mode, initialType }: { mode: "SALES" | "PURCHASE"; ini
                             <BatchControls line={l} isSales={isSales} docType={docType} batches={batchCache[l.productId]} t={t} onChange={(patch) => updateLine(l.key, patch)} />
                             <LocationControls line={l} branches={branches} t={t} onChange={(patch) => updateLine(l.key, patch)} />
                           </td>
-                          <td className="whitespace-nowrap text-[13px] text-muted-foreground">{l.lineUnit || l.unit || "—"}</td>
+                          <td>
+                            <input readOnly aria-label={t("docform.colPurchasePrice")}
+                              className="field num !w-24 !bg-muted/40 !px-1 !py-1 text-[13px]"
+                              value={lineCost != null ? lineCost.toFixed(2) : ""} placeholder="—" />
+                          </td>
+                          <td>
+                            <span className="flex w-fit overflow-hidden rounded-md border border-border text-[10px] font-bold">
+                              <button type="button" onClick={() => l.rateMode !== "WS" && toggleRateMode(l.key)}
+                                className={`px-1.5 py-0.5 ${l.rateMode === "WS" ? "bg-primary text-white" : "text-muted-foreground hover:bg-muted"}`}
+                                title={t("docform.wholesale")}>W/S</button>
+                              <button type="button" onClick={() => l.rateMode !== "RETAIL" && toggleRateMode(l.key)}
+                                className={`px-1.5 py-0.5 ${l.rateMode === "RETAIL" ? "bg-foreground text-background" : "text-muted-foreground hover:bg-muted"}`}
+                                title={t("docform.retail")}>{t("docform.retailShort")}</button>
+                            </span>
+                          </td>
                           <td>
                             <div className="flex items-center gap-1">
                               <button type="button" onClick={() => stepQty(l.key, -1)}
@@ -1713,36 +1738,22 @@ export function DocForm({ mode, initialType }: { mode: "SALES" | "PURCHASE"; ini
                                 onChange={(e) => updateLine(l.key, { qty: e.target.value })} />
                               <button type="button" onClick={() => stepQty(l.key, 1)}
                                 className="grid h-7 w-7 place-items-center rounded-lg border border-border text-sm font-bold text-muted-foreground hover:bg-muted" aria-label="+">+</button>
+                              <UnitPicker line={l} t={t} onUnit={(u) => changeLineUnit(l.key, u)} />
                             </div>
                           </td>
                           <td><input ref={setRowRef(l.key, "rate")} onKeyDown={(e) => rowKeyDown(e, l.key, "rate")}
                             className="field num !w-24 !px-1 !py-1 text-[13px]" type="number" min="0" step={isForeign ? "any" : "0.01"} placeholder="0.00" value={l.rate}
                             onChange={(e) => updateLine(l.key, { rate: e.target.value })} />
-                            <span className="mt-1 flex items-center gap-1.5">
-                              <span className="flex overflow-hidden rounded-md border border-border text-[10px] font-bold">
-                                <button type="button" onClick={() => l.rateMode !== "WS" && toggleRateMode(l.key)}
-                                  className={`px-1.5 py-0.5 ${l.rateMode === "WS" ? "bg-primary text-white" : "text-muted-foreground hover:bg-muted"}`}
-                                  title={t("docform.wholesale")}>W/S</button>
-                                <button type="button" onClick={() => l.rateMode !== "RETAIL" && toggleRateMode(l.key)}
-                                  className={`px-1.5 py-0.5 ${l.rateMode === "RETAIL" ? "bg-foreground text-background" : "text-muted-foreground hover:bg-muted"}`}
-                                  title={t("docform.retail")}>{t("docform.retailShort")}</button>
-                              </span>
-                              {l.costPrice ? (
-                                <span className="whitespace-nowrap text-[10px] text-muted-foreground">{t("docform.cost")}: {fmtMoney(BigInt(Math.round(parseFloat(l.costPrice) * 100)))}</span>
-                              ) : null}
-                            </span>
+                          </td>
+                          <td><input ref={setRowRef(l.key, "discount")} onKeyDown={(e) => rowKeyDown(e, l.key, "discount")}
+                            className="field num !w-16 !px-1 !py-1 text-[13px]" type="number" min="0" step={isForeign ? "any" : "0.01"} placeholder="0.00" value={l.discount}
+                            onChange={(e) => updateLine(l.key, { discount: e.target.value })} />
                           </td>
                           <td className="num whitespace-nowrap text-[13px] font-extrabold">
                             {fmtFx(c.total)}
                             {c.tax > 0n && (
                               <span className="block text-[10px] font-normal text-muted-foreground">{t("docform.inclTax", { amt: fmtFx(c.tax) })}</span>
                             )}
-                            <span className="mt-1 flex items-center justify-end gap-1 text-[11px] font-semibold text-muted-foreground">
-                              {t("docform.colDisc")}
-                              <input ref={setRowRef(l.key, "discount")} onKeyDown={(e) => rowKeyDown(e, l.key, "discount")}
-                                className="field num !w-16 !px-1 !py-0.5 text-[11px]" type="number" min="0" step={isForeign ? "any" : "0.01"} placeholder="0.00" value={l.discount}
-                                onChange={(e) => updateLine(l.key, { discount: e.target.value })} />
-                            </span>
                             {isSales && l.productId && (matrixBps[l.productId] ?? 0) > 0 && (
                               <span className="block px-0.5 pt-0.5 text-[10px] font-semibold text-primary">
                                 {t("pricing.matrixBadge", { pct: String(matrixBps[l.productId]! / 100) })}
@@ -1779,8 +1790,9 @@ export function DocForm({ mode, initialType }: { mode: "SALES" | "PURCHASE"; ini
                   </tbody>
                   <tfoot>
                     <tr className="border-t-2 border-border font-extrabold">
-                      <td colSpan={3}>Total</td>
+                      <td colSpan={6}>Total</td>
                       <td className="num">{Number.isInteger(totalQty) ? String(totalQty) : totalQty.toFixed(3).replace(/0+$/, "").replace(/\.$/, "")}</td>
+                      <td />
                       <td />
                       <td className="num">{fmtFx(subtotal)}</td>
                       <td />

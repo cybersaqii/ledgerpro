@@ -536,6 +536,7 @@ export const en = {
     colItemName: "Item Name",
     colPurchasePrice: "Purchase Price",
     colLineTotal: "Line Total",
+    colAction: "Action",
     colSalePrice: "Sale Price",
     retailShort: "Retail",
     stockQty: "stock {qty}",

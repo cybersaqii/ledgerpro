@@ -512,12 +512,12 @@ export function AppShell({ children, initialBusinessType }: { children: ReactNod
               </button>
               )}
               {quickOpen && (
-                <div role="menu" className="modal-pop absolute end-0 z-40 mt-2 w-56 overflow-hidden rounded-2xl border border-border bg-card p-1.5 shadow-xl">
+                <div role="menu" className="modal-pop absolute end-0 z-40 mt-2 w-64 overflow-hidden rounded-2xl border border-border bg-card p-1.5 shadow-xl">
                   {quickCreate.map((q) => (
                     <Link key={q.href + q.label} href={q.href}
-                      className="flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-semibold transition hover:bg-muted">
-                      <span className="tile tile-primary h-8 w-8 !rounded-lg"><q.icon size={15} /></span>
-                      {q.label}
+                      className="flex items-center gap-3 whitespace-nowrap rounded-xl px-3 py-2.5 text-sm font-semibold text-foreground transition hover:bg-muted">
+                      <span className="tile tile-primary h-8 w-8 shrink-0 !rounded-lg"><q.icon size={15} /></span>
+                      <span className="min-w-0 truncate">{q.label}</span>
                     </Link>
                   ))}
                 </div>
