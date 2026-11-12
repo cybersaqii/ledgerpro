@@ -206,7 +206,7 @@ function UnitPicker({ line, t, onUnit }: {
   onUnit: (unit: string) => void;
 }) {
   if (!line.productId || line.uoms.length === 0) {
-    return <span className="text-sm text-muted-foreground">{line.unit || "—"}</span>;
+    return <span className="text-sm text-muted-foreground">{line.unit || ""}</span>;
   }
   const chosen = line.lineUnit || line.unit;
   let preview: string | null = null;
@@ -1140,8 +1140,6 @@ export function DocForm({ mode, initialType }: { mode: "SALES" | "PURCHASE"; ini
   }, 0) : 0;
   const { subtotal, itemDisc: itemDiscTotal, taxTotal, grand } =
     docMath(computed, discountTotal, freightDocTypes ? freightTotal : "0", fxMinorUnits);
-  /** FA grid total row: summed line quantities. */
-  const totalQty = lines.reduce((s, l) => s + (parseFloat(l.qty) || 0), 0);
   /** PKR equivalent of the live grand total (preview; the server converts per line). */
   const grandPkr = fxToPkr(grand);
 
@@ -1630,53 +1628,43 @@ export function DocForm({ mode, initialType }: { mode: "SALES" | "PURCHASE"; ini
                           <td className="whitespace-nowrap">
                             {l.sku ? (
                               <span className="inline-block rounded-md bg-muted px-2 py-1 font-mono text-[12px] font-bold">{l.sku}</span>
-                            ) : (
-                              <span className="text-[13px] text-muted-foreground">—</span>
-                            )}
+                            ) : null}
                           </td>
                           <td className="min-w-44">
-                            <button type="button" onClick={(e) => openRowPicker(l.key, e.currentTarget)}
-                              className="field flex w-full items-center justify-between gap-2 !py-1.5 text-start text-[13px]"
-                              aria-haspopup="listbox" aria-expanded={rowPickerKey === l.key}>
-                              {l.productId ? (
-                                <span className="min-w-0">
-                                  <span className="block truncate font-bold">{l.productName || l.description}</span>
-                                  <span className="block truncate text-[11px] text-muted-foreground">
-                                    {l.availQty !== null ? `Q: ${(Number(BigInt(l.availQty)) / 1000).toLocaleString()} ${l.unit}` : ""}
-                                  </span>
-                                </span>
-                              ) : (
-                                <span className="text-muted-foreground">{t("docform.selectProduct")}</span>
-                              )}
-                              <ChevronDown size={14} className="shrink-0 text-muted-foreground" />
-                            </button>
+                            <input
+                              role="combobox"
+                              className="field !py-1.5 text-[13px] font-semibold"
+                              placeholder={t("docform.searchPlaceholder")}
+                              aria-label={t("docform.colItemName")}
+                              aria-haspopup="listbox" aria-expanded={rowPickerKey === l.key}
+                              aria-controls={rowPickerKey === l.key ? `row-picker-${l.key}` : undefined}
+                              value={rowPickerKey === l.key ? rowPickerQ : (l.productName || "")}
+                              onChange={(e) => {
+                                const v = e.target.value;
+                                if (rowPickerKey !== l.key) openRowPicker(l.key, e.currentTarget);
+                                setRowPickerQ(v);
+                              }}
+                              onFocus={(e) => {
+                                if (rowPickerKey !== l.key) openRowPicker(l.key, e.currentTarget);
+                              }}
+                              onKeyDown={(e) => {
+                                if (e.key === "Enter") {
+                                  e.preventDefault();
+                                  const first = prodResults[0];
+                                  if (first) pickForRow(l.key, first);
+                                } else if (e.key === "Escape") {
+                                  closeRowPicker();
+                                }
+                              }}
+                              autoComplete="off"
+                            />
                             {rowPickerKey === l.key && rowPickerRect && createPortal(
                               <>
                                 <button type="button" aria-hidden tabIndex={-1} className="fixed inset-0 z-40 cursor-default"
                                   onClick={closeRowPicker} />
                                 <div className="fixed z-50 overflow-hidden rounded-xl border border-border bg-card shadow-xl"
                                   style={{ top: rowPickerRect.top, left: rowPickerRect.left, width: rowPickerRect.width }}>
-                                  <div className="flex items-center gap-2 border-b border-border px-3 py-2">
-                                    <Search size={15} className="shrink-0 text-muted-foreground" />
-                                    <input
-                                      autoFocus
-                                      className="w-full bg-transparent text-[13px] outline-none placeholder:text-muted-foreground"
-                                      placeholder={t("docform.searchScanPlaceholder")}
-                                      value={rowPickerQ}
-                                      onChange={(e) => setRowPickerQ(e.target.value)}
-                                      onKeyDown={(e) => {
-                                        if (e.key === "Enter") {
-                                          e.preventDefault();
-                                          const first = prodResults[0];
-                                          if (first) pickForRow(l.key, first);
-                                        } else if (e.key === "Escape") {
-                                          closeRowPicker();
-                                        }
-                                      }}
-                                      autoComplete="off"
-                                    />
-                                  </div>
-                                  <ul className="max-h-64 overflow-y-auto py-1" role="listbox">
+                                  <ul id={`row-picker-${l.key}`} className="max-h-64 overflow-y-auto py-1" role="listbox">
                                     {prodResults.map((p) => (
                                       <li key={p.id} role="option" aria-selected={false}>
                                         <button type="button"
@@ -1714,10 +1702,10 @@ export function DocForm({ mode, initialType }: { mode: "SALES" | "PURCHASE"; ini
                             <BatchControls line={l} isSales={isSales} docType={docType} batches={batchCache[l.productId]} t={t} onChange={(patch) => updateLine(l.key, patch)} />
                             <LocationControls line={l} branches={branches} t={t} onChange={(patch) => updateLine(l.key, patch)} />
                           </td>
-                          <td>
+                          <td className="text-end">
                             <input readOnly aria-label={t("docform.colPurchasePrice")}
                               className="field num !w-24 !bg-muted/40 !px-1 !py-1 text-[13px]"
-                              value={lineCost != null ? lineCost.toFixed(2) : ""} placeholder="—" />
+                              value={lineCost != null ? lineCost.toFixed(2) : ""} />
                           </td>
                           <td>
                             <span className="flex w-fit overflow-hidden rounded-md border border-border text-[10px] font-bold">
@@ -1730,7 +1718,7 @@ export function DocForm({ mode, initialType }: { mode: "SALES" | "PURCHASE"; ini
                             </span>
                           </td>
                           <td>
-                            <div className="flex items-center gap-1">
+                            <div className="flex items-center justify-end gap-1">
                               <button type="button" onClick={() => stepQty(l.key, -1)}
                                 className="grid h-7 w-7 place-items-center rounded-lg border border-border text-sm font-bold text-muted-foreground hover:bg-muted" aria-label="-">−</button>
                               <input ref={setRowRef(l.key, "qty")} onKeyDown={(e) => rowKeyDown(e, l.key, "qty")}
@@ -1741,11 +1729,11 @@ export function DocForm({ mode, initialType }: { mode: "SALES" | "PURCHASE"; ini
                               <UnitPicker line={l} t={t} onUnit={(u) => changeLineUnit(l.key, u)} />
                             </div>
                           </td>
-                          <td><input ref={setRowRef(l.key, "rate")} onKeyDown={(e) => rowKeyDown(e, l.key, "rate")}
+                          <td className="text-end"><input ref={setRowRef(l.key, "rate")} onKeyDown={(e) => rowKeyDown(e, l.key, "rate")}
                             className="field num !w-24 !px-1 !py-1 text-[13px]" type="number" min="0" step={isForeign ? "any" : "0.01"} placeholder="0.00" value={l.rate}
                             onChange={(e) => updateLine(l.key, { rate: e.target.value })} />
                           </td>
-                          <td><input ref={setRowRef(l.key, "discount")} onKeyDown={(e) => rowKeyDown(e, l.key, "discount")}
+                          <td className="text-end"><input ref={setRowRef(l.key, "discount")} onKeyDown={(e) => rowKeyDown(e, l.key, "discount")}
                             className="field num !w-16 !px-1 !py-1 text-[13px]" type="number" min="0" step={isForeign ? "any" : "0.01"} placeholder="0.00" value={l.discount}
                             onChange={(e) => updateLine(l.key, { discount: e.target.value })} />
                           </td>
@@ -1788,17 +1776,6 @@ export function DocForm({ mode, initialType }: { mode: "SALES" | "PURCHASE"; ini
                       );
                     })}
                   </tbody>
-                  <tfoot>
-                    <tr className="border-t-2 border-border font-extrabold">
-                      <td colSpan={6}>Total</td>
-                      <td className="num">{Number.isInteger(totalQty) ? String(totalQty) : totalQty.toFixed(3).replace(/0+$/, "").replace(/\.$/, "")}</td>
-                      <td />
-                      <td />
-                      <td className="num">{fmtFx(subtotal)}</td>
-                      <td />
-                      <td />
-                    </tr>
-                  </tfoot>
                 </table>
               </div>
 
