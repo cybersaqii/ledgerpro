@@ -13,6 +13,8 @@ import { deductBatchStock, recordBatchUsage } from "./batches";
 import { assertPeriodOpen } from "./period";
 import { UserError } from "./errors";
 import type { DbTx } from "./db";
+/** Pure value math lives in lib/stock-math.ts (importable from client pages). */
+import { stockLineValue } from "./stock-math";
 /** Adjustment reasons — shared by lib, API and UI. */
 export const ADJUSTMENT_REASONS = ["BREAKAGE", "EXPIRED", "THEFT", "FOUND", "CORRECTION"] as const;
 export type AdjustmentReason = (typeof ADJUSTMENT_REASONS)[number];
@@ -37,15 +39,6 @@ export const FIX3_SOURCES = {
   BANK_ADJUSTMENT: "BANK_ADJUSTMENT",
   BANK_ADJUSTMENT_VOID: "BANK_ADJUSTMENT_VOID",
 } as const;
-
-/** Half-up paisa value of a milli-unit quantity at a per-unit paisa cost.
- *  Phase 3: exported so the UI shows the same value before and after saving
- *  (the stored costPaisa × qty, no posting change — adjustments stay
- *  quantity-only). */
-export function stockLineValue(qtyMilli: bigint, avgCostPaisa: bigint): bigint {
-  const q = qtyMilli < 0n ? -qtyMilli : qtyMilli;
-  return (q * avgCostPaisa + 500n) / 1000n;
-}
 
 export type StockAdjustmentLineInput = {
   productId: string;

@@ -6,7 +6,7 @@ import { Plus, Boxes, Trash2, Search, ChevronDown } from "lucide-react";
 import { PageHeader, EmptyState, Field, ErrorNote, Pagination } from "@/components/ui";
 import { Modal } from "@/components/modal";
 import { api, fmtDate, fmtDateInput, fmtMoney, toBig } from "@/lib/format";
-import { stockLineValue } from "@/lib/stock-adjust";
+import { stockLineValue } from "@/lib/stock-math";
 import { useLang } from "@/components/lang-provider";
 import { usePermissions } from "@/components/permissions";
 import { NumericDateInput } from "@/components/numeric-date-input";

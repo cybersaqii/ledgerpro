@@ -5,7 +5,7 @@ import Link from "next/link";
 import { ArrowLeft, Boxes } from "lucide-react";
 import { PageHeader } from "@/components/ui";
 import { api, fmtMoney, fmtDate, fmtQty, toBig } from "@/lib/format";
-import { stockLineValue } from "@/lib/stock-adjust";
+import { stockLineValue } from "@/lib/stock-math";
 import { useLang } from "@/components/lang-provider";
 
 type Line = {

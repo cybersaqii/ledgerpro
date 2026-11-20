@@ -4,7 +4,7 @@
  * adjustments stay quantity-only; nothing is posted from the value.
  */
 import { describe, it, expect } from "vitest";
-import { stockLineValue } from "@/lib/stock-adjust";
+import { stockLineValue } from "@/lib/stock-math";
 
 describe("stockLineValue", () => {
   it("values a whole quantity at avg cost", () => {
