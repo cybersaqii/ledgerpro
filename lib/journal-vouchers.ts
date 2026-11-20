@@ -22,6 +22,9 @@ export type PostManualJournalInput = {
   branchId?: string;
   /** Module 13: project tag — stamped on every line (balance unchanged). */
   projectId?: string | null;
+  /** Phase 3: optional user reference (e.g. a bank slip no.); blank keeps the
+   *  voucher number as the reference, as before. */
+  reference?: string;
   date: Date;
   memo: string;
   lines: ManualJournalLineInput[];
@@ -91,7 +94,7 @@ export async function postManualJournal(
     branchId: input.branchId,
     date: input.date,
     memo: input.memo.trim(),
-    reference: docNo,
+    reference: input.reference?.trim() || docNo,
     docNo,
     source: "MANUAL",
     idempotencyKey: input.idempotencyKey,

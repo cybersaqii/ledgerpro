@@ -31,6 +31,9 @@ export default function NewJournalVoucherPage() {
   const [parties, setParties] = useState<Party[]>([]);
   const [date, setDate] = useState(() => new Date().toISOString().slice(0, 10));
   const [memo, setMemo] = useState("");
+  // Phase 3: optional user reference (e.g. a bank slip no.); blank keeps the
+  // voucher number as the reference.
+  const [reference, setReference] = useState("");
   // Module 13: voucher-level project tag ("" = untagged).
   const [projectId, setProjectId] = useState("");
   const [lines, setLines] = useState<Line[]>([blankLine(), blankLine()]);
@@ -66,6 +69,7 @@ export default function NewJournalVoucherPage() {
         body: JSON.stringify({
           date,
           memo: memo.trim(),
+          reference: reference.trim() || undefined,
           // Module 13: voucher-level project tag — stamped on every line.
           projectId: projectId || undefined,
           lines: validLines.map((l) => ({
@@ -103,6 +107,10 @@ export default function NewJournalVoucherPage() {
               <input className="input" value={memo} onChange={(e) => setMemo(e.target.value)} placeholder={t("jv.memoPh")} maxLength={500} />
             </Field>
           </div>
+          {/* Phase 3: optional user reference — blank keeps the voucher number. */}
+          <Field label={t("jv.refNo")} hint={t("jv.refNoHint")}>
+            <input className="input" value={reference} onChange={(e) => setReference(e.target.value)} placeholder={t("jv.refNoPh")} maxLength={60} />
+          </Field>
           {/* Module 13: project tag — visible only when the company has projects */}
           <ProjectSelect value={projectId} onChange={setProjectId} />
         </div>

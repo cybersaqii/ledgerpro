@@ -138,6 +138,8 @@ export type StagedJournalPayload = {
   branchId: string;
   dateISO: string;
   memo: string;
+  /** Phase 3: optional user reference — replayed on approve. */
+  reference?: string;
   /** Module 13: project tag (validated at staging; replayed on approve). */
   projectId?: string;
   lines: {
@@ -491,6 +493,8 @@ async function finalizeJournal(
     branchId: payload.branchId,
     date: new Date(payload.dateISO),
     memo: payload.memo,
+    // Phase 3: user reference replayed from the staged payload.
+    reference: payload.reference,
     lines: payload.lines.map((l) => ({
       accountId: l.accountId,
       debit: BigInt(l.debitPaisa),

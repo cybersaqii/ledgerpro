@@ -28,6 +28,8 @@ const lineSchema = z.object({
 const jvSchema = z.object({
   date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Invalid date"),
   memo: z.string().trim().min(1, "A memo / narration is required.").max(500),
+  /** Phase 3: optional user reference (external ref no.); blank keeps the voucher number. */
+  reference: z.string().trim().max(60).optional(),
   branchId: z.string().min(1).optional(),
   /** Module 13: project tag — stamped on every voucher line. */
   projectId: z.string().min(1).optional(),
@@ -113,6 +115,7 @@ export async function POST(req: NextRequest) {
             branchId,
             dateISO: date.toISOString(),
             memo: b.data.memo,
+            reference: b.data.reference || undefined,
             projectId: projectId ?? undefined,
             lines: lines.map((l) => ({
               accountId: l.accountId,
@@ -133,6 +136,7 @@ export async function POST(req: NextRequest) {
         branchId,
         date,
         memo: b.data.memo,
+        reference: b.data.reference || undefined,
         lines,
         createdById: session.uid,
         projectId,
