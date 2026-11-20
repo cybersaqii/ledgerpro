@@ -211,6 +211,7 @@ describe("idempotency keys + money-create rate limits", () => {
       "pos_sessions_idem_key", // Module 14: POS shift open (idempotent replay)
       "purchase_docs_idem_key",
       "sales_docs_idem_key",
+      "stock_adj_idem_key", // Phase 1 (migration 0074): stock adjustments
       "stock_xfer_idem_key", // Module 4: stock transfer docs
       "sundry_receipts_idem_key", // Module 3
       "transfers_idem_key",
