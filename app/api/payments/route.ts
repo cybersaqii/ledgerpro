@@ -186,6 +186,8 @@ export async function POST(req: NextRequest) {
               docId: a.docId,
               docKind: a.docKind,
               amountPaisa: a.amount,
+              // Phase 3: per-invoice discount, replayed on approve.
+              discountPaisa: a.discount || "0",
             })),
             autoAllocate: !!b.autoAllocate,
             // Module 7.2: WHT deducted at payment/receipt time.
@@ -227,6 +229,8 @@ export async function POST(req: NextRequest) {
                 docId: a.docId,
                 docKind: a.docKind,
                 amount: parseMoney(a.amount),
+                // Phase 3: per-invoice discount granted on settlement.
+                discount: parseMoney(a.discount || "0"),
               })),
         createdById: session.uid,
         // Module 7.2: WHT deducted at payment/receipt time (validated +

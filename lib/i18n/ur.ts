@@ -1302,6 +1302,7 @@ export const ur: DeepPartial<EnDict> = {
     referencePlaceholder: "چیک نمبر / ٹرانزیکشن آئی ڈی",
     notes: "نوٹس (اختیاری)",
     allocateTitle: "بلوں کے مقابل مختص کریں",
+    allocDiscount: "رعایت",
     againstParty: "گاہک / سپلائر",
     againstNominal: "آمدن / اخراجات کھاتہ",
     incomeAccount: "آمدن کھاتہ",

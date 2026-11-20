@@ -1628,6 +1628,9 @@ async function applyPaymentCreate(db: Db, ds: DeviceSession, op: SyncOp): Promis
               docId: a.docId,
               docKind: a.docKind,
               amount: parseMoney(a.amount),
+              // Phase 3: per-invoice discount (sync payloads carry it via
+              // paymentSchema, which defaults it to "0").
+              discount: parseMoney(a.discount || "0"),
             })),
       createdById: userId,
     });

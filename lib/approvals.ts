@@ -125,7 +125,7 @@ export type StagedPaymentPayload = {
   method: string;
   reference?: string;
   notes?: string;
-  allocations: { docId: string; docKind: "SALES" | "PURCHASE"; amountPaisa: string }[];
+  allocations: { docId: string; docKind: "SALES" | "PURCHASE"; amountPaisa: string; discountPaisa?: string }[];
   autoAllocate: boolean;
   /** Module 7.2: WHT deducted at payment/receipt time (replayed on approve). */
   whtSection?: string;
@@ -456,6 +456,8 @@ async function finalizePayment(
           docId: a.docId,
           docKind: a.docKind,
           amount: BigInt(a.amountPaisa),
+          // Phase 3: per-invoice discount, replayed on approve.
+          discount: BigInt(a.discountPaisa ?? "0"),
         }));
   return postPayment(tx, {
     companyId,

@@ -850,7 +850,18 @@ export async function postPurchaseDoc(tx: DbTx, input: PostPurchaseInput): Promi
 
 // ─── Payments ──────────────────────────────────────────────────
 
-export type AllocationInput = { docId: string; docKind: "SALES" | "PURCHASE"; amount: bigint };
+export type AllocationInput = {
+  docId: string;
+  docKind: "SALES" | "PURCHASE";
+  amount: bigint;
+  /**
+   * Phase 3: per-invoice discount granted on settlement — the part of the
+   * open balance forgiven instead of paid. amount = cash actually
+   * received/paid; amount + discount is what settles on the document.
+   * Posts to DISCOUNT_GIVEN (receipt) / DISCOUNT_RECEIVED (payment).
+   */
+  discount?: bigint;
+};
 
 export type PostPaymentInput = {
   /** Optional explicit id (sync push uses the client's refId); defaults to a fresh UUID. */
@@ -932,12 +943,19 @@ async function postFxSettlement(
     returnedTotal: bigint;
     writtenOffAmount: bigint;
     partyId: string;
+    /**
+     * Phase 3: discounts granted on this document so far (all allocations).
+     * amountPaid counts discount toward settlement, but the FX difference is
+     * cash actually received/paid vs the PKR the document carried — so the
+     * discount is excluded from the diff.
+     */
+    discountPaisa?: bigint;
   }
 ): Promise<void> {
   const code = (args.currencyCode || "PKR").toUpperCase();
   if (code === "PKR") return;
   const expected = args.grandTotal - args.returnedTotal - args.writtenOffAmount;
-  const diff = args.amountPaid - expected;
+  const diff = args.amountPaid - (args.discountPaisa ?? 0n) - expected;
   if (diff === 0n) return;
   const ac = await accountMap(tx, args.companyId);
   const arApAccount = args.docKind === "SALES" ? ac[SYS.AR] : ac[SYS.AP];
@@ -1016,11 +1034,17 @@ export async function allocatePaymentToDoc(
     docKind: "SALES" | "PURCHASE";
     docId: string;
     amount: bigint;
+    /** Phase 3: per-invoice discount (see AllocationInput). */
+    discount?: bigint;
     /** Module 10: context for the FX settlement journal (required to post it). */
     settleFx?: { branchId: string; date: Date; createdById: string };
   }
 ): Promise<void> {
   if (opts.amount <= 0n) throw new UserError("Allocation amounts must be positive");
+  const discount = opts.discount ?? 0n;
+  if (discount < 0n) throw new UserError("Allocation discounts cannot be negative");
+  // Phase 3: amount (cash) + discount (forgiven) is what settles on the doc.
+  const applied = opts.amount + discount;
   if (opts.docKind === "SALES") {
     const rows = await tx
       .select()
@@ -1035,8 +1059,8 @@ export async function allocatePaymentToDoc(
     if (!["POSTED", "PARTIAL", "PAID"].includes(doc.status))
       throw new UserError(`Cannot allocate to ${doc.docNo}: it is not posted.`, 422, "DOC_NOT_POSTED");
     const remaining = doc.grandTotal - doc.amountPaid - doc.returnedTotal;
-    if (opts.amount > remaining) throw new UserError(`Allocation exceeds remaining balance of ${doc.docNo}`);
-    const paid = doc.amountPaid + opts.amount;
+    if (applied > remaining) throw new UserError(`Allocation exceeds remaining balance of ${doc.docNo}`);
+    const paid = doc.amountPaid + applied;
     const netTotal = doc.grandTotal - doc.returnedTotal;
     const newStatus = paid >= netTotal ? "PAID" : "PARTIAL";
     await tx
@@ -1049,9 +1073,16 @@ export async function allocatePaymentToDoc(
       partyId: opts.partyId,
       salesDocId: doc.id,
       amount: opts.amount,
+      discount,
     });
     // Module 10: FX gain/loss on settlement of a foreign-currency invoice.
     if (opts.settleFx && newStatus === "PAID") {
+      // The FX diff is cash vs the PKR the doc carried — exclude every
+      // discount granted on this document, not just this allocation's.
+      const prior = await tx
+        .select({ d: sql<string>`COALESCE(SUM(${paymentAllocations.discount}),0)` })
+        .from(paymentAllocations)
+        .where(eq(paymentAllocations.salesDocId, doc.id));
       await postFxSettlement(tx, {
         companyId: opts.companyId,
         branchId: opts.settleFx.branchId,
@@ -1066,6 +1097,7 @@ export async function allocatePaymentToDoc(
         returnedTotal: doc.returnedTotal ?? 0n,
         writtenOffAmount: doc.writtenOffAmount ?? 0n,
         partyId: opts.partyId,
+        discountPaisa: BigInt(prior[0]?.d ?? "0"),
       });
     }
   } else {
@@ -1080,8 +1112,8 @@ export async function allocatePaymentToDoc(
     if (!["POSTED", "PARTIAL", "PAID"].includes(doc.status))
       throw new UserError(`Cannot allocate to ${doc.docNo}: it is not posted.`, 422, "DOC_NOT_POSTED");
     const remaining = doc.grandTotal - doc.amountPaid - doc.returnedTotal;
-    if (opts.amount > remaining) throw new UserError(`Allocation exceeds remaining balance of ${doc.docNo}`);
-    const paid = doc.amountPaid + opts.amount;
+    if (applied > remaining) throw new UserError(`Allocation exceeds remaining balance of ${doc.docNo}`);
+    const paid = doc.amountPaid + applied;
     const netTotal = doc.grandTotal - doc.returnedTotal;
     const newStatus = paid >= netTotal ? "PAID" : "PARTIAL";
     await tx
@@ -1094,9 +1126,14 @@ export async function allocatePaymentToDoc(
       partyId: opts.partyId,
       purchaseDocId: doc.id,
       amount: opts.amount,
+      discount,
     });
     // Module 10: FX gain/loss on settlement of a foreign-currency bill.
     if (opts.settleFx && newStatus === "PAID") {
+      const prior = await tx
+        .select({ d: sql<string>`COALESCE(SUM(${paymentAllocations.discount}),0)` })
+        .from(paymentAllocations)
+        .where(eq(paymentAllocations.purchaseDocId, doc.id));
       await postFxSettlement(tx, {
         companyId: opts.companyId,
         branchId: opts.settleFx.branchId,
@@ -1111,6 +1148,7 @@ export async function allocatePaymentToDoc(
         returnedTotal: doc.returnedTotal ?? 0n,
         writtenOffAmount: doc.writtenOffAmount ?? 0n,
         partyId: opts.partyId,
+        discountPaisa: BigInt(prior[0]?.d ?? "0"),
       });
     }
   }
@@ -1214,6 +1252,11 @@ export async function postPayment(tx: DbTx, input: PostPaymentInput): Promise<{ 
 
   const allocTotal = input.allocations.reduce((a, x) => a + x.amount, 0n);
   if (allocTotal > input.amount) throw new UserError("Allocated amount exceeds payment amount");
+  // Phase 3: per-invoice discounts — cash + discount is what settles on
+  // each document; the discount total posts to DISCOUNT_GIVEN (receipt)
+  // / DISCOUNT_RECEIVED (supplier payment) in the journal below.
+  const discountTotal = input.allocations.reduce((a, x) => a + (x.discount ?? 0n), 0n);
+  if (discountTotal < 0n) throw new UserError("Allocation discounts cannot be negative");
   // M1b: allocations may only settle the party's own document side — a
   // customer payment can never allocate to a purchase bill, and vice versa.
   // Refunds (customer PAYMENT, supplier RECEIPT) can never be allocated at
@@ -1226,6 +1269,7 @@ export async function postPayment(tx: DbTx, input: PostPaymentInput): Promise<{ 
   }
   for (const a of input.allocations) {
     if (a.amount <= 0n) throw new UserError("Allocation amounts must be positive");
+    if ((a.discount ?? 0n) < 0n) throw new UserError("Allocation discounts cannot be negative");
     if (a.docKind !== wantDocKind)
       throw new UserError(
         isCustomer
@@ -1299,14 +1343,21 @@ export async function postPayment(tx: DbTx, input: PostPaymentInput): Promise<{ 
           ...(whtAmount > 0n
             ? [{ accountId: ac[SYS.TAX_PAYABLE], debit: whtAmount, credit: 0n, partyId: input.partyId }]
             : []),
-          { accountId: arApAccount, debit: 0n, credit: input.amount, partyId: input.partyId },
+          // Phase 3 — discount given: the forgiven part of the open balance
+          // (Dr 5010); AR settles at cash + discount.
+          ...(discountTotal > 0n
+            ? [{ accountId: ac[SYS.DISCOUNT_GIVEN], debit: discountTotal, credit: 0n }]
+            : []),
+          { accountId: arApAccount, debit: 0n, credit: input.amount + discountTotal, partyId: input.partyId },
         ]
       : isSupplierPayment
         ? [
             // Module 2.5 — vendor payments: allocated part settles AP, the
             // unallocated remainder becomes an Advance to Suppliers asset.
+            // Phase 3: AP settles at cash + discount (discount > 0 implies
+            // allocTotal > 0 — every discounted allocation carries cash).
             ...(allocTotal > 0n
-              ? [{ accountId: arApAccount, debit: allocTotal, credit: 0n, partyId: input.partyId }]
+              ? [{ accountId: arApAccount, debit: allocTotal + discountTotal, credit: 0n, partyId: input.partyId }]
               : []),
             ...(advanceAmount > 0n
               ? [{ accountId: ac[SYS.ADVANCE_SUPPLIERS], debit: advanceAmount, credit: 0n }]
@@ -1315,6 +1366,11 @@ export async function postPayment(tx: DbTx, input: PostPaymentInput): Promise<{ 
             // tax authority (Cr WHT 2100, party-tagged); cash moves net.
             ...(whtAmount > 0n
               ? [{ accountId: ac[SYS.TAX_PAYABLE], debit: 0n, credit: whtAmount, partyId: input.partyId }]
+              : []),
+            // Phase 3 — discount received: the supplier forgave part of the
+            // bill (Cr Discount Received); AP settles at cash + discount.
+            ...(discountTotal > 0n
+              ? [{ accountId: ac[SYS.DISCOUNT_RECEIVED], debit: 0n, credit: discountTotal }]
               : []),
             { accountId: bank.accountId, debit: 0n, credit: input.amount - whtAmount },
           ]
@@ -1378,6 +1434,7 @@ export async function postPayment(tx: DbTx, input: PostPaymentInput): Promise<{ 
       docKind: a.docKind,
       docId: a.docId,
       amount: a.amount,
+      discount: a.discount ?? 0n,
       // Module 10: FX gain/loss posts when an allocation settles a
       // foreign-currency document (inside this same posting transaction).
       settleFx: { branchId: input.branchId, date: input.date, createdById: input.createdById },
@@ -1389,12 +1446,18 @@ export async function postPayment(tx: DbTx, input: PostPaymentInput): Promise<{ 
   // paying out moves it away — on BOTH sides of the ledger:
   //   RECEIPT from customer → they owe less (−); from supplier → we owe more (+)
   //   PAYMENT to customer (refund) → they owe more (+); to supplier → we owe less (−)
-  // Module 2.5: a vendor payment only relieves AP by its ALLOCATED part —
-  // the unallocated remainder is an Advance to Suppliers asset, not AP relief.
+  // Module 2.5: a vendor payment only relieves AP by its ALLOCATED part —\n  // the unallocated remainder is an Advance to Suppliers asset, not AP relief.
+  // Phase 3: a discount relieves AR/AP by the forgiven amount too, so the
+  // bump counts cash + discount (receipts) / allocated + discount (vendor
+  // payments) — otherwise the stored balance would drift from the journal.
   await bumpPartyBalance(
     tx,
     input.partyId,
-    isSupplierPayment ? -allocTotal : isCustomer === isReceipt ? -input.amount : input.amount
+    isSupplierPayment
+      ? -(allocTotal + discountTotal)
+      : isCustomer === isReceipt
+        ? -(input.amount + discountTotal)
+        : input.amount
   );
   // Module 7.2: cash actually moves NET of any withheld tax.
   const cashMoved = input.amount - whtAmount;

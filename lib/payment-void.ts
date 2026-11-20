@@ -129,7 +129,9 @@ export async function voidPayment(
       const d = await tx.select().from(salesDocs).where(eq(salesDocs.id, a.salesDocId)).limit(1);
       const doc = d[0];
       if (!doc) continue;
-      const paid = doc.amountPaid - a.amount;
+      // Phase 3: amountPaid counts cash + discount toward settlement, so
+      // the void releases both.
+      const paid = doc.amountPaid - a.amount - (a.discount ?? 0n);
       if (paid < 0n) throw new UserError(`Allocation on ${doc.docNo} exceeds its paid amount — data is inconsistent.`);
       await tx
         .update(salesDocs)
@@ -139,7 +141,9 @@ export async function voidPayment(
       const d = await tx.select().from(purchaseDocs).where(eq(purchaseDocs.id, a.purchaseDocId)).limit(1);
       const doc = d[0];
       if (!doc) continue;
-      const paid = doc.amountPaid - a.amount;
+      // Phase 3: amountPaid counts cash + discount toward settlement, so
+      // the void releases both.
+      const paid = doc.amountPaid - a.amount - (a.discount ?? 0n);
       if (paid < 0n) throw new UserError(`Allocation on ${doc.docNo} exceeds its paid amount — data is inconsistent.`);
       await tx
         .update(purchaseDocs)
@@ -244,8 +248,11 @@ export async function voidPayment(
   }
   // Restore balances: exact inverse of postPayment's bumps. postPayment
   // bumps the party by (isCustomer === isReceipt ? -amount : +amount), so
-  // the void subtracts that same bump back off.
-  const partyDelta = isCustomer === isReceipt ? -payment.amount : payment.amount;
+  // the void subtracts that same bump back off. Phase 3: the bump counts
+  // cash + discount, so the void restores the discount too (sum of the
+  // allocation rows it just released).
+  const discountTotal = allocs.reduce((sum, x) => sum + (x.discount ?? 0n), 0n);
+  const partyDelta = isCustomer === isReceipt ? -(payment.amount + discountTotal) : payment.amount;
   await tx
     .update(parties)
     .set({ balance: sql`${parties.balance} - ${partyDelta}`, updatedAt: new Date() })
@@ -317,7 +324,8 @@ export async function unallocatePaymentRow(
     const doc = d[0];
     if (!doc || doc.companyId !== input.companyId) throw new UserError("The allocated document is invalid.");
     await assertPeriodOpen(tx, input.companyId, doc.date);
-    const paid = doc.amountPaid - alloc.amount;
+    // Phase 3: amountPaid counts cash + discount toward settlement.
+    const paid = doc.amountPaid - alloc.amount - (alloc.discount ?? 0n);
     if (paid < 0n) throw new UserError("Allocation exceeds the document's paid amount.");
     await tx
       .update(salesDocs)
@@ -328,7 +336,8 @@ export async function unallocatePaymentRow(
     const doc = d[0];
     if (!doc || doc.companyId !== input.companyId) throw new UserError("The allocated document is invalid.");
     await assertPeriodOpen(tx, input.companyId, doc.date);
-    const paid = doc.amountPaid - alloc.amount;
+    // Phase 3: amountPaid counts cash + discount toward settlement.
+    const paid = doc.amountPaid - alloc.amount - (alloc.discount ?? 0n);
     if (paid < 0n) throw new UserError("Allocation exceeds the document's paid amount.");
     await tx
       .update(purchaseDocs)
@@ -339,7 +348,9 @@ export async function unallocatePaymentRow(
   }
 
   await tx.delete(paymentAllocations).where(eq(paymentAllocations.id, alloc.id));
-  return { paymentId: payment.id, freedAmount: alloc.amount };
+  // Phase 3: freeing the allocation frees cash + discount — that is what
+  // the document's amountPaid drops by.
+  return { paymentId: payment.id, freedAmount: alloc.amount + (alloc.discount ?? 0n) };
 }
 
 export type VoidExpenseInput = {

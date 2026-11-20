@@ -42,6 +42,9 @@ function PaymentFormInner() {
   const [projectId, setProjectId] = useState("");
   const [outstanding, setOutstanding] = useState<Outstanding[]>([]);
   const [alloc, setAlloc] = useState<Record<string, string>>({});
+  // Phase 3: per-invoice discount granted on settlement (cash + discount is
+  // what settles on the bill; the discount posts to Discount Given/Received).
+  const [allocDisc, setAllocDisc] = useState<Record<string, string>>({});
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   // Direct nominal receipt/payment (no party/invoice): "PARTY" = customer/supplier + invoices, "NOMINAL" = income/expense account.
@@ -90,6 +93,7 @@ function PaymentFormInner() {
     /* eslint-disable react-hooks/set-state-in-effect -- data fetch on party change */
     setOutstanding([]);
     setAlloc({});
+    setAllocDisc({});
     if (!partyId || isRefund) return;
     api<{ data: Outstanding[] }>(`/api/parties/${partyId}/outstanding?kind=${isReceipt ? "SALES" : "PURCHASE"}`)
       .then((d) => setOutstanding(d.data))
@@ -169,16 +173,27 @@ function PaymentFormInner() {
   const whtNetPaisa = whtGrossP - whtPaisa;
 
   function toggleAlloc(id: string, balance: string) {
+    if (alloc[id]) {
+      // Deselect: the bill carries no amount and no discount either.
+      setAlloc((a) => {
+        const next = { ...a };
+        delete next[id];
+        return next;
+      });
+      setAllocDisc((d) => {
+        const nd = { ...d };
+        delete nd[id];
+        return nd;
+      });
+      return;
+    }
     setAlloc((a) => {
       const next = { ...a };
-      if (next[id]) delete next[id];
-      else {
-        // default: remaining amount after other allocations, capped by bill balance
-        const others = Object.entries(next).reduce((s, [, v]) => s + Math.round(parseFloat(v || "0") * 100), 0);
-        const remaining = Math.max(0, amountPaisa - others);
-        const fill = Math.min(remaining, Number(BigInt(balance)));
-        next[id] = (fill / 100).toString();
-      }
+      // default: remaining amount after other allocations, capped by bill balance
+      const others = Object.entries(next).reduce((s, [, v]) => s + Math.round(parseFloat(v || "0") * 100), 0);
+      const remaining = Math.max(0, amountPaisa - others);
+      const fill = Math.min(remaining, Number(BigInt(balance)));
+      next[id] = (fill / 100).toString();
       return next;
     });
   }
@@ -226,7 +241,11 @@ function PaymentFormInner() {
           whtBps: !isNominal && whtSection && whtBps > 0 ? whtBps : undefined,
           allocations: isNominal || isRefund ? [] : Object.entries(alloc)
             .filter(([, v]) => parseFloat(v || "0") > 0)
-            .map(([docId, v]) => ({ docId, docKind: isReceipt ? "SALES" : "PURCHASE", amount: v })),
+            .map(([docId, v]) => ({
+              docId, docKind: isReceipt ? "SALES" : "PURCHASE", amount: v,
+              // Phase 3: per-invoice discount granted on settlement.
+              discount: allocDisc[docId] || "0",
+            })),
         }),
       });
       idemRef.current = null;
@@ -417,9 +436,16 @@ function PaymentFormInner() {
                     <p className="text-xs text-muted-foreground">{fmtDate(o.date)} · {t("payform.due", { balance: fmtMoney(o.balance) })} {t("payform.ofTotal", { total: fmtMoney(o.grandTotal) })}</p>
                   </div>
                   {alloc[o.id] !== undefined && (
-                    <input className="field num !w-28 !py-1.5" type="number" min="0" step="0.01"
-                      max={(Number(BigInt(o.balance)) / 100).toString()}
-                      value={alloc[o.id]} onChange={(e) => setAlloc((a) => ({ ...a, [o.id]: e.target.value }))} />
+                    <div className="flex shrink-0 items-center gap-1.5">
+                      <input className="field num !w-28 !py-1.5" type="number" min="0" step="0.01"
+                        max={(Number(BigInt(o.balance)) / 100).toString()}
+                        value={alloc[o.id]} onChange={(e) => setAlloc((a) => ({ ...a, [o.id]: e.target.value }))} />
+                      <input className="field num !w-24 !py-1.5" type="number" min="0" step="0.01"
+                        max={(Number(BigInt(o.balance)) / 100).toString()}
+                        value={allocDisc[o.id] ?? ""} placeholder={t("payform.allocDiscount")}
+                        aria-label={`${t("payform.allocDiscount")} — ${o.docNo}`}
+                        onChange={(e) => setAllocDisc((d) => ({ ...d, [o.id]: e.target.value }))} />
+                    </div>
                   )}
                 </li>
               ))}

@@ -1302,6 +1302,7 @@ export const en = {
     referencePlaceholder: "Cheque no / txn id",
     notes: "Notes (optional)",
     allocateTitle: "Allocate against bills",
+    allocDiscount: "Discount",
     againstParty: "Customer / Supplier",
     againstNominal: "Income / Expense account",
     incomeAccount: "Income account",

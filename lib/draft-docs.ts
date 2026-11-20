@@ -488,8 +488,7 @@ export async function postDraftPurchaseDoc(
   tx: DbTx,
   companyId: string,
   docId: string,
-  actorId: string,
-  _opts: PostDraftOpts = {}
+  actorId: string
 ): Promise<{ docId: string; docNo: string }> {
   const [doc] = await tx
     .select()
