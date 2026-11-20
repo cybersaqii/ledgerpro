@@ -11,6 +11,8 @@ import {
 import { PageHeader, EmptyState } from "@/components/ui";
 import { api, fmtMoney, fmtDate } from "@/lib/format";
 import { useLang } from "@/components/lang-provider";
+import { useBusinessProfile } from "@/components/business-type";
+import { dashboardWidgetOrder } from "@/lib/dashboard-widgets";
 
 const CashFlowChart = dynamic(
   () => import("@/components/overview-charts").then((m) => ({ default: m.CashFlowChart })),
@@ -105,11 +107,13 @@ function periodRange(key: SalesPeriodKey): { from: string; to: string } {
 
 // FA-style widget card: thin border, square corners, title bar with a light
 // bottom divider — matches the 2026-11-08 screen recording's cards.
-function FaCard({ title, action, footer, children, className = "" }: {
+function FaCard({ title, action, footer, children, className = "", style }: {
   title: string; action?: React.ReactNode; footer?: React.ReactNode; children: React.ReactNode; className?: string;
+  /** Phase 3: grid position from lib/dashboard-widgets (adaptive order per trade). */
+  style?: React.CSSProperties;
 }) {
   return (
-    <section className={`min-w-0 overflow-hidden rounded border border-border bg-card ${className}`}>
+    <section className={`min-w-0 overflow-hidden rounded border border-border bg-card ${className}`} style={style}>
       <div className="flex items-center justify-between gap-2 border-b border-border px-4 py-2.5">
         <h2 className="truncate text-sm font-extrabold tracking-tight">{title}</h2>
         {action}
@@ -131,6 +135,9 @@ function ViewReportLink({ href, label }: { href: string; label: string }) {
 export default function DashboardPage() {
   const router = useRouter();
   const { t } = useLang();
+  // Phase 3: adaptive widget order + trade labels for this business type.
+  const bp = useBusinessProfile();
+  const wOrder = dashboardWidgetOrder(bp.type);
   const [tab, setTab] = useState<"new" | "overview">("overview");
   const [user, setUser] = useState<User | null>(null);
   const [overview, setOverview] = useState<OverviewData | null>(null);
@@ -263,8 +270,8 @@ export default function DashboardPage() {
     </select>
   );
 
-  const watchlistCard = (title: string, tint: string) => (
-    <FaCard title={title}>
+  const watchlistCard = (title: string, tint: string, order: number) => (
+    <FaCard title={title} style={{ order }}>
       <div className="overflow-x-auto"><table className="tbl-fa w-full">
         <thead>
           <tr><th className={`fa-th-${tint}`}>{t("dashboard.name")}</th><th className={`fa-th-${tint} num`}>{t("dashboard.balance")}</th></tr>
@@ -349,6 +356,7 @@ export default function DashboardPage() {
           <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
             <FaCard
               title={t("dashboard.arSummary")}
+              style={{ order: wOrder.ar }}
               footer={<ViewReportLink href="/reports/aging?kind=CUSTOMER" label={t("dashboard.viewReport")} />}
             >
               <p className="mb-1 text-xs text-muted-foreground">{t("dashboard.totalReceivable")}</p>
@@ -358,6 +366,7 @@ export default function DashboardPage() {
 
             <FaCard
               title={t("dashboard.apSummary")}
+              style={{ order: wOrder.ap }}
               footer={<ViewReportLink href="/reports/aging?kind=SUPPLIER" label={t("dashboard.viewReport")} />}
             >
               <p className="mb-1 text-xs text-muted-foreground">{t("dashboard.totalPayable")}</p>
@@ -367,6 +376,7 @@ export default function DashboardPage() {
 
             <FaCard
               title={t("dashboard.bankBalances")}
+              style={{ order: wOrder.banks }}
               action={<Link href="/bank/balances" className="inline-flex items-center gap-1 text-xs font-bold text-primary hover:underline">{t("common.viewAll")} <ChevronRight size={13} /></Link>}
             >
               <div className="overflow-x-auto"><table className="tbl-fa w-full">
@@ -390,7 +400,7 @@ export default function DashboardPage() {
               </table></div>
             </FaCard>
 
-            <FaCard title={t("dashboard.cashFlow")} action={monthsSelect(cashMonths, setCashMonths)} className="xl:col-span-2">
+            <FaCard title={t("dashboard.cashFlow")} action={monthsSelect(cashMonths, setCashMonths)} className="xl:col-span-2" style={{ order: wOrder.cashFlow }}>
               <div className="h-56">
                 {overview.cashFlow.length === 0 ? (
                   <EmptyState title={t("dashboard.noData")} />
@@ -405,7 +415,8 @@ export default function DashboardPage() {
             </FaCard>
 
             <FaCard
-              title={t("dashboard.productsCard")}
+              title={bp.stock}
+              style={{ order: wOrder.products }}
               action={<Link href="/inventory/products" className="inline-flex items-center gap-1 text-xs font-bold text-primary hover:underline">{t("common.viewAll")} <ChevronRight size={13} /></Link>}
             >
               <ul className="divide-y divide-border">
@@ -424,7 +435,8 @@ export default function DashboardPage() {
             </FaCard>
 
             <FaCard
-              title={t("dashboard.salesCard")}
+              title={bp.salesNav}
+              style={{ order: wOrder.sales }}
               action={
                 <select
                   value={salesPeriod}
@@ -453,6 +465,7 @@ export default function DashboardPage() {
 
             <FaCard
               title={t("dashboard.expensesCard")}
+              style={{ order: wOrder.expenses }}
               action={<Link href="/expenses" className="inline-flex items-center gap-1 text-xs font-bold text-primary hover:underline">{t("common.viewAll")} <ChevronRight size={13} /></Link>}
             >
               <p className="text-2xl font-extrabold tabular-nums">{fmtMoney(overview.expenses.total)}</p>
@@ -467,6 +480,7 @@ export default function DashboardPage() {
 
             <FaCard
               title={t("dashboard.pnlCard")}
+              style={{ order: wOrder.pnl }}
               footer={<ViewReportLink href="/reports/profit-loss" label={t("dashboard.viewReport")} />}
             >
               <div className="space-y-2">
@@ -487,35 +501,37 @@ export default function DashboardPage() {
 
             <FaCard
               title={t("dashboard.arTop10")}
+              style={{ order: wOrder.arTop10 }}
               action={<Link href="/sales/customers" className="inline-flex items-center gap-1 text-xs font-bold text-primary hover:underline">{t("common.viewAll")} <ChevronRight size={13} /></Link>}
             >
               {top10Table(overview.arTop10, "peach")}
             </FaCard>
 
-            {watchlistCard(t("dashboard.arWatchlist"), "bank")}
+            {watchlistCard(t("dashboard.arWatchlist"), "bank", 12)}
 
-            {watchlistCard(t("dashboard.bankWatchlist"), "blue")}
+            {watchlistCard(t("dashboard.bankWatchlist"), "blue", 13)}
 
             <FaCard
               title={t("dashboard.apTop10")}
+              style={{ order: wOrder.apTop10 }}
               action={<Link href="/purchases/suppliers" className="inline-flex items-center gap-1 text-xs font-bold text-primary hover:underline">{t("common.viewAll")} <ChevronRight size={13} /></Link>}
             >
               {top10Table(overview.apTop10, "green")}
             </FaCard>
 
-            {watchlistCard(t("dashboard.apWatchlist"), "peach")}
+            {watchlistCard(t("dashboard.apWatchlist"), "peach", 14)}
 
-            <FaCard title={t("dashboard.monthlyBankBalance")} action={monthsSelect(bankMonths, setBankMonths)} className="xl:col-span-2">
+            <FaCard title={t("dashboard.monthlyBankBalance")} action={monthsSelect(bankMonths, setBankMonths)} className="xl:col-span-2" style={{ order: wOrder.monthlyBankBalance }}>
               <div className="h-56">
                 <BankBalanceAreaChart data={overview.bankMonthly.slice(-bankMonths)} label={t("dashboard.bankBalances")} />
               </div>
             </FaCard>
 
-            <FaCard title={t("dashboard.bankBalanceWatchlist")} className="xl:col-span-2">
+            <FaCard title={t("dashboard.bankBalanceWatchlist")} className="xl:col-span-2" style={{ order: 15 }}>
               <p className="py-6 text-center text-xs text-muted-foreground">{t("dashboard.watchlistEmpty")}</p>
             </FaCard>
 
-            <FaCard title={t("dashboard.bankCashFlowWatchlist")} className="xl:col-span-2">
+            <FaCard title={t("dashboard.bankCashFlowWatchlist")} className="xl:col-span-2" style={{ order: 16 }}>
               <p className="py-6 text-center text-xs text-muted-foreground">{t("dashboard.watchlistEmpty")}</p>
             </FaCard>
           </div>
