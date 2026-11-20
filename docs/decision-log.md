@@ -49,6 +49,12 @@ as a user decision. The user reviews every **ASSUMPTION** before push.
 | D-15 | 2-Highs push | ⏳ PENDING | Same as D-01. |
 | D-16 | `PLATFORM_ADMIN_EMAILS` deploy | ⏳ PENDING | Same as D-09. |
 | D-17 | Stock residual +1,681,000 units (~1.8%) — accept or investigate opening-stock import? | ⏳ PENDING | **ASSUMPTION: ACCEPT as likely opening stock; no code fix exists. Investigate the opening-stock import only if the user asks.** |
+| D-18 | Per-invoice discount accounts — receipts post Dr Discount Given (SYS 5010), supplier payments Cr Discount Received (SYS 4010) | ⏳ PENDING — user review before push | **ASSUMPTION (worker, following the existing doc-discount precedent in `lib/posting.ts`): discounts settle on the doc (cash + discount = settled) and post to 5010 / 4010. If the user wants a different account, it is a one-line change in `lib/posting.ts`.** |
+| D-19 | Draft lifecycle rules — posting a draft replays stored rows with no receipt/advance; drafts cannot carry a receipt or landed extra costs; GRNs cannot be drafts; foreign-currency drafts cannot be edited (PKR-only edit) | ⏳ PENDING — user review before push | **ASSUMPTION (worker, mirroring the staged-approval replay in `lib/approvals.ts`): the limits are 422s with clear messages, never silent drops. Receipt/advance are recorded after posting instead.** |
+| D-20 | Edit of POSTED docs — reverse + repost, or another model? | ⏳ BLOCKED — needs a user decision | Only DRAFT edit is implemented (`PUT /api/sales\|purchases/[id]`). Do not build posted-doc editing until the user picks the model. |
+| D-21 | Order advance handling — unallocated receipt vs order-linked deposit, and which account? | ⏳ BLOCKED — needs a user decision | No advance field on orders. Do not invent the semantics. |
+| D-22 | Stock IN value is display-only at moving-average cost; adjustments stay quantity-only | ⏳ PENDING — user review before push | **ASSUMPTION (worker): the value is informational (form preview + detail). No posting change; the stored `costPaisa` is unchanged.** |
+| D-23 | SEO guide pages state prices/features from the live pricing page; no ranking claims | ⏳ PENDING — user review before push | **ASSUMPTION (worker): plan features copied from the live pricing cards (Starter/Pro/Enterprise), sync described as a paid-plan feature. No \"#1\" / \"best\" claim anywhere.** |
 
 ---
 
@@ -60,6 +66,7 @@ as a user decision. The user reviews every **ASSUMPTION** before push.
 | 2026-11-02 | Free-plan card removed from live pricing page | User's screenshot-driven decision |
 | 2026-11-13 | "Add Receipt rehne do" — stays as-is | Resolved |
 | 2026-11-20 (Phase 1) | FX party-balance fix + stock idempotency + donut GL source (local commits, unpushed) | Phase 1 worker, per assessment; push still needs user's word |
+| 2026-11-20 (Phase 3) | FA triage all 8 items + onboarding wizard fix + adaptive dashboard widgets + 3 SEO guides (local commits `e9581c9`…`b93f4ce`, unpushed) | Phase 3 worker, per assessment + roadmap; push still needs user's word; changelog entry owed at push time (do not edit `lib/changelog.ts` while the 2-Highs diff is pending) |
 
 ---
 

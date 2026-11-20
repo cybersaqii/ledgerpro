@@ -79,6 +79,17 @@ reads after `prd.md` + `architecture.md`. The user's personal long-term memory l
   emails, spam check on first sends (memory: still pending user-side steps).
 - **TODO — CONFIRM:** `PLATFORM_ADMIN_EMAILS` → `saqibengr16@gmail.com` on production + redeploy.
 
+## 4b. World-Class programme — Phase 3 (2026-11-20, LOCAL ONLY, unpushed)
+
+- All 8 FA triage items done locally: save-as-draft, edit-from-detail (PKR drafts only), order expected-delivery date, per-invoice discount (receipts → Discount Given 5010; supplier payments → Discount Received 4010), journal Ref No., stock IN value (display-only at avg cost), Created-By footer, Save & New (QUOTATION/ORDER). Commits `e9581c9`, `2f6f5f1`, `1ea8efc`, `92111a0`, `ffd55ce` (+ wizard `21e778c`, dashboard `bdf7b81`, SEO `b93f4ce`). Migration 0075 (draft/discount/delivery/batch columns) exists only in fresh test DBs — never applied to prod.
+- Onboarding wizard fixed: the business-type step was missing — restored as step 0 (all 9 types); ready screen now shows the actual selected type and the real first-bill destination (POS vs bill form); skip on every step.
+- Adaptive dashboard: same 11 widgets, reordered per business type (`lib/dashboard-widgets.ts`); sales/stock card titles adapt to the trade. No new data.
+- SEO: 3 honest guide pages — wholesale / offline / price — in the sitemap (lastModified 2026-11-20). Prices/features copied from the live pricing page; no ranking claims.
+- BLOCKED (need user decisions): edit of POSTED docs (reverse + repost model); order advance semantics.
+- ASSUMPTIONS for user review before push: discount accounts 5010/4010 (D-18); draft lifecycle limits (D-19); stock value display-only (D-22); SEO copy (D-23).
+- Changelog entry owed at push time — do NOT edit `lib/changelog.ts` while the 2-Highs diff is pending.
+- Phase 3 report: `~/workspace/goals/new-accounting-platform-website-build/files/LedgerPro-Phase3-Report-2026-11-20.md`.
+
 ## 5. People & references
 
 - **User:** Muhammad Saqib — 2nd-year CS student (as of 2026-10-12), co-founder of TechSol,

@@ -45,26 +45,30 @@ explained as unattributable/likely opening stock; walkthrough still blocked (dec
 **Phase 2 done-when check:** any new person can understand the project from the docs
 without asking the user. (Not yet verified — needs a fresh-eyes read.)
 
-## 3. World-Class programme — Phase 3: Competitive Parity + Differentiation 🔲 QUEUED
+## 3. World-Class programme — Phase 3: Competitive Parity + Differentiation ✅ DONE (local, 2026-11-20 — NOT pushed; push only on the user's word)
 
-From the FA audit triage (2026-11-04, `LedgerPro-FastAccounts-UI-Audit-Triage-2026-11-04.md`):
+From the FA audit triage (2026-11-04, `LedgerPro-FastAccounts-UI-Audit-Triage-2026-11-04.md`).
+Report: `~/workspace/goals/new-accounting-platform-website-build/files/LedgerPro-Phase3-Report-2026-11-20.md`.
+Commits (local only): `e9581c9`, `2f6f5f1`, `1ea8efc`, `92111a0`, `ffd55ce`, `21e778c`, `bdf7b81`, `b93f4ce`.
 
-- [ ] save-as-draft
-- [ ] edit-from-detail
-- [ ] order fields
-- [ ] per-invoice discount
-- [ ] journal Ref No.
-- [ ] stock IN value
-- [ ] Created-By footer
-- [ ] Save & New
-- [ ] Onboarding wizard (3-step: business type → products/parties → first bill) — deferred from roadmap Phase 2
-- [ ] Adaptive dashboard widgets per business type — deferred from roadmap Phase 2
-- [ ] Adaptive bill defaults (RETAIL → fast POS; WHOLESALE → full bill form; PHARMACY → batch/expiry columns)
-- [ ] Feature flags per type (hide irrelevant modules)
-- [ ] SEO content pages (head terms; no number-one guarantee — honest progress only)
+- [x] save-as-draft (engine `lib/draft-docs.ts` + migration 0075; form button; detail Post)
+- [x] edit-from-detail (PUT draft endpoints; form edit mode `?edit=`; PKR drafts only)
+- [x] order fields (expected-delivery date on ORDER types, form + detail)
+- [x] per-invoice discount (receipts → Discount Given 5010; supplier payments → Discount Received 4010; void-aware)
+- [x] journal Ref No. (optional user reference; blank keeps voucher number)
+- [x] stock IN value (display-only at avg cost, form preview + detail; no posting change)
+- [x] Created-By footer (users join; screen-only)
+- [x] Save & New (QUOTATION/ORDER; blank form + toast)
+- [x] Onboarding wizard (3-step: business type → products/parties → first bill) — restored the missing step-0 type picker; skip on every step
+- [x] Adaptive dashboard widgets per business type (`lib/dashboard-widgets.ts`; order + sales/stock titles adapt; same overview data)
+- [x] Adaptive bill defaults (RETAIL → fast POS; WHOLESALE → full bill form; PHARMACY → batch/expiry columns) — already in place (`lib/business-types.ts` `newSaleHref`, `BUSINESS_PROFILES`); verified 2026-11-20, no new code needed
+- [x] Feature flags per type (hide irrelevant modules) — already in place (`BUSINESS_PROFILES.features`); verified 2026-11-20, no new code needed
+- [x] SEO content pages (3 honest guides: wholesale / offline / price; no number-one guarantee — honest progress only; in sitemap)
 - [ ] **TODO — CONFIRM:** ERD from `db/schema.ts` (architecture.md §3)
+- [ ] BLOCKED — edit of POSTED docs (reverse + repost model needs a user decision; D-20)
+- [ ] BLOCKED — order advance handling (semantics need a user decision; D-21)
 
-**Phase 3 done-when:** triage list zero, onboarding live, one new user makes their first bill unaided.
+**Phase 3 done-when:** triage list zero ✅ (all 8 done), onboarding live ⏳ (local only — push + live verify pending), one new user makes their first bill unaided ⏳ (not yet verified — needs a fresh-eyes run).
 
 ## 4. World-Class programme — Phase 4: Scale & Hardening 🔲 QUEUED
 
