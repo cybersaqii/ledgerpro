@@ -1,23 +1,34 @@
 /**
- * Expenses donut regression tests: GET /api/dashboard/overview — total and
- * donut must agree, follow the selected period, and ignore voided expenses.
+ * Expenses donut regression tests: GET /api/dashboard/overview — the donut
+ * total must equal the P&L Total Expenses on the same page, follow the
+ * selected period, and ignore voided expenses.
  *
- * Defect (live, 2026-11-09): expSum counted all expenses with no account
- * join, while expTop grouped by account with an inner join — an expense
- * whose account row was gone dropped out of the donut but stayed in the
- * total. The route also ignored the selected period (page never sent
- * expFrom/expTo) and counted voided expenses.
+ * Defect (live, 2026-11-04; root-caused Phase 1, 2026-11-20): the donut was
+ * built from the `expenses` table (direct cash expenses only, amount + sales
+ * tax) while P&L Total Expenses comes from GL sums over every EXPENSE-type
+ * account — COGS 5001, Discount Given 5010, FX Loss 6040, bad debts,
+ * depreciation, payroll, ... — with tax booked to Input Tax (asset), not
+ * expense. The two numbers measured different things, so they could never
+ * agree; for a wholesaler the COGS slice alone dwarfs direct expenses.
+ *
+ * Fix: the donut is now derived from the same glSums map as the P&L
+ * (same source, same period) — slices are the top 5 EXPENSE accounts by
+ * net debit, total is the full P&L expense total. Voided expenses net to
+ * zero through their reversing journal. (The 98e6192 orphan case is moot
+ * for GL: an account with journal history cannot be deleted.)
  *
  * Route-level test: DATABASE_URL is pointed at an isolated file DB by
  * ./qa-routes-env (imported first) and requirePermission is mocked.
+ * Journals are seeded directly (balanced Dr expense / Cr cash).
  */
 import { ROUTES_DB_URL } from "./qa-routes-env";
 import { describe, it, expect, beforeAll, vi } from "vitest";
+import { eq } from "drizzle-orm";
 import { createClient } from "@libsql/client";
 import { readdirSync, readFileSync } from "node:fs";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
-import { setupCompany } from "@/lib/setup";
+import { setupCompany, SYS, accountMap } from "@/lib/setup";
 import * as s from "@/db/schema";
 
 const hoisted = vi.hoisted(() => ({
@@ -88,9 +99,9 @@ async function getOverview(query: string) {
 }
 
 const FY = "?salesFrom=2026-07-01&salesTo=2027-06-30&expFrom=2026-07-01&expTo=2027-06-30";
-const ALL_TIME = "?salesFrom=2026-07-01&salesTo=2027-06-30";
+const ALL_TIME = "";
 
-describe("dashboard overview expenses total vs donut", () => {
+describe("dashboard overview expenses donut equals P&L expenses", () => {
   beforeAll(async () => {
     await migrateFileDb(ROUTES_DB_URL);
     const dbm = await import("@/lib/db");
@@ -104,69 +115,81 @@ describe("dashboard overview expenses total vs donut", () => {
       passwordHash: "x", role: "OWNER",
     });
 
-    // One real expense account; the orphaned expense points at a random id
-    // with no matching account row.
+    // One custom expense account + the system COGS account (5001) + the
+    // cash bank's GL account as the balanced credit side.
     const expAccountId = crypto.randomUUID();
     await routeDb.insert(s.accounts).values({
       id: expAccountId, companyId: hoisted.cid, code: "T-EXP", name: "Test Expenses", type: "EXPENSE",
     });
-    const orphanAccountId = crypto.randomUUID();
+    const ac = await routeDb.transaction((tx) => accountMap(tx, hoisted.cid));
+    const cogsId = ac[SYS.COGS];
+    const [cash] = await routeDb
+      .select({ accountId: s.bankAccounts.accountId })
+      .from(s.bankAccounts)
+      .where(eq(s.bankAccounts.companyId, hoisted.cid))
+      .limit(1);
+    const cashGlId = cash!.accountId;
 
-    const seedExpense = async (opts: {
-      accountId: string; amount: bigint; date: Date; voidedAt?: Date;
-    }) => {
-      await routeDb.insert(s.expenses).values({
-        companyId: hoisted.cid, branchId: "main", accountId: opts.accountId,
-        bankAccountId: crypto.randomUUID(), amount: opts.amount, taxAmount: 0n,
-        date: opts.date, createdById: hoisted.uid, voidedAt: opts.voidedAt ?? null,
+    const seedJournal = async (opts: { accountId: string; amount: bigint; date: Date; reverse?: boolean }) => {
+      const entryId = crypto.randomUUID();
+      await routeDb.insert(s.journalEntries).values({
+        id: entryId, companyId: hoisted.cid, date: opts.date,
+        memo: "donut test journal", source: "MANUAL", createdById: hoisted.uid,
       });
+      const dr = opts.reverse ? 0n : opts.amount;
+      const cr = opts.reverse ? opts.amount : 0n;
+      await routeDb.insert(s.journalLines).values([
+        { id: crypto.randomUUID(), entryId, accountId: opts.accountId, debit: dr, credit: cr },
+        { id: crypto.randomUUID(), entryId, accountId: cashGlId, debit: cr, credit: dr },
+      ]);
     };
 
-    // In-period, linked: Rs 500.
-    await seedExpense({ accountId: expAccountId, amount: 50000n, date: new Date("2026-09-15") });
-    // In-period, orphaned account: Rs 1,000 — must appear as "Other expenses".
-    await seedExpense({ accountId: orphanAccountId, amount: 100000n, date: new Date("2026-09-16") });
-    // In-period but voided: Rs 2,000 — must be excluded everywhere.
-    await seedExpense({
-      accountId: expAccountId, amount: 200000n, date: new Date("2026-09-17"),
-      voidedAt: new Date("2026-09-18"),
-    });
+    // In-period direct expense: Rs 500.
+    await seedJournal({ accountId: expAccountId, amount: 50000n, date: new Date("2026-09-15") });
+    // In-period COGS: Rs 1,000 — the old expenses-table donut never saw it.
+    await seedJournal({ accountId: cogsId, amount: 100000n, date: new Date("2026-09-16") });
+    // In-period expense + its void (reversing journal): Rs 2,000 nets to 0.
+    await seedJournal({ accountId: expAccountId, amount: 200000n, date: new Date("2026-09-17") });
+    await seedJournal({ accountId: expAccountId, amount: 200000n, date: new Date("2026-09-18"), reverse: true });
     // Out of period (previous FY): Rs 3,000 — excluded only when a period is sent.
-    await seedExpense({ accountId: expAccountId, amount: 300000n, date: new Date("2025-06-15") });
+    await seedJournal({ accountId: expAccountId, amount: 300000n, date: new Date("2025-06-15") });
   }, 90000);
 
-  it("orphaned expense appears under 'Other expenses' and is counted in total", async () => {
+  it("donut total equals P&L Total Expenses and includes COGS", async () => {
     const d = await getOverview(FY);
-    // Total = Rs 500 linked + Rs 1,000 orphaned = 150000 paisa.
+    // Total = Rs 500 direct + Rs 1,000 COGS = 150000 paisa.
     expect(Number(d.expenses.total)).toBe(150000);
+    expect(Number(d.pnl.expenses)).toBe(150000);
     expect(d.expenses.top).toHaveLength(2);
-    const other = d.expenses.top.find((c: { name: string }) => c.name === "Other expenses");
-    expect(other).toBeDefined();
-    expect(Number(other.total)).toBe(100000);
     const linked = d.expenses.top.find((c: { name: string }) => c.name === "Test Expenses");
     expect(linked).toBeDefined();
     expect(Number(linked.total)).toBe(50000);
-    // Donut sums to the total — total and donut agree.
+    const cogs = d.expenses.top.find((c: { name: string }) => c.name === "Cost of Goods Sold");
+    expect(cogs).toBeDefined();
+    expect(Number(cogs.total)).toBe(100000);
+    // Donut slices sum to the total — total and donut agree.
     const donutSum = d.expenses.top.reduce((sum: number, c: { total: string }) => sum + Number(c.total), 0);
     expect(donutSum).toBe(Number(d.expenses.total));
   });
 
-  it("voided expense is excluded from both total and top", async () => {
+  it("voided expense is excluded from both total and donut", async () => {
     const d = await getOverview(FY);
     expect(Number(d.expenses.total)).toBe(150000);
-    expect(d.expenses.top).toHaveLength(2);
+    expect(Number(d.pnl.expenses)).toBe(150000);
     // The Rs 2,000 voided expense would push the linked total to 250000.
     const linked = d.expenses.top.find((c: { name: string }) => c.name === "Test Expenses");
     expect(Number(linked.total)).toBe(50000);
   });
 
-  it("expense outside the selected period is excluded from both total and top", async () => {
+  it("expense outside the selected period is excluded from both total and donut", async () => {
     const inPeriod = await getOverview(FY);
     expect(Number(inPeriod.expenses.total)).toBe(150000);
-    // Without expFrom/expTo the same endpoint is all-time: the Rs 3,000
+    expect(Number(inPeriod.pnl.expenses)).toBe(150000);
+    // Without any period the same endpoint is all-time: the Rs 3,000
     // out-of-period expense joins the linked category.
     const allTime = await getOverview(ALL_TIME);
     expect(Number(allTime.expenses.total)).toBe(450000);
+    expect(Number(allTime.pnl.expenses)).toBe(450000);
     const linked = allTime.expenses.top.find((c: { name: string }) => c.name === "Test Expenses");
     expect(Number(linked.total)).toBe(350000);
   });

@@ -1,5 +1,5 @@
 import { NextRequest } from "next/server";
-import { eq, and, sql, desc, inArray, isNull } from "drizzle-orm";
+import { eq, and, sql, desc, inArray } from "drizzle-orm";
 import {
   salesDocs,
   purchaseDocs,
@@ -7,8 +7,6 @@ import {
   bankAccounts,
   products,
   stockLevels,
-  expenses,
-  accounts,
   journalEntries,
   journalLines,
 } from "@/db/schema";
@@ -19,6 +17,9 @@ import { glSums, sumByType, sumByTypeCredit } from "@/lib/reports";
 // GET /api/dashboard/overview?salesFrom=&salesTo=&expFrom=&expTo=
 // Business Overview cards data (Fast Accounts-style dashboard).
 // Single aggregated call so the dashboard loads all KPI cards at once.
+// (expFrom/expTo are ignored now: the donut shares the P&L's GL source and
+// period — see the expenses section below — so the two totals on the same
+// page always agree. The dashboard page sends both ranges with equal values.)
 
 export type AgingBuckets = {
   older: string;
@@ -52,8 +53,6 @@ export async function GET(req: NextRequest) {
   const sp = req.nextUrl.searchParams;
   const salesFrom = sp.get("salesFrom");
   const salesTo = sp.get("salesTo");
-  const expFrom = sp.get("expFrom");
-  const expTo = sp.get("expTo");
   const now = Date.now();
 
   // --- AR aging (customers): outstanding invoices bucketed by due date ---
@@ -240,35 +239,33 @@ export async function GET(req: NextRequest) {
     if (shift !== 0) for (const p of bankMonthly) p.balance += shift;
   }
 
-  // --- Expenses total + top 5 categories for period ---
-  // Total and donut must agree: both queries share expConds (company +
-  // period + not-voided). The donut left-joins accounts so an expense whose
-  // account row is gone still appears, under "Other expenses", instead of
-  // silently dropping out of the donut while staying in the total.
-  const expConds = [eq(expenses.companyId, companyId), isNull(expenses.voidedAt)];
-  if (expFrom) expConds.push(sql`${expenses.date} >= ${new Date(expFrom).getTime()}`);
-  if (expTo) expConds.push(sql`${expenses.date} <= ${new Date(expTo).getTime()}`);
-  const expSum = await db
-    .select({ t: sql<string>`COALESCE(SUM(${expenses.amount} + COALESCE(${expenses.taxAmount},0)),0)` })
-    .from(expenses)
-    .where(and(...expConds));
-  const expTop = await db
-    .select({
-      name: sql<string>`COALESCE(${accounts.name}, 'Other expenses')`,
-      total: sql<string>`COALESCE(SUM(${expenses.amount} + COALESCE(${expenses.taxAmount},0)),0)`,
-    })
-    .from(expenses)
-    .leftJoin(accounts, eq(expenses.accountId, accounts.id))
-    .where(and(...expConds))
-    .groupBy(sql`COALESCE(${accounts.name}, 'Other expenses')`)
-    .orderBy(desc(sql`COALESCE(SUM(${expenses.amount} + COALESCE(${expenses.taxAmount},0)),0)`))
-    .limit(5);
-
   // --- P&L: income, expenses, net profit for the selected period ---
   // (same GL math as the P&L report; no period passed = all time).
   const sums = await glSums(db, companyId, salesFrom ?? null, salesTo ?? null);
   const incomeTotal = sumByTypeCredit(sums, "INCOME");
   const expenseTotal = sumByType(sums, "EXPENSE");
+
+  // --- Expenses donut: derived from the SAME GL sums as the P&L above,
+  // so the donut total and the P&L Total Expenses on the same page always
+  // agree (same source, same period).
+  //
+  // Why the old expenses-table donut could never agree: it counted only
+  // rows of the expenses table (direct cash expenses, amount + sales tax),
+  // while P&L counts every EXPENSE-type GL account — COGS 5001, Discount
+  // Given 5010, FX Loss 6040, bad debts, depreciation, payroll, ... — and
+  // books the tax to Input Tax (asset), not expense. For a wholesaler the
+  // COGS slice alone dwarfs direct expenses, so the old donut also hid the
+  // biggest cost. Slices are the top 5 EXPENSE accounts by net debit;
+  // voided expenses net to zero through their reversing journal, and an
+  // account with journal history cannot be deleted (ACCOUNT_IN_USE), so
+  // no slice can silently drop out the way the 98e6192 orphan could.
+  const expTop = [...sums.entries()]
+    .filter(([, s]) => s.type === "EXPENSE")
+    .map(([code, s]) => ({ code, name: s.name, net: s.debit - s.credit }))
+    .filter((e) => e.net > 0n)
+    .sort((a, b) => (a.net < b.net ? 1 : a.net > b.net ? -1 : 0))
+    .slice(0, 5)
+    .map((e) => ({ name: e.name, total: e.net.toString() }));
 
   // --- Top 10 AR / AP ---
   const arTop = await db
@@ -297,7 +294,7 @@ export async function GET(req: NextRequest) {
       banks: bankRows.map((b) => ({ id: b.id, name: b.name, code: b.accountNo ?? null, balance: b.balance?.toString() ?? "0", kind: b.kind })),
       products: { lowStock, outOfStock, oversold, inStock },
       sales: { total: salesSum[0]?.t ?? "0", monthly: salesMonthly },
-      expenses: { total: expSum[0]?.t ?? "0", top: expTop.map((e) => ({ name: e.name, total: e.total })) },
+      expenses: { total: expenseTotal.toString(), top: expTop },
       pnl: { income: incomeTotal.toString(), expenses: expenseTotal.toString(), net: (incomeTotal - expenseTotal).toString() },
       arTop10: arTop.map((p) => ({ id: p.id, name: p.name, balance: p.balance?.toString() ?? "0" })),
       apTop10: apTop.map((p) => ({ id: p.id, name: p.name, balance: p.balance?.toString() ?? "0" })),
