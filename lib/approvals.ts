@@ -221,7 +221,9 @@ export async function findApprovalRequestByIdemKey(
 
 // ─── Finalize: replay the normal posting path on approval ────────────
 
-async function activeParty(
+/** Phase 3: exported for lib/draft-docs.ts — posting a saved draft replays
+ *  the stored rows through the same rebuild the approval flow uses. */
+export async function activeParty(
   tx: DbTx,
   companyId: string,
   partyId: string,
@@ -239,7 +241,8 @@ async function activeParty(
   return p;
 }
 
-function rebuildComputedItem(row: {
+/** Phase 3: exported for lib/draft-docs.ts (same reason as activeParty). */
+export function rebuildComputedItem(row: {
   productId: string | null;
   description: string;
   qty: bigint;

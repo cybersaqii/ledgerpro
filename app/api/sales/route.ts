@@ -109,6 +109,11 @@ export async function POST(req: NextRequest) {
   const { session, companyId } = gate;
   const b = parsed.data;
 
+  // Phase 3: a draft carries no money movement — a receipt recorded with
+  // the invoice would be silently dropped, so reject it up front instead.
+  if (b.saveAsDraft && b.receipt)
+    return err("Drafts cannot carry a receipt — record it after posting.", 422, "DRAFT_RECEIPT");
+
   // Idempotency: a retry of the same submission (same key) returns the
   // already-created doc with 200 instead of double-posting.
   let idemKey: string | undefined;
@@ -180,9 +185,11 @@ export async function POST(req: NextRequest) {
   // Parsed before currency resolution: the day's exchange rate depends on it.
   let date: Date;
   let dueDate: Date | null;
+  let expectedDeliveryDate: Date | null;
   try {
     date = parseDateOnly(b.date);
     dueDate = b.dueDate ? parseDateOnly(b.dueDate) : null;
+    expectedDeliveryDate = b.expectedDeliveryDate ? parseDateOnly(b.expectedDeliveryDate) : null;
   } catch (e) {
     return toApiError(e, { route: "/api/sales", companyId });
   }
@@ -234,18 +241,19 @@ export async function POST(req: NextRequest) {
     return toApiError(e, { route: "/api/sales", companyId });
   }
 
-  // Minimum sale price lock applies to posted invoices only (not quotes/orders).
+  // Minimum sale price lock applies to posted invoices only (not quotes/orders
+  // — and not drafts, which check it again when they are posted).
   // Module 10: line rates arrive in the document's currency — compare the
   // PKR-converted rate against the PKR floor price.
   const floorItems =
-    b.docType === "INVOICE"
+    !b.saveAsDraft && b.docType === "INVOICE"
       ? b.items.map((i, idx) => ({
           productId: i.productId,
           description: i.description,
           rate: minorToDecimalString(fx.pkrItems[idx]?.ratePaisa ?? 0n, 2),
         }))
       : [];
-  const belowFloor = b.docType === "INVOICE" ? belowMinPrice(floorItems, prodMap) : [];
+  const belowFloor = !b.saveAsDraft && b.docType === "INVOICE" ? belowMinPrice(floorItems, prodMap) : [];
   if (belowFloor.length > 0 && !b.priceOverride) {
     return err(floorErrorMessage(belowFloor), 422, "BELOW_MIN_PRICE");
   }
@@ -274,7 +282,10 @@ export async function POST(req: NextRequest) {
     return toApiError(e, { route: "/api/sales", companyId });
   }
 
-  const isPosted = (POSTED_TYPES as readonly string[]).includes(b.docType);
+  // Phase 3: save-as-draft — an INVOICE/RETURN saved as DRAFT posts nothing
+  // until POST /api/sales/[id]/post. Quotations/orders/challans are drafts
+  // by design, so the flag changes nothing for them.
+  const isPosted = (POSTED_TYPES as readonly string[]).includes(b.docType) && !b.saveAsDraft;
 
   // Batch choices are only meaningful on posted docs: the chosen batch must
   // belong to this company and to the line's product.
@@ -316,6 +327,7 @@ export async function POST(req: NextRequest) {
   // instead of posting them — no journal, stock, receipt or advance moves
   // until an approver approves the staged request.
   const needsApproval =
+    !b.saveAsDraft &&
     b.docType === "INVOICE" &&
     (await approvalRequired(db, companyId, "SALES_INVOICE", totals.grandTotal));
   if (needsApproval) {
@@ -353,6 +365,8 @@ export async function POST(req: NextRequest) {
         docNo,
         date,
         dueDate,
+        // Phase 3: expected delivery date — ORDER docs only.
+        expectedDeliveryDate: b.docType === "ORDER" ? expectedDeliveryDate : null,
         projectId,
         // Module 14: POS session tag (counter returns land in the shift summary).
         posSessionId: posSession?.id ?? null,
@@ -385,6 +399,8 @@ export async function POST(req: NextRequest) {
           taxBps: i.taxBps,
           taxAmount: i.taxAmountPaisa,
           lineTotal: i.lineTotalPaisa,
+          // Phase 3: batch choice stored so a draft replays it exactly on post.
+          batchId: (b.items[idx]?.batchId || "").trim() || null,
           // Module 4.2: per-line location override (NULL = doc branch).
           branchId: (b.items[idx]?.branchId || "").trim() || null,
           // Module 18: chosen-unit snapshot (NULL = base unit was used).

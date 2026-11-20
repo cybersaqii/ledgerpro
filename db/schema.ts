@@ -588,6 +588,8 @@ export const salesDocs = sqliteTable(
     terms: text("terms"),
     date: ts("date").notNull(),
     dueDate: ts("due_date"),
+    // Phase 3 (migration 0075): expected delivery date on ORDER docs.
+    expectedDeliveryDate: ts("expected_delivery_date"),
     status: text("status").notNull().default("DRAFT"),
     subtotal: money("subtotal"),
     discountTotal: money("discount_total"),
@@ -655,6 +657,10 @@ export const salesDocItems = sqliteTable(
   taxBps: integer("tax_bps").notNull().default(0),
   taxAmount: money("tax_amount"),
   lineTotal: money("line_total"),
+  // Phase 3 (migration 0075): batch chosen on a RETURN line (restore that
+  // batch on post). NULL = no choice / FIFO. Stored at create so a draft
+  // replays exactly; posted docs already pass it straight to posting.
+  batchId: text("batch_id"),
   // ── Module 4 (migration 0035): per-line location override; NULL = doc branch.
   branchId: text("branch_id"),
   // ── Module 18 (migration 0048): chosen-unit snapshot. qty/rate stay in
@@ -684,6 +690,8 @@ export const purchaseDocs = sqliteTable(
     terms: text("terms"),
     date: ts("date").notNull(),
     dueDate: ts("due_date"),
+    // Phase 3 (migration 0075): expected delivery date on ORDER docs.
+    expectedDeliveryDate: ts("expected_delivery_date"),
     status: text("status").notNull().default("DRAFT"),
     subtotal: money("subtotal"),
     discountTotal: money("discount_total"),
@@ -745,6 +753,12 @@ export const purchaseDocItems = sqliteTable(
   taxAmount: money("tax_amount"),
   lineTotal: money("line_total"),
   extraCost: money("extra_cost"), // landed extra cost (freight/labour) allocated to this line
+  // Phase 3 (migration 0075): batch inputs stored at create so a draft bill
+  // replays exactly — batch_no + expiry_date the receipt creates (BILL),
+  // or the explicit batch a RETURN deducts from. NULL = none.
+  batchId: text("batch_id"),
+  batchNo: text("batch_no"),
+  expiryDate: text("expiry_date"),
   // ── Module 2 (migration 0033): GRN receiving detail ──
   qtyOrdered: qty("qty_ordered"), // ordered qty (GRN lines)
   qtyReceived: qty("qty_received"), // accepted qty — posts to stock / GRNI
@@ -897,6 +911,9 @@ export const paymentAllocations = sqliteTable(
     salesDocId: text("sales_doc_id"),
     purchaseDocId: text("purchase_doc_id"),
     amount: money("amount"),
+    // Phase 3 (migration 0075): per-invoice discount granted on settlement.
+    // amount = cash received/paid; amount + discount = what settles on the doc.
+    discount: money("discount"),
     createdAt: createdAt(),
   },
   (t) => [

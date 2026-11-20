@@ -144,8 +144,16 @@ export const salesDocSchema = z.object({
   branchId: z.string().min(1).optional(),
   date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Invalid date"),
   dueDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional().or(z.literal("")),
+  // Phase 3: expected delivery date — ORDER docs only (form sends it only
+  // for ORDER; the server stores it only for ORDER, see the routes).
+  expectedDeliveryDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional().or(z.literal("")),
   refNo: z.string().trim().max(60).optional().or(z.literal("")),
   terms: z.string().trim().max(500).optional().or(z.literal("")),
+  // Phase 3: save-as-draft — an INVOICE/BILL saved as DRAFT posts nothing
+  // (no journal, stock, receipt or advance) until posted from its detail
+  // page (POST /api/sales|purchases/[id]/post). Quotations/orders are
+  // drafts by design, so the flag changes nothing for them.
+  saveAsDraft: z.boolean().default(false),
   discountTotal: fxMoneyStr.default("0"), // Module 10: in the document's currency
   freightTotal: fxMoneyStr.default("0"), // sales-side freight → Freight Income 4020 (Module 1); in the doc currency
   currencyCode: currencyCodeStr, // Module 10: ISO 4217 (default PKR)
@@ -228,6 +236,11 @@ export const paymentSchema = z.object({
         docId: z.string().min(1),
         docKind: z.enum(["SALES", "PURCHASE"]),
         amount: moneyStr,
+        // Phase 3: per-invoice discount granted on settlement — the part of
+        // the open balance forgiven instead of paid. amount = cash actually
+        // received/paid; amount + discount is what settles on the document.
+        // Posts to DISCOUNT_GIVEN (receipt) / DISCOUNT_RECEIVED (payment).
+        discount: moneyStr.default("0"),
       })
     )
     .default([]),

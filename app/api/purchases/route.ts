@@ -96,6 +96,17 @@ export async function POST(req: NextRequest) {
   const { session, companyId } = gate;
   const b = parsed.data;
 
+  // Phase 3: a draft carries no money movement — a payment recorded with
+  // the bill, or landed extra costs (whose paid-from choice and labels are
+  // not stored on the doc), would be silently dropped, so reject them
+  // up front instead. GRNs are receipts, not draftable documents.
+  if (b.saveAsDraft && b.receipt)
+    return err("Drafts cannot carry a payment — record it after posting.", 422, "DRAFT_RECEIPT");
+  if (b.saveAsDraft && b.docType === "GRN")
+    return err("GRNs cannot be saved as draft.", 422, "DRAFT_GRN");
+  if (b.saveAsDraft && b.docType === "BILL" && (b.extraCosts ?? []).some((c) => parseMoney(c.amount) > 0n))
+    return err("Draft bills cannot carry landed extra costs — post the bill directly or remove them.", 422, "DRAFT_EXTRA_COSTS");
+
   // Idempotency: a retry of the same submission (same key) returns the
   // already-created doc with 200 instead of double-posting.
   let idemKey: string | undefined;
@@ -221,9 +232,11 @@ export async function POST(req: NextRequest) {
   // Parsed before currency resolution: the day's exchange rate depends on it.
   let date: Date;
   let dueDate: Date | null;
+  let expectedDeliveryDate: Date | null;
   try {
     date = parseDateOnly(b.date);
     dueDate = b.dueDate ? parseDateOnly(b.dueDate) : null;
+    expectedDeliveryDate = b.expectedDeliveryDate ? parseDateOnly(b.expectedDeliveryDate) : null;
   } catch (e) {
     return toApiError(e, { route: "/api/purchases", companyId });
   }
@@ -281,7 +294,9 @@ export async function POST(req: NextRequest) {
     return toApiError(e, { route: "/api/purchases", companyId });
   }
 
-  const isPosted = (POSTED_TYPES as readonly string[]).includes(b.docType);
+  // Phase 3: save-as-draft — a BILL/RETURN saved as DRAFT posts nothing
+  // until POST /api/purchases/[id]/post. Orders are drafts by design.
+  const isPosted = (POSTED_TYPES as readonly string[]).includes(b.docType) && !b.saveAsDraft;
 
   // Return lines may choose a batch to deduct from: it must belong to this
   // company and to the line's product. Bill lines carry batch_no/expiry_date
@@ -336,6 +351,7 @@ export async function POST(req: NextRequest) {
   // rejected; supplier-advance auto-apply is skipped for staged bills (the
   // approver can allocate the advance manually after approval).
   const needsApproval =
+    !b.saveAsDraft &&
     b.docType === "BILL" &&
     (await approvalRequired(db, companyId, "PURCHASE_BILL", totals.grandTotal));
   if (needsApproval && b.receipt)
@@ -385,6 +401,8 @@ export async function POST(req: NextRequest) {
         refNo: b.refNo || null,
         date,
         dueDate,
+        // Phase 3: expected delivery date — ORDER docs only.
+        expectedDeliveryDate: b.docType === "ORDER" ? expectedDeliveryDate : null,
         projectId,
         status: needsApproval ? "PENDING_APPROVAL" : isPosted ? "POSTED" : "DRAFT",
         subtotal: totals.subtotal,
@@ -418,6 +436,10 @@ export async function POST(req: NextRequest) {
           taxAmount: i.taxAmountPaisa,
           lineTotal: i.lineTotalPaisa,
           extraCost: landed[idx] ?? 0n,
+          // Phase 3: batch inputs stored so a draft replays them exactly on post.
+          batchId: (b.items[idx]?.batchId || "").trim() || null,
+          batchNo: (b.items[idx]?.batchNo || "").trim() || null,
+          expiryDate: (b.items[idx]?.expiryDate || "").trim() || null,
           // Module 4.2: per-line location override (NULL = doc branch).
           branchId: (b.items[idx]?.branchId || "").trim() || null,
           // Module 18: chosen-unit snapshot (NULL = base unit was used).
