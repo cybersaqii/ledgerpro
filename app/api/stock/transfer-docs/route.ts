@@ -9,6 +9,7 @@ import { logAudit } from "@/lib/audit";
 import { toApiError } from "@/lib/errors";
 import { parseQty } from "@/lib/qty";
 import { createStockTransfer } from "@/lib/inventory";
+import { findByIdempotencyKey, isIdempotencyConflict } from "@/lib/idempotency";
 
 const lineSchema = z.object({
   productId: z.string().min(1),
@@ -115,6 +116,18 @@ export async function POST(req: NextRequest) {
   const lockErr = await periodLockError(db, companyId, date);
   if (lockErr) return err(lockErr, 422);
 
+  // Phase 1: the lib already replays a key inside createStockTransfer, but
+  // without a route-level pre-check a lost race surfaced as a 500 unique
+  // violation instead of a 200 replay. Check first, and catch the race.
+  const idemKey = b.idempotencyKey || undefined;
+  if (idemKey) {
+    const existing = await findByIdempotencyKey(db, stockTransferDocs, companyId, idemKey);
+    if (existing) {
+      const doc = await docWithLines(companyId, existing.id);
+      return json({ data: { ...doc, idempotentReplay: true } }, { status: 200 });
+    }
+  }
+
   try {
     const result = await db.transaction((tx) =>
       createStockTransfer(tx, {
@@ -125,7 +138,7 @@ export async function POST(req: NextRequest) {
         notes: b.notes || undefined,
         createdById: session.uid,
         lines: b.lines.map((l) => ({ productId: l.productId, qtyMilli: parseQty(l.qty) })),
-        idempotencyKey: b.idempotencyKey || undefined,
+        idempotencyKey: idemKey,
       })
     );
     await logAudit(db, {
@@ -139,6 +152,13 @@ export async function POST(req: NextRequest) {
     });
     return json({ data: await docWithLines(companyId, result.id) }, { status: 201 });
   } catch (e) {
+    if (idemKey && isIdempotencyConflict(e)) {
+      const existing = await findByIdempotencyKey(db, stockTransferDocs, companyId, idemKey);
+      if (existing) {
+        const doc = await docWithLines(companyId, existing.id);
+        return json({ data: { ...doc, idempotentReplay: true } }, { status: 200 });
+      }
+    }
     return toApiError(e, { route: "/api/stock/transfer-docs", companyId });
   }
 }

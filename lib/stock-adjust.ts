@@ -64,6 +64,11 @@ export type PostStockAdjustmentInput = {
   createdById: string;
   /** Optional explicit doc number; defaults to the ADJ- sequence. */
   docNo?: string;
+  /** Double-submit protection (migration 0074): a repeat call with the same
+   *  key returns the already-created adjustment instead of moving stock
+   *  a second time. The route checks first; this is the in-transaction
+   *  guard for direct callers. */
+  idempotencyKey?: string;
 };
 
 /**
@@ -91,6 +96,23 @@ export async function postStockAdjustment(
       throw new UserError("Reason FOUND only adds stock — quantity must be positive (stock in).");
   }
   await assertPeriodOpen(tx, input.companyId, input.date);
+
+  // Phase 1 (migration 0074): replay — a key already used for this company
+  // returns the original adjustment; stock must never move twice for one
+  // submission.
+  if (input.idempotencyKey) {
+    const dup = await tx
+      .select({ id: stockAdjustments.id, docNo: stockAdjustments.docNo })
+      .from(stockAdjustments)
+      .where(
+        and(
+          eq(stockAdjustments.companyId, input.companyId),
+          eq(stockAdjustments.idempotencyKey, input.idempotencyKey)
+        )
+      )
+      .limit(1);
+    if (dup[0]) return { id: dup[0].id, docNo: dup[0].docNo };
+  }
 
   // Module 4.4: default gain/loss accounts — Inventory Adjustment Gain (4040)
   // for FOUND, Shrinkage Expense (6020) for losses. An explicit account must
@@ -240,6 +262,7 @@ export async function postStockAdjustment(
     notes: input.notes,
     journalEntryId: entryId,
     createdById: input.createdById,
+    ...(input.idempotencyKey ? { idempotencyKey: input.idempotencyKey } : {}),
   });
   await tx.insert(stockAdjustmentLines).values(
     storedLines.map((l) => ({

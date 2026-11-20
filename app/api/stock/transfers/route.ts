@@ -1,13 +1,18 @@
 import { NextRequest } from "next/server";
 import { z } from "zod";
 import { eq, and } from "drizzle-orm";
-import { branches, products, stockLevels } from "@/db/schema";
+import { branches, products, stockLevels, stockTransferDocs } from "@/db/schema";
 import { json, err } from "@/lib/api";
 import { requirePermission, db, parseDateOnly } from "@/lib/route-helpers";
 import { periodLockError } from "@/lib/period";
 import { logAudit } from "@/lib/audit";
 import { toApiError } from "@/lib/errors";
 import { parseQty, formatQty } from "@/lib/qty";
+import {
+  extractIdempotencyKey,
+  findByIdempotencyKey,
+  isIdempotencyConflict,
+} from "@/lib/idempotency";
 import {
   createStockTransfer,
   issueStockTransfer,
@@ -53,22 +58,18 @@ export async function POST(req: NextRequest) {
   const lockErr = await periodLockError(db, companyId, date);
   if (lockErr) return err(lockErr, 422);
 
+  // Phase 1: a retry of the same submission returns the already-completed
+  // transfer with 200 instead of moving the stock a second time. The
+  // pre-check must happen here (not only inside createStockTransfer):
+  // a replayed create would return a RECEIVED doc that issueStockTransfer
+  // would reject as "not a draft".
+  let idemKey: string | undefined;
   try {
-    const result = await db.transaction(async (tx) => {
-      const { id, docNo } = await createStockTransfer(tx, {
-        companyId,
-        fromBranchId: b.fromBranchId,
-        toBranchId: b.toBranchId,
-        date,
-        notes: b.notes || undefined,
-        createdById: session.uid,
-        lines: [{ productId: b.productId, qtyMilli }],
-      });
-      await issueStockTransfer(tx, companyId, id);
-      await receiveStockTransfer(tx, companyId, id);
-      return { id, docNo };
-    });
-
+    idemKey = extractIdempotencyKey(req, body);
+  } catch (e) {
+    return toApiError(e, { route: "/api/stock/transfers", companyId });
+  }
+  const buildResponse = async (transferId: string, docNo: string) => {
     const [prod] = await db
       .select({ name: products.name, unit: products.unit })
       .from(products)
@@ -85,7 +86,48 @@ export async function POST(req: NextRequest) {
       .where(eq(stockLevels.productId, b.productId));
     const qtyOf = (branchId: string) =>
       lv.find((l) => l.branchId === branchId)?.qty ?? 0n;
+    return {
+      transferId,
+      docNo,
+      productId: b.productId,
+      productName: prod?.name ?? b.productId,
+      productUnit: prod?.unit ?? "",
+      fromBranchId: b.fromBranchId,
+      toBranchId: b.toBranchId,
+      fromBranchName: nameOf.get(b.fromBranchId) ?? b.fromBranchId,
+      toBranchName: nameOf.get(b.toBranchId) ?? b.toBranchId,
+      qtyMilli: qtyMilli.toString(),
+      fromQtyMilli: qtyOf(b.fromBranchId).toString(),
+      toQtyMilli: qtyOf(b.toBranchId).toString(),
+    };
+  };
+  if (idemKey) {
+    const existing = await findByIdempotencyKey(db, stockTransferDocs, companyId, idemKey);
+    if (existing)
+      return json(
+        { data: { ...(await buildResponse(existing.id, existing.docNo!)), idempotentReplay: true } },
+        { status: 200 }
+      );
+  }
 
+  try {
+    const result = await db.transaction(async (tx) => {
+      const { id, docNo } = await createStockTransfer(tx, {
+        companyId,
+        fromBranchId: b.fromBranchId,
+        toBranchId: b.toBranchId,
+        date,
+        notes: b.notes || undefined,
+        createdById: session.uid,
+        lines: [{ productId: b.productId, qtyMilli }],
+        idempotencyKey: idemKey,
+      });
+      await issueStockTransfer(tx, companyId, id);
+      await receiveStockTransfer(tx, companyId, id);
+      return { id, docNo };
+    });
+
+    const resp = await buildResponse(result.id, result.docNo);
     await logAudit(db, {
       companyId,
       userId: session.uid,
@@ -93,27 +135,22 @@ export async function POST(req: NextRequest) {
       action: "stock.transferred",
       entity: "stock",
       entityId: result.id,
-      detail: `Moved ${formatQty(qtyMilli)} ${prod?.unit ?? ""} of ${prod?.name ?? b.productId} from ${nameOf.get(b.fromBranchId)} to ${nameOf.get(b.toBranchId)} (${result.docNo})${
+      detail: `Moved ${formatQty(qtyMilli)} ${resp.productUnit} of ${resp.productName} from ${resp.fromBranchName} to ${resp.toBranchName} (${result.docNo})${
         b.notes ? ` — ${b.notes}` : ""
       }`,
     });
-    return json(
-      {
-        data: {
-          transferId: result.id,
-          docNo: result.docNo,
-          productId: b.productId,
-          productName: prod?.name ?? b.productId,
-          fromBranchId: b.fromBranchId,
-          toBranchId: b.toBranchId,
-          qtyMilli: qtyMilli.toString(),
-          fromQtyMilli: qtyOf(b.fromBranchId).toString(),
-          toQtyMilli: qtyOf(b.toBranchId).toString(),
-        },
-      },
-      { status: 201 }
-    );
+    return json({ data: resp }, { status: 201 });
   } catch (e) {
+    // Lost the idempotency race: a concurrent request already completed
+    // the transfer for this key — return it with 200 instead of an error.
+    if (idemKey && isIdempotencyConflict(e)) {
+      const existing = await findByIdempotencyKey(db, stockTransferDocs, companyId, idemKey);
+      if (existing)
+        return json(
+          { data: { ...(await buildResponse(existing.id, existing.docNo!)), idempotentReplay: true } },
+          { status: 200 }
+        );
+    }
     return toApiError(e, { route: "/api/stock/transfers", companyId });
   }
 }

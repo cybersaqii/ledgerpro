@@ -1759,12 +1759,15 @@ export const stockAdjustments = sqliteTable(
     journalEntryId: text("journal_entry_id").unique(),
     createdById: text("created_by_id").notNull(),
     createdAt: createdAt(),
+    // Migration 0074: double-submit protection (Phase 1 idempotency gap).
+    idempotencyKey: text("idempotency_key"),
   },
   (t) => [
     // DB indexes live since migration 0027; declared here in P1.
     uniqueIndex("stock_adj_company_no").on(t.companyId, t.docNo),
     index("stock_adj_company_date").on(t.companyId, t.date),
     check("stock_adjustments_reason", sql`reason IN ('BREAKAGE', 'EXPIRED', 'THEFT', 'FOUND', 'CORRECTION')`),
+    uniqueIndex("stock_adj_idem_key").on(t.companyId, t.idempotencyKey).where(sql`idempotency_key IS NOT NULL`),
   ]
 );
 

@@ -4,6 +4,11 @@ import { z } from "zod";
 import { stockAdjustments } from "@/db/schema";
 import { ADJUSTMENT_REASONS } from "@/lib/stock-adjust";
 import { postStockAdjustment } from "@/lib/stock-adjust";
+import {
+  extractIdempotencyKey,
+  findByIdempotencyKey,
+  isIdempotencyConflict,
+} from "@/lib/idempotency";
 import { parseQty } from "@/lib/qty";
 import { json, err } from "@/lib/api";
 import { toApiError } from "@/lib/errors";
@@ -87,6 +92,23 @@ export async function POST(req: NextRequest) {
   const lockErr = await periodLockError(db, companyId, date);
   if (lockErr) return err(lockErr, 422, "PERIOD_LOCKED");
 
+  // Phase 1 (migration 0074): a retry of the same submission returns the
+  // already-created adjustment with 200 instead of moving stock twice.
+  let idemKey: string | undefined;
+  try {
+    idemKey = extractIdempotencyKey(req, body);
+  } catch (e) {
+    return toApiError(e, { route: "/api/stock-adjustments", companyId });
+  }
+  if (idemKey) {
+    const existing = await findByIdempotencyKey(db, stockAdjustments, companyId, idemKey);
+    if (existing)
+      return json(
+        { data: { id: existing.id, docNo: existing.docNo, idempotentReplay: true } },
+        { status: 200 }
+      );
+  }
+
   try {
     const result = await db.transaction(async (tx) => {
       const branchId = b.branchId || (await defaultBranchId(tx, companyId));
@@ -100,6 +122,7 @@ export async function POST(req: NextRequest) {
         lines: b.lines.map((l) => ({ productId: l.productId, qtyMilli: parseQty(l.qtyMilli) })),
         notes: b.notes || undefined,
         createdById: session.uid,
+        idempotencyKey: idemKey,
       });
     });
     await logAudit(db, {
@@ -109,6 +132,16 @@ export async function POST(req: NextRequest) {
     });
     return json({ data: result }, { status: 201 });
   } catch (e) {
+    // Lost the idempotency race: a concurrent request already created the
+    // adjustment for this key — return it with 200 instead of an error.
+    if (idemKey && isIdempotencyConflict(e)) {
+      const existing = await findByIdempotencyKey(db, stockAdjustments, companyId, idemKey);
+      if (existing)
+        return json(
+          { data: { id: existing.id, docNo: existing.docNo, idempotentReplay: true } },
+          { status: 200 }
+        );
+    }
     return toApiError(e, { route: "/api/stock-adjustments", companyId });
   }
 }
