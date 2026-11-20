@@ -17,6 +17,10 @@
  *  I. carryDocCurrency: derived docs keep the source's locked currency+rate.
  *  J. Idempotency guards: same-day rate upsert replaces; a settled doc
  *     cannot be allocated again (no duplicate FX journal).
+ *  K. Phase 1 (2026-11-20): FX settlement moves the party's CACHED balance
+ *     (parties.balance) by its AR/AP leg, and voiding reverses it — the
+ *     reconciler (lib/cached-totals.ts) reports zero party discrepancies
+ *     after settle and after void.
  */
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
 import { eq, and, sql } from "drizzle-orm";
@@ -28,6 +32,7 @@ import { setupCompany, SYS, accountMap, nextDocNo } from "@/lib/setup";
 import { postSalesDoc, postPayment } from "@/lib/posting";
 import { voidPayment } from "@/lib/payment-void";
 import { postWriteOff } from "@/lib/writeoff";
+import { reconcileCachedTotals } from "@/lib/cached-totals";
 import { insertParty } from "@/lib/party-create";
 import { computeTotals } from "@/lib/totals";
 import { parseQty } from "@/lib/qty";
@@ -820,5 +825,117 @@ describe("L. error paths surface as UserError", () => {
     expect((e1 as UserError).code).toBe("FX_UNKNOWN_CURRENCY");
     const e2 = await requireDocRate(db, companyId, "EUR", D(2026, 10, 1)).catch((e) => e);
     expect((e2 as UserError).code).toBe("FX_NO_RATE");
+  });
+});
+
+describe("M. Phase 1: FX settlement keeps the stored party balance in sync", () => {
+  async function partyBalance(partyId: string): Promise<bigint> {
+    const [p] = await db.select({ balance: s.parties.balance }).from(s.parties).where(eq(s.parties.id, partyId)).limit(1);
+    return BigInt(p!.balance);
+  }
+  async function partyDiscrepancies(partyId: string) {
+    const r = await db.transaction((tx) => reconcileCachedTotals(tx, companyId));
+    return r.discrepancies.filter((d) => d.kind === "party" && d.id === partyId);
+  }
+  async function freshParty(kind: "CUSTOMER" | "SUPPLIER", name: string): Promise<string> {
+    const { id } = await db.transaction((tx) =>
+      insertParty(tx, { companyId, userId, fields: { kind, name } })
+    );
+    return id;
+  }
+
+  it("sales FX gain: settling moves the cached customer balance by the gain, reconciler clean", async () => {
+    const cust = await freshParty("CUSTOMER", "M10 FX Gain Customer");
+    const { docId, grandTotal } = await postFxInvoice({
+      partyId: cust,
+      currencyCode: "USD",
+      date: D(2026, 9, 29),
+      items: [{ rate: "100.00", qty: "2" }], // Rs 56,100.00
+    });
+    expect(await partyBalance(cust)).toBe(grandTotal);
+    await db.transaction((tx) =>
+      postWriteOff(tx, {
+        companyId, branchId, partyId: cust, salesDocId: docId,
+        accountId: badDebtsAccountId, date: D(2026, 10, 1), amount: 5_000n,
+        createdById: userId,
+      })
+    );
+    expect(await partyBalance(cust)).toBe(grandTotal - 5_000n);
+    await db.transaction((tx) =>
+      postPayment(tx, {
+        companyId, branchId, kind: "RECEIPT", partyId: cust,
+        bankAccountId: cashAccountId, date: D(2026, 10, 1), amount: grandTotal,
+        method: "CASH", allocations: [{ docId, docKind: "SALES", amount: grandTotal }],
+        createdById: userId,
+      })
+    );
+    // Invoice 5,610,000 − write-off 5,000 − receipt 5,610,000 + FX gain 5,000 = 0.
+    // Before the Phase 1 fix the stored balance stuck at −5,000 (the gain's
+    // Dr AR never landed in parties.balance) while the journal said 0.
+    expect(await partyBalance(cust)).toBe(0n);
+    expect(await partyDiscrepancies(cust)).toHaveLength(0);
+  });
+
+  it("purchase FX loss: settling moves the cached supplier balance by the loss, reconciler clean", async () => {
+    const supp = await freshParty("SUPPLIER", "M10 FX Loss Supplier");
+    const billId = crypto.randomUUID();
+    const grandTotal = 2_805_000n; // $100 @ 280.5
+    await db.transaction(async (tx) => {
+      await tx.insert(s.purchaseDocs).values({
+        id: billId, companyId, branchId, partyId: supp, docType: "BILL",
+        docNo: await nextDocNo(tx, companyId, "BILL"),
+        date: D(2026, 9, 29), status: "POSTED",
+        subtotal: grandTotal, discountTotal: 0n, taxTotal: 0n, grandTotal,
+        writtenOffAmount: 4_000n, createdById: userId,
+        currencyCode: "USD", exchangeRateScaled: USD_RATE,
+        foreignSubtotal: 10_000n, foreignTotal: 10_000n,
+      });
+    });
+    // Note: the bill row is seeded directly (no postPurchaseDoc), so its AP
+    // credit is absent from both the journal and the cached balance — the
+    // reconciler still agrees because both sides miss it equally. What this
+    // test pins is the FX leg: payment −grandTotal, FX loss +4,000 (Cr AP).
+    await db.transaction(async (tx) => {
+      await postPayment(tx, {
+        companyId, branchId, kind: "PAYMENT", partyId: supp,
+        bankAccountId: cashAccountId, date: D(2026, 10, 1), amount: grandTotal,
+        method: "CASH", allocations: [{ docId: billId, docKind: "PURCHASE", amount: grandTotal }],
+        createdById: userId,
+      });
+    });
+    expect(await partyBalance(supp)).toBe(-grandTotal + 4_000n);
+    expect(await partyDiscrepancies(supp)).toHaveLength(0);
+  });
+
+  it("voiding an FX-settled payment restores the cached balance, reconciler clean", async () => {
+    const cust = await freshParty("CUSTOMER", "M10 FX Void Customer");
+    const { docId, grandTotal } = await postFxInvoice({
+      partyId: cust,
+      currencyCode: "USD",
+      date: D(2026, 9, 29),
+      items: [{ rate: "100.00", qty: "1" }],
+    });
+    await db.transaction((tx) =>
+      postWriteOff(tx, {
+        companyId, branchId, partyId: cust, salesDocId: docId,
+        accountId: badDebtsAccountId, date: D(2026, 10, 1), amount: 3_000n,
+        createdById: userId,
+      })
+    );
+    const { id: paymentId } = await db.transaction((tx) =>
+      postPayment(tx, {
+        companyId, branchId, kind: "RECEIPT", partyId: cust,
+        bankAccountId: cashAccountId, date: D(2026, 10, 1), amount: grandTotal,
+        method: "CASH", allocations: [{ docId, docKind: "SALES", amount: grandTotal }],
+        createdById: userId,
+      })
+    );
+    expect(await partyBalance(cust)).toBe(0n);
+    await db.transaction((tx) =>
+      voidPayment(tx, { companyId, paymentId, userId, reason: "M10 phase-1 void" })
+    );
+    // Back to invoice − write-off: 2,805,000 − 3,000 = 2,802,000.
+    expect(await partyBalance(cust)).toBe(grandTotal - 3_000n);
+    expect(await partyDiscrepancies(cust)).toHaveLength(0);
   });
 });

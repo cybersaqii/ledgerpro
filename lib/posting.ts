@@ -908,6 +908,13 @@ export type PostPaymentInput = {
  *                     diff < 0 → Dr AP / Cr Exchange Gain (4120)
  * Always balanced; party-tagged so party ledgers stay exact. PKR documents
  * always have diff = 0 and post nothing.
+ *
+ * Phase 1 (2026-11-20): the AR/AP leg also moves the party's CACHED
+ * balance (parties.balance) by the same amount — before this fix the
+ * journal moved but the stored balance did not, so every FX settlement
+ * left a permanent gap between the stored balance and the journal-derived
+ * balance the reconciler (lib/cached-totals.ts) reports. The void path
+ * (lib/payment-void.ts) reverses this bump when it reverses the journal.
  */
 async function postFxSettlement(
   tx: DbTx,
@@ -970,6 +977,19 @@ async function postFxSettlement(
     createdById: args.createdById,
     lines,
   });
+  // Phase 1: the AR/AP leg moves the party's cached balance exactly like
+  // every other posting path (SALES: Dr AR raises what they owe us, Cr AR
+  // lowers it; PURCHASE mirrored on AP). Without this the stored balance
+  // drifts from the journal by the FX difference on every settled
+  // foreign-currency document.
+  const arApLine = lines.find((l) => l.accountId === arApAccount && l.partyId === args.partyId);
+  if (arApLine) {
+    const delta =
+      args.docKind === "SALES"
+        ? arApLine.debit - arApLine.credit
+        : arApLine.credit - arApLine.debit;
+    if (delta !== 0n) await bumpPartyBalance(tx, args.partyId, delta);
+  }
 }
 
 /** Allocate part of a payment to one document: bumps amountPaid, flips

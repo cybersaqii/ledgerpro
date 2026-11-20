@@ -18,6 +18,7 @@ import { assertPeriodOpen } from "./period";
 import { UserError } from "./errors";
 import type { DbTx } from "./db";
 import { FIX3_SOURCES } from "./stock-adjust";
+import { SYS, accountMap } from "./setup";
 
 /** Recompute a doc's payment status after its amountPaid changes. */
 function statusAfterPaid(amountPaid: bigint, grandTotal: bigint, returnedTotal: bigint): string {
@@ -188,6 +189,27 @@ export async function voidPayment(
         eq(journalEntries.sourceId, payment.id)
       )
     );
+  // Phase 1 (2026-11-20): postFxSettlement bumps the party's cached
+  // balance by the AR/AP leg of each FX journal, so the void must reverse
+  // that bump too — the same rule, applied to the ORIGINAL lines, negated.
+  // (The party-balance restore below only reverses postPayment's own bump.)
+  let fxPartyDelta = 0n;
+  if (fxEntries.length > 0) {
+    const fxAc = await accountMap(tx, input.companyId);
+    const fxArApId = isCustomer ? fxAc[SYS.AR] : fxAc[SYS.AP];
+    for (const fx of fxEntries) {
+      const fxLines = await tx
+        .select()
+        .from(journalLines)
+        .where(eq(journalLines.entryId, fx.id));
+      for (const l of fxLines) {
+        if (l.accountId !== fxArApId || l.partyId !== payment.partyId) continue;
+        fxPartyDelta += isCustomer
+          ? BigInt(l.debit) - BigInt(l.credit)
+          : BigInt(l.credit) - BigInt(l.debit);
+      }
+    }
+  }
   for (const fx of fxEntries) {
     const fxLines = await tx
       .select()
@@ -213,6 +235,12 @@ export async function voidPayment(
         projectId: l.projectId ?? undefined,
       })),
     });
+  }
+  if (fxPartyDelta !== 0n) {
+    await tx
+      .update(parties)
+      .set({ balance: sql`${parties.balance} - ${fxPartyDelta}`, updatedAt: new Date() })
+      .where(eq(parties.id, payment.partyId!));
   }
   // Restore balances: exact inverse of postPayment's bumps. postPayment
   // bumps the party by (isCustomer === isReceipt ? -amount : +amount), so
