@@ -12,6 +12,7 @@ import {
 } from "@/db/schema";
 import { json } from "@/lib/api";
 import { requirePermission, db } from "@/lib/route-helpers";
+import { logSlow } from "@/lib/monitoring";
 import { glSums, sumByType, sumByTypeCredit } from "@/lib/reports";
 
 // GET /api/dashboard/overview?salesFrom=&salesTo=&expFrom=&expTo=
@@ -20,6 +21,14 @@ import { glSums, sumByType, sumByTypeCredit } from "@/lib/reports";
 // (expFrom/expTo are ignored now: the donut shares the P&L's GL source and
 // period — see the expenses section below — so the two totals on the same
 // page always agree. The dashboard page sends both ranges with equal values.)
+//
+// Phase 4 perf: the 8 independent reads below used to run sequentially
+// (9 round-trips on remote Turso: ~9x one-query latency). They now fire in
+// a single Promise.all; only the bank cash-flow query still waits, because
+// it needs the bank GL ids from the bank query. The sales total and the
+// monthly series also used to be two identical scans of the same rows —
+// they now share one query. Behaviour and response shape are unchanged
+// (covered by tests/dashboard-overview.test.ts + dashboard-overview-expenses.test.ts).
 
 export type AgingBuckets = {
   older: string;
@@ -49,28 +58,92 @@ export async function GET(req: NextRequest) {
   const gate = await requirePermission("reports_basic");
   if (!gate.ok) return gate.response;
   const { companyId } = gate;
+  // Phase 4 monitoring: log the dashboard load as slow when it exceeds
+  // the threshold (see lib/monitoring.ts). Best-effort, never blocks.
+  const startedAt = Date.now();
 
   const sp = req.nextUrl.searchParams;
   const salesFrom = sp.get("salesFrom");
   const salesTo = sp.get("salesTo");
   const now = Date.now();
 
-  // --- AR aging (customers): outstanding invoices bucketed by due date ---
-  const arRows = await db
-    .select({
-      dueDate: salesDocs.dueDate,
-      date: salesDocs.date,
-      outstanding: sql<string>`${salesDocs.grandTotal} - ${salesDocs.amountPaid} - COALESCE(${salesDocs.returnedTotal}, 0)`,
-    })
-    .from(salesDocs)
-    .where(
-      and(
-        eq(salesDocs.companyId, companyId),
-        eq(salesDocs.docType, "INVOICE"),
-        inArray(salesDocs.status, ["POSTED", "PARTIAL"]),
-        sql`${salesDocs.grandTotal} > ${salesDocs.amountPaid} + COALESCE(${salesDocs.returnedTotal}, 0)`
-      )
-    );
+  const salesConds = [
+    eq(salesDocs.companyId, companyId),
+    eq(salesDocs.docType, "INVOICE"),
+  ];
+  if (salesFrom) salesConds.push(sql`${salesDocs.date} >= ${new Date(salesFrom).getTime()}`);
+  if (salesTo) salesConds.push(sql`${salesDocs.date} <= ${new Date(salesTo).getTime()}`);
+
+  // --- All independent reads fire together (see header note) ---
+  const [arRows, apRows, bankRows, stockRows, salesRows, sums, arTop, apTop] = await Promise.all([
+    // AR aging (customers): outstanding invoices bucketed by due date.
+    db
+      .select({
+        dueDate: salesDocs.dueDate,
+        date: salesDocs.date,
+        outstanding: sql<string>`${salesDocs.grandTotal} - ${salesDocs.amountPaid} - COALESCE(${salesDocs.returnedTotal}, 0)`,
+      })
+      .from(salesDocs)
+      .where(
+        and(
+          eq(salesDocs.companyId, companyId),
+          eq(salesDocs.docType, "INVOICE"),
+          inArray(salesDocs.status, ["POSTED", "PARTIAL"]),
+          sql`${salesDocs.grandTotal} > ${salesDocs.amountPaid} + COALESCE(${salesDocs.returnedTotal}, 0)`
+        )
+      ),
+    // AP aging (suppliers): outstanding bills bucketed by due date.
+    db
+      .select({
+        dueDate: purchaseDocs.dueDate,
+        date: purchaseDocs.date,
+        outstanding: sql<string>`${purchaseDocs.grandTotal} - ${purchaseDocs.amountPaid} - COALESCE(${purchaseDocs.returnedTotal}, 0)`,
+      })
+      .from(purchaseDocs)
+      .where(
+        and(
+          eq(purchaseDocs.companyId, companyId),
+          eq(purchaseDocs.docType, "BILL"),
+          inArray(purchaseDocs.status, ["POSTED", "PARTIAL"]),
+          sql`${purchaseDocs.grandTotal} > ${purchaseDocs.amountPaid} + COALESCE(${purchaseDocs.returnedTotal}, 0)`
+        )
+      ),
+    // Bank balances.
+    db
+      .select({ id: bankAccounts.id, name: bankAccounts.name, accountNo: bankAccounts.accountNo, balance: bankAccounts.balance, kind: bankAccounts.kind, accountId: bankAccounts.accountId })
+      .from(bankAccounts)
+      .where(and(eq(bankAccounts.companyId, companyId), eq(bankAccounts.isActive, true)))
+      .orderBy(bankAccounts.name),
+    // Products stock summary.
+    db
+      .select({ id: products.id, reorderLevel: products.reorderLevel, qty: stockLevels.qty })
+      .from(products)
+      .leftJoin(stockLevels, eq(stockLevels.productId, products.id))
+      .where(and(eq(products.companyId, companyId), eq(products.isActive, true), eq(products.trackStock, true))),
+    // Sales rows for the period — one scan feeds BOTH the period total and
+    // the monthly series below (previously two identical queries).
+    db
+      .select({ date: salesDocs.date, t: salesDocs.grandTotal })
+      .from(salesDocs)
+      .where(and(...salesConds)),
+    // P&L: GL sums for the selected period (same GL math as the P&L report;
+    // no period passed = all time).
+    glSums(db, companyId, salesFrom ?? null, salesTo ?? null),
+    // Top 10 AR / AP.
+    db
+      .select({ id: parties.id, name: parties.name, balance: parties.balance })
+      .from(parties)
+      .where(and(eq(parties.companyId, companyId), eq(parties.kind, "CUSTOMER"), eq(parties.isActive, true), sql`${parties.balance} > 0`))
+      .orderBy(desc(parties.balance))
+      .limit(10),
+    db
+      .select({ id: parties.id, name: parties.name, balance: parties.balance })
+      .from(parties)
+      .where(and(eq(parties.companyId, companyId), eq(parties.kind, "SUPPLIER"), eq(parties.isActive, true), sql`${parties.balance} > 0`))
+      .orderBy(desc(parties.balance))
+      .limit(10),
+  ]);
+
   const arBuckets: Record<keyof AgingBuckets, bigint> = {
     older: 0n, current: 0n, d1_7: 0n, d8_14: 0n, d15_21: 0n, d22_28: 0n, future: 0n,
   };
@@ -88,22 +161,6 @@ export async function GET(req: NextRequest) {
     arCounts[bucketKey(daysOverdue)] += 1;
   }
 
-  // --- AP aging (suppliers): outstanding bills bucketed by due date ---
-  const apRows = await db
-    .select({
-      dueDate: purchaseDocs.dueDate,
-      date: purchaseDocs.date,
-      outstanding: sql<string>`${purchaseDocs.grandTotal} - ${purchaseDocs.amountPaid} - COALESCE(${purchaseDocs.returnedTotal}, 0)`,
-    })
-    .from(purchaseDocs)
-    .where(
-      and(
-        eq(purchaseDocs.companyId, companyId),
-        eq(purchaseDocs.docType, "BILL"),
-        inArray(purchaseDocs.status, ["POSTED", "PARTIAL"]),
-        sql`${purchaseDocs.grandTotal} > ${purchaseDocs.amountPaid} + COALESCE(${purchaseDocs.returnedTotal}, 0)`
-      )
-    );
   const apBuckets: Record<keyof AgingBuckets, bigint> = {
     older: 0n, current: 0n, d1_7: 0n, d8_14: 0n, d15_21: 0n, d22_28: 0n, future: 0n,
   };
@@ -121,19 +178,6 @@ export async function GET(req: NextRequest) {
     apCounts[bucketKey(daysOverdue)] += 1;
   }
 
-  // --- Bank balances ---
-  const bankRows = await db
-    .select({ id: bankAccounts.id, name: bankAccounts.name, accountNo: bankAccounts.accountNo, balance: bankAccounts.balance, kind: bankAccounts.kind, accountId: bankAccounts.accountId })
-    .from(bankAccounts)
-    .where(and(eq(bankAccounts.companyId, companyId), eq(bankAccounts.isActive, true)))
-    .orderBy(bankAccounts.name);
-
-  // --- Products stock summary ---
-  const stockRows = await db
-    .select({ id: products.id, reorderLevel: products.reorderLevel, qty: stockLevels.qty })
-    .from(products)
-    .leftJoin(stockLevels, eq(stockLevels.productId, products.id))
-    .where(and(eq(products.companyId, companyId), eq(products.isActive, true), eq(products.trackStock, true)));
   let lowStock = 0, outOfStock = 0, oversold = 0, inStock = 0;
   for (const r of stockRows) {
     const qty = r.qty === null ? null : Number(r.qty);
@@ -144,19 +188,9 @@ export async function GET(req: NextRequest) {
     else inStock++;
   }
 
-  // --- Sales total for period ---
-  const salesConds = [
-    eq(salesDocs.companyId, companyId),
-    eq(salesDocs.docType, "INVOICE"),
-  ];
-  if (salesFrom) salesConds.push(sql`${salesDocs.date} >= ${new Date(salesFrom).getTime()}`);
-  if (salesTo) salesConds.push(sql`${salesDocs.date} <= ${new Date(salesTo).getTime()}`);
-  const salesSum = await db
-    .select({ t: sql<string>`COALESCE(SUM(${salesDocs.grandTotal}),0)` })
-    .from(salesDocs)
-    .where(and(...salesConds));
-
-  // --- Monthly sales within the selected period (line chart, rupees) ---
+  // --- Sales total + monthly sales within the selected period (line chart, rupees) ---
+  let salesTotal = 0n;
+  for (const r of salesRows) salesTotal += BigInt(r.t ?? "0");
   const salesMonthly: { label: string; total: number }[] = [];
   if (salesFrom && salesTo) {
     const from = new Date(salesFrom);
@@ -168,12 +202,8 @@ export async function GET(req: NextRequest) {
       monthKeys.push(`${cursor.getFullYear()}-${String(cursor.getMonth() + 1).padStart(2, "0")}`);
       cursor.setMonth(cursor.getMonth() + 1);
     }
-    const monthlyRows = await db
-      .select({ date: salesDocs.date, t: salesDocs.grandTotal })
-      .from(salesDocs)
-      .where(and(...salesConds));
     const byMonth = new Map<string, bigint>();
-    for (const r of monthlyRows) {
+    for (const r of salesRows) {
       const d = new Date(Number(r.date));
       const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
       byMonth.set(key, (byMonth.get(key) ?? 0n) + BigInt(r.t ?? "0"));
@@ -239,9 +269,6 @@ export async function GET(req: NextRequest) {
     if (shift !== 0) for (const p of bankMonthly) p.balance += shift;
   }
 
-  // --- P&L: income, expenses, net profit for the selected period ---
-  // (same GL math as the P&L report; no period passed = all time).
-  const sums = await glSums(db, companyId, salesFrom ?? null, salesTo ?? null);
   const incomeTotal = sumByTypeCredit(sums, "INCOME");
   const expenseTotal = sumByType(sums, "EXPENSE");
 
@@ -267,25 +294,13 @@ export async function GET(req: NextRequest) {
     .slice(0, 5)
     .map((e) => ({ name: e.name, total: e.net.toString() }));
 
-  // --- Top 10 AR / AP ---
-  const arTop = await db
-    .select({ id: parties.id, name: parties.name, balance: parties.balance })
-    .from(parties)
-    .where(and(eq(parties.companyId, companyId), eq(parties.kind, "CUSTOMER"), eq(parties.isActive, true), sql`${parties.balance} > 0`))
-    .orderBy(desc(parties.balance))
-    .limit(10);
-  const apTop = await db
-    .select({ id: parties.id, name: parties.name, balance: parties.balance })
-    .from(parties)
-    .where(and(eq(parties.companyId, companyId), eq(parties.kind, "SUPPLIER"), eq(parties.isActive, true), sql`${parties.balance} > 0`))
-    .orderBy(desc(parties.balance))
-    .limit(10);
-
   const toStr = (b: Record<keyof AgingBuckets, bigint>): AgingBuckets => ({
     older: b.older.toString(), current: b.current.toString(), d1_7: b.d1_7.toString(),
     d8_14: b.d8_14.toString(), d15_21: b.d15_21.toString(), d22_28: b.d22_28.toString(),
     future: b.future.toString(),
   });
+
+  void logSlow("GET /api/dashboard/overview", Date.now() - startedAt, { companyId });
 
   return json({
     data: {
@@ -293,7 +308,7 @@ export async function GET(req: NextRequest) {
       ap: { total: apTotal.toString(), buckets: apRows.length ? toStr(apBuckets) : ZERO_BUCKETS, counts: apCounts },
       banks: bankRows.map((b) => ({ id: b.id, name: b.name, code: b.accountNo ?? null, balance: b.balance?.toString() ?? "0", kind: b.kind })),
       products: { lowStock, outOfStock, oversold, inStock },
-      sales: { total: salesSum[0]?.t ?? "0", monthly: salesMonthly },
+      sales: { total: salesTotal.toString(), monthly: salesMonthly },
       expenses: { total: expenseTotal.toString(), top: expTop },
       pnl: { income: incomeTotal.toString(), expenses: expenseTotal.toString(), net: (incomeTotal - expenseTotal).toString() },
       arTop10: arTop.map((p) => ({ id: p.id, name: p.name, balance: p.balance?.toString() ?? "0" })),

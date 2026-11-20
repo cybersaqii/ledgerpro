@@ -292,6 +292,8 @@ export const parties = sqliteTable(
   (t) => [
     index("parties_company_kind").on(t.companyId, t.kind),
     index("parties_company_name").on(t.companyId, t.name),
+    // Migration 0076 (Phase 4): Top-10 AR/AP ORDER BY balance DESC.
+    index("parties_company_kind_balance").on(t.companyId, t.kind, t.balance),
     uniqueIndex("parties_idem_key").on(t.companyId, t.idempotencyKey).where(sql`idempotency_key IS NOT NULL`),
     check("parties_kind", sql`kind IN ('CUSTOMER', 'SUPPLIER')`),
   ]
@@ -630,6 +632,8 @@ export const salesDocs = sqliteTable(
   (t) => [
     uniqueIndex("sales_company_type_no").on(t.companyId, t.docType, t.docNo),
     index("sales_company_type_status").on(t.companyId, t.docType, t.status),
+    // Migration 0076 (Phase 4): date-range scans (dashboard, reports).
+    index("sales_company_type_date").on(t.companyId, t.docType, t.date),
     index("sales_company_party").on(t.companyId, t.partyId),
     uniqueIndex("sales_docs_idem_key").on(t.companyId, t.idempotencyKey).where(sql`idempotency_key IS NOT NULL`),
     index("sales_docs_project").on(t.companyId, t.projectId),
@@ -726,6 +730,8 @@ export const purchaseDocs = sqliteTable(
   (t) => [
     uniqueIndex("purch_company_type_no").on(t.companyId, t.docType, t.docNo),
     index("purch_company_type_status").on(t.companyId, t.docType, t.status),
+    // Migration 0076 (Phase 4): date-range scans (reports).
+    index("purch_company_type_date").on(t.companyId, t.docType, t.date),
     index("purch_company_party").on(t.companyId, t.partyId),
     uniqueIndex("purchase_docs_idem_key").on(t.companyId, t.idempotencyKey).where(sql`idempotency_key IS NOT NULL`),
     index("purchase_docs_project").on(t.companyId, t.projectId),
