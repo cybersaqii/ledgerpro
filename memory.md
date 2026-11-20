@@ -64,7 +64,11 @@ reads after `prd.md` + `architecture.md`. The user's personal long-term memory l
   computations (Phase 1 §3.1) — small, does not change any decision.
 - **Database enforcement is best-effort, never guaranteed; snapshot columns are intentional
   denormalisation, never a defect to "fix".** Cached totals can drift; manual reconciliation only.
-- **No perf audit, no monitoring, no backup/restore drill yet** (Phase 4).
+- **Phase 4 done locally 2026-11-20 (not pushed):** overview parallelised +
+  migration 0076 indexes; OWASP audit clean except CSP unsafe-inline/eval +
+  no CSRF token (findings, see Phase 4 report); backup/restore drill verified
+  (file rebuilds 22 sections in an empty DB); slow-query logging in code
+  (2000 ms default). IhsanPOS restore decision STILL owed (company 1619518c).
 - **Period lock still open** (roadmap Phase 3 safety).
 - **Live-data guardrail:** production Turso SELECT-only for QA; no writes/migrations/deploys
   without the user's word; full backup before any production change.

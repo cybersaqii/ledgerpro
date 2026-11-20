@@ -125,9 +125,23 @@ public/         Static assets, PWA manifest, branded SVG icon
 
 ## 8. Scale & performance (honest status)
 
-- **No recent perf audit, N+1 / index review, or load target documented.** Hot-path FKs
-  and indexes landed in migrations 0067–0069; that is the extent of what is established.
-  **TODO — CONFIRM: Phase 4 performance audit scope and load targets.**
-- **TODO — CONFIRM: monitoring — error tracking + uptime + slow-query log (Phase 4).**
-- **TODO — CONFIRM: backup/restore drill — real restore test; IhsanPOS restore decision
-  (full wipe, locked to company 1619518c) is pending.**
+- **Phase 4 perf audit done locally 2026-11-20 (not pushed):** dashboard
+  overview parallelised (9 sequential queries → 1 batch + 1 dependent
+  query; sales total + monthly series share one scan); migration 0076
+  indexes (`sales_docs`/`purchase_docs` (company, doc_type, date),
+  `parties` (company, kind, balance)) — EXPLAIN-verified range scans, no
+  more TEMP B-TREE sort on Top-10 AR/AP. Local bench (1200 invoices +
+  1200 bills, seeded file DB): overview GET ~30 ms median, within noise
+  before/after — the win is round-trips on remote Turso, not local ms.
+  Pagination: main lists capped at 100/page; reports date-bounded;
+  small-cardinality lists documented in the Phase 4 report.
+- **Monitoring in code (Phase 4):** `lib/monitoring.ts` slow-log (2000 ms
+  default, `SLOW_QUERY_MS` override) into `error_logs`, wired into the
+  overview route; `docs/MONITORING.md` deploy checklist. No third-party
+  tracker — needs a user decision. Uptime monitor not yet pointed at
+  `/api/health` (deploy-time step).
+- **Backup/restore drill verified locally 2026-11-20 (Phase 4):**
+  `scripts/backup-restore-drill.sh` + `tests/backup-restore-drill.test.ts`
+  — a backup file rebuilds all 22 sections in an empty DB, paisa-exact.
+  IhsanPOS restore decision (full wipe, locked to company 1619518c) is
+  still pending — nothing moves until the user says.

@@ -55,6 +55,10 @@ as a user decision. The user reviews every **ASSUMPTION** before push.
 | D-21 | Order advance handling — unallocated receipt vs order-linked deposit, and which account? | ⏳ BLOCKED — needs a user decision | No advance field on orders. Do not invent the semantics. |
 | D-22 | Stock IN value is display-only at moving-average cost; adjustments stay quantity-only | ⏳ PENDING — user review before push | **ASSUMPTION (worker): the value is informational (form preview + detail). No posting change; the stored `costPaisa` is unchanged.** |
 | D-23 | SEO guide pages state prices/features from the live pricing page; no ranking claims | ⏳ PENDING — user review before push | **ASSUMPTION (worker): plan features copied from the live pricing cards (Starter/Pro/Enterprise), sync described as a paid-plan feature. No \"#1\" / \"best\" claim anywhere.** |
+| D-24 | Slow-query threshold — 2000 ms default, `SLOW_QUERY_MS` override (Phase 4 monitoring) | ⏳ PENDING — user review before push | **ASSUMPTION (worker): 2000 ms is the log threshold; slow rows go to the existing `error_logs` table (owner-only viewer). No env var is set anywhere by this phase; tune at deploy time if Turso latency makes it noisy. Do not set below 1000 ms.** |
+| D-25 | Error tracking vendor (Sentry etc.) — sign up or stay with in-DB `error_logs`? | ⏳ PENDING — needs a user decision | **ASSUMPTION (worker): stay with in-DB logging + owner viewer; no third-party account created. A vendor means user data leaving the Turso DB — that choice is the user's, not the worker's.** |
+| D-26 | Backup drill cadence — monthly drill run (`sh scripts/backup-restore-drill.sh`) + monthly manual Verify | ⏳ PENDING — user review before push | **ASSUMPTION (worker): monthly is the cadence in the runbook; the drill itself is local-only and never touches production. The user runs it or asks for it — nothing is scheduled automatically.** |
+| D-27 | Uptime monitor vendor for `/api/health` (Uptime Robot / Better Stack / Vercel checks / other) | ⏳ PENDING — needs a user decision | **ASSUMPTION (worker): none chosen, none configured. Any checker works against the public probe; picking one is a deploy-time user decision, not a code task.** |
 
 ---
 
@@ -67,6 +71,7 @@ as a user decision. The user reviews every **ASSUMPTION** before push.
 | 2026-11-13 | "Add Receipt rehne do" — stays as-is | Resolved |
 | 2026-11-20 (Phase 1) | FX party-balance fix + stock idempotency + donut GL source (local commits, unpushed) | Phase 1 worker, per assessment; push still needs user's word |
 | 2026-11-20 (Phase 3) | FA triage all 8 items + onboarding wizard fix + adaptive dashboard widgets + 3 SEO guides (local commits `e9581c9`…`b93f4ce`, unpushed) | Phase 3 worker, per assessment + roadmap; push still needs user's word; changelog entry owed at push time (do not edit `lib/changelog.ts` while the 2-Highs diff is pending) |
+| 2026-11-20 (Phase 4) | Perf audit + OWASP audit + backup/restore drill + monitoring (local commits `1b9606c`, `2c8f8c9`, `474947a`, unpushed) | Phase 4 worker, per assessment + roadmap; push still needs user's word; migration 0076 exists only in fresh test DBs, never applied to prod. CSP `unsafe-inline`/`unsafe-eval` and no CSRF token logged as findings (R-20, R-21), not silently fixed. |
 
 ---
 

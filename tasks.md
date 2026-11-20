@@ -70,17 +70,32 @@ Commits (local only): `e9581c9`, `2f6f5f1`, `1ea8efc`, `92111a0`, `ffd55ce`, `21
 
 **Phase 3 done-when:** triage list zero ✅ (all 8 done), onboarding live ⏳ (local only — push + live verify pending), one new user makes their first bill unaided ⏳ (not yet verified — needs a fresh-eyes run).
 
-## 4. World-Class programme — Phase 4: Scale & Hardening 🔲 QUEUED
+## 4. World-Class programme — Phase 4: Scale & Hardening ✅ DONE LOCALLY 2026-11-20 (not pushed)
 
-- [ ] Performance audit: N+1, indexes, pagination, bundle size, mobile load
-      (**TODO — CONFIRM scope + load targets**)
-- [ ] Security audit: OWASP checklist, auth, rate limits, secrets scan
-- [ ] Backup/restore drill: real restore test
-      (**TODO — CONFIRM: IhsanPOS restore decision — full wipe, locked to company 1619518c**)
-- [ ] Monitoring: error tracking + uptime + slow-query log
-      (**TODO — CONFIRM targets**)
+- [x] Performance audit: N+1, indexes, pagination, bundle size, mobile load
+      — overview parallelised (9 sequential → 1 batch + 1 dependent query),
+      migration 0076 indexes (EXPLAIN-verified), pagination audit done
+      (main lists capped; reports date-bounded; small-cardinality lists noted),
+      bundle 3.76 MB chunks / largest 400 KB lazy (recharts via next/dynamic).
+      Findings with severity in `LedgerPro-Phase4-Report-2026-11-20.md`.
+- [x] Security audit: OWASP checklist, auth, rate limits, secrets scan
+      — every API route auth-gated (verified by scan); Google OAuth state +
+      single-use cookie; DB rate limits on auth; cron secret constant-time;
+      uploads capped; no eval; no hardcoded secrets; all SQL parameterised.
+      Open findings: CSP `unsafe-inline`/`unsafe-eval` (Medium), no CSRF
+      token on cookie mutations — sameSite=lax only (Low). See report §2.
+- [x] Backup/restore drill: `scripts/backup-restore-drill.sh` + `tests/backup-restore-drill.test.ts`
+      (file rebuilds all 22 sections in an empty DB, paisa-exact) +
+      `docs/BACKUP_RESTORE_DRILL.md` runbook. IhsanPOS restore decision
+      STILL OWED — full wipe, company 1619518c, nothing moves until the user says.
+- [x] Monitoring: `lib/monitoring.ts` slow-log (2000 ms default, `SLOW_QUERY_MS`
+      override) into `error_logs`, wired into the overview route;
+      `docs/MONITORING.md` deploy checklist (uptime monitor on `/api/health`,
+      error watch, threshold tuning). No third-party tracker (needs a user decision).
 
-**Phase 4 done-when:** audit report clean, or every issue has a fix/waiver logged.
+**Phase 4 done-when:** audit report clean, or every issue has a fix/waiver logged ✅ —
+see the Phase 4 report. Deploy-time steps (uptime monitor vendor, IhsanPOS decision)
+remain user decisions; push + live verify still pending like Phases 1–3.
 
 ## 5. Earlier roadmap phases (shipped — see roadmap for detail)
 
@@ -115,3 +130,5 @@ Commits (local only): `e9581c9`, `2f6f5f1`, `1ea8efc`, `92111a0`, `ffd55ce`, `21
 |---|---|
 | 2026-11-20 | Phase 1 done (6 local commits, 1196 tests green). Assessment 7.2/10. |
 | 2026-11-20 | Phase 2: 6 docs + decision/risk logs + roadmap update + report. (This phase — fill in commit hashes in the Phase 2 report.) |
+| 2026-11-20 | Phase 3 done (11 local commits, 1220 tests green): FA triage 8/8, wizard fix, adaptive widgets, 3 SEO guides. |
+| 2026-11-20 | Phase 4 done locally (3 commits, 1228 tests green): overview parallelised + 0076 indexes, OWASP audit, backup/restore drill verified, slow-query logging. Not pushed. |
