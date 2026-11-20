@@ -6,7 +6,7 @@ import { DocForm } from "@/components/doc-form";
 
 function NewPurchaseInner() {
   const sp = useSearchParams();
-  return <DocForm mode="PURCHASE" initialType={sp.get("type") || undefined} />;
+  return <DocForm mode="PURCHASE" initialType={sp.get("type") || undefined} editDocId={sp.get("edit") || undefined} />;
 }
 
 export default function NewPurchasePage() {

@@ -271,7 +271,7 @@ function CompactField({ label, children, required }: {
   );
 }
 
-export function DocForm({ mode, initialType }: { mode: "SALES" | "PURCHASE"; initialType?: string }) {
+export function DocForm({ mode, initialType, editDocId }: { mode: "SALES" | "PURCHASE"; initialType?: string; editDocId?: string }) {
   const bp = useBusinessProfile();
   const { t } = useLang();
   const router = useRouter();
@@ -296,6 +296,14 @@ export function DocForm({ mode, initialType }: { mode: "SALES" | "PURCHASE"; ini
   const [notes, setNotes] = useState("");
   const [refNo, setRefNo] = useState("");
   const [terms, setTerms] = useState("");
+  /** Phase 3: expected delivery date — orders only (ORDER types). */
+  const [expectedDeliveryDate, setExpectedDeliveryDate] = useState("");
+  /** Phase 3: edit mode — a DRAFT doc loaded from the detail page (?edit=).
+   *  Only PKR drafts are editable (stored lines are PKR; the server enforces
+   *  this too). Posted docs cannot be edited — reverse + repost instead. */
+  const isEdit = !!editDocId;
+  const [editLoading, setEditLoading] = useState(isEdit);
+  const [editError, setEditError] = useState<string | null>(null);
   // Module 13: project tag (optional; "" = untagged).
   const [projectId, setProjectId] = useState("");
   /** Module 2.4: WHT rate on purchase bills (percent string; blank = supplier default). */
@@ -421,6 +429,86 @@ export function DocForm({ mode, initialType }: { mode: "SALES" | "PURCHASE"; ini
       .then((d) => setFxCurrencies(d.data.filter((c) => c.isActive)))
       .catch(() => {});
   }, []);
+
+  // Phase 3: edit mode — load the DRAFT doc and populate the form from its
+  // stored PKR values. Posted docs and foreign-currency drafts are not
+  // editable (the server enforces both); the form stays unusable instead of
+  // silently saving over something it cannot represent.
+  useEffect(() => {
+    if (!editDocId) return;
+    let cancelled = false;
+    const paisaStr = (v: unknown): string => {
+      try {
+        const p = BigInt(String(v ?? "0"));
+        return `${p / 100n}.${((p % 100n + 100n) % 100n).toString().padStart(2, "0")}`;
+      } catch { return ""; }
+    };
+    const milliStr = (v: unknown): string => {
+      try {
+        const m = BigInt(String(v ?? "0"));
+        const whole = m / 1000n;
+        const frac = (m % 1000n).toString().padStart(3, "0").replace(/0+$/, "");
+        return frac ? `${whole}.${frac}` : whole.toString();
+      } catch { return ""; }
+    };
+    const dateStr = (v: unknown): string => {
+      if (v == null || v === "") return "";
+      const d = new Date(typeof v === "number" ? v : String(v));
+      return Number.isNaN(d.getTime()) ? "" : fmtDateInput(d);
+    };
+    type DraftItem = {
+      productId: string | null; description: string; qtyMilli: string; ratePaisa: string;
+      discountPaisa: string | null; taxBps: number | null; batchId: string | null;
+      batchNo: string | null; expiryDate: string | null; lineUnit: string | null;
+      lineUnitQty: string | null; lineUnitRate: string | null; branchId: string | null;
+      unit: string | null; sku: string | null;
+    };
+    type DraftDoc = {
+      status: string; currencyCode: string | null; partyId: string; date: string | number;
+      dueDate: string | number | null; discountTotal: string | null; freightTotal: string | null;
+      notes: string | null; refNo: string | null; terms: string | null; projectId: string | null;
+      expectedDeliveryDate: number | null; items: DraftItem[];
+    };
+    api<{ data: DraftDoc }>(`/api/${isSales ? "sales" : "purchases"}/${editDocId}`)
+      .then((d) => {
+        if (cancelled) return;
+        const doc = d.data;
+        if (doc.status !== "DRAFT") { setEditError(t("docform.editPosted")); return; }
+        if (doc.currencyCode && doc.currencyCode !== "PKR") { setEditError(t("docform.editForeign")); return; }
+        setPartyId(doc.partyId);
+        setDate(dateStr(doc.date) || fmtDateInput());
+        setDueDate(dateStr(doc.dueDate));
+        setTermDays("");
+        setDiscountTotal(paisaStr(doc.discountTotal));
+        setFreightTotal(paisaStr(doc.freightTotal));
+        setNotes(doc.notes ?? "");
+        setRefNo(doc.refNo ?? "");
+        setTerms(doc.terms ?? "");
+        setProjectId(doc.projectId ?? "");
+        setExpectedDeliveryDate(doc.expectedDeliveryDate ? dateStr(doc.expectedDeliveryDate) : "");
+        setLines(doc.items.map((it, i) => ({
+          ...newBlankLine(i),
+          productId: it.productId ?? "",
+          description: it.description,
+          productName: it.description,
+          unit: it.unit ?? "",
+          qty: it.lineUnitQty ?? milliStr(it.qtyMilli),
+          rate: it.lineUnitRate ?? paisaStr(it.ratePaisa),
+          discount: paisaStr(it.discountPaisa),
+          taxPct: it.taxBps != null ? (it.taxBps / 100).toString() : "",
+          batchId: it.batchId ?? "",
+          batchNo: it.batchNo ?? "",
+          expiryDate: it.expiryDate ?? "",
+          branchId: it.branchId ?? "",
+          lineUnit: it.lineUnit ?? "",
+          sku: it.sku ?? "",
+        })));
+      })
+      .catch(() => { if (!cancelled) setEditError(t("docform.editLoadError")); })
+      .finally(() => { if (!cancelled) setEditLoading(false); });
+    return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- load once per editDocId
+  }, [editDocId]);
 
   // Product view settings: what shows in the product dropdown
   const [pv, setPv] = useState({ showSku: true, showPurchase: true, showRetail: true, showWholesale: false });
@@ -1143,8 +1231,41 @@ export function DocForm({ mode, initialType }: { mode: "SALES" | "PURCHASE"; ini
   /** PKR equivalent of the live grand total (preview; the server converts per line). */
   const grandPkr = fxToPkr(grand);
 
-  async function submit(e: React.FormEvent, opts: { priceOverride?: boolean; creditOverride?: boolean; holdOverride?: boolean; printAfter?: boolean; idemKey?: string } = {}) {
-    const { priceOverride = false, creditOverride = false, holdOverride = false, printAfter = false } = opts;
+  /** Phase 3: Save & New — blank the whole form for the next document. */
+  function resetForm() {
+    const today = fmtDateInput();
+    setPartyId("");
+    setPartyQ("");
+    setDate(today);
+    setDueDate(initialType === "QUOTATION" ? (dueFromTerm(today, "7") ?? today) : today);
+    setTermDays("");
+    setDiscountTotal("");
+    setFreightTotal("");
+    setNotes("");
+    setRefNo("");
+    setTerms("");
+    setProjectId("");
+    setWhtPct("");
+    setDeductFromInventory(true);
+    setLines([newBlankLine(0)]);
+    setDiscPct("");
+    setPriceListId("");
+    setAppliedListId("");
+    setMatrixBps({});
+    setRcptDate(today);
+    setRcptAccountId("");
+    setRcptRef("");
+    setRcptAmount("");
+    setExtraCosts([]);
+    setExtraPaidFrom("CASH");
+    setExtraAccountId("");
+    setExpectedDeliveryDate("");
+    setQuickPhone("");
+    setError(null);
+  }
+
+  async function submit(e: React.FormEvent, opts: { priceOverride?: boolean; creditOverride?: boolean; holdOverride?: boolean; printAfter?: boolean; idemKey?: string; saveDraft?: boolean; saveAndNew?: boolean } = {}) {
+    const { priceOverride = false, creditOverride = false, holdOverride = false, printAfter = false, saveDraft = false, saveAndNew = false } = opts;
     e.preventDefault();
     setError(null);
     // One idempotency key per user submission: generated here so the
@@ -1175,8 +1296,9 @@ export function DocForm({ mode, initialType }: { mode: "SALES" | "PURCHASE"; ini
       }
     }
     // minimum sale price lock (posted invoices only) — one confirm, then retry with override.
+    // Drafts skip the floor; it is re-checked when the draft is posted.
     // Module 10: foreign rates convert to PKR at the day's rate before comparing.
-    if (isSales && docType === "INVOICE" && !priceOverride) {
+    if (isSales && docType === "INVOICE" && !priceOverride && !saveDraft) {
       const low = lines.filter((l) => {
         const p = l.productId ? productCache.current.get(l.productId) : undefined;
         const floor = p?.minSalePrice != null ? BigInt(p.minSalePrice) : 0n;
@@ -1192,11 +1314,21 @@ export function DocForm({ mode, initialType }: { mode: "SALES" | "PURCHASE"; ini
       if (low.length > 0) {
         const names = low.slice(0, 3).map((l) => l.description).join(", ") + (low.length > 3 ? "…" : "");
         if (!window.confirm(t("docform.minPriceConfirm", { names }))) return;
-        return submit(e, { priceOverride: true, printAfter, idemKey });
+        return submit(e, { priceOverride: true, printAfter, idemKey, saveDraft, saveAndNew });
       }
     }
     setSaving(true);
     try {
+      // Phase 3: drafts cannot carry a receipt or landed extra costs — the
+      // server rejects them (DRAFT_RECEIPT / DRAFT_EXTRA_COSTS). Fail here
+      // with a clear message instead of silently dropping what was typed.
+      if (saveDraft) {
+        const rcptAmt = parseFloat(rcptAmount || "0");
+        if (rcptAmt > 0) { setSaving(false); setError(t("docform.draftReceiptHint")); return; }
+        if (!isSales && docType === "BILL" && extraCosts.some((c) => c.label.trim() && parseFloat(c.amount) > 0)) {
+          setSaving(false); setError(t("docform.draftExtraCostsHint")); return;
+        }
+      }
       const endpoint = isSales ? "/api/sales" : "/api/purchases";
       const body: Record<string, unknown> = {
         docType, partyId, date,
@@ -1206,6 +1338,11 @@ export function DocForm({ mode, initialType }: { mode: "SALES" | "PURCHASE"; ini
         currencyCode,
         dueDate: dueDate || undefined,
         discountTotal: discountTotal || "0",
+        // Phase 3: save-as-draft (posted types only — the server stores the
+        // doc as DRAFT and skips posting, the price floor and credit checks).
+        ...(saveDraft ? { saveAsDraft: true } : {}),
+        // Phase 3: expected delivery — orders only.
+        ...(docType === "ORDER" && expectedDeliveryDate ? { expectedDeliveryDate } : {}),
         // Module 1: freight income on sales invoices / quotes / orders
         ...(freightDocTypes ? { freightTotal: freightTotal || "0" } : {}),
         notes: notes || undefined,
@@ -1255,7 +1392,8 @@ export function DocForm({ mode, initialType }: { mode: "SALES" | "PURCHASE"; ini
         body.overrideCreditHold = holdOverride;
       }
       // Add Receipt / Add Payment: posted together with the doc in one transaction.
-      if ((isSales && docType === "INVOICE") || (!isSales && docType === "BILL")) {        const rcptAmt = parseFloat(rcptAmount || "0");
+      // Drafts never carry a receipt/payment — record it after posting instead.
+      if (!saveDraft && ((isSales && docType === "INVOICE") || (!isSales && docType === "BILL"))) {        const rcptAmt = parseFloat(rcptAmount || "0");
         if (rcptAmt > 0) {
           if (!rcptAccountId) { setSaving(false); setError(t("docform.errReceiptAccount")); return; }
           // Method is derived from the account kind — no separate selector needed.
@@ -1269,8 +1407,18 @@ export function DocForm({ mode, initialType }: { mode: "SALES" | "PURCHASE"; ini
           };
         }
       }
-      const d = await api<{ data: { docId: string } }>(endpoint, { method: "POST", body: JSON.stringify(body) });
+      // Phase 3: edit mode saves the draft with PUT (no new doc, no receipt).
+      const d = isEdit
+        ? await api<{ data: { docId: string } }>(`${endpoint}/${editDocId}`, { method: "PUT", body: JSON.stringify(body) })
+        : await api<{ data: { docId: string } }>(endpoint, { method: "POST", body: JSON.stringify(body) });
       const dest = isSales ? `/sales/${d.data.docId}` : `/purchases/${d.data.docId}`;
+      if (saveAndNew) {
+        // Phase 3: Save & New — the doc is saved; blank the form for the next one.
+        resetForm();
+        showToast(t("docform.savedNew"));
+        setSaving(false);
+        return;
+      }
       router.push(printAfter ? `${dest}?print=1` : dest);
     } catch (err) {
       // udhaar control: limit crossed → one confirm, then retry with override
@@ -1283,7 +1431,7 @@ export function DocForm({ mode, initialType }: { mode: "SALES" | "PURCHASE"; ini
           balance: paisa(det.balancePaisa),
         }))) {
           setSaving(false);
-          return submit(e, { priceOverride, creditOverride: true, printAfter, idemKey });
+          return submit(e, { priceOverride, creditOverride: true, printAfter, idemKey, saveDraft, saveAndNew });
         }
       }
       // Module 23: credit hold → one confirm, then retry with override
@@ -1294,7 +1442,7 @@ export function DocForm({ mode, initialType }: { mode: "SALES" | "PURCHASE"; ini
           reason: det.reason || "",
         }))) {
           setSaving(false);
-          return submit(e, { priceOverride, creditOverride, holdOverride: true, printAfter, idemKey });
+          return submit(e, { priceOverride, creditOverride, holdOverride: true, printAfter, idemKey, saveDraft, saveAndNew });
         }
       }
       setError(localizedApiError(err instanceof Error ? err : null, t, t("docform.errSave")));
@@ -1333,7 +1481,9 @@ export function DocForm({ mode, initialType }: { mode: "SALES" | "PURCHASE"; ini
   // Header copy follows the document type: the old generic title/subtitle
   // labelled quotations and orders as invoices/bills (which post stock and
   // ledger), while quotations and orders post nothing until converted.
-  const formTitle = !isSales
+  // Phase 3: edit mode titles the form as an edit, not a new document.
+  const formTitle = isEdit ? t("docform.editDraftTitle")
+    : !isSales
     ? docType === "ORDER" ? t("docform.titlePurchaseOrder")
     : docType === "GRN" ? t("docform.titleGrn")
     : docType === "RETURN" ? t("docform.titlePurchaseReturn")
@@ -1367,6 +1517,17 @@ export function DocForm({ mode, initialType }: { mode: "SALES" | "PURCHASE"; ini
     <div className="docform-fa text-xs">
       <PageHeader title={formTitle}
         subtitle={formSubtitle} />
+      {/* Phase 3: edit mode — loading / unloadable-draft states. */}
+      {editLoading && <p className="py-10 text-center text-sm text-muted-foreground">{t("docform.editLoading")}</p>}
+      {editError && (
+        <div className="space-y-3">
+          <ErrorNote message={editError} />
+          <button type="button" className="btn btn-ghost !py-2 text-sm" onClick={() => router.push(cancelHref)}>
+            Cancel
+          </button>
+        </div>
+      )}
+      {!editLoading && !editError && (
       <form onSubmit={submit} className="docform-fa space-y-2">
         <ErrorNote message={error} />
 
@@ -1463,6 +1624,12 @@ export function DocForm({ mode, initialType }: { mode: "SALES" | "PURCHASE"; ini
               <CompactField label={isSales && docType === "QUOTATION" ? t("docform.validUntil") : "Due Date"}>
                 <NumericDateInput value={dueDate} onChange={(v) => { setDueDate(v); setTermDays(""); }} className="!py-1.5 text-[13px]" />
               </CompactField>
+              {/* Phase 3: expected delivery — orders only. */}
+              {docType === "ORDER" && (
+                <CompactField label={t("docform.expectedDelivery")}>
+                  <NumericDateInput value={expectedDeliveryDate} onChange={(v) => setExpectedDeliveryDate(v)} className="!py-1.5 text-[13px]" />
+                </CompactField>
+              )}
               <CompactField label="Doc No." required={!isSales && docType === "BILL"}>
                 <input className="field !py-1.5 text-[13px]" value={refNo} maxLength={60}
                   required={!isSales && docType === "BILL"}
@@ -1996,7 +2163,8 @@ export function DocForm({ mode, initialType }: { mode: "SALES" | "PURCHASE"; ini
         )}
 
         {/* ══════════ 3 · Add Receipt / Add Payment ══════════ */}
-        {((isSales && docType === "INVOICE") || (!isSales && docType === "BILL")) && (
+        {/* Phase 3: drafts (new save-as-draft and edit mode) never carry a receipt. */}
+        {!isEdit && ((isSales && docType === "INVOICE") || (!isSales && docType === "BILL")) && (
           <div id="docform-receipt">
           <SectionCard title={isSales ? "Add Receipt" : "Add Payment"}>
             <div className="overflow-x-auto">
@@ -2044,33 +2212,57 @@ export function DocForm({ mode, initialType }: { mode: "SALES" | "PURCHASE"; ini
             Cancel
           </button>
           <div className="flex flex-wrap items-center gap-2">
-            <div className="relative" ref={printRef}>
-              <button type="button" className="btn btn-ghost !py-2 text-sm"
-                onClick={() => setPrintOpen((o) => !o)} aria-expanded={printOpen} aria-haspopup="menu">
-                <Printer size={15} /> Thermal Print <ChevronDown size={14} />
+            {isEdit ? (
+              <button className="btn !py-2 text-sm font-bold text-white dark:text-[#052e16] bg-success hover:brightness-105 disabled:opacity-55" disabled={saving}>
+                {saving ? t("docform.saving") : t("docform.saveChanges")}
               </button>
-              {printOpen && (
-                <div role="menu"
-                  className="absolute bottom-full end-0 z-30 mb-1 w-44 overflow-hidden rounded-xl border border-border bg-card py-1 shadow-xl">
-                  <button type="button" role="menuitem"
-                    className="flex w-full items-center gap-2 px-4 py-2 text-start text-[13px] font-semibold hover:bg-muted"
-                    onClick={(e) => { setPrintOpen(false); submit(e, { printAfter: true }); }}>
-                    <Printer size={14} /> Thermal Receipt
+            ) : (
+              <>
+                {/* Phase 3: Save Draft (posted types) / Save & New (quotation/order). */}
+                {(docType === "INVOICE" || docType === "BILL" || docType === "RETURN") && (
+                  <button type="button" disabled={saving}
+                    className="btn btn-ghost !py-2 text-sm font-bold"
+                    onClick={(e) => submit(e, { saveDraft: true })}>
+                    {t("docform.saveDraft")}
                   </button>
+                )}
+                {(docType === "QUOTATION" || docType === "ORDER") && (
+                  <button type="button" disabled={saving}
+                    className="btn btn-ghost !py-2 text-sm font-bold"
+                    onClick={(e) => submit(e, { saveAndNew: true })}>
+                    {t("docform.saveAndNew")}
+                  </button>
+                )}
+                <div className="relative" ref={printRef}>
+                  <button type="button" className="btn btn-ghost !py-2 text-sm"
+                    onClick={() => setPrintOpen((o) => !o)} aria-expanded={printOpen} aria-haspopup="menu">
+                    <Printer size={15} /> Thermal Print <ChevronDown size={14} />
+                  </button>
+                  {printOpen && (
+                    <div role="menu"
+                      className="absolute bottom-full end-0 z-30 mb-1 w-44 overflow-hidden rounded-xl border border-border bg-card py-1 shadow-xl">
+                      <button type="button" role="menuitem"
+                        className="flex w-full items-center gap-2 px-4 py-2 text-start text-[13px] font-semibold hover:bg-muted"
+                        onClick={(e) => { setPrintOpen(false); submit(e, { printAfter: true }); }}>
+                        <Printer size={14} /> Thermal Receipt
+                      </button>
+                    </div>
+                  )}
                 </div>
-              )}
-            </div>
-            <button type="button" disabled={saving}
-              className="btn !py-2 text-sm font-bold text-white dark:text-[#052e16] bg-success hover:brightness-105 disabled:opacity-55"
-              onClick={(e) => submit(e, { printAfter: true })}>
-              <Printer size={15} /> Approve and Print
-            </button>
-            <button className="btn !py-2 text-sm font-bold text-white dark:text-[#052e16] bg-success hover:brightness-105 disabled:opacity-55" disabled={saving}>
-              {saving ? t("docform.saving") : "Approve and Close"}
-            </button>
+                <button type="button" disabled={saving}
+                  className="btn !py-2 text-sm font-bold text-white dark:text-[#052e16] bg-success hover:brightness-105 disabled:opacity-55"
+                  onClick={(e) => submit(e, { printAfter: true })}>
+                  <Printer size={15} /> Approve and Print
+                </button>
+                <button className="btn !py-2 text-sm font-bold text-white dark:text-[#052e16] bg-success hover:brightness-105 disabled:opacity-55" disabled={saving}>
+                  {saving ? t("docform.saving") : "Approve and Close"}
+                </button>
+              </>
+            )}
           </div>
         </div>
       </form>
+      )}
 
       {/* validation modal: "Select customer and product" (FA flow) */}
       {validationMsg && (

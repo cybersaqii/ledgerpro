@@ -12,6 +12,7 @@ import {
   productBatches,
   paymentAllocations,
   payments,
+  users,
 } from "@/db/schema";
 import type { Db } from "@/lib/db";
 
@@ -52,6 +53,8 @@ async function paymentsForDoc(
       kind: payments.kind,
       date: payments.date,
       amount: paymentAllocations.amount,
+      // Phase 3: per-invoice discount granted on this settlement.
+      discount: paymentAllocations.discount,
     })
     .from(paymentAllocations)
     .innerJoin(payments, eq(paymentAllocations.paymentId, payments.id))
@@ -63,6 +66,7 @@ async function paymentsForDoc(
     kind: r.kind,
     date: (r.date as unknown as Date).getTime(),
     amount: r.amount.toString(),
+    discount: r.discount.toString(),
   }));
 }
 /**
@@ -74,9 +78,10 @@ async function paymentsForDoc(
  */
 export async function getSalesDocDetail(db: Db, companyId: string, id: string) {
   const docs = await db
-    .select({ doc: salesDocs, partyName: parties.name, partyPhone: parties.phone, partyEmail: parties.email })
+    .select({ doc: salesDocs, partyName: parties.name, partyPhone: parties.phone, partyEmail: parties.email, createdByName: users.name })
     .from(salesDocs)
     .leftJoin(parties, eq(salesDocs.partyId, parties.id))
+    .leftJoin(users, eq(salesDocs.createdById, users.id))
     .where(and(eq(salesDocs.id, id), eq(salesDocs.companyId, companyId)))
     .limit(1);
   const row = docs[0];
@@ -120,14 +125,15 @@ export async function getSalesDocDetail(db: Db, companyId: string, id: string) {
       .limit(1);
     journal = je[0] ?? null;
   }
-  return { ...row.doc, partyName: row.partyName, partyPhone: row.partyPhone, partyEmail: row.partyEmail, items, fulfilledByItem, journal, payments: await paymentsForDoc(db, id, "SALES") };
+  return { ...row.doc, partyName: row.partyName, partyPhone: row.partyPhone, partyEmail: row.partyEmail, createdByName: row.createdByName, items, fulfilledByItem, journal, payments: await paymentsForDoc(db, id, "SALES") };
 }
 
 export async function getPurchaseDocDetail(db: Db, companyId: string, id: string) {
   const docs = await db
-    .select({ doc: purchaseDocs, partyName: parties.name, partyPhone: parties.phone, partyEmail: parties.email })
+    .select({ doc: purchaseDocs, partyName: parties.name, partyPhone: parties.phone, partyEmail: parties.email, createdByName: users.name })
     .from(purchaseDocs)
     .leftJoin(parties, eq(purchaseDocs.partyId, parties.id))
+    .leftJoin(users, eq(purchaseDocs.createdById, users.id))
     .where(and(eq(purchaseDocs.id, id), eq(purchaseDocs.companyId, companyId)))
     .limit(1);
   const row = docs[0];
@@ -149,5 +155,5 @@ export async function getPurchaseDocDetail(db: Db, companyId: string, id: string
     lineUnitRate: r.item.unitRate != null ? r.item.unitRate.toString() : null,
     batches: r.item.productId ? batches.get(r.item.productId) ?? [] : [],
   }));
-  return { ...row.doc, partyName: row.partyName, partyPhone: row.partyPhone, partyEmail: row.partyEmail, items, payments: await paymentsForDoc(db, id, "PURCHASE") };
+  return { ...row.doc, partyName: row.partyName, partyPhone: row.partyPhone, partyEmail: row.partyEmail, createdByName: row.createdByName, items, payments: await paymentsForDoc(db, id, "PURCHASE") };
 }

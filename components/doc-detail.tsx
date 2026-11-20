@@ -3,9 +3,9 @@
 import { use, useEffect, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
-import { ArrowLeft, ArrowRightLeft, Ban, Mail, MessageCircle, PackageCheck, Printer, Truck, Undo2, Wallet } from "lucide-react";
+import { ArrowLeft, ArrowRightLeft, Ban, Check, Mail, MessageCircle, PackageCheck, Pencil, Printer, Truck, Undo2, Wallet } from "lucide-react";
 import { PageHeader, StatusPill } from "@/components/ui";
-import { api, fmtMoney, fmtMoneyPlain, fmtMoneyShort, fmtMoneyShortRs, fmtQty, fmtDate, toBig } from "@/lib/format";
+import { api, ApiError, fmtMoney, fmtMoneyPlain, fmtMoneyShort, fmtMoneyShortRs, fmtQty, fmtDate, toBig } from "@/lib/format";
 import { formatForeign, paisaToForeignMinor, formatRate } from "@/lib/fx";
 import { brand } from "@/lib/brand";
 import { useLang } from "@/components/lang-provider";
@@ -30,12 +30,15 @@ type Doc = {
   amountPaid: string; returnedTotal?: string | null; writtenOffAmount?: string | null;
   notes: string | null; terms: string | null; refNo: string | null; partyName: string | null; partyId: string | null;
   partyPhone: string | null; partyEmail: string | null; sourceDocId: string | null;
+  /** Phase 3: order expected delivery + Created-By footer fields. */
+  expectedDeliveryDate?: number | null;
+  createdByName?: string | null; createdAt?: number | string | null; updatedAt?: number | string | null;
   /** Module 10: document currency — NULL/undefined foreign fields = PKR doc. */
   currencyCode?: string | null; exchangeRateScaled?: string | null;
   foreignSubtotal?: string | null; foreignTotal?: string | null;
   items: Item[];
   fulfilledByItem?: Record<string, string> | null;
-  payments?: { id: string; docNo: string | null; kind: string; date: number; amount: string }[] | null;
+  payments?: { id: string; docNo: string | null; kind: string; date: number; amount: string; discount?: string | null }[] | null;
 };
 type Company = {
   name: string; phone: string | null; address: string | null; city: string | null; ntn: string | null;
@@ -544,6 +547,8 @@ export function DocDetail({ mode, id }: { mode: "SALES" | "PURCHASE" | "NOTE"; i
               <p className="mt-1"><StatusPill status={doc.status} /></p>
               <p className="mt-1 text-sm text-muted-foreground">{fmtDate(doc.date)}</p>
               {doc.dueDate && <p className="text-xs text-muted-foreground">{t("docdetail.dueOn", { date: fmtDate(doc.dueDate) })}</p>}
+              {/* Phase 3: expected delivery — orders only. */}
+              {doc.expectedDeliveryDate && <p className="text-xs text-muted-foreground">{t("docdetail.expectedDelivery", { date: fmtDate(doc.expectedDeliveryDate) })}</p>}
             </div>
           </div>
 
@@ -714,6 +719,8 @@ export function DocDetail({ mode, id }: { mode: "SALES" | "PURCHASE" | "NOTE"; i
               <p className="mt-0.5"><span className="font-bold">{t("docdetail.invDate")}</span> {fmtDate(doc.date)}</p>
               {doc.refNo && <p className="mt-0.5 break-words"><span className="font-bold">{isSales ? t("docdetail.refNo") : t("docdetail.supplierBillNo")}</span> {doc.refNo}</p>}
               {doc.dueDate && <p className="mt-0.5">{t("docdetail.dueOn", { date: fmtDate(doc.dueDate) })}</p>}
+              {/* Phase 3: expected delivery — orders only. */}
+              {doc.expectedDeliveryDate && <p className="mt-0.5">{t("docdetail.expectedDelivery", { date: fmtDate(doc.expectedDeliveryDate) })}</p>}
             </div>
           </div>
 
@@ -852,7 +859,7 @@ export function DocDetail({ mode, id }: { mode: "SALES" | "PURCHASE" | "NOTE"; i
           <h2 className="font-extrabold">{t("docdetail.paymentsTitle")}</h2>
           <div className="mt-3 overflow-x-auto">
             <table className="tbl">
-              <thead><tr><th>{t("payments.colVoucher")}</th><th>{t("payments.colDate")}</th><th className="num">{t("payments.colAmount")}</th></tr></thead>
+              <thead><tr><th>{t("payments.colVoucher")}</th><th>{t("payments.colDate")}</th><th className="num">{t("payments.colAmount")}</th><th className="num">{t("docdetail.colDiscount")}</th></tr></thead>
               <tbody>
                 {doc.payments.map((p) => (
                   <tr key={p.id}>
@@ -863,6 +870,8 @@ export function DocDetail({ mode, id }: { mode: "SALES" | "PURCHASE" | "NOTE"; i
                     </td>
                     <td className="whitespace-nowrap text-muted-foreground">{fmtDate(p.date)}</td>
                     <td className="num font-bold">{fmtMoney(p.amount)}</td>
+                    {/* Phase 3: per-invoice discount granted on this settlement. */}
+                    <td className="num">{p.discount && BigInt(p.discount) > 0n ? fmtMoney(p.discount) : "—"}</td>
                   </tr>
                 ))}
               </tbody>
@@ -870,6 +879,17 @@ export function DocDetail({ mode, id }: { mode: "SALES" | "PURCHASE" | "NOTE"; i
           </div>
         </div>
       )}
+
+      {/* Phase 3: Created-By footer (screen only — hidden in print). */}
+      <div className="mx-auto mt-5 max-w-3xl print:hidden">
+        <p className="text-xs text-muted-foreground">
+          {t("docdetail.createdBy", {
+            name: doc.createdByName ?? "—",
+            created: doc.createdAt ? fmtDate(doc.createdAt) : "—",
+            updated: doc.updatedAt ? fmtDate(doc.updatedAt) : "—",
+          })}
+        </p>
+      </div>
 
       {/* Module 6.4: audit activity timeline for this document (screen only) */}
       <div className="mx-auto mt-5 max-w-3xl print:hidden">
@@ -1149,6 +1169,62 @@ function DocActions({ doc, isSales, onChanged }: { doc: Doc; isSales: boolean; o
   const canVoidPurchase = !isSales && (doc.docType === "BILL" || doc.docType === "RETURN") &&
     ["POSTED", "PARTIAL", "PAID"].includes(doc.status);
 
+  // ── Phase 3: draft lifecycle — edit + post from the detail page ─────
+  const isDraft = doc.status === "DRAFT";
+  const isPkr = !doc.currencyCode || doc.currencyCode === "PKR";
+  // Edit: any DRAFT in PKR (GRNs are never drafts). The form gets ?type= too,
+  // so its fixed docType matches the loaded doc.
+  const canEditDraft = isDraft && isPkr && (isSales
+    ? ["INVOICE", "RETURN", "QUOTATION", "ORDER", "CHALLAN"].includes(doc.docType)
+    : ["BILL", "RETURN", "ORDER"].includes(doc.docType));
+  // Post: only the types that post (quotations/orders convert instead).
+  const canPostDraft = isDraft && (isSales
+    ? ["INVOICE", "RETURN"].includes(doc.docType)
+    : ["BILL", "RETURN"].includes(doc.docType));
+
+  /** Post a draft — same override confirms as the form (limit/hold/min-price). */
+  async function postDraft(overrides: { overrideCreditLimit?: boolean; overrideCreditHold?: boolean; priceOverride?: boolean } = {}) {
+    if (busy) return;
+    const isRetry = !!(overrides.overrideCreditLimit || overrides.overrideCreditHold || overrides.priceOverride);
+    if (!isRetry && !window.confirm(t("docdetail.postDraftConfirm", { docNo: doc.docNo }))) return;
+    setBusy(true); setError(null);
+    try {
+      await api(`${isSales ? "/api/sales" : "/api/purchases"}/${doc.id}/post`, {
+        method: "POST", body: JSON.stringify(overrides),
+      });
+      onChanged?.();
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : t("docdetail.actionError");
+      const paisa = (v?: string) => { try { return fmtMoney(BigInt(v || "0")); } catch { return ""; } };
+      if (e instanceof ApiError && e.code === "CREDIT_LIMIT_EXCEEDED") {
+        const det = (e.details || {}) as { partyName?: string; limitPaisa?: string; balancePaisa?: string };
+        if (window.confirm(t("docform.creditLimitConfirm", {
+          party: det.partyName || "", limit: paisa(det.limitPaisa), balance: paisa(det.balancePaisa),
+        }))) {
+          setBusy(false);
+          await postDraft({ ...overrides, overrideCreditLimit: true });
+          return;
+        }
+      } else if (e instanceof ApiError && e.code === "CREDIT_ON_HOLD") {
+        const det = (e.details || {}) as { partyName?: string; reason?: string | null };
+        if (window.confirm(t("docform.creditHoldConfirm", {
+          party: det.partyName || "", reason: det.reason || "",
+        }))) {
+          setBusy(false);
+          await postDraft({ ...overrides, overrideCreditHold: true });
+          return;
+        }
+      } else if (msg.startsWith("Below minimum sale price")) {
+        if (window.confirm(`${msg}\n\nPost anyway? This will be recorded in the activity log.`)) {
+          setBusy(false);
+          await postDraft({ ...overrides, priceOverride: true });
+          return;
+        }
+      }
+      setError(msg);
+    } finally { setBusy(false); }
+  }
+
   async function runPurchaseOrderAction(action: "issue" | "cancel" | "close") {
     if (busy) return;
     setBusy(true); setError(null);
@@ -1213,6 +1289,20 @@ function DocActions({ doc, isSales, onChanged }: { doc: Doc; isSales: boolean; o
         >
           <ArrowRightLeft size={13} /> {t("docdetail.convertedFrom", { no: sourceNo })}
         </Link>
+      )}
+      {/* Phase 3: draft lifecycle — edit + post from the detail page. */}
+      {canEditDraft && (
+        <Link
+          href={`${isSales ? "/sales/new" : "/purchases/new"}?type=${doc.docType}&edit=${doc.id}`}
+          className="btn btn-ghost text-sm"
+        >
+          <Pencil size={15} /> {t("docdetail.editDraft")}
+        </Link>
+      )}
+      {canPostDraft && (
+        <button className="btn btn-primary text-sm" disabled={busy} onClick={() => postDraft()}>
+          <Check size={15} /> {busy ? t("docdetail.working") : t("docdetail.postDraft")}
+        </button>
       )}
       {canConvert && !isOrder && (isSales || doc.docType !== "ORDER") && (
         <button className="btn btn-primary text-sm" disabled={busy} onClick={() => run("convert")}>
