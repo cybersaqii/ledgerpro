@@ -38,8 +38,11 @@ export const FIX3_SOURCES = {
   BANK_ADJUSTMENT_VOID: "BANK_ADJUSTMENT_VOID",
 } as const;
 
-/** Half-up paisa value of a milli-unit quantity at a per-unit paisa cost. */
-function lineValue(qtyMilli: bigint, avgCostPaisa: bigint): bigint {
+/** Half-up paisa value of a milli-unit quantity at a per-unit paisa cost.
+ *  Phase 3: exported so the UI shows the same value before and after saving
+ *  (the stored costPaisa × qty, no posting change — adjustments stay
+ *  quantity-only). */
+export function stockLineValue(qtyMilli: bigint, avgCostPaisa: bigint): bigint {
   const q = qtyMilli < 0n ? -qtyMilli : qtyMilli;
   return (q * avgCostPaisa + 500n) / 1000n;
 }
@@ -180,7 +183,7 @@ export async function postStockAdjustment(
       for (const u of used) {
         await recordBatchUsage(tx, input.companyId, adjustmentId, l.productId, u.batchId, -u.qtyMilli);
       }
-      const val = lineValue(l.qtyMilli, avg);
+      const val = stockLineValue(l.qtyMilli, avg);
       const acct = invAcctOf(l.productId);
       lossByAcct.set(acct, (lossByAcct.get(acct) ?? 0n) + val);
       if (level) {
@@ -190,7 +193,7 @@ export async function postStockAdjustment(
     } else {
       // Stock in (found/correction): valued at moving average; with no
       // existing level the cost basis is 0 and no money moves.
-      const val = lineValue(l.qtyMilli, avg);
+      const val = stockLineValue(l.qtyMilli, avg);
       const acct = invAcctOf(l.productId);
       gainByAcct.set(acct, (gainByAcct.get(acct) ?? 0n) + val);
       if (level) {
@@ -289,8 +292,8 @@ export async function adjustmentValue(
   let loss = 0n;
   let gain = 0n;
   for (const r of rows) {
-    if (r.q < 0n) loss += lineValue(r.q, r.c);
-    else gain += lineValue(r.q, r.c);
+    if (r.q < 0n) loss += stockLineValue(r.q, r.c);
+    else gain += stockLineValue(r.q, r.c);
   }
   return { loss, gain };
 }

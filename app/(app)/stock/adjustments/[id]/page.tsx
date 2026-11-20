@@ -5,6 +5,7 @@ import Link from "next/link";
 import { ArrowLeft, Boxes } from "lucide-react";
 import { PageHeader } from "@/components/ui";
 import { api, fmtMoney, fmtDate, fmtQty, toBig } from "@/lib/format";
+import { stockLineValue } from "@/lib/stock-adjust";
 import { useLang } from "@/components/lang-provider";
 
 type Line = {
@@ -45,10 +46,7 @@ export default function AdjustmentDetailPage({ params }: { params: Promise<{ id:
   const loss = adj.lines.filter((l) => toBig(l.qtyMilli) < 0n);
   const gain = adj.lines.filter((l) => toBig(l.qtyMilli) > 0n);
   const value = (ls: Line[]) =>
-    ls.reduce((a, l) => {
-      const q = toBig(l.qtyMilli) < 0n ? -toBig(l.qtyMilli) : toBig(l.qtyMilli);
-      return a + ((q * toBig(l.costPaisa) + 500n) / 1000n);
-    }, 0n);
+    ls.reduce((a, l) => a + stockLineValue(toBig(l.qtyMilli), toBig(l.costPaisa)), 0n);
 
   return (
     <div>
@@ -90,7 +88,7 @@ export default function AdjustmentDetailPage({ params }: { params: Promise<{ id:
                       {out ? "−" : "+"}{fmtQty(toBig(l.qtyMilli) < 0n ? -toBig(l.qtyMilli) : toBig(l.qtyMilli), l.unit)}
                     </td>
                     <td className="num">{fmtMoney(l.costPaisa)}</td>
-                    <td className="num font-bold">{fmtMoney(((toBig(l.qtyMilli) < 0n ? -toBig(l.qtyMilli) : toBig(l.qtyMilli)) * toBig(l.costPaisa) + 500n) / 1000n)}</td>
+                    <td className="num font-bold">{fmtMoney(stockLineValue(toBig(l.qtyMilli), toBig(l.costPaisa)))}</td>
                   </tr>
                 );
               })}

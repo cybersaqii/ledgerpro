@@ -5,7 +5,8 @@ import Link from "next/link";
 import { Plus, Boxes, Trash2, Search, ChevronDown } from "lucide-react";
 import { PageHeader, EmptyState, Field, ErrorNote, Pagination } from "@/components/ui";
 import { Modal } from "@/components/modal";
-import { api, fmtDate, fmtDateInput } from "@/lib/format";
+import { api, fmtDate, fmtDateInput, fmtMoney, toBig } from "@/lib/format";
+import { stockLineValue } from "@/lib/stock-adjust";
 import { useLang } from "@/components/lang-provider";
 import { usePermissions } from "@/components/permissions";
 import { NumericDateInput } from "@/components/numeric-date-input";
@@ -15,12 +16,18 @@ type AdjRow = {
   accountId: string; notes: string | null; journalEntryId: string | null;
 };
 type Account = { id: string; name: string; code: string };
-type ProductPick = { id: string; name: string; sku: string; unit: string };
+type ProductPick = { id: string; name: string; sku: string; unit: string; avgCost: string };
 
 const REASONS = ["BREAKAGE", "EXPIRED", "THEFT", "FOUND", "CORRECTION"] as const;
 const PER_PAGE_OPTIONS = [10, 25, 50, 100];
 
-type LineDraft = { productId: string; name: string; sku: string; unit: string; qty: string; dir: "OUT" | "IN" };
+type LineDraft = { productId: string; name: string; sku: string; unit: string; qty: string; dir: "OUT" | "IN"; avgCost: string };
+
+/** Milli-units from the typed quantity (display only; the server re-validates). */
+function qtyMilli(qty: string): bigint {
+  const n = Math.round(parseFloat(qty || "0") * 1000);
+  return Number.isFinite(n) ? BigInt(Math.max(0, n)) : 0n;
+}
 
 function reasonLabel(f: (k: string) => string, r: string): string {
   return f(`fix3.adjReason${r.charAt(0)}${r.slice(1).toLowerCase()}`);
@@ -169,7 +176,7 @@ export default function StockAdjustmentsPage() {
 
   function addLine(p: ProductPick) {
     const dir: "OUT" | "IN" = form.reason === "FOUND" ? "IN" : "OUT";
-    setLines((ls) => [...ls, { productId: p.id, name: p.name, sku: p.sku, unit: p.unit, qty: "", dir }]);
+    setLines((ls) => [...ls, { productId: p.id, name: p.name, sku: p.sku, unit: p.unit, qty: "", dir, avgCost: p.avgCost }]);
     setQuery("");
     setResults([]);
   }
@@ -393,6 +400,10 @@ export default function StockAdjustmentsPage() {
                       <div className="min-w-0 flex-1">
                         <p className="truncate text-sm font-bold">{l.name}</p>
                         <p className="text-xs text-muted-foreground">{l.sku} · {l.unit}</p>
+                        {/* Phase 3: stock IN/OUT value at avg cost (display only). */}
+                        <p className="text-xs text-muted-foreground">
+                          {f("fix3.adjColCost")}: {fmtMoney(toBig(l.avgCost))} · {f("fix3.adjColLineValue")}: {fmtMoney(stockLineValue(qtyMilli(l.qty), toBig(l.avgCost)))}
+                        </p>
                       </div>
                       <select className="field !w-auto !py-2 text-xs" value={l.dir}
                         disabled={form.reason !== "CORRECTION"}
@@ -408,6 +419,12 @@ export default function StockAdjustmentsPage() {
                     </div>
                   ))}
                   <p className="text-xs text-muted-foreground">{f("fix3.adjQtyHint")}</p>
+                  {/* Phase 3: totals at avg cost, split by direction (display only). */}
+                  <p className="text-xs font-bold">
+                    {f("fix3.adjColValue")} ({f("fix3.adjIn")}): {fmtMoney(lines.filter((l) => l.dir === "IN").reduce((a, l) => a + stockLineValue(qtyMilli(l.qty), toBig(l.avgCost)), 0n))}
+                    {" · "}
+                    {f("fix3.adjColValue")} ({f("fix3.adjOut")}): {fmtMoney(lines.filter((l) => l.dir === "OUT").reduce((a, l) => a + stockLineValue(qtyMilli(l.qty), toBig(l.avgCost)), 0n))}
+                  </p>
                 </div>
               )}
             </div>
