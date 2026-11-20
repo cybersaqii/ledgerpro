@@ -202,10 +202,10 @@ export async function applyStockByBranch(
   const details: StockMoveDetail[] = [];
   const byBranch = new Map<string, StockMove[]>();
   for (const m of moves) {
-    const list = byBranch.get(m.branch) ?? [];
-    const { branch: _branch, ...rest } = m;
+    const { branch, ...rest } = m;
+    const list = byBranch.get(branch) ?? [];
     list.push(rest);
-    byBranch.set(m.branch, list);
+    byBranch.set(branch, list);
   }
   for (const [branchId, ms] of byBranch) {
     const r = await applyStock(tx, branchId, ms);

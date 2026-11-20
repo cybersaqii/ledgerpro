@@ -9,6 +9,8 @@ import {
   sundryReceipts,
   bankAdjustments,
   journalEntries,
+  stockAdjustments,
+  stockTransferDocs,
 } from "@/db/schema";
 import type { Db, DbTx } from "./db";
 import { UserError } from "./errors";
@@ -44,7 +46,9 @@ export type IdempotencyTable =
   | typeof writeOffs
   | typeof sundryReceipts
   | typeof bankAdjustments
-  | typeof journalEntries; // Module 5: manual journal vouchers + set-off entries
+  | typeof journalEntries // Module 5: manual journal vouchers + set-off entries
+  | typeof stockAdjustments // Phase 1: stock adjustments (migration 0074)
+  | typeof stockTransferDocs; // Phase 1: stock transfer docs (quick + doc flows)
 
 /**
  * Extract the idempotency key from the `X-Idempotency-Key` header (wins when
