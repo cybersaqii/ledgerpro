@@ -24,7 +24,7 @@ export const CHANGELOG: ChangelogEntry[] = [
       "Partner Contribute and Drawing are now safe to retry: a repeated tap replays the first movement instead of posting it twice, and movements dated inside a locked period are rejected.",
       "Support email is now support@ledgerprosolution.com everywhere, and the support card shows the full address and hours without clipping.",
       "Landing hero fixed: the dashboard totals no longer wrap, the “+18% this week” badge is fully visible, and the Profit & Loss card shows its own figure.",
-      "Every public page now has the footer and a dark-mode toggle; the signup form fits a standard laptop screen; login explains that the email code needs an email first.",
+      "Every public page except the 404 page now has the footer and a dark-mode toggle; the signup form fits a standard laptop screen; login explains that the email code needs an email first.",
     ],
   },
   {
@@ -55,11 +55,11 @@ export const CHANGELOG: ChangelogEntry[] = [
     tag: "f2b4a9f",
     title: "Pricing pages, Support links, convert idempotency",
     bullets: [
-      // Sunday sweep 2026-11-08: this entry read as contradicting the one
-      // above it ("Free card finally renders" vs "removed completely").
-      // Both are true in sequence — the Free card rendered in the morning
-      // and was removed later the same day (see the entry above).
-      "Pricing now shows all four tiers: the Free plan card finally renders (its keys existed but the card never did) — later the same day the Free card was removed again (see the entry above), so the page now shows three paid plans.",
+      // Sunday sweep 2026-11-15 (F9): this bullet read in the present
+      // tense ("now shows all four tiers") although the Free card was
+      // already gone again the same day — reworded to the past so it
+      // stops contradicting the live three-plan page.
+      "The Free plan card briefly rendered for the first time that morning (its keys existed but the card never did) — later the same day the Free card was removed again (see the entry above), so the page now shows three paid plans.",
       "New Android app page: the app is direct-install, not on the Play Store, so the page says so honestly and routes requests through WhatsApp or support; linked from the landing footer.",
       "Support links added to the landing header, public-page header and login/signup pages; Urdu toggle added to the support and legal page headers.",
       "Dark-mode supporting text brightened, and signup now explains that Send code stays disabled until the Terms consent box is ticked.",

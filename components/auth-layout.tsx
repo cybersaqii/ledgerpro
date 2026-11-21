@@ -2,7 +2,8 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { LangToggle } from "./ui";
+import { ArrowLeft } from "lucide-react";
+import { LangToggle, ThemeToggle } from "./ui";
 import { BrandLockup, BrandMark } from "./brand-logo";
 import { Typewriter, type TwPhrase } from "./typewriter";
 import { brand } from "@/lib/brand";
@@ -58,8 +59,13 @@ export function AuthLayout({
   // button sat below the fold with no scroll cue. Tightened vertical
   // rhythm (outer padding, heading/tabs/children gaps, form padding)
   // so the whole step-1 form + CTA fits in a 999px viewport.
+  // Sunday sweep 2026-11-15 (F1): the Google button + "Sign in" link
+  // still fell below the fold — the whole page incl. Google section,
+  // sign-in link and the new auth footer must fit in 999px, so the
+  // rhythm was tightened again (see below) and the signup form pairs
+  // its single fields into two-column rows.
   return (
-    <div className="relative flex min-h-screen items-center justify-center overflow-hidden bg-background px-3 py-4 sm:px-6 sm:py-6">
+    <div className="relative flex min-h-screen items-center justify-center overflow-hidden bg-background px-3 py-2 sm:px-6 sm:py-3">
       {/* Page backdrop */}
       <div className="pointer-events-none absolute inset-0" aria-hidden="true">
         <div className="absolute -top-24 start-[8%] h-96 w-96 rounded-full bg-primary/20 blur-[120px]" />
@@ -73,29 +79,31 @@ export function AuthLayout({
         {/* QA sweep 2026-11-01: auth pages had no Support link. */}
         <Link href="/support" className="text-sm font-bold text-muted-foreground transition hover:text-foreground">{t("landing.footSupport")}</Link>
         <LangToggle />
+        {/* Sunday sweep 2026-11-15 (F2): auth pages had no dark-mode toggle. */}
+        <ThemeToggle />
       </div>
 
       {/* Card */}
       <div className="auth-card relative z-10 grid min-h-[80vh] w-full max-w-6xl md:grid-cols-[1fr_1.05fr]">
         {/* Left — form side */}
-        <div className="flex flex-col p-6 sm:p-8 lg:px-12">
+        <div className="flex flex-col p-5 sm:p-6 lg:px-10">
           <Link href="/" aria-label={brand.name} className="self-start">
             <BrandLockup markSize={34} wordClass="font-display text-[1.05rem] leading-none" tagline />
           </Link>
 
-          <div className="flex flex-1 flex-col justify-center py-4">
+          <div className="flex flex-1 flex-col justify-center py-3">
           {heading ? (
-            <h1 className="font-display mt-5 text-[1.65rem] font-extrabold tracking-tight text-foreground">{heading}</h1>
+            <h1 className="font-display mt-3 text-[1.5rem] font-extrabold tracking-tight text-foreground">{heading}</h1>
           ) : null}
           {sub ? <p className="mt-2 text-sm leading-relaxed text-muted-foreground">{sub}</p> : null}
 
           {showTabs && (
-            <div className="mt-4 grid grid-cols-2 rounded-xl bg-muted p-1 text-sm font-bold" role="tablist" aria-label={L("tabIn")}>
+            <div className="mt-3 grid grid-cols-2 rounded-xl bg-muted p-1 text-sm font-bold" role="tablist" aria-label={L("tabIn")}>
               <Link
                 href="/login"
                 role="tab"
                 aria-selected={pathname === "/login"}
-                className={`rounded-lg py-2.5 text-center transition ${
+                className={`rounded-lg py-2 text-center transition ${
                   pathname === "/login"
                     ? "bg-card text-foreground shadow-sm"
                     : "text-muted-foreground hover:text-foreground"
@@ -107,7 +115,7 @@ export function AuthLayout({
                 href="/signup"
                 role="tab"
                 aria-selected={pathname === "/signup"}
-                className={`rounded-lg py-2.5 text-center transition ${
+                className={`rounded-lg py-2 text-center transition ${
                   pathname === "/signup"
                     ? "bg-card text-foreground shadow-sm"
                     : "text-muted-foreground hover:text-foreground"
@@ -118,10 +126,26 @@ export function AuthLayout({
             </div>
           )}
 
-          <div className="mt-4">{children}</div>
+          <div className="mt-3">{children}</div>
           </div>
 
-          <p className="text-center text-xs text-muted-foreground">{L("footer", { brand: brand.name })}</p>
+          {/* Sunday sweep 2026-11-15 (F2): auth pages had no footer, no
+              "Back to home" — only the logo linked home. Compact footer:
+              Back to home + Terms/Privacy/Support + the copyright line. */}
+          <footer className="mt-3 border-t border-border pt-3">
+            <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 text-xs">
+              <Link href="/" className="inline-flex items-center gap-1.5 font-bold text-primary hover:underline">
+                <ArrowLeft size={13} className="rtl:rotate-180" />
+                {t("pub.backHome")}
+              </Link>
+              <nav className="flex flex-wrap gap-x-4 gap-y-1">
+                <Link href="/terms" className="font-semibold text-muted-foreground hover:text-foreground">{t("landing.footTerms")}</Link>
+                <Link href="/privacy" className="font-semibold text-muted-foreground hover:text-foreground">{t("landing.footPrivacy")}</Link>
+                <Link href="/support" className="font-semibold text-muted-foreground hover:text-foreground">{t("landing.footSupport")}</Link>
+              </nav>
+            </div>
+            <p className="mt-2 text-center text-xs text-muted-foreground">{L("footer", { brand: brand.name })}</p>
+          </footer>
         </div>
 
         {/* Right — showcase side (fixed deep-navy surface, intentional in both themes) */}

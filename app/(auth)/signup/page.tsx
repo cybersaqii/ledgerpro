@@ -141,12 +141,22 @@ function SignupForm() {
           </p>
         )}
         {step === 1 ? (
-        <form onSubmit={sendCode} className="rise rise-2 space-y-3">
+        <form onSubmit={sendCode} className="rise rise-2 space-y-2.5">
           <ErrorNote message={error} />
-          <Field label={t("auth.businessName")} required>
-            <input className="field" required placeholder={t("auth.businessNamePh")}
-              value={form.companyName} onChange={set("companyName")} />
-          </Field>
+          {/* Sunday sweep 2026-11-15 (F1): single fields are paired into
+              two-column rows (same pattern as address+city / email+phone
+              below) so the whole form + Google button + sign-in link fit
+              in a 999px viewport. DOM order is unchanged. */}
+          <div className="grid gap-4 sm:grid-cols-2">
+            <Field label={t("auth.businessName")} required>
+              <input className="field" required placeholder={t("auth.businessNamePh")}
+                value={form.companyName} onChange={set("companyName")} />
+            </Field>
+            <Field label={t("auth.yourName")} required>
+              <input className="field" required placeholder={t("auth.yourNamePh")}
+                value={form.name} onChange={set("name")} />
+            </Field>
+          </div>
           <div className="grid gap-4 sm:grid-cols-2">
             <Field label={t("auth.address")}>
               <input className="field" placeholder={t("auth.addressPh")}
@@ -157,10 +167,6 @@ function SignupForm() {
                 value={form.city} onChange={set("city")} />
             </Field>
           </div>
-          <Field label={t("auth.yourName")} required>
-            <input className="field" required placeholder={t("auth.yourNamePh")}
-              value={form.name} onChange={set("name")} />
-          </Field>
           <div className="grid gap-4 sm:grid-cols-2">
             <Field label={t("auth.email")} required>
               <input className="field" type="email" required autoComplete="email" placeholder="you@business.com"
@@ -171,23 +177,25 @@ function SignupForm() {
                 value={form.phone} onChange={set("phone")} />
             </Field>
           </div>
-          <Field label={t("auth.password")} hint={t("auth.pwHint")} required>
-            <div className="relative">
-              <input className="field pe-11" type={showPw ? "text" : "password"} required minLength={8} autoComplete="new-password"
-                placeholder="••••••••" value={form.password} onChange={set("password")} />
-              <button type="button" onClick={() => setShowPw((v) => !v)}
-                className="absolute end-2 top-1/2 -translate-y-1/2 rounded-lg p-1.5 text-muted-foreground transition hover:bg-muted hover:text-foreground"
-                aria-label={showPw ? t("auth.hidePw") : t("auth.showPw")}
-                title={showPw ? t("auth.hidePw") : t("auth.showPw")}>
-                {showPw ? <EyeOff size={18} /> : <Eye size={18} />}
-              </button>
-            </div>
-          </Field>
-          <Field label={t("auth.referralCode")} hint={t("auth.referralHint")}>
-            <input className="field font-mono uppercase tracking-widest" placeholder="—"
-              value={form.referralCode} onChange={(e) => setForm((f) => ({ ...f, referralCode: e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 16) }))} />
-          </Field>
-          <label className="flex cursor-pointer items-start gap-3 rounded-xl border border-border bg-muted/40 px-4 py-3 text-sm">
+          <div className="grid gap-4 sm:grid-cols-2">
+            <Field label={t("auth.password")} hint={t("auth.pwHint")} required>
+              <div className="relative">
+                <input className="field pe-11" type={showPw ? "text" : "password"} required minLength={8} autoComplete="new-password"
+                  placeholder="••••••••" value={form.password} onChange={set("password")} />
+                <button type="button" onClick={() => setShowPw((v) => !v)}
+                  className="absolute end-2 top-1/2 -translate-y-1/2 rounded-lg p-1.5 text-muted-foreground transition hover:bg-muted hover:text-foreground"
+                  aria-label={showPw ? t("auth.hidePw") : t("auth.showPw")}
+                  title={showPw ? t("auth.hidePw") : t("auth.showPw")}>
+                  {showPw ? <EyeOff size={18} /> : <Eye size={18} />}
+                </button>
+              </div>
+            </Field>
+            <Field label={t("auth.referralCode")} hint={t("auth.referralHint")}>
+              <input className="field font-mono uppercase tracking-widest" placeholder="—"
+                value={form.referralCode} onChange={(e) => setForm((f) => ({ ...f, referralCode: e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 16) }))} />
+            </Field>
+          </div>
+          <label className="flex cursor-pointer items-start gap-3 rounded-xl border border-border bg-muted/40 px-4 py-2.5 text-sm">
             <input
               type="checkbox"
               checked={consent}
@@ -240,7 +248,7 @@ function SignupForm() {
         )}
         {googleOn && (
           <>
-            <div className="rise rise-2 mt-6 flex items-center gap-3 text-xs text-muted-foreground">
+            <div className="rise rise-2 mt-4 flex items-center gap-3 text-xs text-muted-foreground">
               <span className="h-px flex-1 bg-border" />
               <span>{t("authlayout.orContinue")}</span>
               <span className="h-px flex-1 bg-border" />
@@ -248,14 +256,14 @@ function SignupForm() {
             <button
               type="button"
               onClick={googleSignIn}
-              className="rise rise-2 mt-4 flex w-full items-center justify-center gap-2.5 rounded-xl border border-border bg-white px-4 py-3 text-sm font-semibold text-[#1f2937] shadow-sm transition hover:bg-[#f8fafc]"
+              className="rise rise-2 mt-3 flex w-full items-center justify-center gap-2.5 rounded-xl border border-border bg-white px-4 py-2.5 text-sm font-semibold text-[#1f2937] shadow-sm transition hover:bg-[#f8fafc]"
             >
               <GoogleGlyph />
               {t("auth.googleBtn")}
             </button>
           </>
         )}
-        <p className="rise rise-3 mt-6 text-center text-sm text-muted-foreground">
+        <p className="rise rise-3 mt-4 text-center text-sm text-muted-foreground">
           {t("auth.haveAccount")}{" "}
           <Link href="/login" className="font-bold text-primary hover:underline">{t("auth.loginLink")}</Link>
         </p>
